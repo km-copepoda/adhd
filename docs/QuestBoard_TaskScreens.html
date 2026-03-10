@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>QuestBoard — タスク提案・承認画面</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080f;
+    --panel: #0e1020;
+    --card: #131828;
+    --card2: #181e30;
+    --border: #1e2540;
+    --gold: #f0c040;
+    --gold2: #c9973a;
+    --text: #e8e4d8;
+    --dim: #555a72;
+    --dim2: #3a3f58;
+    --study: #60a5fa;
+    --stamina: #f87171;
+    --life: #4ade80;
+    --purple: #a78bfa;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: 48px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    color: var(--gold);
+    letter-spacing: 3px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(240,192,64,0.3);
+  }
+
+  .sub { font-size: 12px; color: var(--dim); letter-spacing: 1px; text-align: center; margin-top: 4px; }
+
+  .screens-row {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .screen-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .screen-label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  .screen-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 2px;
+  }
+
+  /* ===== PHONE ===== */
+  .phone {
+    width: 320px;
+    background: var(--panel);
+    border-radius: 40px;
+    border: 2px solid var(--border);
+    box-shadow:
+      0 0 0 6px #05060a,
+      0 0 0 7px #141828,
+      0 40px 80px rgba(0,0,0,0.9);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 90px; height: 24px;
+    background: #05060a;
+    border-radius: 0 0 14px 14px;
+    z-index: 10;
+  }
+
+  .screen { padding-top: 32px; }
+
+  /* ===== HEADER ===== */
+  .hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px 12px;
+  }
+
+  .hdr-back {
+    width: 32px; height: 32px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--dim);
+  }
+
+  .hdr-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .hdr-ph { width: 32px; }
+
+  /* ===== COMMON ===== */
+  .section-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin: 0 18px 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin: 0 18px 10px;
+    padding: 14px;
+  }
+
+  /* ===== CHILD SCREEN: タスク提案 ===== */
+  .propose-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 18px 16px;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .propose-hero .emoji { font-size: 40px; }
+  .propose-hero .ttl { font-size: 14px; font-weight: 700; color: var(--gold); font-family: 'Cinzel', serif; }
+  .propose-hero .desc { font-size: 11px; color: var(--dim); line-height: 1.6; }
+
+  .input-field {
+    background: var(--card2);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-field:focus { border-color: var(--gold); }
+  .input-field::placeholder { color: var(--dim2); font-size: 13px; }
+
+  .input-label { font-size: 11px; color: var(--dim); margin-bottom: 6px; }
+
+  .input-wrap { margin: 0 18px 10px; }
+
+  /* カテゴリ選択 */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 0 18px 10px;
+  }
+
+  .cat-btn {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .cat-btn.selected-study { border-color: var(--study); background: rgba(96,165,250,0.08); }
+  .cat-btn.selected-stamina { border-color: var(--stamina); background: rgba(248,113,113,0.08); }
+  .cat-btn.selected-life { border-color: var(--life); background: rgba(74,222,128,0.08); }
+
+  .cat-emoji { font-size: 22px; }
+  .cat-name { font-size: 10px; color: var(--dim); font-weight: 700; }
+  .cat-btn.selected-study .cat-name { color: var(--study); }
+  .cat-btn.selected-stamina .cat-name { color: var(--stamina); }
+  .cat-btn.selected-life .cat-name { color: var(--life); }
+
+  /* 送信ボタン */
+  .btn-send {
+    margin: 4px 18px 20px;
+    width: calc(100% - 36px);
+    padding: 13px;
+    border: none;
+    border-radius: 13px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #0a0c18;
+    box-shadow: 0 4px 16px rgba(240,192,64,0.25);
+    display: block;
+  }
+
+  /* 提案済みリスト */
+  .proposal-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    margin-bottom: 8px;
+  }
+
+  .proposal-item:last-child { margin-bottom: 0; }
+
+  .proposal-cat-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .proposal-name { flex: 1; font-size: 13px; }
+  .proposal-cat-label { font-size: 10px; }
+  .proposal-status {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .status-wait { background: rgba(240,192,64,0.1); color: var(--gold); border: 1px solid rgba(240,192,64,0.2); }
+  .status-ok { background: rgba(74,222,128,0.1); color: var(--life); border: 1px solid rgba(74,222,128,0.2); }
+
+  /* ===== PARENT SCREEN: 承認 ===== */
+  .approve-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin: 0 18px 10px;
+    overflow: hidden;
+  }
+
+  .approve-top {
+    padding: 12px 14px 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .approve-avatar {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .approve-body { flex: 1; }
+  .approve-child-name { font-size: 10px; color: var(--purple); font-weight: 700; margin-bottom: 2px; letter-spacing: 0.5px; }
+  .approve-task-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .approve-note { font-size: 11px; color: var(--dim); }
+
+  /* カテゴリ選択（親側） */
+  .parent-cat-row {
+    display: flex;
+    gap: 6px;
+    padding: 0 14px 10px;
+  }
+
+  .pcat-btn {
+    flex: 1;
+    padding: 7px 4px;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    background: var(--card2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pcat-btn.sel-study { border-color: var(--study); background: rgba(96,165,250,0.1); }
+  .pcat-btn.sel-stamina { border-color: var(--stamina); background: rgba(248,113,113,0.1); }
+  .pcat-btn.sel-life { border-color: var(--life); background: rgba(74,222,128,0.1); }
+
+  .pcat-emoji { font-size: 16px; }
+  .pcat-name { font-size: 9px; color: var(--dim); font-weight: 700; }
+  .pcat-btn.sel-study .pcat-name { color: var(--study); }
+  .pcat-btn.sel-stamina .pcat-name { color: var(--stamina); }
+  .pcat-btn.sel-life .pcat-name { color: var(--life); }
+
+  /* ポイント選択 */
+  .points-row {
+    display: flex;
+    gap: 6px;
+    padding: 0 14px 12px;
+  }
+
+  .pt-btn {
+    flex: 1;
+    padding: 7px 0;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    background: var(--card2);
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--dim);
+    transition: all 0.2s;
+  }
+
+  .pt-btn.selected {
+    border-color: var(--study);
+    background: rgba(96,165,250,0.1);
+    color: var(--study);
+  }
+
+  .pt-label { font-size: 8px; color: var(--dim); margin-top: 2px; }
+
+  /* 承認ボタン行 */
+  .approve-btns {
+    display: flex;
+    gap: 8px;
+    padding: 0 14px 14px;
+  }
+
+  .btn-reject {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+  }
+
+  .btn-approve {
+    flex: 2;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #0a0c18;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 3px 12px rgba(240,192,64,0.25);
+  }
+
+  /* ===== FLOW DIAGRAM ===== */
+  .flow-wrap {
+    max-width: 700px;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 28px;
+  }
+
+  .flow-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .flow-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(240,192,64,0.3), transparent); }
+
+  .flow-steps {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .flow-step {
+    flex: 1;
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    position: relative;
+  }
+
+  .flow-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -10px;
+    top: 14px;
+    color: var(--dim);
+    font-size: 16px;
+  }
+
+  .flow-circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .flow-circle.child { background: rgba(167,139,250,0.15); border: 1.5px solid rgba(167,139,250,0.3); }
+  .flow-circle.parent { background: rgba(240,192,64,0.12); border: 1.5px solid rgba(240,192,64,0.25); }
+  .flow-circle.system { background: rgba(74,222,128,0.1); border: 1.5px solid rgba(74,222,128,0.2); }
+
+  .flow-step-name { font-size: 11px; font-weight: 700; color: var(--text); }
+  .flow-step-who { font-size: 9px; color: var(--dim); }
+
+  .flow-note {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--dim);
+    line-height: 1.7;
+  }
+
+  .flow-note strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<h1>⚔ タスク提案・承認フロー</h1>
+<p class="sub">子どもの提案画面 ＋ 親の承認画面</p>
+
+<!-- ===== 2SCREENS ===== -->
+<div class="screens-row">
+
+  <!-- ===== CHILD: タスク提案 ===== -->
+  <div class="screen-wrap">
+    <div class="screen-title">🧒 子ども画面</div>
+    <div class="screen-label">SPOT TASK — 提案する</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="hdr">
+          <div class="hdr-back">←</div>
+          <div class="hdr-title">クエスト提案</div>
+          <div class="hdr-ph"></div>
+        </div>
+
+        <div class="propose-hero">
+          <div class="emoji">📝</div>
+          <div class="ttl">今日やったこと、提案しよう</div>
+          <div class="desc">親が承認すると<br>パラメータに反映されるよ！</div>
+        </div>
+
+        <div class="input-wrap">
+          <div class="input-label">なにをやった？（やる？）</div>
+          <input class="input-field" type="text" value="サッカーの練習に行った" placeholder="例：サッカーの練習した">
+        </div>
+
+        <div class="section-label">どのパラメータを上げたい？</div>
+        <div class="cat-grid">
+          <div class="cat-btn">
+            <div class="cat-emoji">📚</div>
+            <div class="cat-name">学力</div>
+          </div>
+          <div class="cat-btn selected-stamina">
+            <div class="cat-emoji">💪</div>
+            <div class="cat-name">体力</div>
+          </div>
+          <div class="cat-btn">
+            <div class="cat-emoji">🌿</div>
+            <div class="cat-name">生活力</div>
+          </div>
+        </div>
+
+        <div class="input-wrap" style="margin-top:4px;">
+          <div class="input-label">ひとことメモ（任意）</div>
+          <input class="input-field" type="text" value="2時間練習した！" placeholder="親へのひとこと">
+        </div>
+
+        <button class="btn-send">⚔ 親に提案する</button>
+
+        <!-- 提案済みリスト -->
+        <div style="margin: 0 18px 8px;">
+          <div class="section-label" style="margin:0 0 8px;">提案済み</div>
+          <div class="proposal-item">
+            <div class="proposal-cat-dot" style="background:var(--stamina)"></div>
+            <div>
+              <div class="proposal-name">サッカーの練習</div>
+              <div class="proposal-cat-label" style="color:var(--stamina)">💪 体力</div>
+            </div>
+            <div class="proposal-status status-wait">承認待ち</div>
+          </div>
+          <div class="proposal-item">
+            <div class="proposal-cat-dot" style="background:var(--study)"></div>
+            <div>
+              <div class="proposal-name">図書館で読書した</div>
+              <div class="proposal-cat-label" style="color:var(--study)">📚 学力 +10</div>
+            </div>
+            <div class="proposal-status status-ok">承認済み</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PARENT: 承認 ===== -->
+  <div class="screen-wrap">
+    <div class="screen-title">👨‍👩‍👧 親画面</div>
+    <div class="screen-label">PARENT — タスク提案を承認</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="hdr">
+          <div class="hdr-back">←</div>
+          <div class="hdr-title">提案の承認</div>
+          <div class="hdr-ph"></div>
+        </div>
+
+        <div style="padding: 4px 18px 10px; font-size:12px; color:var(--dim);">
+          2件の提案が届いています
+        </div>
+
+        <!-- 提案1 -->
+        <div class="approve-item">
+          <div class="approve-top">
+            <div class="approve-avatar">😈</div>
+            <div class="approve-body">
+              <div class="approve-child-name">タクミからの提案</div>
+              <div class="approve-task-name">サッカーの練習に行った</div>
+              <div class="approve-note">「2時間練習した！」</div>
+            </div>
+          </div>
+
+          <div style="padding: 0 14px 8px;">
+            <div style="font-size:10px; color:var(--dim); margin-bottom:6px; letter-spacing:1px;">カテゴリを選ぶ</div>
+            <div class="parent-cat-row">
+              <div class="pcat-btn">
+                <div class="pcat-emoji">📚</div>
+                <div class="pcat-name">学力</div>
+              </div>
+              <div class="pcat-btn sel-stamina">
+                <div class="pcat-emoji">💪</div>
+                <div class="pcat-name">体力</div>
+              </div>
+              <div class="pcat-btn">
+                <div class="pcat-emoji">🌿</div>
+                <div class="pcat-name">生活力</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 0 14px 8px;">
+            <div style="font-size:10px; color:var(--dim); margin-bottom:6px; letter-spacing:1px;">ポイントを決める</div>
+            <div class="points-row">
+              <div class="pt-btn">+5<br><span class="pt-label">小</span></div>
+              <div class="pt-btn selected">+10<br><span class="pt-label">中</span></div>
+              <div class="pt-btn">+15<br><span class="pt-label">大</span></div>
+              <div class="pt-btn">+20<br><span class="pt-label">特大</span></div>
+            </div>
+          </div>
+
+          <div class="approve-btns">
+            <button class="btn-reject">却下</button>
+            <button class="btn-approve">✓ 体力 +10 で承認</button>
+          </div>
+        </div>
+
+        <!-- 提案2 -->
+        <div class="approve-item">
+          <div class="approve-top">
+            <div class="approve-avatar">😈</div>
+            <div class="approve-body">
+              <div class="approve-child-name">タクミからの提案</div>
+              <div class="approve-task-name">図書館で本を読んだ</div>
+              <div class="approve-note">「歴史の本、1時間読んだ」</div>
+            </div>
+          </div>
+
+          <div style="padding: 0 14px 8px;">
+            <div style="font-size:10px; color:var(--dim); margin-bottom:6px; letter-spacing:1px;">カテゴリを選ぶ</div>
+            <div class="parent-cat-row">
+              <div class="pcat-btn sel-study">
+                <div class="pcat-emoji">📚</div>
+                <div class="pcat-name">学力</div>
+              </div>
+              <div class="pcat-btn">
+                <div class="pcat-emoji">💪</div>
+                <div class="pcat-name">体力</div>
+              </div>
+              <div class="pcat-btn">
+                <div class="pcat-emoji">🌿</div>
+                <div class="pcat-name">生活力</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 0 14px 8px;">
+            <div style="font-size:10px; color:var(--dim); margin-bottom:6px; letter-spacing:1px;">ポイントを決める</div>
+            <div class="points-row">
+              <div class="pt-btn">+5<br><span class="pt-label">小</span></div>
+              <div class="pt-btn selected">+10<br><span class="pt-label">中</span></div>
+              <div class="pt-btn">+15<br><span class="pt-label">大</span></div>
+              <div class="pt-btn">+20<br><span class="pt-label">特大</span></div>
+            </div>
+          </div>
+
+          <div class="approve-btns">
+            <button class="btn-reject">却下</button>
+            <button class="btn-approve">✓ 学力 +10 で承認</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== FLOW DIAGRAM ===== -->
+<div class="flow-wrap">
+  <div class="flow-title">📋 スポットタスクの2段階承認フロー</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-circle child">📝</div>
+      <div class="flow-step-name">提案</div>
+      <div class="flow-step-who">🧒 子ども</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle parent">🔔</div>
+      <div class="flow-step-name">通知</div>
+      <div class="flow-step-who">👨‍👩 親へ</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle parent">⚖️</div>
+      <div class="flow-step-name">カテゴリ・ポイント設定</div>
+      <div class="flow-step-who">👨‍👩 親が決める</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle child">✅</div>
+      <div class="flow-step-name">完了申告</div>
+      <div class="flow-step-who">🧒 子ども</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-circle system">⭐</div>
+      <div class="flow-step-name">パラメータ確定</div>
+      <div class="flow-step-who">承認で確定</div>
+    </div>
+  </div>
+  <div class="flow-note">
+    <strong>定期タスク</strong>は親が一度設定すれば毎日自動で出現。完了承認のみ。<br>
+    <strong>スポットタスク</strong>は子どもが提案 → 親がカテゴリ・ポイントを設定して承認 → 完了承認の2段階。<br>
+    <strong>ポイントの値は親のみ設定可能</strong>。子どもは「どのパラメータを上げたいか」をリクエストできる。
+  </div>
+</div>
+
+</body>
+</html>

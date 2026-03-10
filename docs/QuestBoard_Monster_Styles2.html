@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>モンスタービジュアル比較</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080f;
+    --card: #111420;
+    --card2: #171c30;
+    --border: #252d50;
+    --gold: #f0c040;
+    --text: #e8e4d8;
+    --dim: #6a6f88;
+    --blue: #60a5fa;
+    --pink: #f472b6;
+    --purple: #a78bfa;
+    --green: #4ade80;
+    --red: #f87171;
+    --orange: #fb923c;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 48px 24px 80px;
+  }
+  h1 {
+    font-family: 'Cinzel', serif;
+    text-align: center;
+    font-size: 22px;
+    color: var(--gold);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 30px rgba(240,192,64,0.3);
+  }
+  .sub { text-align:center; font-size:12px; color:var(--dim); margin-bottom:48px; letter-spacing:1px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    max-width: 1020px;
+    margin: 0 auto 48px;
+  }
+
+  /* ===== STYLE CARD ===== */
+  .style-card {
+    background: var(--card);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+  }
+
+  .card-header {
+    padding: 20px 20px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-header.a { background: linear-gradient(135deg, rgba(96,165,250,0.1), rgba(96,165,250,0.03)); }
+  .card-header.b { background: linear-gradient(135deg, rgba(244,114,182,0.1), rgba(244,114,182,0.03)); }
+  .card-header.c { background: linear-gradient(135deg, rgba(167,139,250,0.1), rgba(167,139,250,0.03)); }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    margin-bottom: 4px;
+  }
+  .card-label.a { color: var(--blue); }
+  .card-label.b { color: var(--pink); }
+  .card-label.c { color: var(--purple); }
+
+  .card-title {
+    font-family: 'Cinzel', serif;
+    font-size: 17px;
+    margin-bottom: 4px;
+  }
+  .card-title.a { color: var(--blue); }
+  .card-title.b { color: var(--pink); }
+  .card-title.c { color: var(--purple); }
+
+  .card-tagline { font-size: 11px; color: var(--dim); }
+
+  /* ===== EVOLUTION CHAIN ===== */
+  .evo-chain {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .evo-chain-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .evo-steps {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 4px;
+  }
+
+  .evo-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .evo-emoji {
+    font-size: 36px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  }
+
+  .evo-name {
+    font-size: 10px;
+    color: var(--text);
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .evo-lv {
+    font-size: 9px;
+    color: var(--dim);
+  }
+
+  .evo-arrow {
+    color: var(--dim);
+    font-size: 16px;
+    flex-shrink: 0;
+    padding-bottom: 20px;
+  }
+
+  /* ===== TASK ROUTES ===== */
+  .task-routes {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .routes-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  .route-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(37,45,80,0.4);
+    font-size: 12px;
+  }
+
+  .route-row:last-child { border-bottom: none; }
+
+  .route-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .route-task { color: var(--dim); flex: 1; }
+  .route-result { color: var(--text); font-size: 11px; }
+
+  /* ===== PROS/CONS ===== */
+  .pros-cons {
+    padding: 14px 16px;
+  }
+
+  .pc-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  .pc-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 3px 0;
+  }
+
+  .pc-row.pro::before { content: '✓'; color: #4ade80; font-weight: 700; flex-shrink: 0; }
+  .pc-row.con::before { content: '✗'; color: #f87171; font-weight: 700; flex-shrink: 0; }
+
+  /* ===== BOTTOM NOTE ===== */
+  .divider { max-width:1020px; margin:0 auto 36px; height:1px; background:var(--border); }
+
+  .bottom {
+    max-width: 1020px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid rgba(240,192,64,0.2);
+    border-radius: 18px;
+    padding: 24px 28px;
+  }
+
+  .bottom-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: var(--gold);
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .bottom-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(240,192,64,0.3), transparent);
+  }
+
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .bottom-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .bottom-item-title {
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .bottom-item-title.a { color: var(--blue); }
+  .bottom-item-title.b { color: var(--pink); }
+  .bottom-item-title.c { color: var(--purple); }
+
+  .bottom-item p { font-size: 12px; color: var(--dim); line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<h1>🥚 モンスターのビジュアルテイスト</h1>
+<p class="sub">3つのスタイル案 — 進化ルートのイメージつき</p>
+
+<div class="grid">
+
+  <!-- ===== A: ドット絵系 ===== -->
+  <div class="style-card">
+    <div class="card-header a">
+      <div class="card-label a">STYLE A</div>
+      <div class="card-title a">ドット絵系</div>
+      <div class="card-tagline">レトロゲーム・Habiticaっぽい</div>
+    </div>
+
+    <div class="evo-chain">
+      <div class="evo-chain-label">進化ルート（勉強系）</div>
+      <div class="evo-steps">
+        <div class="evo-step">
+          <div class="evo-emoji">🥚</div>
+          <div class="evo-name">たまご</div>
+          <div class="evo-lv">Lv.1</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🐛</div>
+          <div class="evo-name">幼体</div>
+          <div class="evo-lv">Lv.3</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🧙</div>
+          <div class="evo-name">魔法使い</div>
+          <div class="evo-lv">Lv.7</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🐉</div>
+          <div class="evo-name">ドラゴン</div>
+          <div class="evo-lv">Lv.15</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="task-routes">
+      <div class="routes-label">タスク種別 → 進化先</div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--blue)"></div>
+        <div class="route-task">📚 勉強系</div>
+        <div class="route-result">🧙→🐉 魔法系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--red)"></div>
+        <div class="route-task">💪 運動・体</div>
+        <div class="route-result">⚔️→🦁 戦士系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--green)"></div>
+        <div class="route-task">🌿 生活習慣</div>
+        <div class="route-result">🌱→🌳 自然系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--gold)"></div>
+        <div class="route-task">⭐ バランス型</div>
+        <div class="route-result">✨ 隠し進化</div>
+      </div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pc-label">評価</div>
+      <div class="pc-row pro">ゲーム感強く男子中高生に刺さる</div>
+      <div class="pc-row pro">素材制作コストが一番低い</div>
+      <div class="pc-row con">Habiticaと差別化しにくい</div>
+      <div class="pc-row con">女子には刺さりにくいかも</div>
+    </div>
+  </div>
+
+  <!-- ===== B: ゆるかわ系 ===== -->
+  <div class="style-card">
+    <div class="card-header b">
+      <div class="card-label b">STYLE B</div>
+      <div class="card-title b">ゆるかわ系</div>
+      <div class="card-tagline">男女問わず・広い層に届く</div>
+    </div>
+
+    <div class="evo-chain">
+      <div class="evo-chain-label">進化ルート（生活習慣系）</div>
+      <div class="evo-steps">
+        <div class="evo-step">
+          <div class="evo-emoji">🥚</div>
+          <div class="evo-name">たまご</div>
+          <div class="evo-lv">Lv.1</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🐣</div>
+          <div class="evo-name">ひよこ</div>
+          <div class="evo-lv">Lv.3</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🦊</div>
+          <div class="evo-name">きつね</div>
+          <div class="evo-lv">Lv.7</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🦄</div>
+          <div class="evo-name">ユニコーン</div>
+          <div class="evo-lv">Lv.15</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="task-routes">
+      <div class="routes-label">タスク種別 → 進化先</div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--pink)"></div>
+        <div class="route-task">📚 勉強系</div>
+        <div class="route-result">🦉→🌟 賢者系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--orange)"></div>
+        <div class="route-task">💪 運動・体</div>
+        <div class="route-result">🐯→🦁 元気系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--green)"></div>
+        <div class="route-task">🌿 生活習慣</div>
+        <div class="route-result">🐰→🦊 癒し系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--gold)"></div>
+        <div class="route-task">⭐ バランス型</div>
+        <div class="route-result">🦄 虹色進化</div>
+      </div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pc-label">評価</div>
+      <div class="pc-row pro">男女問わず幅広い層に届く</div>
+      <div class="pc-row pro">親にも受け入れられやすい</div>
+      <div class="pc-row pro">SNSでシェアしたくなるかわいさ</div>
+      <div class="pc-row con">高校生には「子供っぽい」と映るかも</div>
+    </div>
+  </div>
+
+  <!-- ===== C: ダーク系 ===== -->
+  <div class="style-card">
+    <div class="card-header c">
+      <div class="card-label c">STYLE C</div>
+      <div class="card-title c">ダーク系</div>
+      <div class="card-tagline">中高生のかっこよさに刺さる</div>
+    </div>
+
+    <div class="evo-chain">
+      <div class="evo-chain-label">進化ルート（勉強系）</div>
+      <div class="evo-steps">
+        <div class="evo-step">
+          <div class="evo-emoji">🖤</div>
+          <div class="evo-name">闇の卵</div>
+          <div class="evo-lv">Lv.1</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">👾</div>
+          <div class="evo-name">シャドウ</div>
+          <div class="evo-lv">Lv.3</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">🧿</div>
+          <div class="evo-name">スペクター</div>
+          <div class="evo-lv">Lv.7</div>
+        </div>
+        <div class="evo-arrow">→</div>
+        <div class="evo-step">
+          <div class="evo-emoji">😈</div>
+          <div class="evo-name">大悪魔</div>
+          <div class="evo-lv">Lv.15</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="task-routes">
+      <div class="routes-label">タスク種別 → 進化先</div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--purple)"></div>
+        <div class="route-task">📚 勉強系</div>
+        <div class="route-result">🧿→😈 魔術師系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--red)"></div>
+        <div class="route-task">💪 運動・体</div>
+        <div class="route-result">💀→🔥 魔剣士系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--green)"></div>
+        <div class="route-task">🌿 生活習慣</div>
+        <div class="route-result">🌑→🐺 森の魔王系</div>
+      </div>
+      <div class="route-row">
+        <div class="route-dot" style="background:var(--gold)"></div>
+        <div class="route-task">⭐ バランス型</div>
+        <div class="route-result">👑 真の魔王（最強）</div>
+      </div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="pc-label">評価</div>
+      <div class="pc-row pro">中高生男子の「かっこいい」に直撃</div>
+      <div class="pc-row pro">アプリ全体の世界観と一番合う</div>
+      <div class="pc-row con">親世代に受け入れられにくいかも</div>
+      <div class="pc-row con">女子ユーザーを取りこぼすリスク</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="divider"></div>
+
+<div class="bottom">
+  <div class="bottom-title">💡 どれを選ぶか迷ったら</div>
+  <div class="bottom-grid">
+    <div class="bottom-item">
+      <div class="bottom-item-title a">A. ドット絵系</div>
+      <p>男子中高生メインで、開発を早く始めたい場合。素材コストが低いのでMVPに最適。</p>
+    </div>
+    <div class="bottom-item">
+      <div class="bottom-item-title b">B. ゆるかわ系</div>
+      <p>男女問わず広く届けたい場合。親にも受け入れられやすく、学校展開も視野に入るなら有利。</p>
+    </div>
+    <div class="bottom-item">
+      <div class="bottom-item-title c">C. ダーク系</div>
+      <p>今のQuestBoardの世界観と一番合う。中高生のかっこよさへの憧れに直接刺さる。</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

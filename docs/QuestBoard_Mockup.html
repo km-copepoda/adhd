@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuestBoard - 画面モックアップ</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --night: #0d0f1a;
+    --deep: #131629;
+    --card: #1a1f35;
+    --card2: #1f2540;
+    --border: #2e3560;
+    --gold: #f0c040;
+    --gold2: #c9973a;
+    --gold-dim: rgba(240,192,64,0.15);
+    --teal: #4ecdc4;
+    --teal-dim: rgba(78,205,196,0.15);
+    --red: #e05c5c;
+    --green: #5cb85c;
+    --purple: #9b59b6;
+    --text: #e8e4d8;
+    --text-dim: #8a8fa8;
+    --text-faint: #4a4f68;
+    --xp: #f39c12;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #08090f;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  h1.page-title {
+    font-family: 'Cinzel', serif;
+    text-align: center;
+    font-size: 28px;
+    color: var(--gold);
+    margin-bottom: 8px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 30px rgba(240,192,64,0.4);
+  }
+
+  .page-subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 60px;
+    letter-spacing: 1px;
+  }
+
+  .screens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 360px));
+    gap: 48px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .screen-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .screen-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .phone {
+    width: 340px;
+    min-height: 680px;
+    background: var(--deep);
+    border-radius: 36px;
+    border: 1.5px solid var(--border);
+    box-shadow:
+      0 0 0 6px #0a0b12,
+      0 0 0 7px #1a1f35,
+      0 30px 80px rgba(0,0,0,0.8),
+      0 0 40px rgba(240,192,64,0.05);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Notch */
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 28px;
+    background: #0a0b12;
+    border-radius: 0 0 16px 16px;
+    z-index: 100;
+  }
+
+  .screen {
+    padding: 44px 0 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ===== STATUS BAR ===== */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 20px 0;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* ===== HEADER ===== */
+  .app-header {
+    padding: 12px 20px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .app-header .title {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .avatar-sm {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    background: linear-gradient(135deg, #2e3560, #4a3080);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 0 10px rgba(240,192,64,0.3);
+  }
+
+  /* ===== XP BAR ===== */
+  .xp-strip {
+    margin: 0 20px 16px;
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .xp-info { flex: 1; }
+  .xp-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+  .xp-val { font-size: 13px; color: var(--gold); font-weight: 700; }
+
+  .xp-bar-wrap {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+  }
+
+  .xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold2), var(--gold));
+    border-radius: 3px;
+    box-shadow: 0 0 8px rgba(240,192,64,0.5);
+  }
+
+  .level-badge {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #0d0f1a;
+    box-shadow: 0 0 14px rgba(240,192,64,0.4);
+    flex-shrink: 0;
+  }
+
+  /* ===== SECTION TITLE ===== */
+  .section-title {
+    padding: 0 20px 10px;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'Cinzel', serif;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* ===== TASK CARDS ===== */
+  .task-list { padding: 0 16px; flex: 1; overflow-y: auto; }
+  .task-list::-webkit-scrollbar { display: none; }
+
+  .task-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .task-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 14px 0 0 14px;
+  }
+
+  .task-card.urgent::before { background: var(--red); }
+  .task-card.normal::before { background: var(--teal); }
+  .task-card.easy::before { background: var(--green); }
+  .task-card.done::before { background: var(--text-faint); }
+  .task-card.done { opacity: 0.5; }
+
+  .task-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .task-icon.urgent { background: rgba(224,92,92,0.15); }
+  .task-icon.normal { background: rgba(78,205,196,0.12); }
+  .task-icon.easy { background: rgba(92,184,92,0.12); }
+  .task-icon.done { background: rgba(255,255,255,0.05); }
+
+  .task-body { flex: 1; min-width: 0; }
+  .task-name { font-size: 14px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-meta { font-size: 11px; color: var(--text-dim); display: flex; gap: 8px; }
+
+  .task-xp {
+    font-size: 12px;
+    color: var(--xp);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .check-circle {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+
+  .check-circle.checked {
+    background: var(--green);
+    border-color: var(--green);
+    color: white;
+  }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    display: flex;
+    padding: 10px 0 20px;
+    border-top: 1px solid var(--border);
+    background: var(--deep);
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: var(--text-faint);
+    padding: 4px 0;
+  }
+
+  .nav-item.active { color: var(--gold); }
+  .nav-item .nav-icon { font-size: 20px; }
+
+  /* ===== COMPLETION SCREEN ===== */
+  .complete-hero {
+    margin: 12px 16px;
+    background: linear-gradient(135deg, #1a2040, #251a40);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .complete-hero::before {
+    content: '✨';
+    position: absolute;
+    font-size: 80px;
+    opacity: 0.06;
+    top: -10px; right: -10px;
+  }
+
+  .complete-task-name {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .complete-task-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  .diff-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(224,92,92,0.2);
+    color: var(--red);
+    border: 1px solid rgba(224,92,92,0.3);
+    margin-bottom: 4px;
+  }
+
+  .photo-area {
+    margin: 0 16px 12px;
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.02);
+    transition: all 0.2s;
+  }
+
+  .photo-area:hover { border-color: var(--gold); }
+  .photo-area .photo-icon { font-size: 32px; }
+
+  .comment-area {
+    margin: 0 16px 12px;
+  }
+
+  .comment-area textarea {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    resize: none;
+    height: 70px;
+    outline: none;
+  }
+
+  .comment-area textarea::placeholder { color: var(--text-faint); }
+
+  .btn-primary {
+    display: block;
+    margin: 0 16px;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #0d0f1a;
+    border: none;
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(240,192,64,0.3);
+  }
+
+  /* ===== CHARACTER SCREEN ===== */
+  .char-hero {
+    margin: 8px 16px 14px;
+    background: linear-gradient(160deg, #1a1540, #0d1530);
+    border: 1px solid rgba(155,89,182,0.3);
+    border-radius: 18px;
+    padding: 20px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .char-hero::after {
+    content: '';
+    position: absolute;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(155,89,182,0.15), transparent);
+    top: -20px; right: -20px;
+  }
+
+  .char-avatar {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a1a50, #3a2080);
+    border: 3px solid var(--purple);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px;
+    box-shadow: 0 0 20px rgba(155,89,182,0.4), inset 0 0 20px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+  }
+
+  .char-info { flex: 1; }
+  .char-name { font-family: 'Cinzel', serif; font-size: 18px; color: var(--gold); margin-bottom: 4px; }
+  .char-class { font-size: 11px; color: var(--purple); letter-spacing: 1px; margin-bottom: 10px; }
+
+  .stat-row { display: flex; gap: 16px; }
+  .stat-item { text-align: center; }
+  .stat-val { font-size: 18px; font-weight: 700; color: var(--teal); }
+  .stat-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; }
+
+  .equip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 0 16px 14px;
+  }
+
+  .equip-slot {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .equip-icon {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    background: var(--card2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    border: 1px solid var(--border);
+  }
+
+  .equip-name { font-size: 12px; font-weight: 500; }
+  .equip-rarity { font-size: 10px; color: var(--gold); }
+
+  .streak-bar {
+    margin: 0 16px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px;
+  }
+
+  .streak-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .streak-title { font-size: 12px; color: var(--text-dim); }
+  .streak-count { font-size: 22px; font-weight: 700; color: #f39c12; }
+
+  .streak-dots { display: flex; gap: 6px; }
+  .streak-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  .streak-dot.done { background: rgba(243,156,18,0.2); border: 2px solid #f39c12; }
+  .streak-dot.today { background: #f39c12; border: 2px solid #f39c12; font-size: 16px; animation: pulse 2s infinite; }
+  .streak-dot.future { background: var(--card2); border: 2px solid var(--border); opacity: 0.4; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(243,156,18,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(243,156,18,0); }
+  }
+
+  /* ===== PARENT APPROVAL ===== */
+  .approve-card {
+    margin: 0 16px 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .approve-card-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .child-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a3060, #3a2080);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    border: 2px solid var(--purple);
+    flex-shrink: 0;
+  }
+
+  .approve-card-header .child-name { font-size: 13px; font-weight: 700; }
+  .approve-card-header .time-ago { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  .approve-task-list { padding: 8px 0; }
+
+  .approve-task-item {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(46,53,96,0.5);
+  }
+
+  .approve-task-item:last-child { border-bottom: none; }
+
+  .approve-task-icon { font-size: 18px; width: 24px; text-align: center; }
+  .approve-task-name { flex: 1; font-size: 13px; }
+
+  .has-photo {
+    font-size: 11px;
+    color: var(--teal);
+    background: var(--teal-dim);
+    padding: 2px 7px;
+    border-radius: 8px;
+    border: 1px solid rgba(78,205,196,0.2);
+  }
+
+  .approve-actions {
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-approve {
+    flex: 1;
+    background: linear-gradient(135deg, #2a5a2a, var(--green));
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  .btn-sendback {
+    background: var(--card2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .bulk-approve {
+    margin: 0 16px 12px;
+    background: linear-gradient(135deg, rgba(92,184,92,0.15), rgba(92,184,92,0.05));
+    border: 1px solid rgba(92,184,92,0.3);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .bulk-text { font-size: 13px; }
+  .bulk-count { font-size: 12px; color: var(--green); }
+
+  .btn-bulk {
+    background: var(--green);
+    color: #0d0f1a;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ===== TASK CREATE ===== */
+  .form-section { padding: 0 16px; }
+  .form-label { font-size: 11px; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; font-family: 'Cinzel', serif; }
+
+  .form-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+
+  .form-input:focus { border-color: var(--gold); }
+  .form-input::placeholder { color: var(--text-faint); }
+
+  .diff-selector { display: flex; gap: 6px; margin-bottom: 14px; }
+
+  .diff-btn {
+    flex: 1;
+    padding: 9px 4px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    border: 1.5px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .diff-btn.easy { background: rgba(92,184,92,0.1); color: var(--green); border-color: rgba(92,184,92,0.3); }
+  .diff-btn.normal { background: rgba(78,205,196,0.1); color: var(--teal); border-color: rgba(78,205,196,0.3); }
+  .diff-btn.hard { background: rgba(224,92,92,0.1); color: var(--red); border-color: rgba(224,92,92,0.3); }
+  .diff-btn.selected { transform: scale(1.05); }
+  .diff-btn.easy.selected { background: rgba(92,184,92,0.25); border-color: var(--green); box-shadow: 0 0 10px rgba(92,184,92,0.3); }
+  .diff-btn.normal.selected { background: rgba(78,205,196,0.25); border-color: var(--teal); box-shadow: 0 0 10px rgba(78,205,196,0.3); }
+  .diff-btn.hard.selected { background: rgba(224,92,92,0.25); border-color: var(--red); box-shadow: 0 0 10px rgba(224,92,92,0.3); }
+
+  .xp-preview {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .xp-preview-label { font-size: 12px; color: var(--text-dim); }
+  .xp-preview-val { font-size: 20px; font-weight: 700; color: var(--xp); }
+
+  /* ===== NIGHTLY SUMMARY ===== */
+  .summary-hero {
+    margin: 8px 16px 14px;
+    background: linear-gradient(160deg, #0d1530, #1a0d30);
+    border: 1px solid rgba(155,89,182,0.2);
+    border-radius: 18px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-hero::before {
+    content: '🌙';
+    position: absolute;
+    font-size: 80px;
+    opacity: 0.1;
+    top: -10px; right: -10px;
+  }
+
+  .summary-date { font-size: 11px; color: var(--text-dim); letter-spacing: 2px; margin-bottom: 8px; }
+  .summary-title { font-family: 'Cinzel', serif; font-size: 20px; color: var(--gold); margin-bottom: 4px; }
+  .summary-subtitle { font-size: 12px; color: var(--text-dim); }
+
+  .town-event {
+    margin: 0 16px 10px;
+    background: var(--card);
+    border: 1px solid rgba(240,192,64,0.2);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .town-event-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: var(--gold-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .town-event-text .new-badge {
+    font-size: 10px;
+    background: var(--gold);
+    color: #0d0f1a;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+
+  .town-event-text .event-name { font-size: 14px; font-weight: 700; }
+  .town-event-text .event-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .member-list { margin: 0 16px; }
+
+  .member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(46,53,96,0.4);
+  }
+
+  .member-row:last-child { border-bottom: none; }
+
+  .member-avatar-sm {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a3060, #3a2080);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .member-name { font-size: 13px; flex: 1; }
+
+  .progress-mini {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .prog-bar {
+    flex: 1;
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .prog-fill { height: 100%; border-radius: 3px; }
+  .prog-fill.full { background: linear-gradient(90deg, var(--green), #7ded7d); box-shadow: 0 0 6px rgba(92,184,92,0.5); }
+  .prog-fill.high { background: linear-gradient(90deg, var(--teal), #6aeae2); }
+  .prog-fill.mid { background: linear-gradient(90deg, var(--xp), #f8c94a); }
+
+  .prog-pct { font-size: 11px; color: var(--text-dim); width: 28px; text-align: right; }
+  .prog-fire { font-size: 14px; }
+
+  .tomorrow-teaser {
+    margin: 12px 16px 0;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.2);
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .teaser-icon { font-size: 24px; }
+  .teaser-text .teaser-label { font-size: 10px; color: var(--teal); letter-spacing: 1px; }
+  .teaser-text .teaser-name { font-size: 13px; font-weight: 700; margin-top: 2px; }
+
+  /* ===== WEB SCREEN ===== */
+  .web-screen {
+    width: 520px;
+    min-height: 680px;
+    background: var(--deep);
+    border-radius: 16px;
+    border: 1.5px solid var(--border);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .web-topbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    background: #0d0f1a;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+
+  .browser-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .browser-dot.red { background: #e05c5c; }
+  .browser-dot.yellow { background: #f0c040; }
+  .browser-dot.green { background: #5cb85c; }
+
+  .url-bar {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin: 0 8px;
+  }
+
+  .web-sidebar {
+    width: 180px;
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    flex-shrink: 0;
+    background: #0f111e;
+  }
+
+  .web-main {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .web-layout { display: flex; flex: 1; overflow: hidden; }
+
+  .sidebar-logo {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    color: var(--gold);
+    padding: 0 16px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-item {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .sidebar-item.active { color: var(--gold); background: var(--gold-dim); border-right: 2px solid var(--gold); }
+  .sidebar-item .s-icon { font-size: 16px; }
+
+  .web-page-title {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .web-page-sub { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; }
+
+  .web-form-label { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 5px; }
+
+  .web-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+
+  .web-input:focus { border-color: var(--gold); }
+  .web-input::placeholder { color: var(--text-faint); }
+
+  .web-row { display: flex; gap: 12px; }
+  .web-row > * { flex: 1; }
+
+  .web-diff-selector { display: flex; gap: 6px; margin-bottom: 12px; }
+
+  .web-diff-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+  }
+
+  .web-diff-btn.easy { background: rgba(92,184,92,0.1); color: var(--green); border-color: rgba(92,184,92,0.3); }
+  .web-diff-btn.normal.selected { background: rgba(78,205,196,0.25); color: var(--teal); border-color: var(--teal); }
+  .web-diff-btn.hard { background: rgba(224,92,92,0.1); color: var(--red); border-color: rgba(224,92,92,0.3); }
+
+  .repeat-options { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .rep-chip {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .rep-chip.on { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+  .web-btn-primary {
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #0d0f1a;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+
+  .web-task-preview {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 16px;
+  }
+
+  .web-task-preview-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .web-task-row {
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(46,53,96,0.4);
+    font-size: 13px;
+  }
+
+  .web-task-row:last-child { border-bottom: none; }
+
+  .web-task-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .pending-badge {
+    font-size: 10px;
+    background: rgba(240,192,64,0.15);
+    color: var(--gold);
+    padding: 2px 7px;
+    border-radius: 8px;
+    border: 1px solid rgba(240,192,64,0.3);
+    margin-left: auto;
+  }
+
+  .separator { margin: 20px 0; height: 1px; background: var(--border); }
+
+</style>
+</head>
+<body>
+
+<h1 class="page-title">⚔ QuestBoard</h1>
+<p class="page-subtitle">ADHD タスク管理アプリ — 画面モックアップ</p>
+
+<div class="screens-grid">
+
+  <!-- ===== 画面1: 子ども タスク一覧 ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">① 子ども — 今日のクエスト</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="app-header">
+          <div class="title">⚔ QuestBoard</div>
+          <div class="avatar-sm">🧙</div>
+        </div>
+
+        <div class="xp-strip">
+          <div class="level-badge">Lv7</div>
+          <div class="xp-info">
+            <div style="display:flex;justify-content:space-between">
+              <div class="xp-label">EXPERIENCE</div>
+              <div class="xp-val">1,240 / 1,500 XP</div>
+            </div>
+            <div class="xp-bar-wrap"><div class="xp-bar-fill" style="width:82%"></div></div>
+          </div>
+        </div>
+
+        <div class="section-title">今日のクエスト</div>
+
+        <div class="task-list">
+          <div class="task-card urgent">
+            <div class="check-circle"></div>
+            <div class="task-icon urgent">📚</div>
+            <div class="task-body">
+              <div class="task-name">数学の宿題を終わらせる</div>
+              <div class="task-meta"><span>🔴 困難</span><span>期限 20:00</span></div>
+            </div>
+            <div class="task-xp">+80XP</div>
+          </div>
+
+          <div class="task-card normal">
+            <div class="check-circle"></div>
+            <div class="task-icon normal">🛁</div>
+            <div class="task-body">
+              <div class="task-name">お風呂に入る</div>
+              <div class="task-meta"><span>🔵 普通</span></div>
+            </div>
+            <div class="task-xp">+40XP</div>
+          </div>
+
+          <div class="task-card easy">
+            <div class="check-circle"></div>
+            <div class="task-icon easy">🧹</div>
+            <div class="task-body">
+              <div class="task-name">部屋を片付ける</div>
+              <div class="task-meta"><span>🟢 簡単</span></div>
+            </div>
+            <div class="task-xp">+20XP</div>
+          </div>
+
+          <div class="task-card easy">
+            <div class="check-circle"></div>
+            <div class="task-icon easy">📖</div>
+            <div class="task-body">
+              <div class="task-name">30分読書する</div>
+              <div class="task-meta"><span>🟢 簡単</span></div>
+            </div>
+            <div class="task-xp">+20XP</div>
+          </div>
+
+          <div class="task-card done">
+            <div class="check-circle checked">✓</div>
+            <div class="task-icon done">🍽️</div>
+            <div class="task-body">
+              <div class="task-name">朝食を食べる</div>
+              <div class="task-meta"><span>✅ 承認済み</span></div>
+            </div>
+            <div class="task-xp" style="color:var(--text-faint)">+20XP</div>
+          </div>
+        </div>
+
+        <div style="padding: 8px 20px 4px; display:flex; justify-content:space-between; font-size:12px; color:var(--text-dim);">
+          <span>本日の達成率</span>
+          <span style="color:var(--gold)">1 / 5 完了</span>
+        </div>
+        <div style="margin: 4px 20px 8px; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden;">
+          <div style="width:20%; height:100%; background:linear-gradient(90deg,var(--gold2),var(--gold)); border-radius:3px;"></div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item active"><div class="nav-icon">⚔️</div><span>クエスト</span></div>
+          <div class="nav-item"><div class="nav-icon">🧙</div><span>キャラ</span></div>
+          <div class="nav-item"><div class="nav-icon">🏰</div><span>町</span></div>
+          <div class="nav-item"><div class="nav-icon">👥</div><span>ギルド</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画面2: タスク完了申告 ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">② 子ども — クエスト完了申告</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="app-header">
+          <div style="font-size:20px; cursor:pointer; color:var(--text-dim)">←</div>
+          <div class="title" style="font-size:16px">クエスト報告</div>
+          <div style="width:36px"></div>
+        </div>
+
+        <div class="complete-hero">
+          <div style="font-size:40px; margin-bottom:8px;">📚</div>
+          <div class="complete-task-name">数学の宿題を終わらせる</div>
+          <div class="complete-task-desc">ギルドマスターに成果を報告しよう</div>
+          <div class="diff-badge">🔴 困難クエスト</div>
+        </div>
+
+        <div style="padding: 0 16px 12px;">
+          <div class="form-label">証拠写真（任意）</div>
+        </div>
+        <div class="photo-area">
+          <div class="photo-icon">📷</div>
+          <div>写真で証拠を残そう</div>
+          <div style="font-size:10px; color:var(--text-faint)">タップして撮影・選択</div>
+        </div>
+
+        <div class="comment-area">
+          <div class="form-label" style="padding: 0; margin-bottom:6px;">ひとことコメント（任意）</div>
+          <textarea placeholder="がんばったこと、難しかったことなど…"></textarea>
+        </div>
+
+        <div style="margin: 0 16px 14px; background:var(--card); border:1px solid rgba(240,192,64,0.3); border-radius:12px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:11px; color:var(--text-dim);">獲得予定XP</div>
+            <div style="font-size:24px; font-weight:700; color:var(--xp);">+80 XP</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px; color:var(--text-dim);">ギルド貢献</div>
+            <div style="font-size:18px; color:var(--teal);">+🧱 1</div>
+          </div>
+        </div>
+
+        <div class="btn-primary">⚔ クエスト完了を報告する</div>
+
+        <div style="text-align:center; padding:10px; font-size:11px; color:var(--text-faint);">
+          ギルドマスターの承認後に確定します
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item active"><div class="nav-icon">⚔️</div><span>クエスト</span></div>
+          <div class="nav-item"><div class="nav-icon">🧙</div><span>キャラ</span></div>
+          <div class="nav-item"><div class="nav-icon">🏰</div><span>町</span></div>
+          <div class="nav-item"><div class="nav-icon">👥</div><span>ギルド</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画面3: キャラクター ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">③ 子ども — キャラクター</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+        <div class="app-header">
+          <div class="title">冒険者手帳</div>
+          <div style="font-size:12px; color:var(--text-dim);">設定</div>
+        </div>
+
+        <div class="char-hero">
+          <div class="char-avatar">🧙</div>
+          <div class="char-info">
+            <div class="char-name">タクミ</div>
+            <div class="char-class">⚔ QUEST WARRIOR · Lv.7</div>
+            <div class="stat-row">
+              <div class="stat-item">
+                <div class="stat-val">47</div>
+                <div class="stat-lbl">クエスト</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-val">12</div>
+                <div class="stat-lbl">連続日数</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-val">94%</div>
+                <div class="stat-lbl">達成率</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">装備アイテム</div>
+        <div class="equip-grid">
+          <div class="equip-slot">
+            <div class="equip-icon">⚔️</div>
+            <div>
+              <div class="equip-name">鋼鉄の剣</div>
+              <div class="equip-rarity">★★★☆☆</div>
+            </div>
+          </div>
+          <div class="equip-slot">
+            <div class="equip-icon">🛡️</div>
+            <div>
+              <div class="equip-name">木の盾</div>
+              <div class="equip-rarity">★★☆☆☆</div>
+            </div>
+          </div>
+          <div class="equip-slot">
+            <div class="equip-icon">🧥</div>
+            <div>
+              <div class="equip-name">見習いローブ</div>
+              <div class="equip-rarity">★★☆☆☆</div>
+            </div>
+          </div>
+          <div class="equip-slot" style="opacity:0.4; border-style:dashed;">
+            <div class="equip-icon" style="opacity:0.3">?</div>
+            <div>
+              <div class="equip-name" style="color:var(--text-faint)">未装備</div>
+              <div class="equip-rarity" style="color:var(--text-faint)">アクセサリー</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">連続達成ストリーク</div>
+        <div class="streak-bar">
+          <div class="streak-header">
+            <div class="streak-title">🔥 今週のストリーク</div>
+            <div class="streak-count">12日目</div>
+          </div>
+          <div class="streak-dots">
+            <div class="streak-dot done">✓</div>
+            <div class="streak-dot done">✓</div>
+            <div class="streak-dot done">✓</div>
+            <div class="streak-dot done">✓</div>
+            <div class="streak-dot done">✓</div>
+            <div class="streak-dot today">🔥</div>
+            <div class="streak-dot future"></div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon">⚔️</div><span>クエスト</span></div>
+          <div class="nav-item active"><div class="nav-icon">🧙</div><span>キャラ</span></div>
+          <div class="nav-item"><div class="nav-icon">🏰</div><span>町</span></div>
+          <div class="nav-item"><div class="nav-icon">👥</div><span>ギルド</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画面4: 親 承認 ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">④ 親 — クエスト承認</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar"><span>21:30</span><span>🔋</span></div>
+        <div class="app-header">
+          <div class="title" style="font-size:16px">⚔ 承認センター</div>
+          <div style="font-size:12px; color:var(--teal);">3件待機中</div>
+        </div>
+
+        <div class="bulk-approve">
+          <div>
+            <div class="bulk-text">📋 まとめて全承認する</div>
+            <div class="bulk-count">子ども3人 · 合計8タスク</div>
+          </div>
+          <button class="btn-bulk">一括 ✓</button>
+        </div>
+
+        <div class="section-title">承認待ち</div>
+
+        <!-- タクミのカード -->
+        <div class="approve-card">
+          <div class="approve-card-header">
+            <div class="child-avatar">🧙</div>
+            <div>
+              <div class="child-name">タクミ</div>
+              <div style="font-size:10px; color:var(--green);">4/4クエスト完了 🔥</div>
+            </div>
+            <div class="time-ago">30分前</div>
+          </div>
+          <div class="approve-task-list">
+            <div class="approve-task-item">
+              <div class="approve-task-icon">📚</div>
+              <div class="approve-task-name">数学の宿題</div>
+              <div class="has-photo">📷 写真あり</div>
+            </div>
+            <div class="approve-task-item">
+              <div class="approve-task-icon">🛁</div>
+              <div class="approve-task-name">お風呂に入る</div>
+            </div>
+            <div class="approve-task-item">
+              <div class="approve-task-icon">🧹</div>
+              <div class="approve-task-name">部屋の片付け</div>
+              <div class="has-photo">📷 写真あり</div>
+            </div>
+          </div>
+          <div class="approve-actions">
+            <button class="btn-approve">✓ まとめて承認</button>
+            <button class="btn-sendback">差し戻し</button>
+          </div>
+        </div>
+
+        <!-- ハナのカード -->
+        <div class="approve-card">
+          <div class="approve-card-header">
+            <div class="child-avatar" style="background:linear-gradient(135deg,#2a4060,#206050)">🧝</div>
+            <div>
+              <div class="child-name">ハナ</div>
+              <div style="font-size:10px; color:var(--xp);">2/3クエスト完了</div>
+            </div>
+            <div class="time-ago">1時間前</div>
+          </div>
+          <div class="approve-task-list">
+            <div class="approve-task-item">
+              <div class="approve-task-icon">📖</div>
+              <div class="approve-task-name">30分読書する</div>
+            </div>
+            <div class="approve-task-item">
+              <div class="approve-task-icon">🎸</div>
+              <div class="approve-task-name">ギター練習</div>
+              <div class="has-photo">🎵 音声あり</div>
+            </div>
+          </div>
+          <div class="approve-actions">
+            <button class="btn-approve">✓ まとめて承認</button>
+            <button class="btn-sendback">差し戻し</button>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item"><div class="nav-icon">🏠</div><span>ホーム</span></div>
+          <div class="nav-item active"><div class="nav-icon">✅</div><span>承認</span></div>
+          <div class="nav-item"><div class="nav-icon">📋</div><span>タスク</span></div>
+          <div class="nav-item"><div class="nav-icon">📊</div><span>レポート</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画面5: 親 タスク作成 (Web) ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">⑤ 親 — タスク作成（Web）</div>
+    <div class="web-screen">
+      <div class="web-topbar">
+        <div class="browser-dot red"></div>
+        <div class="browser-dot yellow"></div>
+        <div class="browser-dot green"></div>
+        <div class="url-bar">🔒 questboard.app/parent/tasks/new</div>
+      </div>
+      <div class="web-layout" style="flex:1; display:flex; overflow:hidden;">
+        <div class="web-sidebar">
+          <div class="sidebar-logo">⚔ QB <span style="color:var(--text-dim); font-size:10px;">GUILD MASTER</span></div>
+          <div class="sidebar-item"><div class="s-icon">🏠</div>ダッシュボード</div>
+          <div class="sidebar-item active"><div class="s-icon">📋</div>タスク管理</div>
+          <div class="sidebar-item"><div class="s-icon">✅</div>承認待ち <span style="background:var(--red);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:auto;">3</span></div>
+          <div class="sidebar-item"><div class="s-icon">👥</div>子ども管理</div>
+          <div class="sidebar-item"><div class="s-icon">📊</div>週次レポート</div>
+          <div class="sidebar-item"><div class="s-icon">🏰</div>ギルドの町</div>
+        </div>
+        <div class="web-main">
+          <div class="web-page-title">新しいクエストを作成</div>
+          <div class="web-page-sub">子どもに依頼するタスクを設定します</div>
+
+          <div class="web-form-label">クエスト名 *</div>
+          <input class="web-input" type="text" placeholder="例：数学の宿題を終わらせる" value="英語の単語テスト勉強">
+
+          <div class="web-form-label">詳しい説明（任意）</div>
+          <input class="web-input" type="text" placeholder="子どもへの説明・アドバイスなど" value="明日のテスト範囲 Unit 5〜8">
+
+          <div class="web-row">
+            <div>
+              <div class="web-form-label">対象の子ども</div>
+              <select class="web-input" style="cursor:pointer;">
+                <option>🧙 タクミ</option>
+                <option>🧝 ハナ</option>
+                <option>全員</option>
+              </select>
+            </div>
+            <div>
+              <div class="web-form-label">期限</div>
+              <input class="web-input" type="text" value="今日 21:00">
+            </div>
+          </div>
+
+          <div class="web-form-label">難易度（XP報酬）</div>
+          <div class="web-diff-selector">
+            <div class="web-diff-btn easy">🟢 簡単<br><span style="font-size:10px;">+20XP</span></div>
+            <div class="web-diff-btn normal selected">🔵 普通<br><span style="font-size:10px;">+40XP</span></div>
+            <div class="web-diff-btn hard">🔴 困難<br><span style="font-size:10px;">+80XP</span></div>
+          </div>
+
+          <div class="web-form-label">繰り返し設定</div>
+          <div class="repeat-options">
+            <div class="rep-chip on">月</div>
+            <div class="rep-chip on">火</div>
+            <div class="rep-chip on">水</div>
+            <div class="rep-chip on">木</div>
+            <div class="rep-chip on">金</div>
+            <div class="rep-chip">土</div>
+            <div class="rep-chip">日</div>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center; margin-top:4px;">
+            <button class="web-btn-primary">✓ クエストを作成</button>
+            <div style="font-size:12px; color:var(--text-dim);">または下書き保存</div>
+          </div>
+
+          <div class="web-task-preview">
+            <div class="web-task-preview-header">ACTIVE QUESTS — タクミ (本日 4件)</div>
+            <div class="web-task-row">
+              <div class="web-task-dot" style="background:var(--green)"></div>
+              <span>朝食を食べる</span>
+              <div class="pending-badge">✅ 承認済み</div>
+            </div>
+            <div class="web-task-row">
+              <div class="web-task-dot" style="background:var(--red)"></div>
+              <span>数学の宿題</span>
+              <div class="pending-badge">⏳ 承認待ち</div>
+            </div>
+            <div class="web-task-row">
+              <div class="web-task-dot" style="background:var(--teal)"></div>
+              <span>お風呂に入る</span>
+              <div class="pending-badge">⏳ 承認待ち</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 画面6: 夜のサマリー ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">⑥ 夜のサマリー</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar"><span>22:00</span><span>🔋</span></div>
+        <div class="app-header">
+          <div class="title" style="font-size:16px">🌙 今日のギルド報告</div>
+          <div style="font-size:11px; color:var(--text-dim);">2024/01/15</div>
+        </div>
+
+        <div class="summary-hero">
+          <div class="summary-date">2024年1月15日（月）</div>
+          <div class="summary-title">今日の町が成長した！</div>
+          <div class="summary-subtitle">みんなの頑張りが形になりました ✨</div>
+        </div>
+
+        <div class="section-title">新しく建ったもの</div>
+
+        <div class="town-event">
+          <div class="town-event-icon">📚</div>
+          <div class="town-event-text">
+            <div><span class="new-badge">NEW</span><span class="event-name">村の図書館</span></div>
+            <div class="event-desc">知識の神殿が完成。住人たちが学び始めた。</div>
+          </div>
+        </div>
+
+        <div class="town-event" style="border-color:rgba(78,205,196,0.2);">
+          <div class="town-event-icon" style="background:var(--teal-dim);">⛲</div>
+          <div class="town-event-text">
+            <div><span class="new-badge" style="background:var(--teal);color:#0d0f1a;">+1</span><span class="event-name">広場の噴水</span></div>
+            <div class="event-desc">広場に美しい噴水が追加された。</div>
+          </div>
+        </div>
+
+        <div class="section-title">ギルドメンバーの活躍</div>
+
+        <div style="margin: 0 16px; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:10px 14px;">
+          <div class="member-row">
+            <div class="member-avatar-sm">🧙</div>
+            <div class="member-name">タクミ</div>
+            <div class="progress-mini">
+              <div class="prog-bar"><div class="prog-fill full" style="width:100%"></div></div>
+              <div class="prog-pct">100%</div>
+              <div class="prog-fire">🔥</div>
+            </div>
+          </div>
+          <div class="member-row">
+            <div class="member-avatar-sm">🧝</div>
+            <div class="member-name">ハナ</div>
+            <div class="progress-mini">
+              <div class="prog-bar"><div class="prog-fill high" style="width:75%"></div></div>
+              <div class="prog-pct">75%</div>
+              <div class="prog-fire"></div>
+            </div>
+          </div>
+          <div class="member-row">
+            <div class="member-avatar-sm">🧑‍🎤</div>
+            <div class="member-name">ケンジ</div>
+            <div class="progress-mini">
+              <div class="prog-bar"><div class="prog-fill mid" style="width:60%"></div></div>
+              <div class="prog-pct">60%</div>
+              <div class="prog-fire"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tomorrow-teaser" style="margin-bottom:8px;">
+          <div class="teaser-icon">🎯</div>
+          <div class="teaser-text">
+            <div class="teaser-label">明日のギルド目標</div>
+            <div class="teaser-name">鍛冶屋まであと 18タスク！</div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item active"><div class="nav-icon">⚔️</div><span>クエスト</span></div>
+          <div class="nav-item"><div class="nav-icon">🧙</div><span>キャラ</span></div>
+          <div class="nav-item"><div class="nav-icon">🏰</div><span>町</span></div>
+          <div class="nav-item"><div class="nav-icon">👥</div><span>ギルド</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>QuestBoard — タブレット（シンプル版）</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c18;
+    --panel: #0f1220;
+    --card: #161b30;
+    --border: #252d50;
+    --gold: #f0c040;
+    --gold2: #c9973a;
+    --teal: #4ecdc4;
+    --red: #e05c5c;
+    --green: #5cb85c;
+    --xp: #f39c12;
+    --text: #e8e4d8;
+    --dim: #6a6f88;
+    --faint: #2e3450;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: #06070f;
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 80px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 24px;
+    color: var(--gold);
+    letter-spacing: 4px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 30px rgba(240,192,64,0.3);
+  }
+
+  .sub { font-size: 12px; color: var(--dim); letter-spacing: 1px; margin-bottom: 48px; }
+
+  /* ===== TABLET FRAME ===== */
+  .tablet {
+    width: 100%;
+    max-width: 900px;
+    background: var(--panel);
+    border-radius: 24px;
+    border: 2px solid var(--border);
+    box-shadow:
+      0 0 0 7px #07080d,
+      0 0 0 8px #161b30,
+      0 40px 100px rgba(0,0,0,0.9);
+    overflow: hidden;
+  }
+
+  /* camera */
+  .tablet-top {
+    height: 24px;
+    background: #0a0b14;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .camera { width: 7px; height: 7px; border-radius: 50%; background: #1a1f35; border: 1px solid var(--border); }
+
+  .tablet-body {
+    display: flex;
+    flex-direction: column;
+    height: 680px;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    padding: 16px 32px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #0d1020;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .logo {
+    font-family: 'Cinzel', serif;
+    font-size: 17px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    flex-shrink: 0;
+  }
+
+  /* XP bar — center of topbar */
+  .xp-area {
+    flex: 1;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+
+  .xp-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 5px;
+  }
+
+  .xp-row .lv {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .xp-row .xp-val { color: var(--xp); font-weight: 700; }
+
+  .xp-track {
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .xp-fill {
+    height: 100%;
+    width: 82%;
+    background: linear-gradient(90deg, var(--gold2), var(--gold));
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(240,192,64,0.45);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .xp-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    animation: shine 2.5s infinite;
+  }
+
+  @keyframes shine { 0% { left:-100%; } 100% { left:200%; } }
+
+  /* Streak — right of topbar */
+  .streak-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .streak-num {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    color: var(--xp);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .streak-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    line-height: 1.4;
+  }
+
+  .streak-dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .sd {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+  }
+
+  .sd.done { background: rgba(243,156,18,0.15); border: 1.5px solid var(--xp); color: var(--xp); }
+  .sd.today { background: var(--xp); color: #0a0c18; font-size: 13px; animation: glow 2s infinite; }
+  .sd.next { background: var(--faint); border: 1.5px solid var(--border); color: var(--dim); font-size: 9px; }
+
+  @keyframes glow {
+    0%,100% { box-shadow: 0 0 0 0 rgba(243,156,18,0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(243,156,18,0); }
+  }
+
+  /* ===== QUEST AREA ===== */
+  .quest-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 48px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .quest-body::-webkit-scrollbar { width: 3px; }
+  .quest-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .section-hd {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 3px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .section-hd::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* ===== QUEST CARD ===== */
+  .qcard {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.2s;
+    position: relative;
+  }
+
+  .qcard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    border-color: rgba(240,192,64,0.18);
+  }
+
+  .qcard.done-card { opacity: 0.4; }
+
+  .diff-stripe {
+    width: 5px;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  .diff-stripe.hard { background: linear-gradient(180deg, #e05c5c, #b03030); }
+  .diff-stripe.normal { background: linear-gradient(180deg, #4ecdc4, #2a9d97); }
+  .diff-stripe.easy { background: linear-gradient(180deg, #5cb85c, #3a8a3a); }
+  .diff-stripe.done { background: var(--faint); }
+
+  .qcard-inner {
+    flex: 1;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .q-icon {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+
+  .q-icon.hard { background: rgba(224,92,92,0.1); }
+  .q-icon.normal { background: rgba(78,205,196,0.1); }
+  .q-icon.easy { background: rgba(92,184,92,0.1); }
+  .q-icon.done { background: rgba(255,255,255,0.04); }
+
+  .q-body { flex: 1; }
+
+  .q-name {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .q-name.done-text { color: var(--dim); font-size: 17px; }
+
+  .chip {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .chip.hard { background: rgba(224,92,92,0.14); color: var(--red); border: 1px solid rgba(224,92,92,0.25); }
+  .chip.normal { background: rgba(78,205,196,0.12); color: var(--teal); border: 1px solid rgba(78,205,196,0.22); }
+  .chip.easy { background: rgba(92,184,92,0.12); color: var(--green); border: 1px solid rgba(92,184,92,0.22); }
+
+  .q-meta {
+    font-size: 13px;
+    color: var(--dim);
+    display: flex;
+    gap: 16px;
+  }
+
+  .q-meta .urgent { color: var(--red); }
+
+  .q-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .xp-badge {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--xp);
+  }
+
+  .btn-complete {
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #0a0c18;
+    border: none;
+    border-radius: 12px;
+    padding: 11px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(240,192,64,0.25);
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-complete:hover {
+    box-shadow: 0 6px 22px rgba(240,192,64,0.45);
+    transform: scale(1.04);
+  }
+
+  .done-badge {
+    font-size: 13px;
+    color: var(--dim);
+    background: var(--faint);
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  /* progress footer */
+  .footer-bar {
+    padding: 12px 48px 18px;
+    border-top: 1px solid var(--border);
+    background: #0d1020;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .footer-label { font-size: 12px; color: var(--dim); flex-shrink: 0; }
+  .footer-count { font-size: 13px; font-weight: 700; color: var(--gold); flex-shrink: 0; }
+
+  .footer-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .footer-fill {
+    height: 100%;
+    width: 20%;
+    background: linear-gradient(90deg, var(--gold2), var(--gold));
+    border-radius: 3px;
+  }
+
+  .footer-hint {
+    font-size: 11px;
+    color: var(--dim);
+    flex-shrink: 0;
+  }
+
+  .done-section { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>⚔ QuestBoard</h1>
+<p class="sub">タブレット版（シンプル）— 子ども画面</p>
+
+<div class="tablet">
+  <div class="tablet-top"><div class="camera"></div></div>
+  <div class="tablet-body">
+
+    <!-- TOP BAR: logo / XP bar / streak -->
+    <div class="topbar">
+      <div class="logo">⚔ QB</div>
+
+      <div class="xp-area">
+        <div class="xp-row">
+          <span class="lv">Lv.7　タクミ</span>
+          <span class="xp-val">1,240 / 1,500 XP</span>
+        </div>
+        <div class="xp-track"><div class="xp-fill"></div></div>
+      </div>
+
+      <div class="streak-area">
+        <div>
+          <div class="streak-num">12🔥</div>
+          <div class="streak-label">連続達成中</div>
+        </div>
+        <div class="streak-dots">
+          <div class="sd done">✓</div>
+          <div class="sd done">✓</div>
+          <div class="sd done">✓</div>
+          <div class="sd done">✓</div>
+          <div class="sd done">✓</div>
+          <div class="sd today">🔥</div>
+          <div class="sd next" style="font-size:9px">日</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUEST LIST -->
+    <div class="quest-body">
+
+      <div class="section-hd">今日のクエスト</div>
+
+      <div class="qcard">
+        <div class="diff-stripe hard"></div>
+        <div class="qcard-inner">
+          <div class="q-icon hard">📚</div>
+          <div class="q-body">
+            <div class="q-name">数学の宿題を終わらせる <div class="chip hard">🔴 困難</div></div>
+            <div class="q-meta"><span class="urgent">⏰ 20:00まで</span><span>ギルド貢献 +🧱</span></div>
+          </div>
+          <div class="q-right">
+            <div class="xp-badge">+80 XP</div>
+            <button class="btn-complete">⚔ 完了報告</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="qcard">
+        <div class="diff-stripe normal"></div>
+        <div class="qcard-inner">
+          <div class="q-icon normal">🛁</div>
+          <div class="q-body">
+            <div class="q-name">お風呂に入る <div class="chip normal">🔵 普通</div></div>
+            <div class="q-meta"><span>📅 今日中</span><span>ギルド貢献 +🧱</span></div>
+          </div>
+          <div class="q-right">
+            <div class="xp-badge">+40 XP</div>
+            <button class="btn-complete">⚔ 完了報告</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="qcard">
+        <div class="diff-stripe easy"></div>
+        <div class="qcard-inner">
+          <div class="q-icon easy">🧹</div>
+          <div class="q-body">
+            <div class="q-name">部屋を片付ける <div class="chip easy">🟢 簡単</div></div>
+            <div class="q-meta"><span>📅 今日中</span><span>ギルド貢献 +🧱</span></div>
+          </div>
+          <div class="q-right">
+            <div class="xp-badge">+20 XP</div>
+            <button class="btn-complete">⚔ 完了報告</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="qcard">
+        <div class="diff-stripe easy"></div>
+        <div class="qcard-inner">
+          <div class="q-icon easy">📖</div>
+          <div class="q-body">
+            <div class="q-name">30分読書する <div class="chip easy">🟢 簡単</div></div>
+            <div class="q-meta"><span>📅 今日中</span><span>ギルド貢献 +🧱</span></div>
+          </div>
+          <div class="q-right">
+            <div class="xp-badge">+20 XP</div>
+            <button class="btn-complete">⚔ 完了報告</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="done-section">
+        <div class="section-hd" style="margin-top:8px;">完了済み</div>
+        <div class="qcard done-card">
+          <div class="diff-stripe done"></div>
+          <div class="qcard-inner">
+            <div class="q-icon done">🍽️</div>
+            <div class="q-body">
+              <div class="q-name done-text">朝食を食べる</div>
+              <div class="q-meta"><span style="color:var(--green)">✅ 承認済み</span></div>
+            </div>
+            <div class="q-right">
+              <div class="xp-badge" style="color:var(--dim)">+20 XP</div>
+              <div class="done-badge">✓ 完了</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER PROGRESS -->
+    <div class="footer-bar">
+      <div class="footer-label">本日の達成率</div>
+      <div class="footer-count">1 / 5</div>
+      <div class="footer-track"><div class="footer-fill"></div></div>
+      <div class="footer-hint">全完了でクリティカルヒット 🔥×1.5</div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>QuestBoard — 全画面モックアップ</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080f;
+    --panel: #0e1020;
+    --card: #131828;
+    --card2: #181e30;
+    --border: #1e2540;
+    --gold: #f0c040;
+    --gold2: #c9973a;
+    --text: #e8e4d8;
+    --dim: #555a72;
+    --dim2: #3a3f58;
+    --study: #60a5fa;
+    --stamina: #f87171;
+    --life: #4ade80;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 48px 24px 80px;
+  }
+
+  .page-title {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
+    color: var(--gold);
+    letter-spacing: 4px;
+    text-align: center;
+    margin-bottom: 8px;
+    text-shadow: 0 0 30px rgba(240,192,64,0.3);
+  }
+  .page-sub { text-align:center; font-size:12px; color:var(--dim); letter-spacing:2px; margin-bottom: 60px; }
+
+  /* ===== SECTION ===== */
+  .section {
+    margin-bottom: 80px;
+  }
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    color: var(--gold);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background: linear-gradient(90deg, rgba(240,192,64,0.3), transparent); }
+  .section-desc { font-size:12px; color:var(--dim); margin-bottom: 28px; }
+
+  .phones-row {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .phone-label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* ===== PHONE ===== */
+  .phone {
+    width: 300px;
+    background: var(--panel);
+    border-radius: 38px;
+    border: 2px solid var(--border);
+    box-shadow: 0 0 0 6px #05060a, 0 0 0 7px #141828, 0 30px 70px rgba(0,0,0,0.9);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone::before {
+    content: '';
+    position: absolute;
+    top:0; left:50%; transform:translateX(-50%);
+    width:80px; height:22px;
+    background:#05060a;
+    border-radius:0 0 12px 12px;
+    z-index:10;
+  }
+  .screen { padding-top: 28px; }
+
+  /* ===== WEB FRAME ===== */
+  .web-frame {
+    width: 680px;
+    background: var(--panel);
+    border-radius: 16px;
+    border: 2px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    overflow: hidden;
+  }
+  .web-titlebar {
+    background: #0a0b14;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .web-dots { display:flex; gap:6px; }
+  .web-dot { width:10px; height:10px; border-radius:50%; }
+  .web-dot.r { background:#ff5f57; }
+  .web-dot.y { background:#ffbd2e; }
+  .web-dot.g { background:#28c840; }
+  .web-url {
+    flex:1; background: var(--card); border-radius:6px; padding:5px 12px;
+    font-size:11px; color:var(--dim);
+  }
+
+  /* ===== COMMON COMPONENTS ===== */
+  .hdr {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 8px 16px 10px;
+  }
+  .hdr-back {
+    width:30px; height:30px; background:var(--card); border:1px solid var(--border);
+    border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; color:var(--dim);
+  }
+  .hdr-title { font-family:'Cinzel',serif; font-size:13px; color:var(--gold); letter-spacing:1px; }
+  .hdr-ph { width:30px; }
+
+  .sec-lbl {
+    font-size:9px; color:var(--dim); letter-spacing:2px;
+    margin: 0 14px 7px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .sec-lbl::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; margin:0 14px 8px; padding:12px; }
+  .card2 { background:var(--card2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+
+  .btn-gold {
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color:#0a0c18; border:none; border-radius:11px;
+    padding:12px; font-size:13px; font-weight:700;
+    font-family:'Cinzel',serif; letter-spacing:1px; cursor:pointer;
+    box-shadow:0 4px 14px rgba(240,192,64,0.25);
+    display:block; width:calc(100% - 28px); margin:0 14px 12px;
+  }
+
+  .bnav {
+    display:flex; padding:8px 0 22px;
+    border-top:1px solid var(--border); background:var(--panel);
+  }
+  .ni { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:8px; color:var(--dim); padding:3px 0; }
+  .ni.a { color:var(--gold); }
+  .ni-ico { font-size:18px; }
+
+  /* param colors */
+  .c-study { color:var(--study); }
+  .c-stamina { color:var(--stamina); }
+  .c-life { color:var(--life); }
+  .c-gold { color:var(--gold); }
+  .c-purple { color:var(--purple); }
+  .c-dim { color:var(--dim); }
+
+  .bar-track { height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden; margin-top:4px; }
+  .bar-fill { height:100%; border-radius:3px; position:relative; overflow:hidden; }
+  .bar-fill::after { content:''; position:absolute; top:0; left:-100%; width:50%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); animation:sh 2.5s infinite; }
+  @keyframes sh { to { left:200%; } }
+  .bar-study { background:linear-gradient(90deg,#2563eb,var(--study)); }
+  .bar-stamina { background:linear-gradient(90deg,#b91c1c,var(--stamina)); }
+  .bar-life { background:linear-gradient(90deg,#15803d,var(--life)); }
+  .bar-gold { background:linear-gradient(90deg,var(--gold2),var(--gold)); }
+
+  .pill { font-size:10px; padding:3px 10px; border-radius:12px; font-weight:600; display:inline-block; }
+  .pill-gold { background:rgba(240,192,64,0.12); color:var(--gold); border:1px solid rgba(240,192,64,0.25); }
+  .pill-purple { background:rgba(167,139,250,0.12); color:var(--purple); border:1px solid rgba(167,139,250,0.25); }
+  .pill-study { background:rgba(96,165,250,0.12); color:var(--study); border:1px solid rgba(96,165,250,0.25); }
+  .pill-stamina { background:rgba(248,113,113,0.12); color:var(--stamina); border:1px solid rgba(248,113,113,0.25); }
+  .pill-life { background:rgba(74,222,128,0.12); color:var(--life); border:1px solid rgba(74,222,128,0.25); }
+  .pill-green { background:rgba(74,222,128,0.12); color:var(--life); border:1px solid rgba(74,222,128,0.25); }
+
+  .float { animation:fl 3s ease-in-out infinite; }
+  @keyframes fl { 0%,100%{transform:translateY(0) rotate(-2deg);} 50%{transform:translateY(-6px) rotate(2deg);} }
+
+  .glow-purple { filter:drop-shadow(0 0 14px rgba(167,139,250,0.5)); }
+  .glow-gold { filter:drop-shadow(0 0 14px rgba(240,192,64,0.5)); }
+</style>
+</head>
+<body>
+
+<div class="page-title">⚔ QuestBoard</div>
+<p class="page-sub">全画面モックアップ — 未作成分</p>
+
+<!-- ============================================================ -->
+<!-- 1. 夜のサマリー（子ども） -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">1. 夜のサマリー（子ども向け）</div>
+  <p class="section-desc">翌朝アプリを開いたときに表示。昨日の振り返りから今日へ。</p>
+  <div class="phones-row">
+
+    <div class="phone-wrap">
+      <div class="phone-label">バナー表示（トップ画面）</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-title">⚔ QuestBoard</div>
+            <div style="font-size:18px;">🔔</div>
+          </div>
+
+          <!-- サマリーバナー -->
+          <div style="margin:0 14px 12px; background:linear-gradient(135deg,rgba(167,139,250,0.15),rgba(240,192,64,0.08)); border:1.5px solid rgba(167,139,250,0.35); border-radius:14px; padding:14px; position:relative; overflow:hidden;">
+            <div style="position:absolute; top:-20px; right:-20px; font-size:60px; opacity:0.1;">🌙</div>
+            <div style="font-size:10px; color:var(--purple); letter-spacing:2px; margin-bottom:6px;">✨ 昨日のサマリーが届いた</div>
+            <div style="font-size:15px; font-weight:700; margin-bottom:8px;">昨日もよくがんばったぞ！</div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+              <div style="flex:1; background:rgba(96,165,250,0.1); border-radius:8px; padding:7px; text-align:center;">
+                <div style="font-size:10px; color:var(--study);">📚 学力</div>
+                <div style="font-size:14px; font-weight:700; color:var(--study);">+20</div>
+              </div>
+              <div style="flex:1; background:rgba(74,222,128,0.1); border-radius:8px; padding:7px; text-align:center;">
+                <div style="font-size:10px; color:var(--life);">🌿 生活力</div>
+                <div style="font-size:14px; font-weight:700; color:var(--life);">+10</div>
+              </div>
+              <div style="flex:1; background:rgba(240,192,64,0.1); border-radius:8px; padding:7px; text-align:center;">
+                <div style="font-size:10px; color:var(--gold);">🔥 連続</div>
+                <div style="font-size:14px; font-weight:700; color:var(--gold);">13日</div>
+              </div>
+            </div>
+            <button style="width:100%; padding:9px; background:linear-gradient(135deg,var(--gold2),var(--gold)); border:none; border-radius:9px; font-size:12px; font-weight:700; font-family:'Cinzel',serif; color:#0a0c18; cursor:pointer;">サマリーを見る →</button>
+          </div>
+
+          <!-- 今日のクエスト -->
+          <div class="sec-lbl">今日のクエスト</div>
+          <div class="card" style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:22px;">📚</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700;">数学の宿題</div>
+              <div style="font-size:10px; color:var(--dim);">📚 学力 +15</div>
+            </div>
+            <div style="font-size:11px; padding:5px 10px; background:rgba(240,192,64,0.1); color:var(--gold); border-radius:8px; border:1px solid rgba(240,192,64,0.2);">未着手</div>
+          </div>
+          <div class="card" style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:22px;">🛁</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700;">お風呂に入る</div>
+              <div style="font-size:10px; color:var(--dim);">🌿 生活力 +10</div>
+            </div>
+            <div style="font-size:11px; padding:5px 10px; background:rgba(240,192,64,0.1); color:var(--gold); border-radius:8px; border:1px solid rgba(240,192,64,0.2);">未着手</div>
+          </div>
+
+          <div class="bnav">
+            <div class="ni a"><div class="ni-ico">⚔️</div>クエスト</div>
+            <div class="ni"><div class="ni-ico">🏘️</div>集落</div>
+            <div class="ni"><div class="ni-ico">🐣</div>育成</div>
+            <div class="ni"><div class="ni-ico">📖</div>図鑑</div>
+            <div class="ni"><div class="ni-ico">👤</div>プロフ</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-label">サマリー詳細画面</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-back">←</div>
+            <div class="hdr-title">昨日のサマリー</div>
+            <div class="hdr-ph"></div>
+          </div>
+
+          <!-- モンスターコメント -->
+          <div style="display:flex; flex-direction:column; align-items:center; padding:10px 14px 14px; gap:6px; text-align:center;">
+            <div style="font-size:52px;" class="float glow-purple">😈</div>
+            <div style="font-size:10px; color:var(--dim); letter-spacing:2px;">タクミより</div>
+            <div style="font-family:'Cinzel',serif; font-size:14px; color:var(--gold);">「よくやった！また明日も頼む」</div>
+          </div>
+
+          <!-- 達成タスク -->
+          <div class="sec-lbl">達成したクエスト</div>
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:7px;">
+              <span style="font-size:16px;">📚</span>
+              <span style="font-size:12px; flex:1;">数学の宿題</span>
+              <span class="pill pill-study">学力 +15</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:7px;">
+              <span style="font-size:16px;">🛁</span>
+              <span style="font-size:12px; flex:1;">お風呂に入る</span>
+              <span class="pill pill-life">生活力 +10</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:16px;">🍳</span>
+              <span style="font-size:12px; flex:1;">朝食を食べる</span>
+              <span class="pill pill-life">生活力 +5</span>
+            </div>
+          </div>
+
+          <!-- パラメータ -->
+          <div class="sec-lbl">上がったパラメータ</div>
+          <div class="card">
+            <div style="margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+                <span class="c-study">📚 学力</span><span class="c-study">+15 → 合計63</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bar-study" style="width:63%;"></div></div>
+            </div>
+            <div style="margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+                <span class="c-life">🌿 生活力</span><span class="c-life">+15 → 合計33</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bar-life" style="width:33%;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+                <span class="c-stamina">💪 体力</span><span class="c-stamina">+0 → 合計24</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bar-stamina" style="width:24%;"></div></div>
+            </div>
+          </div>
+
+          <!-- ストリーク -->
+          <div class="sec-lbl">連続記録</div>
+          <div class="card" style="display:flex; gap:8px;">
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:'Cinzel',serif; font-size:22px; color:var(--gold);">13🔥</div>
+              <div style="font-size:9px; color:var(--dim);">連続達成中</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:'Cinzel',serif; font-size:22px; color:var(--life);">8🛁</div>
+              <div style="font-size:9px; color:var(--dim);">お風呂 連続</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="font-family:'Cinzel',serif; font-size:22px; color:var(--study);">5📚</div>
+              <div style="font-size:9px; color:var(--dim);">宿題 連続</div>
+            </div>
+          </div>
+
+          <!-- 集落 -->
+          <div class="sec-lbl">集落の変化</div>
+          <div class="card" style="text-align:center; padding:14px;">
+            <div style="font-size:32px; margin-bottom:6px;">🏘️</div>
+            <div style="font-size:12px; color:var(--gold); font-weight:700;">集落が少し大きくなった！</div>
+            <div style="font-size:10px; color:var(--dim); margin-top:4px;">累計 487 / 500 タスク → Lv3まであと13！</div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. 夜のサマリー（親向け） -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">2. 夜のサマリー（親向け）</div>
+  <p class="section-desc">親が最後の承認をした後、プッシュ通知で即時送信。子どもの頑張りが一目でわかる。</p>
+  <div class="phones-row">
+
+    <div class="phone-wrap">
+      <div class="phone-label">プッシュ通知</div>
+      <div class="phone">
+        <div class="screen" style="background:#0a0b16;">
+          <!-- ロック画面風 -->
+          <div style="padding:24px 20px 20px; text-align:center;">
+            <div style="font-size:11px; color:var(--dim); margin-bottom:4px;">21:32</div>
+            <div style="font-family:'Cinzel',serif; font-size:28px; color:var(--text); margin-bottom:24px;">火曜日</div>
+          </div>
+          <!-- 通知バナー -->
+          <div style="margin:0 12px; background:rgba(14,16,32,0.95); border:1px solid var(--border); border-radius:14px; padding:12px 14px; backdrop-filter:blur(10px);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+              <div style="width:28px; height:28px; background:var(--gold); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:14px;">⚔</div>
+              <div>
+                <div style="font-size:11px; font-weight:700;">QuestBoard</div>
+                <div style="font-size:9px; color:var(--dim);">今さっき</div>
+              </div>
+            </div>
+            <div style="font-size:13px; font-weight:700; margin-bottom:3px;">📋 タクミの今日のサマリー</div>
+            <div style="font-size:11px; color:var(--dim); line-height:1.5;">3つのクエストを達成！連続13日目🔥<br>学力+15 生活力+15</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-label">親向けサマリー詳細</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-back">←</div>
+            <div class="hdr-title">今日のレポート</div>
+            <div class="hdr-ph"></div>
+          </div>
+
+          <!-- 子どもの名前 -->
+          <div style="padding:8px 14px 12px; display:flex; align-items:center; gap:10px;">
+            <div style="font-size:32px;">😈</div>
+            <div>
+              <div style="font-family:'Cinzel',serif; font-size:15px; color:var(--gold);">タクミ</div>
+              <div style="font-size:10px; color:var(--dim);">🔥 13日連続達成中</div>
+            </div>
+            <div style="margin-left:auto; text-align:right;">
+              <div style="font-family:'Cinzel',serif; font-size:18px; color:var(--gold);">3/3</div>
+              <div style="font-size:9px; color:var(--dim);">クエスト達成率</div>
+            </div>
+          </div>
+
+          <!-- 達成タスク -->
+          <div class="sec-lbl">今日達成したクエスト</div>
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border);">
+              <span>📚</span>
+              <span style="flex:1; font-size:12px;">数学の宿題</span>
+              <span class="pill pill-study">学力+15</span>
+              <span style="font-size:10px; color:var(--life);">5日🔥</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border);">
+              <span>🛁</span>
+              <span style="flex:1; font-size:12px;">お風呂に入る</span>
+              <span class="pill pill-life">生活力+10</span>
+              <span style="font-size:10px; color:var(--life);">8日🔥</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:6px 0;">
+              <span>🍳</span>
+              <span style="flex:1; font-size:12px;">朝食を食べる</span>
+              <span class="pill pill-life">生活力+5</span>
+              <span style="font-size:10px; color:var(--life);">13日🔥</span>
+            </div>
+          </div>
+
+          <!-- 週次トレンド -->
+          <div class="sec-lbl">今週のパラメータの伸び</div>
+          <div class="card">
+            <div style="display:flex; gap:6px; align-items:flex-end; height:60px; margin-bottom:8px;">
+              <!-- 週別バー（月〜日） -->
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:rgba(96,165,250,0.2); border-radius:3px 3px 0 0; height:40%;"></div>
+                <div style="font-size:8px; color:var(--dim);">月</div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:rgba(96,165,250,0.2); border-radius:3px 3px 0 0; height:60%;"></div>
+                <div style="font-size:8px; color:var(--dim);">火</div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:rgba(96,165,250,0.2); border-radius:3px 3px 0 0; height:30%;"></div>
+                <div style="font-size:8px; color:var(--dim);">水</div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:rgba(96,165,250,0.2); border-radius:3px 3px 0 0; height:80%;"></div>
+                <div style="font-size:8px; color:var(--dim);">木</div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:rgba(96,165,250,0.2); border-radius:3px 3px 0 0; height:50%;"></div>
+                <div style="font-size:8px; color:var(--dim);">金</div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:rgba(96,165,250,0.15); border-radius:3px 3px 0 0; height:20%;"></div>
+                <div style="font-size:8px; color:var(--dim);">土</div>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end;">
+                <div style="width:100%; background:var(--study); border-radius:3px 3px 0 0; height:100%; box-shadow:0 0 8px rgba(96,165,250,0.4);"></div>
+                <div style="font-size:8px; color:var(--gold);">今日</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; font-size:10px;"><span class="c-study">📚</span> <span style="font-weight:700; color:var(--study);">+65</span></div>
+              <div style="flex:1; text-align:center; font-size:10px;"><span class="c-stamina">💪</span> <span style="font-weight:700; color:var(--stamina);">+10</span></div>
+              <div style="flex:1; text-align:center; font-size:10px;"><span class="c-life">🌿</span> <span style="font-weight:700; color:var(--life);">+45</span></div>
+            </div>
+            <div style="margin-top:8px; padding:8px; background:rgba(240,192,64,0.06); border-radius:8px; border:1px solid rgba(240,192,64,0.15);">
+              <div style="font-size:10px; color:var(--dim);">💡 今週は学力タスクが多め。体力タスクを増やしてみませんか？</div>
+            </div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. ストリーク画面 -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">3. ストリーク画面</div>
+  <p class="section-desc">現在の連続記録・最高記録・今月の達成カレンダー。過去の頑張りは絶対に消えない。</p>
+  <div class="phones-row">
+    <div class="phone-wrap">
+      <div class="phone-label">ストリーク詳細</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-back">←</div>
+            <div class="hdr-title">連続記録</div>
+            <div class="hdr-ph"></div>
+          </div>
+
+          <!-- 現在のストリーク -->
+          <div style="display:flex; flex-direction:column; align-items:center; padding:12px 14px 16px; gap:6px; position:relative;">
+            <div style="position:absolute; width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, rgba(240,192,64,0.1) 0%, transparent 70%); pointer-events:none; animation:pg 3s ease-in-out infinite;"></div>
+            @keyframes pg { 0%,100%{transform:scale(1);}50%{transform:scale(1.1);} }
+            <div style="font-size:64px; line-height:1; filter:drop-shadow(0 0 16px rgba(240,192,64,0.5));">🔥</div>
+            <div style="font-family:'Cinzel',serif; font-size:42px; color:var(--gold); font-weight:700; line-height:1;">13</div>
+            <div style="font-size:11px; color:var(--dim); letter-spacing:2px;">日連続達成中</div>
+            <div class="pill pill-gold">称号「一週間の戦士」⚔️ 解放済み</div>
+          </div>
+
+          <!-- 3つの数値 -->
+          <div style="display:flex; gap:8px; margin:0 14px 12px;">
+            <div class="card2" style="flex:1; text-align:center;">
+              <div style="font-family:'Cinzel',serif; font-size:18px; color:var(--gold);">13</div>
+              <div style="font-size:9px; color:var(--dim);">現在</div>
+            </div>
+            <div class="card2" style="flex:1; text-align:center;">
+              <div style="font-family:'Cinzel',serif; font-size:18px; color:var(--purple);">21</div>
+              <div style="font-size:9px; color:var(--dim);">最高記録</div>
+            </div>
+            <div class="card2" style="flex:1; text-align:center;">
+              <div style="font-family:'Cinzel',serif; font-size:18px; color:var(--life);">18/22</div>
+              <div style="font-size:9px; color:var(--dim);">今月の達成</div>
+            </div>
+          </div>
+
+          <!-- カレンダー -->
+          <div class="sec-lbl">今月の達成カレンダー</div>
+          <div class="card">
+            <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;">
+              <div style="font-size:8px; color:var(--dim);">月</div><div style="font-size:8px; color:var(--dim);">火</div><div style="font-size:8px; color:var(--dim);">水</div><div style="font-size:8px; color:var(--dim);">木</div><div style="font-size:8px; color:var(--dim);">金</div><div style="font-size:8px; color:var(--dim);">土</div><div style="font-size:8px; color:var(--dim);">日</div>
+              <!-- week1 -->
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">1</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">2</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">3</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">4</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--dim2); color:var(--dim); margin:auto;">5</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">6</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">7</div>
+              <!-- week2 -->
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">8</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">9</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:rgba(240,192,64,0.15); color:var(--gold); margin:auto;">10</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--gold); color:#0a0c18; font-weight:700; margin:auto; box-shadow:0 0 8px rgba(240,192,64,0.5);">今</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--dim2); color:var(--dim); margin:auto;">12</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--dim2); color:var(--dim); margin:auto;">13</div>
+              <div style="font-size:10px; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--dim2); color:var(--dim); margin:auto;">14</div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px; font-size:9px; color:var(--dim);">
+              <span>🟡 達成</span><span>⬛ 未達成 or 未来</span><span>✨ 今日</span>
+            </div>
+          </div>
+
+          <!-- 次の称号 -->
+          <div class="sec-lbl">次の目標</div>
+          <div class="card" style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:28px;">🌙</div>
+            <div style="flex:1;">
+              <div style="font-size:12px; font-weight:700;">「月の修行者」</div>
+              <div style="font-size:10px; color:var(--dim);">30日連続で解放</div>
+              <div class="bar-track" style="margin-top:5px;"><div class="bar-fill bar-gold" style="width:43%;"></div></div>
+            </div>
+            <div style="font-size:11px; color:var(--gold); font-weight:700;">13/30</div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. 習慣の図鑑（マスタークエスト） -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">4. 習慣の図鑑</div>
+  <p class="section-desc">30日連続達成したタスクが「マスタークエスト」として永久記録される。自分が積み上げてきたものが見える。</p>
+  <div class="phones-row">
+    <div class="phone-wrap">
+      <div class="phone-label">習慣の図鑑</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-back">←</div>
+            <div class="hdr-title">習慣の図鑑</div>
+            <div class="hdr-ph"></div>
+          </div>
+
+          <div style="padding:6px 14px 12px; text-align:center; font-size:11px; color:var(--dim); line-height:1.7;">
+            30日続けると「マスタークエスト」に昇格。<br>タクミが積み上げてきた習慣の記録。
+          </div>
+
+          <!-- マスター済み -->
+          <div class="sec-lbl">✨ マスタークエスト（2個）</div>
+
+          <div class="card" style="border-color:rgba(240,192,64,0.3); background:linear-gradient(135deg, rgba(240,192,64,0.06), var(--card));">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:44px; height:44px; border-radius:12px; background:rgba(74,222,128,0.15); display:flex; align-items:center; justify-content:center; font-size:22px; border:1px solid rgba(74,222,128,0.3);">🍳</div>
+              <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                  <span style="font-size:13px; font-weight:700;">朝食を食べる</span>
+                  <span style="font-size:9px; background:rgba(240,192,64,0.15); color:var(--gold); border:1px solid rgba(240,192,64,0.3); border-radius:6px; padding:2px 6px;">✨ MASTER</span>
+                </div>
+                <div style="font-size:10px; color:var(--dim);">🌿 生活力 +5 / 日（永続）</div>
+                <div style="font-size:10px; color:var(--life); margin-top:2px;">累計 47日達成</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="border-color:rgba(240,192,64,0.3); background:linear-gradient(135deg, rgba(240,192,64,0.06), var(--card));">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:44px; height:44px; border-radius:12px; background:rgba(74,222,128,0.15); display:flex; align-items:center; justify-content:center; font-size:22px; border:1px solid rgba(74,222,128,0.3);">🛁</div>
+              <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                  <span style="font-size:13px; font-weight:700;">お風呂に入る</span>
+                  <span style="font-size:9px; background:rgba(240,192,64,0.15); color:var(--gold); border:1px solid rgba(240,192,64,0.3); border-radius:6px; padding:2px 6px;">✨ MASTER</span>
+                </div>
+                <div style="font-size:10px; color:var(--dim);">🌿 生活力 +10 / 日（永続）</div>
+                <div style="font-size:10px; color:var(--life); margin-top:2px;">累計 33日達成</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 挑戦中 -->
+          <div class="sec-lbl">🔥 挑戦中</div>
+
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+              <div style="width:44px; height:44px; border-radius:12px; background:rgba(96,165,250,0.12); display:flex; align-items:center; justify-content:center; font-size:22px;">📚</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:700; margin-bottom:2px;">数学の宿題</div>
+                <div style="font-size:10px; color:var(--dim);">📚 学力 +15 / 日</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-family:'Cinzel',serif; font-size:16px; color:var(--study);">5日</div>
+                <div style="font-size:9px; color:var(--dim);">/ 30日</div>
+              </div>
+            </div>
+            <div class="bar-track"><div class="bar-fill bar-study" style="width:17%;"></div></div>
+          </div>
+
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+              <div style="width:44px; height:44px; border-radius:12px; background:rgba(248,113,113,0.12); display:flex; align-items:center; justify-content:center; font-size:22px;">🏃</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:700; margin-bottom:2px;">朝のランニング</div>
+                <div style="font-size:10px; color:var(--dim);">💪 体力 +10 / 日</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-family:'Cinzel',serif; font-size:16px; color:var(--stamina);">3日</div>
+                <div style="font-size:9px; color:var(--dim);">/ 30日</div>
+              </div>
+            </div>
+            <div class="bar-track"><div class="bar-fill bar-stamina" style="width:10%;"></div></div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. 称号一覧 -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">5. 称号一覧</div>
+  <p class="section-desc">ストリーク・パラメータ・特定条件で解放される称号の一覧。</p>
+  <div class="phones-row">
+    <div class="phone-wrap">
+      <div class="phone-label">称号コレクション</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-back">←</div>
+            <div class="hdr-title">称号</div>
+            <div class="hdr-ph"></div>
+          </div>
+
+          <div style="padding:6px 14px 4px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:11px; color:var(--dim);">解放済み 4 / 12</div>
+            <div class="pill pill-gold">現在：一週間の戦士</div>
+          </div>
+
+          <div class="sec-lbl" style="margin-top:10px;">解放済み</div>
+
+          <!-- 称号カード（解放済み） -->
+          <div class="card" style="display:flex; align-items:center; gap:10px; border-color:rgba(240,192,64,0.25);">
+            <div style="font-size:32px;">🌱</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--gold);">はじめの一歩</div>
+              <div style="font-size:10px; color:var(--dim); margin-top:2px;">3日連続達成で解放</div>
+            </div>
+            <div style="font-size:10px; color:var(--dim);">1/3達成</div>
+          </div>
+
+          <div class="card" style="display:flex; align-items:center; gap:10px; border-color:rgba(240,192,64,0.25);">
+            <div style="font-size:32px;">⚔️</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--gold);">一週間の戦士</div>
+              <div style="font-size:10px; color:var(--dim); margin-top:2px;">7日連続達成で解放</div>
+            </div>
+            <div style="font-size:10px; background:rgba(74,222,128,0.1); color:var(--life); border:1px solid rgba(74,222,128,0.2); border-radius:6px; padding:2px 7px;">装備中</div>
+          </div>
+
+          <div class="card" style="display:flex; align-items:center; gap:10px; border-color:rgba(96,165,250,0.2);">
+            <div style="font-size:32px;">📚</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--study);">知識の探求者</div>
+              <div style="font-size:10px; color:var(--dim); margin-top:2px;">学力100pt達成で解放</div>
+            </div>
+            <div style="font-size:10px; color:var(--dim);">学力達成</div>
+          </div>
+
+          <div class="card" style="display:flex; align-items:center; gap:10px; border-color:rgba(240,192,64,0.25);">
+            <div style="font-size:32px;">✨</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--gold);">習慣の守護者</div>
+              <div style="font-size:10px; color:var(--dim); margin-top:2px;">マスタークエスト1個達成</div>
+            </div>
+            <div style="font-size:10px; color:var(--dim);">習慣達成</div>
+          </div>
+
+          <div class="sec-lbl" style="margin-top:4px;">未解放</div>
+
+          <div class="card" style="opacity:0.4; display:flex; align-items:center; gap:10px;">
+            <div style="font-size:32px;">🌙</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--dim);">月の修行者</div>
+              <div style="font-size:10px; color:var(--dim2); margin-top:2px;">30日連続達成で解放</div>
+            </div>
+            <div style="font-size:10px; color:var(--dim2);">13/30日</div>
+          </div>
+
+          <div class="card" style="opacity:0.4; display:flex; align-items:center; gap:10px;">
+            <div style="font-size:32px;">👑</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--dim);">伝説の冒険者</div>
+              <div style="font-size:10px; color:var(--dim2); margin-top:2px;">100日連続達成で解放</div>
+            </div>
+            <div style="font-size:10px; color:var(--dim2);">13/100日</div>
+          </div>
+
+          <div class="card" style="opacity:0.3; display:flex; align-items:center; gap:10px;">
+            <div style="font-size:32px;">❓</div>
+            <div style="flex:1;">
+              <div style="font-size:13px; font-weight:700; color:var(--dim);">???</div>
+              <div style="font-size:10px; color:var(--dim2); margin-top:2px;">条件不明</div>
+            </div>
+            <div style="font-size:10px; color:var(--dim2);">🔒</div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. 家族コード登録 -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">6. 家族コード登録</div>
+  <p class="section-desc">親がコードを発行 → 子どもが入力して家族に紐付く。</p>
+  <div class="phones-row">
+
+    <div class="phone-wrap">
+      <div class="phone-label">親側：コード発行</div>
+      <div class="phone">
+        <div class="screen">
+          <div class="hdr">
+            <div class="hdr-back">←</div>
+            <div class="hdr-title">家族を招待</div>
+            <div class="hdr-ph"></div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; align-items:center; padding:20px 14px 16px; gap:12px; text-align:center;">
+            <div style="font-size:52px;">🏠</div>
+            <div style="font-family:'Cinzel',serif; font-size:16px; color:var(--gold);">家族コードを共有しよう</div>
+            <div style="font-size:12px; color:var(--dim); line-height:1.7;">子どもにこのコードを教えてください。<br>アプリを開いて入力すると<br>家族として紐付けられます。</div>
+          </div>
+
+          <!-- コード表示 -->
+          <div style="margin:0 14px 16px; background:linear-gradient(135deg,rgba(240,192,64,0.1),rgba(240,192,64,0.04)); border:2px solid rgba(240,192,64,0.35); border-radius:16px; padding:20px; text-align:center;">
+            <div style="font-size:10px; color:var(--dim); letter-spacing:2px; margin-bottom:10px;">家族コード</div>
+            <div style="font-family:'Cinzel',serif; font-size:36px; color:var(--gold); letter-spacing:8px; font-weight:700; text-shadow:0 0 20px rgba(240,192,64,0.4);">A7K2P9</div>
+            <div style="font-size:10px; color:var(--dim); margin-top:10px;">有効期限：24時間</div>
+          </div>
+
+          <button class="btn-gold">📋 コードをコピーする</button>
+
+          <div style="margin:0 14px 16px;">
+            <div class="sec-lbl">紐付け済みのメンバー</div>
+            <div class="card2" style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <div style="font-size:22px;">👨‍👩‍👧</div>
+              <div>
+                <div style="font-size:12px; font-weight:700;">タクミ</div>
+                <div style="font-size:10px; color:var(--dim);">3月1日に参加</div>
+              </div>
+              <div class="pill pill-green" style="margin-left:auto;">参加済み</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone-label">子ども側：コード入力</div>
+      <div class="phone">
+        <div class="screen">
+          <div style="display:flex; flex-direction:column; align-items:center; padding:36px 14px 20px; gap:12px; text-align:center;">
+            <div style="font-size:64px;" class="float">🥚</div>
+            <div style="font-family:'Cinzel',serif; font-size:20px; color:var(--gold);">QuestBoard</div>
+            <div style="font-size:12px; color:var(--dim); line-height:1.7;">家族コードを入力して<br>冒険をはじめよう！</div>
+          </div>
+
+          <!-- PIN入力 -->
+          <div style="margin:0 14px 16px;">
+            <div style="font-size:11px; color:var(--dim); margin-bottom:8px; text-align:center; letter-spacing:1px;">親から教えてもらった6文字のコード</div>
+            <div style="display:flex; gap:6px; justify-content:center; margin-bottom:16px;">
+              <div style="width:40px; height:48px; background:var(--card); border:2px solid var(--gold); border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:20px; color:var(--gold); box-shadow:0 0 10px rgba(240,192,64,0.2);">A</div>
+              <div style="width:40px; height:48px; background:var(--card); border:2px solid var(--gold); border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:20px; color:var(--gold);">7</div>
+              <div style="width:40px; height:48px; background:var(--card); border:2px solid var(--gold); border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:20px; color:var(--gold);">K</div>
+              <div style="width:40px; height:48px; background:var(--card); border:2px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--dim2);">_</div>
+              <div style="width:40px; height:48px; background:var(--card); border:2px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--dim2);">_</div>
+              <div style="width:40px; height:48px; background:var(--card); border:2px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--dim2);">_</div>
+            </div>
+            <button class="btn-gold" style="opacity:0.4; cursor:not-allowed;">つぎへ →</button>
+          </div>
+
+          <!-- キーボード風 -->
+          <div style="padding:0 14px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">1</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">2</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">3</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">4</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">5</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">6</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700; color:var(--dim);">…</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; font-weight:700;">0</div>
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center; font-size:16px; color:var(--dim);">⌫</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 7. 親のタスク管理（Web版） -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">7. 親のタスク管理（Web版）</div>
+  <p class="section-desc">親はWebで定期タスクを管理。スマホアプリ不要。</p>
+  <div class="phones-row">
+    <div class="phone-wrap">
+      <div class="phone-label">定期タスク管理</div>
+      <div class="web-frame">
+        <div class="web-titlebar">
+          <div class="web-dots">
+            <div class="web-dot r"></div>
+            <div class="web-dot y"></div>
+            <div class="web-dot g"></div>
+          </div>
+          <div class="web-url">app.questboard.jp/parent/tasks</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:200px 1fr; height:460px;">
+          <!-- サイドバー -->
+          <div style="background:#0a0b14; border-right:1px solid var(--border); padding:20px 0;">
+            <div style="padding:0 16px 16px; border-bottom:1px solid var(--border); margin-bottom:16px;">
+              <div style="font-family:'Cinzel',serif; font-size:14px; color:var(--gold); margin-bottom:4px;">⚔ QuestBoard</div>
+              <div style="font-size:11px; color:var(--dim);">保護者ダッシュボード</div>
+            </div>
+            <div style="padding:0 8px; display:flex; flex-direction:column; gap:2px;">
+              <div style="padding:9px 10px; border-radius:8px; font-size:12px; color:var(--dim); display:flex; align-items:center; gap:8px;">📊 ダッシュボード</div>
+              <div style="padding:9px 10px; border-radius:8px; background:rgba(240,192,64,0.1); font-size:12px; color:var(--gold); display:flex; align-items:center; gap:8px; border:1px solid rgba(240,192,64,0.2);">⚔️ タスク管理</div>
+              <div style="padding:9px 10px; border-radius:8px; font-size:12px; color:var(--dim); display:flex; align-items:center; gap:8px;">✅ 承認待ち <span style="margin-left:auto; background:var(--stamina); color:white; border-radius:10px; padding:1px 7px; font-size:10px;">3</span></div>
+              <div style="padding:9px 10px; border-radius:8px; font-size:12px; color:var(--dim); display:flex; align-items:center; gap:8px;">📈 レポート</div>
+              <div style="padding:9px 10px; border-radius:8px; font-size:12px; color:var(--dim); display:flex; align-items:center; gap:8px;">⚙️ 設定</div>
+            </div>
+          </div>
+
+          <!-- メインコンテンツ -->
+          <div style="padding:20px; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <div>
+                <div style="font-family:'Cinzel',serif; font-size:16px; color:var(--gold);">定期タスク管理</div>
+                <div style="font-size:11px; color:var(--dim); margin-top:2px;">タクミ の毎日のクエスト</div>
+              </div>
+              <button style="background:linear-gradient(135deg,var(--gold2),var(--gold)); border:none; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:700; color:#0a0c18; cursor:pointer; font-family:'Cinzel',serif;">＋ タスクを追加</button>
+            </div>
+
+            <!-- タスク一覧 -->
+            <div style="display:flex; flex-direction:column; gap:8px;">
+
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
+                <div style="font-size:22px;">📚</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700; margin-bottom:3px;">数学の宿題</div>
+                  <div style="display:flex; gap:6px;">
+                    <span class="pill pill-study">📚 学力</span>
+                    <span class="pill pill-gold">+15pt</span>
+                    <span style="font-size:10px; color:var(--dim); padding:3px 0;">毎日</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="font-size:11px; color:var(--life); background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); border-radius:6px; padding:3px 10px;">有効</div>
+                  <div style="font-size:16px; color:var(--dim); cursor:pointer;">⋮</div>
+                </div>
+              </div>
+
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
+                <div style="font-size:22px;">🛁</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700; margin-bottom:3px;">お風呂に入る</div>
+                  <div style="display:flex; gap:6px;">
+                    <span class="pill pill-life">🌿 生活力</span>
+                    <span class="pill pill-gold">+10pt</span>
+                    <span style="font-size:10px; color:var(--dim); padding:3px 0;">毎日</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="font-size:11px; color:var(--life); background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); border-radius:6px; padding:3px 10px;">有効</div>
+                  <div style="font-size:16px; color:var(--dim); cursor:pointer;">⋮</div>
+                </div>
+              </div>
+
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px;">
+                <div style="font-size:22px;">🍳</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700; margin-bottom:3px;">朝食を食べる</div>
+                  <div style="display:flex; gap:6px;">
+                    <span class="pill pill-life">🌿 生活力</span>
+                    <span class="pill pill-gold">+5pt</span>
+                    <span style="font-size:10px; color:var(--dim); padding:3px 0;">毎日</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="font-size:11px; color:var(--life); background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); border-radius:6px; padding:3px 10px;">有効</div>
+                  <div style="font-size:16px; color:var(--dim); cursor:pointer;">⋮</div>
+                </div>
+              </div>
+
+              <div style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px; opacity:0.5;">
+                <div style="font-size:22px;">🧹</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:700; margin-bottom:3px;">部屋の掃除</div>
+                  <div style="display:flex; gap:6px;">
+                    <span class="pill pill-life">🌿 生活力</span>
+                    <span class="pill pill-gold">+10pt</span>
+                    <span style="font-size:10px; color:var(--dim); padding:3px 0;">週末のみ</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="font-size:11px; color:var(--dim); background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:3px 10px;">無効</div>
+                  <div style="font-size:16px; color:var(--dim); cursor:pointer;">⋮</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>QuestBoard — パラメータ画面</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080f;
+    --panel: #0e1020;
+    --card: #131828;
+    --card2: #181e30;
+    --border: #1e2540;
+    --gold: #f0c040;
+    --gold2: #c9973a;
+    --text: #e8e4d8;
+    --dim: #555a72;
+    --dim2: #3a3f58;
+    --study: #60a5fa;
+    --stamina: #f87171;
+    --life: #4ade80;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 80px;
+  }
+
+  /* ===== PHONE ===== */
+  .phone {
+    width: 375px;
+    background: var(--panel);
+    border-radius: 44px;
+    border: 2px solid #1e2540;
+    box-shadow:
+      0 0 0 7px #05060a,
+      0 0 0 9px #141828,
+      0 50px 120px rgba(0,0,0,0.95);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 28px;
+    background: #05060a;
+    border-radius: 0 0 16px 16px;
+    z-index: 10;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    padding: 38px 20px 0;
+    background: linear-gradient(180deg, #0b0d1a 0%, transparent 100%);
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0;
+  }
+
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--dim);
+  }
+
+  .header-title {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .placeholder { width: 36px; }
+
+  /* ===== MONSTER HERO ===== */
+  .monster-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 20px 16px;
+    position: relative;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 70%);
+    top: 10px;
+    pointer-events: none;
+    animation: pulseGlow 3s ease-in-out infinite;
+  }
+
+  @keyframes pulseGlow {
+    0%,100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+
+  .monster-emoji {
+    font-size: 72px;
+    animation: float 3.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 18px rgba(167,139,250,0.5));
+    position: relative; z-index: 1;
+    margin-bottom: 10px;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-8px) rotate(2deg); }
+  }
+
+  .monster-name {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .monster-pills {
+    display: flex; gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .pill {
+    font-size: 11px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .pill-lv { background: rgba(240,192,64,0.12); color: var(--gold); border: 1px solid rgba(240,192,64,0.25); }
+  .pill-type { background: rgba(167,139,250,0.12); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+
+  /* ===== TOTAL LEVEL ===== */
+  .total-row {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 0 4px;
+  }
+
+  .total-label { font-size: 12px; color: var(--dim); }
+
+  .total-val {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .total-sub { font-size: 10px; color: var(--dim); }
+
+  /* ===== PARAMS SECTION ===== */
+  .params-section {
+    padding: 0 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 2px;
+  }
+
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--border);
+  }
+
+  /* ===== PARAM CARD ===== */
+  .param-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .param-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    border-radius: 16px 0 0 16px;
+  }
+
+  .param-card.study::before { background: var(--study); }
+  .param-card.stamina::before { background: var(--stamina); }
+  .param-card.life::before { background: var(--life); }
+
+  .param-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .param-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .param-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .study .param-icon { background: rgba(96,165,250,0.12); }
+  .stamina .param-icon { background: rgba(248,113,113,0.12); }
+  .life .param-icon { background: rgba(74,222,128,0.12); }
+
+  .param-name {
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .study .param-name { color: var(--study); }
+  .stamina .param-name { color: var(--stamina); }
+  .life .param-name { color: var(--life); }
+
+  .param-sub {
+    font-size: 10px;
+    color: var(--dim);
+    margin-top: 1px;
+  }
+
+  .param-right {
+    text-align: right;
+  }
+
+  .param-val {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .study .param-val { color: var(--study); }
+  .stamina .param-val { color: var(--stamina); }
+  .life .param-val { color: var(--life); }
+
+  .param-pct {
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 2px;
+  }
+
+  /* bar */
+  .param-bar-track {
+    height: 8px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .param-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    transition: width 1s ease;
+  }
+
+  .study .param-bar-fill { background: linear-gradient(90deg, #2563eb, var(--study)); }
+  .stamina .param-bar-fill { background: linear-gradient(90deg, #b91c1c, var(--stamina)); }
+  .life .param-bar-fill { background: linear-gradient(90deg, #15803d, var(--life)); }
+
+  .param-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2.5s infinite;
+  }
+
+  @keyframes shimmer { to { left: 200%; } }
+
+  .param-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--dim);
+  }
+
+  .param-today {
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  /* ===== RATIO / TRIANGLE ===== */
+  .ratio-section {
+    padding: 0 20px 16px;
+  }
+
+  .ratio-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  .ratio-title {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .ratio-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .ratio-bars {
+    display: flex;
+    gap: 6px;
+    height: 80px;
+    align-items: flex-end;
+    margin-bottom: 8px;
+  }
+
+  .ratio-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .ratio-bar-wrap {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px 6px 0 0;
+    height: 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .ratio-bar-inner {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    transition: height 1s ease;
+  }
+
+  .ratio-col.study .ratio-bar-inner { background: linear-gradient(180deg, var(--study), #2563eb); }
+  .ratio-col.stamina .ratio-bar-inner { background: linear-gradient(180deg, var(--stamina), #b91c1c); }
+  .ratio-col.life .ratio-bar-inner { background: linear-gradient(180deg, var(--life), #15803d); }
+
+  .ratio-pct-label {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .ratio-col.study .ratio-pct-label { color: var(--study); }
+  .ratio-col.stamina .ratio-pct-label { color: var(--stamina); }
+  .ratio-col.life .ratio-pct-label { color: var(--life); }
+
+  .ratio-icon-label { font-size: 16px; }
+  .ratio-name { font-size: 9px; color: var(--dim); }
+
+  /* evolution hint */
+  .evo-hint {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .evo-hint-icon { font-size: 22px; }
+
+  .evo-hint-text { flex: 1; }
+  .evo-hint-title { font-size: 11px; font-weight: 700; color: var(--study); margin-bottom: 2px; }
+  .evo-hint-sub { font-size: 10px; color: var(--dim); line-height: 1.5; }
+
+  .evo-hint-arrow { font-size: 14px; color: var(--dim); }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    display: flex;
+    padding: 10px 0 28px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: var(--dim);
+    cursor: pointer;
+    padding: 4px 0;
+  }
+
+  .nav-item.active { color: var(--gold); }
+  .nav-icon { font-size: 20px; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="back-btn">←</div>
+      <div class="header-title">モンスター育成</div>
+      <div class="placeholder"></div>
+    </div>
+  </div>
+
+  <!-- MONSTER HERO -->
+  <div class="monster-hero">
+    <div class="hero-glow"></div>
+    <div class="monster-emoji">😈</div>
+    <div class="monster-name">タクミ</div>
+    <div class="monster-pills">
+      <div class="pill pill-lv">Lv.9</div>
+      <div class="pill pill-type">🌑 ダークサイド</div>
+    </div>
+  </div>
+
+  <!-- TOTAL LEVEL -->
+  <div style="padding: 0 20px 12px;">
+    <div class="total-row">
+      <div>
+        <div class="total-label">合計パラメータ</div>
+        <div class="total-sub">学力 + 体力 + 生活力</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="total-val">90 pt</div>
+        <div class="total-sub">→ Lv.9（÷10）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARAMS -->
+  <div class="params-section">
+
+    <div class="section-label">パラメータ</div>
+
+    <!-- 学力 -->
+    <div class="param-card study">
+      <div class="param-top">
+        <div class="param-left">
+          <div class="param-icon">📚</div>
+          <div>
+            <div class="param-name">学力</div>
+            <div class="param-sub">勉強・知識系タスク</div>
+          </div>
+        </div>
+        <div class="param-right">
+          <div class="param-val">48</div>
+          <div class="param-pct">53%</div>
+        </div>
+      </div>
+      <div class="param-bar-track">
+        <div class="param-bar-fill" style="width:53%;"></div>
+      </div>
+      <div class="param-bottom-row">
+        <span>前回の進化から +48</span>
+        <span class="param-today">今日 +10 📚</span>
+      </div>
+    </div>
+
+    <!-- 体力 -->
+    <div class="param-card stamina">
+      <div class="param-top">
+        <div class="param-left">
+          <div class="param-icon">💪</div>
+          <div>
+            <div class="param-name">体力</div>
+            <div class="param-sub">運動・体のケア系タスク</div>
+          </div>
+        </div>
+        <div class="param-right">
+          <div class="param-val">24</div>
+          <div class="param-pct">27%</div>
+        </div>
+      </div>
+      <div class="param-bar-track">
+        <div class="param-bar-fill" style="width:27%;"></div>
+      </div>
+      <div class="param-bottom-row">
+        <span>前回の進化から +24</span>
+        <span style="color:var(--dim)">今日 +0</span>
+      </div>
+    </div>
+
+    <!-- 生活力 -->
+    <div class="param-card life">
+      <div class="param-top">
+        <div class="param-left">
+          <div class="param-icon">🌿</div>
+          <div>
+            <div class="param-name">生活力</div>
+            <div class="param-sub">生活習慣・お手伝い系タスク</div>
+          </div>
+        </div>
+        <div class="param-right">
+          <div class="param-val">18</div>
+          <div class="param-pct">20%</div>
+        </div>
+      </div>
+      <div class="param-bar-track">
+        <div class="param-bar-fill" style="width:20%;"></div>
+      </div>
+      <div class="param-bottom-row">
+        <span>前回の進化から +18</span>
+        <span style="color:var(--dim)">今日 +0</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RATIO -->
+  <div class="ratio-section">
+    <div class="ratio-card">
+      <div class="ratio-title">現在の割合 → 進化先の予測</div>
+
+      <div class="ratio-bars">
+        <div class="ratio-col study">
+          <div class="ratio-pct-label">53%</div>
+          <div class="ratio-bar-wrap">
+            <div class="ratio-bar-inner" style="height:53%;"></div>
+          </div>
+          <div class="ratio-icon-label">📚</div>
+          <div class="ratio-name">学力</div>
+        </div>
+        <div class="ratio-col stamina">
+          <div class="ratio-pct-label">27%</div>
+          <div class="ratio-bar-wrap">
+            <div class="ratio-bar-inner" style="height:27%;"></div>
+          </div>
+          <div class="ratio-icon-label">💪</div>
+          <div class="ratio-name">体力</div>
+        </div>
+        <div class="ratio-col life">
+          <div class="ratio-pct-label">20%</div>
+          <div class="ratio-bar-wrap">
+            <div class="ratio-bar-inner" style="height:20%;"></div>
+          </div>
+          <div class="ratio-icon-label">🌿</div>
+          <div class="ratio-name">生活力</div>
+        </div>
+      </div>
+
+      <!-- 進化先ヒント -->
+      <div class="evo-hint">
+        <div class="evo-hint-icon">🧙</div>
+        <div class="evo-hint-text">
+          <div class="evo-hint-title">このまま進化すると → 魔術師系</div>
+          <div class="evo-hint-sub">学力が50%以上のため。体力を上げると<br>別の進化先に変わるかも…👀</div>
+        </div>
+        <div class="evo-hint-arrow">›</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <div class="nav-item"><div class="nav-icon">⚔️</div>クエスト</div>
+    <div class="nav-item"><div class="nav-icon">🏘️</div>集落</div>
+    <div class="nav-item active"><div class="nav-icon">🐣</div>育成</div>
+    <div class="nav-item"><div class="nav-icon">📖</div>図鑑</div>
+    <div class="nav-item"><div class="nav-icon">👤</div>プロフ</div>
+  </div>
+
+</div>
+
+</body>
+</html>

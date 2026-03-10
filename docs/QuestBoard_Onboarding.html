@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>QuestBoard — はじめての選択</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: #08090f;
+    transition: background 1s ease;
+    overflow-x: hidden;
+  }
+
+  /* ===== BG EFFECTS ===== */
+  .bg-orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    transition: all 1.2s ease;
+  }
+
+  .orb-l {
+    width: 400px; height: 400px;
+    background: rgba(167,139,250,0.06);
+    top: -100px; left: -100px;
+  }
+
+  .orb-r {
+    width: 400px; height: 400px;
+    background: rgba(244,114,182,0.06);
+    bottom: -100px; right: -100px;
+  }
+
+  body.dark-chosen .orb-l { background: rgba(88,28,220,0.12); transform: scale(1.3); }
+  body.dark-chosen .orb-r { background: rgba(30,10,80,0.15); }
+  body.light-chosen .orb-l { background: rgba(253,186,116,0.08); }
+  body.light-chosen .orb-r { background: rgba(244,114,182,0.14); transform: scale(1.3); }
+
+  /* ===== PHONE FRAME ===== */
+  .phone {
+    width: 360px;
+    background: #0f1120;
+    border-radius: 40px;
+    border: 2px solid #252d50;
+    box-shadow:
+      0 0 0 7px #07080d,
+      0 0 0 8px #161b30,
+      0 40px 100px rgba(0,0,0,0.9);
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    min-height: 720px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* notch */
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 90px; height: 26px;
+    background: #07080d;
+    border-radius: 0 0 14px 14px;
+    z-index: 10;
+  }
+
+  .screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding-top: 36px;
+  }
+
+  /* ===== STEP INDICATOR ===== */
+  .steps {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 0 8px;
+  }
+
+  .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #252d50;
+    transition: all 0.4s;
+  }
+
+  .step-dot.active { background: #f0c040; width: 20px; border-radius: 3px; }
+  .step-dot.done { background: #4ade80; }
+
+  /* ===== PAGE: WELCOME ===== */
+  .page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px 24px;
+    display: none;
+  }
+
+  .page.active { display: flex; }
+
+  /* welcome page */
+  .welcome-hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .welcome-egg {
+    font-size: 72px;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(240,192,64,0.4));
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .welcome-title {
+    font-family: 'Cinzel', serif;
+    font-size: 24px;
+    color: #f0c040;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(240,192,64,0.4);
+  }
+
+  .welcome-sub {
+    font-size: 13px;
+    color: #6a6f88;
+    line-height: 1.7;
+  }
+
+  /* ===== PAGE: NAME ===== */
+  .name-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .page-title {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: #f0c040;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .page-desc { font-size: 13px; color: #6a6f88; line-height: 1.6; }
+
+  .name-input-wrap { position: relative; }
+
+  .name-input {
+    width: 100%;
+    background: #161a2e;
+    border: 2px solid #252d50;
+    border-radius: 14px;
+    padding: 16px 18px;
+    font-size: 18px;
+    color: #e8e4d8;
+    font-family: 'Noto Sans JP', sans-serif;
+    outline: none;
+    transition: border-color 0.3s;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+
+  .name-input:focus { border-color: #f0c040; }
+  .name-input::placeholder { color: #3a3f58; font-size: 14px; letter-spacing: 1px; }
+
+  .name-preview {
+    text-align: center;
+    font-size: 13px;
+    color: #6a6f88;
+    margin-top: 8px;
+    min-height: 20px;
+    transition: all 0.3s;
+  }
+
+  .name-preview.filled { color: #f0c040; }
+
+  /* ===== PAGE: CHOOSE SIDE ===== */
+  .choose-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .choose-header { text-align: center; }
+
+  .choose-cards {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .side-card {
+    flex: 1;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .side-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 18px;
+  }
+
+  .side-card.dark-side {
+    background: linear-gradient(135deg, #0d0a20, #1a1040);
+    border-color: rgba(167,139,250,0.25);
+  }
+
+  .side-card.dark-side::before {
+    background: radial-gradient(circle at 50% 50%, rgba(88,28,220,0.2), transparent 70%);
+  }
+
+  .side-card.light-side {
+    background: linear-gradient(135deg, #200a18, #2a1028);
+    border-color: rgba(244,114,182,0.25);
+  }
+
+  .side-card.light-side::before {
+    background: radial-gradient(circle at 50% 50%, rgba(244,114,182,0.2), transparent 70%);
+  }
+
+  .side-card:hover::before { opacity: 1; }
+  .side-card:hover { transform: scale(1.02); }
+
+  .side-card.selected.dark-side {
+    border-color: #a78bfa;
+    box-shadow: 0 0 30px rgba(167,139,250,0.3), inset 0 0 30px rgba(88,28,220,0.1);
+  }
+
+  .side-card.selected.light-side {
+    border-color: #f472b6;
+    box-shadow: 0 0 30px rgba(244,114,182,0.3), inset 0 0 30px rgba(244,114,182,0.1);
+  }
+
+  .side-emoji {
+    font-size: 48px;
+    transition: transform 0.3s;
+    filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+  }
+
+  .side-card.selected .side-emoji { transform: scale(1.15); }
+
+  .side-name {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    letter-spacing: 1px;
+  }
+
+  .dark-side .side-name { color: #c4b5fd; }
+  .light-side .side-name { color: #f9a8d4; }
+
+  .side-monsters {
+    font-size: 22px;
+    letter-spacing: 4px;
+    margin: 2px 0;
+  }
+
+  .side-desc {
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .dark-side .side-desc { color: #7c6fa8; }
+  .light-side .side-desc { color: #9d6a7a; }
+
+  .selected-check {
+    position: absolute;
+    top: 12px; right: 14px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .dark-side .selected-check { background: #a78bfa; color: #0d0a20; }
+  .light-side .selected-check { background: #f472b6; color: #200a18; }
+  .side-card.selected .selected-check { opacity: 1; }
+
+  /* ===== PAGE: RESULT ===== */
+  .result-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .result-monster {
+    font-size: 80px;
+    animation: bornFloat 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(240,192,64,0.5));
+  }
+
+  @keyframes bornFloat {
+    0%,100% { transform: translateY(0) rotate(-3deg); }
+    50% { transform: translateY(-10px) rotate(3deg); }
+  }
+
+  .result-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: #6a6f88;
+  }
+
+  .result-name {
+    font-family: 'Cinzel', serif;
+    font-size: 26px;
+    color: #f0c040;
+    text-shadow: 0 0 20px rgba(240,192,64,0.4);
+  }
+
+  .result-class {
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 4px 14px;
+    border-radius: 20px;
+  }
+
+  .dark-result .result-class { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+  .light-result .result-class { background: rgba(244,114,182,0.15); color: #f472b6; border: 1px solid rgba(244,114,182,0.3); }
+
+  .result-evo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #6a6f88;
+    background: #161a2e;
+    border: 1px solid #252d50;
+    border-radius: 12px;
+    padding: 10px 16px;
+  }
+
+  .result-evo-emojis { font-size: 18px; letter-spacing: 4px; }
+  .result-evo-arrow { color: #3a3f58; }
+
+  /* ===== BUTTONS ===== */
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: linear-gradient(135deg, #c9973a, #f0c040);
+    color: #0a0c18;
+    box-shadow: 0 4px 20px rgba(240,192,64,0.3);
+    margin-top: auto;
+  }
+
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(240,192,64,0.45); }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+  .btn-start {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+
+  .dark-result .btn-start {
+    background: linear-gradient(135deg, #4c1d95, #7c3aed);
+    color: white;
+    box-shadow: 0 4px 20px rgba(167,139,250,0.3);
+  }
+
+  .light-result .btn-start {
+    background: linear-gradient(135deg, #9d174d, #ec4899);
+    color: white;
+    box-shadow: 0 4px 20px rgba(244,114,182,0.3);
+  }
+
+  .btn-start:hover { transform: translateY(-2px); }
+
+  /* skip link */
+  .skip {
+    text-align: center;
+    font-size: 11px;
+    color: #3a3f58;
+    padding: 8px 0;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .skip:hover { color: #6a6f88; }
+
+  /* ===== SHIMMER on result ===== */
+  @keyframes shimmerIn {
+    0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .result-section > * {
+    animation: shimmerIn 0.5s ease forwards;
+  }
+
+  .result-section > *:nth-child(1) { animation-delay: 0.0s; }
+  .result-section > *:nth-child(2) { animation-delay: 0.1s; }
+  .result-section > *:nth-child(3) { animation-delay: 0.2s; }
+  .result-section > *:nth-child(4) { animation-delay: 0.3s; }
+  .result-section > *:nth-child(5) { animation-delay: 0.4s; }
+</style>
+</head>
+<body>
+<div class="bg-orb orb-l"></div>
+<div class="bg-orb orb-r"></div>
+
+<div class="phone">
+  <div class="screen">
+
+    <!-- STEP DOTS -->
+    <div class="steps">
+      <div class="step-dot active" id="dot0"></div>
+      <div class="step-dot" id="dot1"></div>
+      <div class="step-dot" id="dot2"></div>
+      <div class="step-dot" id="dot3"></div>
+    </div>
+
+    <!-- ===== PAGE 0: WELCOME ===== -->
+    <div class="page active" id="page0">
+      <div class="welcome-hero">
+        <div class="welcome-egg">🥚</div>
+        <div class="welcome-title">QuestBoard</div>
+        <div class="welcome-sub">
+          タスクをこなして<br>
+          自分だけのモンスターを育てよう。<br>
+          さあ、冒険をはじめよう。
+        </div>
+      </div>
+      <button class="btn-primary" onclick="goTo(1)">⚔ はじめる</button>
+    </div>
+
+    <!-- ===== PAGE 1: NAME ===== -->
+    <div class="page" id="page1">
+      <div class="name-section">
+        <div>
+          <div class="page-title">冒険者の名前は？</div>
+          <div class="page-desc" style="margin-top:6px;">あなたのモンスターの名前になります</div>
+        </div>
+        <div class="name-input-wrap">
+          <input
+            class="name-input"
+            id="nameInput"
+            type="text"
+            placeholder="名前を入力してね"
+            maxlength="10"
+            oninput="onNameInput(this.value)"
+          >
+          <div class="name-preview" id="namePreview">10文字まで入力できます</div>
+        </div>
+      </div>
+      <button class="btn-primary" id="nameBtn" onclick="goTo(2)" disabled>つぎへ →</button>
+      <div class="skip" onclick="goTo(2)">スキップ</div>
+    </div>
+
+    <!-- ===== PAGE 2: CHOOSE SIDE ===== -->
+    <div class="page" id="page2">
+      <div class="choose-section">
+        <div class="choose-header">
+          <div class="page-title">どちらの道を選ぶ？</div>
+          <div class="page-desc" style="margin-top:4px; font-size:12px;">あとから変えることもできるよ</div>
+        </div>
+
+        <div class="choose-cards">
+          <div class="side-card dark-side" id="darkCard" onclick="selectSide('dark')">
+            <div class="selected-check">✓</div>
+            <div class="side-emoji">🌑</div>
+            <div class="side-name">ダークサイド</div>
+            <div class="side-monsters">👾 😈 💀 🐺</div>
+            <div class="side-desc">闇・魔王・悪魔系<br>かっこいいモンスターに育てよう</div>
+          </div>
+
+          <div class="side-card light-side" id="lightCard" onclick="selectSide('light')">
+            <div class="selected-check">✓</div>
+            <div class="side-emoji">🌸</div>
+            <div class="side-name">ライトサイド</div>
+            <div class="side-monsters">🐣 🦊 🦄 🌟</div>
+            <div class="side-desc">妖精・動物・癒し系<br>かわいいモンスターに育てよう</div>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="sideBtn" onclick="goTo(3)" disabled>この道で行く！</button>
+      </div>
+    </div>
+
+    <!-- ===== PAGE 3: RESULT ===== -->
+    <div class="page" id="page3">
+      <div class="result-section" id="resultSection">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let currentName = '';
+  let chosenSide = null;
+
+  function goTo(page) {
+    document.querySelectorAll('.page').forEach((p, i) => {
+      p.classList.toggle('active', i === page);
+    });
+    document.querySelectorAll('.step-dot').forEach((d, i) => {
+      d.classList.remove('active', 'done');
+      if (i < page) d.classList.add('done');
+      if (i === page) d.classList.add('active');
+    });
+    if (page === 3) showResult();
+  }
+
+  function onNameInput(val) {
+    currentName = val.trim();
+    const preview = document.getElementById('namePreview');
+    const btn = document.getElementById('nameBtn');
+    if (currentName.length > 0) {
+      preview.textContent = `「${currentName}」で冒険をはじめる`;
+      preview.classList.add('filled');
+      btn.disabled = false;
+    } else {
+      preview.textContent = '10文字まで入力できます';
+      preview.classList.remove('filled');
+      btn.disabled = true;
+    }
+  }
+
+  function selectSide(side) {
+    chosenSide = side;
+    document.getElementById('darkCard').classList.toggle('selected', side === 'dark');
+    document.getElementById('lightCard').classList.toggle('selected', side === 'light');
+    document.getElementById('sideBtn').disabled = false;
+
+    document.body.classList.remove('dark-chosen', 'light-chosen');
+    document.body.classList.add(side === 'dark' ? 'dark-chosen' : 'light-chosen');
+  }
+
+  function showResult() {
+    const name = currentName || 'モンスター';
+    const isDark = chosenSide === 'dark';
+    const section = document.getElementById('resultSection');
+
+    if (isDark) {
+      section.className = 'result-section dark-result';
+      section.innerHTML = `
+        <div style="font-size:13px; color:#6a6f88; letter-spacing:2px;">✨ たまごが孵化した！</div>
+        <div class="result-monster">👾</div>
+        <div class="result-title">その名は</div>
+        <div class="result-name">${name}</div>
+        <div class="result-class">⚔ ダークモンスター · Lv.1</div>
+        <div class="result-evo">
+          <div>
+            <div style="font-size:10px; color:#6a6f88; margin-bottom:4px; letter-spacing:1px;">進化ルート</div>
+            <div class="result-evo-emojis">👾 → 🧿 → 😈 → 👑</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:#6a6f88; line-height:1.7;">
+          タスクをこなすほど<br>強く・かっこよく進化していく
+        </div>
+        <button class="btn-start dark-result" onclick="alert('ゲームスタート！（実装予定）')">
+          🌑 冒険をはじめる
+        </button>
+      `;
+    } else {
+      section.className = 'result-section light-result';
+      section.innerHTML = `
+        <div style="font-size:13px; color:#6a6f88; letter-spacing:2px;">✨ たまごが孵化した！</div>
+        <div class="result-monster">🐣</div>
+        <div class="result-title">その名は</div>
+        <div class="result-name">${name}</div>
+        <div class="result-class">🌸 ライトモンスター · Lv.1</div>
+        <div class="result-evo">
+          <div>
+            <div style="font-size:10px; color:#6a6f88; margin-bottom:4px; letter-spacing:1px;">進化ルート</div>
+            <div class="result-evo-emojis">🐣 → 🦊 → 🦄 → 🌟</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:#6a6f88; line-height:1.7;">
+          タスクをこなすほど<br>かわいく・素敵に進化していく
+        </div>
+        <button class="btn-start light-result" onclick="alert('ゲームスタート！（実装予定）')">
+          🌸 冒険をはじめる
+        </button>
+      `;
+    }
+  }
+</script>
+</body>
+</html>
