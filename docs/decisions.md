@@ -73,6 +73,17 @@
 - 子供が親の確認なしにタスクをスキップできると、ストリーク維持のために安易にスキップする可能性がある
 - 親が承認したスキップは「今日はできない」という正当な判断として、ストリーク継続を認めることでADHD特性への配慮と親の監督権限を両立
 
+## 2026-03-15: Docker Compose の Windows 対応（network_mode: host 廃止）
+
+### 決定内容
+- `network_mode: host` を廃止し、`ports: ["3001:3001"]` でポートマッピング
+- ホスト側サービス (Supabase: 54331, PostgreSQL: 54332) へのアクセスは `host.docker.internal` を使用
+- `NEXT_PUBLIC_SUPABASE_URL` のビルドarg も `http://host.docker.internal:54331` に変更
+
+### 理由
+- `network_mode: host` は Linux 専用。Windows (Docker Desktop) では動作せず ERR_CONNECTION_REFUSED になる
+- `host.docker.internal` は Docker Desktop (Win/Mac) がホスト側DNSに自動追加するため、ブラウザからもコンテナ内からも同じホスト名でアクセス可能
+
 ## 2026-03-15: 親画面「今日の完了タスク」にSKIPPEDも表示
 
 ### 決定内容

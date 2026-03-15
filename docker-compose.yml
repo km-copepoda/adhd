@@ -5,16 +5,21 @@ services:
       dockerfile: Dockerfile
       args:
         # NEXT_PUBLIC_ はビルド時にインライン化されるためbuild argsで渡す
-        NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54331"
+        # host.docker.internal はDocker Desktop(Win/Mac)でホストに解決される
+        # ブラウザ(ホスト)からもコンテナ内からも同じホスト名でアクセス可能
+        NEXT_PUBLIC_SUPABASE_URL: "http://host.docker.internal:54331"
         NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
-    # host networkを使うことでコンテナからlocalhostでホスト側サービスにアクセス可能
-    # ブラウザ(localhost)とサーバー(localhost)で同じURLを使える
-    network_mode: host
+    # Windows (Docker Desktop) では network_mode: host が動作しないため ports でマッピング
+    # ホスト側Supabase/DBへのアクセスは host.docker.internal を使用
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54332/postgres
-      - DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:54332/postgres
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54332/postgres
+      - DIRECT_URL=postgresql://postgres:postgres@host.docker.internal:54332/postgres
     restart: unless-stopped
