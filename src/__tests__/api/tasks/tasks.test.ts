@@ -115,7 +115,8 @@ describe("POST /api/tasks", () => {
     });
   });
 
-  it("一時タスクでtargetDateがない場合、nullになること", async () => {
+  it("一時タスクでtargetDateがない場合、当日の日付が設定されること", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00"));
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-temp2" } as any);
 
@@ -128,10 +129,12 @@ describe("POST /api/tasks", () => {
       })
     );
 
+    const today = new Date("2026-03-12T00:00:00");
+    today.setHours(0, 0, 0, 0);
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         isTemporary: true,
-        targetDate: null,
+        targetDate: today,
       }),
     });
   });

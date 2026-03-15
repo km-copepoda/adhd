@@ -111,7 +111,7 @@ describe("GET /api/quests/today", () => {
     });
   });
 
-  it("targetDate=nullの一時タスクが当日クエストとして含まれること", async () => {
+  it("一時タスクはtargetDate=今日の条件でのみ取得されること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
@@ -121,13 +121,17 @@ describe("GET /api/quests/today", () => {
 
     await GET();
 
-    // OR条件に { isTemporary: true, targetDate: null } が含まれること
-    expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        OR: expect.arrayContaining([
-          { isTemporary: true, targetDate: null },
-        ]),
-      }),
-    });
+    const today = new Date("2026-03-12T00:00:00.000Z");
+    today.setHours(0, 0, 0, 0);
+
+    // OR条件に targetDate=今日 の一時タスク条件が含まれ、targetDate=null 条件は含まれないこと
+    const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0];
+    const orConditions = call.where.OR;
+    expect(orConditions).toEqual(
+      expect.arrayContaining([{ isTemporary: true, targetDate: today }])
+    );
+    expect(orConditions).not.toEqual(
+      expect.arrayContaining([{ isTemporary: true, targetDate: null }])
+    );
   });
 });

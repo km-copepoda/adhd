@@ -33,7 +33,11 @@ export async function POST(request: Request) {
       difficulty: body.difficulty,
       repeatDays: isTemporary ? [] : (body.repeatDays ?? []),
       isTemporary,
-      targetDate: isTemporary && body.targetDate ? new Date(body.targetDate) : null,
+      targetDate: isTemporary
+        ? body.targetDate
+          ? new Date(body.targetDate)
+          : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })()
+        : null,
       createdBy: user.role,
       familyId: user.familyId,
     },

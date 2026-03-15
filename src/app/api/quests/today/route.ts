@@ -20,9 +20,8 @@ export async function GET() {
       OR: [
         // 通常タスク: 今日の曜日に対応
         { isTemporary: false, repeatDays: { has: dayOfWeek } },
-        // 一時タスク: targetDate が今日、または未指定（null = 当日扱い）
+        // 一時タスク: targetDate が今日
         { isTemporary: true, targetDate: today },
-        { isTemporary: true, targetDate: null },
       ],
     },
   });
