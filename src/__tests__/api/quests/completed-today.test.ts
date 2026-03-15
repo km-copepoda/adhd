@@ -69,7 +69,7 @@ describe("GET /api/quests/completed-today", () => {
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: "APPROVED",
+          status: { in: ["APPROVED", "SKIPPED"] },
           approvedAt: {
             gte: today,
             lt: tomorrow,
