@@ -1,0 +1,42 @@
+import type { Metadata, Viewport } from "next";
+import { Noto_Sans_JP, Cinzel } from "next/font/google";
+import "./globals.css";
+
+const notoSansJP = Noto_Sans_JP({
+  variable: "--font-noto-sans-jp",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+});
+
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
+  subsets: ["latin"],
+  weight: ["700"],
+});
+
+export const metadata: Metadata = {
+  title: "QuestBoard",
+  description: "クエストをクリアしてモンスターを育てよう！",
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#07080f",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="ja">
+      <body className={`${notoSansJP.variable} ${cinzel.variable} font-sans antialiased`}>
+        {children}
+      </body>
+    </html>
+  );
+}

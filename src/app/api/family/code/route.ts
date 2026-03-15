@@ -1,0 +1,63 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { generateFamilyCode } from "@/lib/constants";
+
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+    if (!user || !user.familyId) {
+      return NextResponse.json({ code: null, members: [] });
+    }
+
+    const family = await prisma.family.findUnique({
+      where: { id: user.familyId },
+      include: { users: true },
+    });
+
+    const members = (family?.users || []).map((u: Record<string, unknown>) => ({
+      id: u.id,
+      name: u.name,
+      role: u.role,
+      monsterName: u.monsterName,
+      side: u.side,
+      childCode: u.childCode ?? null,
+      minTasksForStreak: u.minTasksForStreak ?? 1,
+    }));
+
+    return NextResponse.json({
+      code: family?.code,
+      members,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("GET /api/family/code error:", message, e);
+    return NextResponse.json({ code: null, members: [], error: message }, { status: 500 });
+  }
+}
+
+export async function POST() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "PARENT") {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
+
+  if (user.familyId) {
+    // Regenerate code
+    const family = await prisma.family.update({
+      where: { id: user.familyId },
+      data: { code: generateFamilyCode() },
+    });
+    return NextResponse.json({ code: family.code });
+  }
+
+  // Create new family
+  const family = await prisma.family.create({
+    data: {
+      code: generateFamilyCode(),
+      users: { connect: { id: user.id } },
+    },
+  });
+
+  return NextResponse.json({ code: family.code });
+}

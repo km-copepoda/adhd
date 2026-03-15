@@ -1,0 +1,89 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { POST } from "@/app/api/quests/[id]/skip/route";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { makeParams } from "../../helpers/request";
+import { childUser, questInstance } from "../../helpers/fixtures";
+
+const mockPrisma = vi.mocked(prisma);
+const mockGetCurrentUser = vi.mocked(getCurrentUser);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+function makeSkipRequest(body: { comment?: string } = { comment: "体調が悪い" }) {
+  return new Request("http://localhost/api/quests/q1/skip", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("POST /api/quests/[id]/skip", () => {
+  it("未認証の場合、401を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    const res = await POST(makeSkipRequest(), makeParams("q1"));
+    expect(res.status).toBe(401);
+  });
+
+  it("存在しないクエストで404を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(null);
+
+    const res = await POST(makeSkipRequest(), makeParams("q-none"));
+    expect(res.status).toBe(404);
+  });
+
+  it("コメントなしの場合、400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    const res = await POST(makeSkipRequest({ comment: "" }), makeParams("q1"));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("コメントがない（bodyなし）場合、400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    const req = new Request("http://localhost/api/quests/q1/skip", { method: "POST" });
+    const res = await POST(req, makeParams("q1"));
+    expect(res.status).toBe(400);
+  });
+
+  it("PENDINGのクエストをSKIP_REPORTEDに更新しコメントを保存すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q1", status: "PENDING" }) as any,
+    );
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const res = await POST(makeSkipRequest({ comment: "体調が悪い" }), makeParams("q1"));
+    const json = await res.json();
+
+    expect(json.ok).toBe(true);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: { status: "SKIP_REPORTED", comment: "体調が悪い", reportedAt: expect.any(Date) },
+    });
+  });
+
+  it("PENDING以外のクエストは400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q2", status: "REPORTED" }) as any,
+    );
+
+    const res = await POST(makeSkipRequest(), makeParams("q2"));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("APPROVEDのクエストもスキップできないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q3", status: "APPROVED" }) as any,
+    );
+
+    const res = await POST(makeSkipRequest(), makeParams("q3"));
+    expect(res.status).toBe(400);
+  });
+});

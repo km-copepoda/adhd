@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  PARENT
+  CHILD
+}
+
+enum Side {
+  DARK
+  LIGHT
+}
+
+enum Difficulty {
+  EASY
+  NORMAL
+  HARD
+}
+
+enum Category {
+  STUDY
+  STAMINA
+  LIFE
+}
+
+enum QuestStatus {
+  PENDING
+  REPORTED
+  APPROVED
+  REJECTED
+  SKIPPED
+  SKIP_REPORTED
+}
+
+model Family {
+  id        String         @id @default(cuid())
+  code      String         @unique
+  createdAt DateTime       @default(now())
+  users     User[]
+  tasks     TaskTemplate[]
+}
+
+model User {
+  id          String          @id @default(cuid())
+  supabaseId  String          @unique
+  role        Role
+  name        String?
+  side        Side?
+  monsterName String?
+  childCode      String?
+  evolutionStage Int             @default(0)
+  studyPt        Int             @default(0)
+  staminaPt      Int             @default(0)
+  lifePt         Int             @default(0)
+  minTasksForStreak Int          @default(1)
+  familyId    String?
+  family      Family?         @relation(fields: [familyId], references: [id])
+  quests      QuestInstance[]
+  streak      Streak?
+  createdAt   DateTime        @default(now())
+
+  @@unique([familyId, childCode])
+}
+
+model TaskTemplate {
+  id          String          @id @default(cuid())
+  title       String
+  emoji       String          @default("⚔️")
+  category    Category
+  difficulty  Difficulty
+  repeatDays  Int[]
+  isTemporary Boolean         @default(false)
+  targetDate  DateTime?       @db.Date
+  createdBy   Role            @default(PARENT)
+  isActive    Boolean         @default(true)
+  familyId    String
+  family      Family          @relation(fields: [familyId], references: [id])
+  quests      QuestInstance[]
+  createdAt   DateTime        @default(now())
+}
+
+model QuestInstance {
+  id         String       @id @default(cuid())
+  date       DateTime     @db.Date
+  status     QuestStatus  @default(PENDING)
+  comment    String?
+  templateId String
+  template   TaskTemplate @relation(fields: [templateId], references: [id])
+  childId    String
+  child      User         @relation(fields: [childId], references: [id])
+  reportedAt DateTime?
+  approvedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@unique([templateId, childId, date])
+}
+
+model Streak {
+  id               String    @id @default(cuid())
+  childId          String    @unique
+  child            User      @relation(fields: [childId], references: [id])
+  currentStreak    Int       @default(0)
+  bestStreak       Int       @default(0)
+  lastAchievedDate DateTime? @db.Date
+  restPassUsedAt   DateTime? @db.Date
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}

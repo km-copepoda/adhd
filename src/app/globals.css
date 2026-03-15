@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* QuestBoard colors */
+  --color-quest-bg: #07080f;
+  --color-quest-card: #131828;
+  --color-quest-border: #1e2540;
+  --color-quest-gold: #f0c040;
+  --color-quest-gold-dark: #c9973a;
+  --color-quest-text: #e8e4d8;
+  --color-quest-dim: #555a72;
+
+  /* Parameter colors */
+  --color-param-study: #60a5fa;
+  --color-param-stamina: #f87171;
+  --color-param-life: #4ade80;
+
+  /* Difficulty colors */
+  --color-diff-easy: #5cb85c;
+  --color-diff-normal: #4ecdc4;
+  --color-diff-hard: #e05c5c;
+
+  --font-sans: var(--font-noto-sans-jp);
+  --font-serif: var(--font-cinzel);
+}
+
+body {
+  background: var(--color-quest-bg);
+  color: var(--color-quest-text);
+}
+
+/* Gold gradient button */
+.btn-gold {
+  background: linear-gradient(135deg, #c9973a, #f0c040);
+  color: #07080f;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 12px 24px;
+  text-align: center;
+  transition: box-shadow 0.2s;
+}
+.btn-gold:hover {
+  box-shadow: 0 4px 20px rgba(240, 192, 64, 0.4);
+}
+.btn-gold:active {
+  transform: scale(0.98);
+}
+
+/* Floating animation for monster */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Shimmer for progress bars */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}

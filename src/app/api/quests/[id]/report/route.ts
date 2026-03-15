@@ -1,0 +1,37 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { XP_MAP } from "@/lib/constants";
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const { comment } = await request.json();
+
+  // クエストとテンプレート情報を取得
+  const quest = await prisma.questInstance.findUnique({
+    where: { id, childId: user.id },
+    include: { template: true },
+  });
+  if (!quest) {
+    return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
+  }
+
+  const xp = XP_MAP[quest.template.difficulty];
+  const category = quest.template.category;
+
+  // ステータスのみ更新（ポイント付与は承認時に行う）
+  await prisma.questInstance.update({
+    where: { id },
+    data: { status: "REPORTED", comment, reportedAt: new Date() },
+  });
+
+  return NextResponse.json({ ok: true, xpAdded: xp, category });
+}
