@@ -1,4 +1,5 @@
 import Link from "next/link";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
         >
           👨‍👩‍👧 ギルドマスター（保護者）はこちら
         </Link>
+        <InstallPrompt />
       </div>
     </div>
   );
