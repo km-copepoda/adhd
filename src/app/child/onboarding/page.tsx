@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+// 全角英数字・記号 → 半角に変換（タブレットIME対策）
+function toHalfWidth(str: string): string {
+  return str.replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+}
+
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
 
@@ -69,7 +74,7 @@ export default function OnboardingPage() {
           <input
             type="text"
             value={familyCode}
-            onChange={(e) => setFamilyCode(e.target.value.toUpperCase().slice(0, 6))}
+            onChange={(e) => setFamilyCode(toHalfWidth(e.target.value).toUpperCase().slice(0, 6))}
             placeholder="ABC123"
             className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-center text-quest-text font-mono text-lg tracking-[0.3em] placeholder:text-quest-dim/50 placeholder:tracking-normal placeholder:text-sm focus:outline-none focus:border-quest-gold/50"
             autoFocus
@@ -85,7 +90,7 @@ export default function OnboardingPage() {
             type="text"
             inputMode="numeric"
             value={childCode}
-            onChange={(e) => setChildCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onChange={(e) => setChildCode(toHalfWidth(e.target.value).replace(/\D/g, "").slice(0, 4))}
             placeholder="1234"
             className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-center text-quest-text font-mono text-lg tracking-[0.3em] placeholder:text-quest-dim/50 placeholder:tracking-normal placeholder:text-sm focus:outline-none focus:border-quest-gold/50"
           />
