@@ -2,11 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-
-// 全角英数字・記号 → 半角に変換（タブレットIME対策）
-function toHalfWidth(str: string): string {
-  return str.replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-}
+import { toHalfWidth } from "@/lib/input";
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
