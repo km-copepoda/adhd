@@ -15,6 +15,13 @@ type Task = {
   targetDate: string | null;
   isActive: boolean;
   createdBy: string;
+  assignedChildId: string | null;
+  assignedChild: { id: string; monsterName: string | null } | null;
+};
+
+type Child = {
+  id: string;
+  monsterName: string | null;
 };
 
 const EMOJIS = ["⚔️", "📖", "🏃", "🧹", "🎹", "📐", "🥗", "🛏️", "🐕", "✏️"];
@@ -23,6 +30,7 @@ type FormMode = "regular" | "temporary";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
@@ -33,15 +41,29 @@ export default function TasksPage() {
     difficulty: "NORMAL" as Difficulty,
     repeatDays: [1, 2, 3, 4, 5] as number[],
     targetDate: "",
+    assignedChildId: "",
   });
 
   useEffect(() => {
     fetchTasks();
+    fetchChildren();
   }, []);
 
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
     if (res.ok) setTasks(await res.json());
+  }
+
+  async function fetchChildren() {
+    const res = await fetch("/api/family/code");
+    if (res.ok) {
+      const data = await res.json();
+      const kids = (data.members || []).filter((m: { role: string }) => m.role === "CHILD");
+      setChildren(kids);
+      if (kids.length === 1) {
+        setForm((f) => ({ ...f, assignedChildId: kids[0].id }));
+      }
+    }
   }
 
   function resetForm() {
@@ -52,6 +74,7 @@ export default function TasksPage() {
       difficulty: "NORMAL",
       repeatDays: [1, 2, 3, 4, 5],
       targetDate: "",
+      assignedChildId: children.length === 1 ? children[0].id : "",
     });
     setEditingId(null);
     setFormMode("regular");
@@ -61,6 +84,7 @@ export default function TasksPage() {
   const isEditingPending = editingId !== null && tasks.some((t) => t.id === editingId && t.createdBy === "CHILD");
 
   async function handleSubmit() {
+    if (!form.assignedChildId) return;
     const isTemporary = formMode === "temporary";
     const method = editingId ? "PUT" : "POST";
     const url = editingId ? `/api/tasks/${editingId}` : "/api/tasks";
@@ -72,6 +96,7 @@ export default function TasksPage() {
           difficulty: form.difficulty,
           isTemporary: true,
           targetDate: form.targetDate || null,
+          assignedChildId: form.assignedChildId,
         }
       : {
           title: form.title,
@@ -80,6 +105,7 @@ export default function TasksPage() {
           difficulty: form.difficulty,
           repeatDays: form.repeatDays,
           isTemporary: false,
+          assignedChildId: form.assignedChildId,
         };
 
     const res = await fetch(url, {
@@ -116,6 +142,7 @@ export default function TasksPage() {
       difficulty: task.difficulty,
       repeatDays: task.repeatDays,
       targetDate: task.targetDate ? task.targetDate.slice(0, 10) : "",
+      assignedChildId: task.assignedChildId || "",
     });
     setFormMode(task.isTemporary ? "temporary" : "regular");
     setEditingId(task.id);
@@ -134,6 +161,10 @@ export default function TasksPage() {
   const pendingTasks = tasks.filter((t) => t.createdBy === "CHILD");
   const regularTasks = tasks.filter((t) => !t.isTemporary && t.createdBy !== "CHILD");
   const temporaryTasks = tasks.filter((t) => t.isTemporary && t.createdBy !== "CHILD");
+
+  function childName(task: Task) {
+    return task.assignedChild?.monsterName || "不明";
+  }
 
   return (
     <div>
@@ -185,6 +216,32 @@ export default function TasksPage() {
               ? "一時タスクを作成"
               : "新しいタスクを作成"}
           </h3>
+
+          {/* Child selector */}
+          <label className="block text-quest-dim text-xs mb-1 tracking-wider">
+            対象の子供
+          </label>
+          {children.length === 0 ? (
+            <p className="text-quest-dim text-xs mb-4">子供が登録されていません</p>
+          ) : children.length === 1 ? (
+            <p className="text-quest-gold text-sm mb-4">{children[0].monsterName}</p>
+          ) : (
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {children.map((child) => (
+                <button
+                  key={child.id}
+                  onClick={() => setForm((f) => ({ ...f, assignedChildId: child.id }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                    form.assignedChildId === child.id
+                      ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
+                      : "border-quest-border text-quest-dim hover:border-quest-gold/20"
+                  }`}
+                >
+                  {child.monsterName}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Title */}
           <label className="block text-quest-dim text-xs mb-1 tracking-wider">
@@ -307,7 +364,11 @@ export default function TasksPage() {
           )}
 
           <div className="flex gap-2">
-            <button onClick={handleSubmit} className="btn-gold flex-1 text-sm">
+            <button
+              onClick={handleSubmit}
+              disabled={!form.assignedChildId || !form.title.trim()}
+              className="btn-gold flex-1 text-sm disabled:opacity-40"
+            >
               {isEditingPending ? "更新して承認" : editingId ? "更新" : "作成"}
             </button>
             <button
@@ -340,6 +401,7 @@ export default function TasksPage() {
                       <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1">仮</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
+                      <span className="text-blue-400/70">{childName(task)}</span>
                       <span>{cat.emoji} {cat.name}</span>
                       <span style={{ color: diff.color }}>{diff.name}</span>
                       <span>+{XP_MAP[task.difficulty]}XP</span>
@@ -400,6 +462,7 @@ export default function TasksPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{task.title}</p>
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
+                    <span className="text-blue-400/70">{childName(task)}</span>
                     <span>{cat.emoji} {cat.name}</span>
                     <span style={{ color: diff.color }}>{diff.name}</span>
                     <span>+{XP_MAP[task.difficulty]}XP</span>
@@ -463,6 +526,7 @@ export default function TasksPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{task.title}</p>
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
+                    <span className="text-blue-400/70">{childName(task)}</span>
                     <span>{cat.emoji} {cat.name}</span>
                     <span style={{ color: diff.color }}>{diff.name}</span>
                     <span>+{XP_MAP[task.difficulty]}XP</span>

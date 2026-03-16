@@ -12,10 +12,11 @@ export async function GET() {
   today.setHours(0, 0, 0, 0);
   const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ...
 
-  // Get active templates for today (regular + temporary)
+  // Get active templates for today (regular + temporary) assigned to this child
   const templates = await prisma.taskTemplate.findMany({
     where: {
       familyId: user.familyId,
+      assignedChildId: user.id,
       isActive: true,
       OR: [
         // 通常タスク: 今日の曜日に対応
