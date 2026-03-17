@@ -50,14 +50,44 @@ docker restart supabase_realtime_adhd
 
 ## Prisma スキーマ変更後
 
+`prisma migrate dev` は Supabase のシャドウ DB 制約で失敗するため、以下の手順を使う。
+
+### 1. ローカル DB に反映
+
 ```bash
-npx prisma migrate dev --name <migration_name>
+npx prisma db push
 npx prisma generate
 rm -rf .next
 docker restart supabase_realtime_adhd
 ```
 
 Turbopack がキャッシュするため `.next` 削除 + dev サーバー再起動が必須。
+
+### 2. マイグレーションファイルを手動作成
+
+`prisma/migrations/YYYYMMDDHHMMSS_<名前>/migration.sql` を作成し、変更内容の SQL を記述する。
+
+```sql
+-- 例: カラム追加
+ALTER TABLE "SomeTable" ADD COLUMN "newColumn" TEXT;
+```
+
+### 3. ローカルの migration 履歴に登録
+
+```bash
+npx prisma migrate resolve --applied <YYYYMMDDHHMMSS_名前>
+```
+
+### 4. 本番への反映（Vercel 経由で自動）
+
+`package.json` の `build` スクリプトに `prisma migrate deploy` が含まれているため、
+Vercel へのデプロイ時に自動でマイグレーションが適用される。
+
+```json
+"build": "prisma migrate deploy && prisma generate && next build"
+```
+
+> 本番の `DATABASE_URL` は Vercel の Environment Variables に設定すること。
 
 ## 主な画面
 
