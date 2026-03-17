@@ -1,11 +1,18 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 import Sidebar from "@/components/parent/Sidebar";
 import ParentBottomNav from "@/components/parent/ParentBottomNav";
 
-export default function ParentLayout({
+export default async function ParentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "PARENT") {
+    redirect("/login");
+  }
+
   return (
     <div className="flex min-h-dvh">
       <Sidebar />
