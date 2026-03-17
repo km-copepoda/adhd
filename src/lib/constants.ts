@@ -30,15 +30,17 @@ export const DIFFICULTY_LABEL: Record<Difficulty, { name: string; color: string 
 
 // Monster evolution stages per side
 // ptToEvolve = points needed to evolve FROM this stage to the next (points reset on evolution)
-// Stage 0→1: 10pt, 1→2: 30pt, 2→3: 70pt, 3 = max (no further evolution)
+// Stage 0 = egg (hatches with 1pt), 1→2: 10pt, 2→3: 30pt, 3→4: 70pt, 4 = max
 export const MONSTER_STAGES: Record<Side, { emoji: string; name: string; ptToEvolve: number | null }[]> = {
   DARK: [
+    { emoji: "🥚", name: "やみのたまご", ptToEvolve: 1 },
     { emoji: "👾", name: "シャドウ", ptToEvolve: 10 },
     { emoji: "🧿", name: "スペクター", ptToEvolve: 30 },
     { emoji: "😈", name: "デーモン", ptToEvolve: 70 },
     { emoji: "👑", name: "真・魔王", ptToEvolve: null },
   ],
   LIGHT: [
+    { emoji: "🥚", name: "たまご", ptToEvolve: 1 },
     { emoji: "🐣", name: "ヒヨコ", ptToEvolve: 10 },
     { emoji: "🦊", name: "キツネ", ptToEvolve: 30 },
     { emoji: "🦄", name: "ユニコーン", ptToEvolve: 70 },
