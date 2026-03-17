@@ -1,8 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Public routes that don't require authentication
-const PUBLIC_ROUTES = ["/", "/login", "/register", "/child/onboarding"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -28,28 +26,7 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  // Skip auth check for API routes and public routes
-  if (pathname.startsWith("/api/")) {
-    return supabaseResponse;
-  }
-
-  const isPublicRoute = PUBLIC_ROUTES.some(
-    (route) => pathname === route || pathname === route + "/"
-  );
-
-  if (!user && !isPublicRoute) {
-    // Not authenticated → redirect based on which section they tried to access
-    const redirectTo = pathname.startsWith("/parent") ? "/login" : "/";
-    const url = request.nextUrl.clone();
-    url.pathname = redirectTo;
-    return NextResponse.redirect(url);
-  }
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
