@@ -21,6 +21,7 @@ export async function GET() {
       role: u.role,
       monsterName: u.monsterName,
       side: u.side,
+      evolutionStage: u.evolutionStage ?? 0,
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
     }));

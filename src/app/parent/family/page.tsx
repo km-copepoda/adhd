@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getMonsterStage } from "@/lib/constants";
 import type { Side } from "@/types";
 
 type Member = {
@@ -9,6 +10,7 @@ type Member = {
   role: string;
   monsterName: string | null;
   side: string | null;
+  evolutionStage: number;
   childCode: string | null;
   minTasksForStreak: number;
 };
@@ -27,6 +29,8 @@ export default function FamilyPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   function fetchFamily() {
     fetch("/api/family/code")
@@ -77,6 +81,19 @@ export default function FamilyPage() {
       }
     } finally {
       setSavingStreakId(null);
+    }
+  }
+
+  async function handleDeleteChild(childId: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/family/members/${childId}`, { method: "DELETE" });
+      if (res.ok) {
+        setDeleteConfirmId(null);
+        fetchFamily();
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -218,7 +235,7 @@ export default function FamilyPage() {
             >
             <div className="flex items-center gap-3 p-3">
               <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg">
-                {member.role === "PARENT" ? "👑" : member.side === "DARK" ? "👾" : "🐣"}
+                {member.role === "PARENT" ? "👑" : getMonsterStage((member.side || "LIGHT") as Side, member.evolutionStage).emoji}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">
@@ -236,27 +253,54 @@ export default function FamilyPage() {
               )}
             </div>
             {member.role === "CHILD" && (
-              <div className="flex items-center gap-2 mt-2 ml-13 pl-13">
-                <span className="text-[10px] text-quest-dim">🔥 ストリーク最低タスク数</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak - 1)}
-                    disabled={member.minTasksForStreak <= 1 || savingStreakId === member.id}
-                    className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
-                  >
-                    −
-                  </button>
-                  <span className="text-sm text-quest-gold font-bold w-6 text-center">
-                    {member.minTasksForStreak}
-                  </span>
-                  <button
-                    onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak + 1)}
-                    disabled={savingStreakId === member.id}
-                    className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
-                  >
-                    +
-                  </button>
+              <div className="flex items-center justify-between gap-2 mt-2 px-3 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-quest-dim">🔥 ストリーク最低タスク数</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak - 1)}
+                      disabled={member.minTasksForStreak <= 1 || savingStreakId === member.id}
+                      className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
+                    >
+                      −
+                    </button>
+                    <span className="text-sm text-quest-gold font-bold w-6 text-center">
+                      {member.minTasksForStreak}
+                    </span>
+                    <button
+                      onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak + 1)}
+                      disabled={savingStreakId === member.id}
+                      className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
+                {deleteConfirmId === member.id ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-red-400">本当に削除？</span>
+                    <button
+                      onClick={() => handleDeleteChild(member.id)}
+                      disabled={deleting}
+                      className="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50"
+                    >
+                      削除
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(null)}
+                      className="text-[10px] px-2 py-1 rounded bg-quest-border text-quest-dim hover:text-quest-text"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirmId(member.id)}
+                    className="text-[10px] text-quest-dim/50 hover:text-red-400 transition-colors"
+                  >
+                    削除
+                  </button>
+                )}
               </div>
             )}
             </div>
