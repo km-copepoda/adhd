@@ -16,7 +16,7 @@ export default function Home() {
           ⚔ ぼうけんをはじめる
         </Link>
         <Link
-          href="/parent/tasks"
+          href="/login"
           className="text-center text-quest-dim text-sm border border-quest-border rounded-xl py-3 hover:border-quest-gold/30 transition-colors"
         >
           👨‍👩‍👧 ギルドマスター（保護者）はこちら
