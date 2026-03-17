@@ -123,35 +123,6 @@ describe("recordDailyAchievement", () => {
     expect(mockPrisma.streak.update).not.toHaveBeenCalled();
   });
 
-  it("休息券使用日の翌日でも途切れない", async () => {
-    const twoDaysAgo = new Date("2026-03-11");
-    const yesterday = new Date("2026-03-12");
-    mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 1 }) as any,
-    );
-    mockCounts(1, 3);
-    mockPrisma.streak.upsert.mockResolvedValue(
-      streak({
-        currentStreak: 7,
-        bestStreak: 7,
-        lastAchievedDate: twoDaysAgo,
-        restPassUsedAt: yesterday,
-      }) as any,
-    );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
-
-    await recordDailyAchievement("child-1", today);
-
-    expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
-      data: {
-        currentStreak: 8,
-        bestStreak: 8,
-        lastAchievedDate: expect.any(Date),
-      },
-    });
-  });
-
   it("minTasks=3で3件目の達成（APPROVED+SKIPPED）でストリーク達成", async () => {
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique.mockResolvedValue(

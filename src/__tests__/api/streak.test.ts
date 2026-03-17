@@ -32,7 +32,6 @@ describe("GET /api/streak", () => {
     expect(json.bestStreak).toBe(0);
     expect(json.monthlyDays).toBe(0);
     expect(json.currentTitle).toBeNull();
-    expect(json.restPassAvailable).toBe(true);
   });
 
   it("ストリーク情報を正しく返すこと", async () => {

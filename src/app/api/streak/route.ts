@@ -30,9 +30,6 @@ export async function GET() {
 
   const monthlyDays = monthlyQuests.length;
 
-  // 休息券: 今週（月曜起算）にまだ使っていないか
-  const restPassAvailable = !streak?.restPassUsedAt || !isInCurrentWeek(streak.restPassUsedAt);
-
   const title = getStreakTitle(streak?.currentStreak ?? 0);
 
   return NextResponse.json({
@@ -40,19 +37,6 @@ export async function GET() {
     bestStreak: streak?.bestStreak ?? 0,
     monthlyDays,
     lastAchievedDate: streak?.lastAchievedDate?.toISOString().split("T")[0] ?? null,
-    restPassAvailable,
     currentTitle: title ? { title: title.title, emoji: title.emoji } : null,
   });
-}
-
-function isInCurrentWeek(date: Date): boolean {
-  const now = new Date();
-  const getMonday = (d: Date) => {
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.getFullYear(), d.getMonth(), diff);
-  };
-  const currentMonday = getMonday(now);
-  const dateMonday = getMonday(new Date(date));
-  return currentMonday.getTime() === dateMonday.getTime();
 }

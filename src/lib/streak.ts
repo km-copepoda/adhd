@@ -39,9 +39,6 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
   const today = normalizeDate(questDate);
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-
   const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
 
   // 同日処理済み
@@ -51,14 +48,6 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
 
   if (lastDate && lastDate.getTime() === yesterday.getTime()) {
     // 昨日も達成 → 連続
-    newStreak = streak.currentStreak + 1;
-  } else if (
-    lastDate &&
-    lastDate.getTime() === twoDaysAgo.getTime() &&
-    streak.restPassUsedAt &&
-    isInSameWeek(normalizeDate(streak.restPassUsedAt), yesterday)
-  ) {
-    // 2日前が最終達成日で、昨日に休息券を使っている → 途切れない
     newStreak = streak.currentStreak + 1;
   } else {
     // 途切れた or 初回
@@ -150,12 +139,3 @@ function normalizeDate(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-/** 2つの日付が同じ週（月曜起算・UTC）かどうか */
-function isInSameWeek(a: Date, b: Date): boolean {
-  const getMonday = (d: Date) => {
-    const day = d.getUTCDay();
-    const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), diff));
-  };
-  return getMonday(a).getTime() === getMonday(b).getTime();
-}
