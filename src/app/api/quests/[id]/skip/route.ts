@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { sendPushToParent } from "@/lib/push";
 
 export async function POST(
   request: Request,
@@ -22,6 +23,7 @@ export async function POST(
 
   const quest = await prisma.questInstance.findUnique({
     where: { id, childId: user.id },
+    include: { template: true },
   });
 
   if (!quest) {
@@ -36,6 +38,21 @@ export async function POST(
     where: { id },
     data: { status: "SKIP_REPORTED", comment: commentText, reportedAt: new Date() },
   });
+
+  // 親に通知
+  if (user.familyId) {
+    const parent = await prisma.user.findFirst({
+      where: { familyId: user.familyId, role: "PARENT" },
+    });
+    if (parent) {
+      const childName = user.monsterName ?? user.name ?? "子供";
+      await sendPushToParent(parent.id, {
+        title: "😴 スキップ申請",
+        body: `${childName}が「${quest.template.title}」のスキップを申請しました`,
+        url: "/parent/approve",
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
