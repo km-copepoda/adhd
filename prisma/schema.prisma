@@ -80,6 +80,7 @@ model TaskTemplate {
   targetDate       DateTime?       @db.Date
   createdBy        Role            @default(PARENT)
   isActive         Boolean         @default(true)
+  requestedDate    DateTime?       @db.Date
   familyId         String
   family           Family          @relation(fields: [familyId], references: [id])
   assignedChildId  String?

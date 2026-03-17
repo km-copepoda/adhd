@@ -13,6 +13,7 @@ type Task = {
   repeatDays: number[];
   isTemporary: boolean;
   targetDate: string | null;
+  requestedDate: string | null;
   isActive: boolean;
   createdBy: string;
   assignedChildId: string | null;
@@ -410,6 +411,11 @@ export default function TasksPage() {
                       ) : (
                         <span className="text-quest-dim/60">
                           {DAY_LABELS.filter((_, i) => task.repeatDays.includes(i)).join("/")}
+                        </span>
+                      )}
+                      {task.requestedDate && (
+                        <span className="text-purple-400/60">
+                          申請日:{new Date(task.requestedDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
                         </span>
                       )}
                     </div>
