@@ -45,7 +45,7 @@ COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/src/generated ./src/generated
 
 # Copy Prisma CLI for startup migration
-COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=build /app/node_modules/.bin/prisma* ./node_modules/.bin/
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 
