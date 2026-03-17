@@ -37,9 +37,9 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ familyCode, childCode, supabaseUserId: user.id }),
       });
-      const data = await res.json();
+      const resData = await res.json();
       if (!res.ok) {
-        setLoginError(data.error || "コードが正しくありません");
+        setLoginError(resData.error || "コードが正しくありません");
         return;
       }
       // ログイン成功 → フルリロードでミドルウェアがセッションを処理
