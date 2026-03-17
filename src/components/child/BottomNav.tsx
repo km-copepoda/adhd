@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[] = [
@@ -13,12 +13,11 @@ const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[]
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
 
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/child/onboarding");
+    window.location.href = "/child/onboarding";
   }
 
   return (
