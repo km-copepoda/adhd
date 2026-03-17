@@ -31,6 +31,7 @@ export default function MonsterPage() {
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEvolution, setShowEvolution] = useState(false);
+  const [hatched, setHatched] = useState(false);
   const [usingRestPass, setUsingRestPass] = useState(false);
   const prevStageRef = useRef<number | null>(null);
 
@@ -45,8 +46,13 @@ export default function MonsterPage() {
         prevStageRef.current = monsterData.evolutionStage;
         if (sessionStorage.getItem("pendingEvolution") === "true") {
           sessionStorage.removeItem("pendingEvolution");
-          setShowEvolution(true);
-          setTimeout(() => setShowEvolution(false), 3000);
+          if (monsterData.evolutionStage === 1) {
+            setHatched(true);
+            setTimeout(() => setHatched(false), 3000);
+          } else {
+            setShowEvolution(true);
+            setTimeout(() => setShowEvolution(false), 3000);
+          }
         }
       })
       .finally(() => setLoading(false));
@@ -60,8 +66,13 @@ export default function MonsterPage() {
           fetch("/api/streak").then((r) => r.json()),
         ]).then(([d, s]) => {
             if (prevStageRef.current !== null && d.evolutionStage > prevStageRef.current) {
-              setShowEvolution(true);
-              setTimeout(() => setShowEvolution(false), 3000);
+              if (prevStageRef.current === 0) {
+                setHatched(true);
+                setTimeout(() => setHatched(false), 3000);
+              } else {
+                setShowEvolution(true);
+                setTimeout(() => setShowEvolution(false), 3000);
+              }
             }
             prevStageRef.current = d.evolutionStage;
             setData(d);
@@ -108,6 +119,33 @@ export default function MonsterPage() {
           </div>
           <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
             進化した！
+          </p>
+          <p className="text-quest-gold/70 text-lg mb-8">
+            {getMonsterStage(data.side, data.evolutionStage).name}
+          </p>
+          <p className="text-quest-dim text-xs">タップして閉じる</p>
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+          `}</style>
+        </div>
+      )}
+
+      {/* Hatch cut-in overlay (egg → first form) */}
+      {hatched && data && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 animate-fade-in"
+          onClick={() => setHatched(false)}
+          style={{ animation: "fadeIn 0.3s ease-out" }}
+        >
+          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+            <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+              {getMonsterStage(data.side, data.evolutionStage).emoji}
+            </div>
+          </div>
+          <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
+            うまれた！
           </p>
           <p className="text-quest-gold/70 text-lg mb-8">
             {getMonsterStage(data.side, data.evolutionStage).name}
