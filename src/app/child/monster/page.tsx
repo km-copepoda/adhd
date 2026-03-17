@@ -22,7 +22,6 @@ type StreakData = {
   bestStreak: number;
   monthlyDays: number;
   lastAchievedDate: string | null;
-  restPassAvailable: boolean;
   currentTitle: { title: string; emoji: string } | null;
 };
 
@@ -32,7 +31,6 @@ export default function MonsterPage() {
   const [loading, setLoading] = useState(true);
   const [showEvolution, setShowEvolution] = useState(false);
   const [hatched, setHatched] = useState(false);
-  const [usingRestPass, setUsingRestPass] = useState(false);
   const prevStageRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -247,30 +245,6 @@ export default function MonsterPage() {
                 </div>
               );
             })()}
-            {/* 休息券 */}
-            <div className="mt-3 pt-3 border-t border-quest-border">
-              <button
-                disabled={!streak.restPassAvailable || usingRestPass}
-                onClick={async () => {
-                  setUsingRestPass(true);
-                  try {
-                    const res = await fetch("/api/streak/rest-pass", { method: "POST" });
-                    if (res.ok) {
-                      setStreak({ ...streak, restPassAvailable: false });
-                    }
-                  } finally {
-                    setUsingRestPass(false);
-                  }
-                }}
-                className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-                  streak.restPassAvailable
-                    ? "bg-quest-border text-quest-text hover:bg-quest-dim/30"
-                    : "bg-quest-border/50 text-quest-dim/50 cursor-not-allowed"
-                }`}
-              >
-                😴 休息券{streak.restPassAvailable ? "（今週使える）" : "（使用済み）"}
-              </button>
-            </div>
           </div>
         </div>
       )}
