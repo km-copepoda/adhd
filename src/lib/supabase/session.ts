@@ -51,12 +51,5 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If authenticated and trying to access login/register, redirect to appropriate page
-  if (user && (pathname === "/login" || pathname === "/register")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/parent/tasks";
-    return NextResponse.redirect(url);
-  }
-
   return supabaseResponse;
 }

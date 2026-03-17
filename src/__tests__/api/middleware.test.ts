@@ -75,18 +75,16 @@ describe("updateSession (middleware)", () => {
   });
 
   describe("Authenticated redirects", () => {
-    it("認証済みユーザーが /login にアクセスすると /parent/tasks にリダイレクトすること", async () => {
+    it("認証済みユーザーが /login にアクセスしてもリダイレクトしないこと（ロールチェックはlayoutに委譲）", async () => {
       mockSupabaseAuth({ id: "user-1" });
       const res = await updateSession(makeRequest("/login"));
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/parent/tasks");
+      expect(res.status).not.toBe(307);
     });
 
-    it("認証済みユーザーが /register にアクセスすると /parent/tasks にリダイレクトすること", async () => {
+    it("認証済みユーザーが /register にアクセスしてもリダイレクトしないこと", async () => {
       mockSupabaseAuth({ id: "user-1" });
       const res = await updateSession(makeRequest("/register"));
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/parent/tasks");
+      expect(res.status).not.toBe(307);
     });
 
     it("認証済みユーザーが保護ルートに正常にアクセスできること", async () => {
