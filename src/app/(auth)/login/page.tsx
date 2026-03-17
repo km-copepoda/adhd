@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,27 +15,21 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    // サーバー側でsignInWithPassword()を実行しSet-CookieでセッションをセットするためAPIを経由する
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "ログインに失敗しました");
+    if (authError) {
+      setError(authError.message);
       setLoading(false);
       return;
     }
-
-    const { user } = await res.json();
 
     // DB ユーザーが存在しない場合（DB リセット後など）に再作成する
     await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, supabaseId: user?.id }),
+      body: JSON.stringify({ email, supabaseId: data.user?.id }),
     });
 
     window.location.href = "/parent/tasks";
