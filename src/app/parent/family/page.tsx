@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getMonsterStage } from "@/lib/constants";
 import type { Side } from "@/types";
 
 type Member = {
@@ -9,6 +10,7 @@ type Member = {
   role: string;
   monsterName: string | null;
   side: string | null;
+  evolutionStage: number;
   childCode: string | null;
   minTasksForStreak: number;
 };
@@ -218,7 +220,7 @@ export default function FamilyPage() {
             >
             <div className="flex items-center gap-3 p-3">
               <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg">
-                {member.role === "PARENT" ? "👑" : member.side === "DARK" ? "👾" : "🐣"}
+                {member.role === "PARENT" ? "👑" : getMonsterStage((member.side || "LIGHT") as Side, member.evolutionStage).emoji}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">
