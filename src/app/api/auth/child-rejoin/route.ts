@@ -41,10 +41,17 @@ export async function POST(request: Request) {
   }
 
   // supabaseId をクライアント側で取得した匿名セッションに更新
-  await prisma.user.update({
-    where: { id: child.id },
-    data: { supabaseId: supabaseUserId },
-  });
+  // 同じsupabaseIdが他ユーザーに紐付いている場合（同デバイスで別の子がログイン済み等）は先に解除
+  await prisma.$transaction([
+    prisma.user.updateMany({
+      where: { supabaseId: supabaseUserId, id: { not: child.id } },
+      data: { supabaseId: `detached_${Date.now()}` },
+    }),
+    prisma.user.update({
+      where: { id: child.id },
+      data: { supabaseId: supabaseUserId },
+    }),
+  ]);
 
   return NextResponse.json({
     userId: child.id,
