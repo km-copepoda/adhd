@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP } from "@/lib/constants";
+import { sendPushToParent } from "@/lib/push";
 
 export async function POST(
   request: Request,
@@ -32,6 +33,21 @@ export async function POST(
     where: { id },
     data: { status: "REPORTED", comment, reportedAt: new Date() },
   });
+
+  // 親に通知
+  if (user.familyId) {
+    const parent = await prisma.user.findFirst({
+      where: { familyId: user.familyId, role: "PARENT" },
+    });
+    if (parent) {
+      const childName = user.monsterName ?? user.name ?? "子供";
+      await sendPushToParent(parent.id, {
+        title: "✅ クエスト報告",
+        body: `${childName}が「${quest.template.title}」を完了しました`,
+        url: "/parent/approve",
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true, xpAdded: xp, category });
 }

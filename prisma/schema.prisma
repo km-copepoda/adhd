@@ -61,11 +61,12 @@ model User {
   minTasksForStreak Int          @default(1)
   familyId    String?
   family      Family?         @relation(fields: [familyId], references: [id])
-  quests          QuestInstance[]
-  streak          Streak?
-  taskStreaks     TaskStreak[]
-  assignedTasks   TaskTemplate[]  @relation("AssignedTasks")
-  createdAt       DateTime        @default(now())
+  quests              QuestInstance[]
+  streak              Streak?
+  taskStreaks         TaskStreak[]
+  assignedTasks       TaskTemplate[]     @relation("AssignedTasks")
+  pushSubscriptions   PushSubscription[]
+  createdAt           DateTime           @default(now())
 
   @@unique([familyId, childCode])
 }
@@ -132,4 +133,14 @@ model TaskStreak {
   updatedAt        DateTime     @updatedAt
 
   @@unique([taskId, childId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 }
