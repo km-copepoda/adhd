@@ -8,7 +8,7 @@ const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[]
   { href: "/child/quests", emoji: "⚔️", label: "クエスト" },
   { href: "#", emoji: "🏘️", label: "集落", disabled: true },
   { href: "/child/monster", emoji: "🐣", label: "育成" },
-  { href: "#", emoji: "📖", label: "図鑑", disabled: true },
+  { href: "/child/zukan", emoji: "📖", label: "図鑑" },
 ];
 
 export default function BottomNav() {
