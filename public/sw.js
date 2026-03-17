@@ -2,6 +2,9 @@
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (e) => {
+  // navigationリクエスト（ページ遷移）はブラウザに任せる
+  // SWがfetch(e.request)で処理するとリダイレクトが正しく扱われない
+  if (e.request.mode === 'navigate') return;
   if (e.request.url.startsWith('http')) {
     e.respondWith(fetch(e.request));
   }
