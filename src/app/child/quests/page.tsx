@@ -18,6 +18,7 @@ type Quest = {
     difficulty: Difficulty;
     isTemporary: boolean;
     createdBy: string;
+    taskStreaks: { currentStreak: number; bestStreak: number }[];
   };
 };
 
@@ -370,6 +371,7 @@ export default function QuestsPage() {
           const diff = DIFFICULTY_LABEL[quest.template.difficulty];
           const xp = XP_MAP[quest.template.difficulty];
           const isTemporary = quest.template.isTemporary;
+          const taskStreak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
           const isApproved = quest.status === "APPROVED";
           const isReported = quest.status === "REPORTED";
           const isSkipped = quest.status === "SKIPPED";
@@ -413,6 +415,11 @@ export default function QuestsPage() {
                       {quest.template.createdBy === "CHILD" && (
                         <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1">
                           仮
+                        </span>
+                      )}
+                      {taskStreak >= 1 && (
+                        <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
+                          🔥{taskStreak}日
                         </span>
                       )}
                     </div>

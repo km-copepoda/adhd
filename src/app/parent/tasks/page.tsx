@@ -18,6 +18,7 @@ type Task = {
   createdBy: string;
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
+  taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
 };
 
 type Child = {
@@ -443,6 +444,7 @@ export default function TasksPage() {
                   {regular.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
                     const diff = DIFFICULTY_LABEL[task.difficulty];
+                    const streak = task.taskStreaks.find((s) => s.childId === child.id)?.currentStreak ?? 0;
                     return (
                       <div
                         key={task.id}
@@ -450,7 +452,14 @@ export default function TasksPage() {
                       >
                         <div className="text-2xl">{task.emoji}</div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium truncate">{task.title}</p>
+                            {streak >= 1 && (
+                              <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
+                                🔥{streak}日
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
                             <span style={{ color: diff.color }}>{diff.name}</span>
