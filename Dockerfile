@@ -44,8 +44,14 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/src/generated ./src/generated
 
+# Copy Prisma CLI for startup migration
+COPY --from=build /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=build /app/node_modules/prisma ./node_modules/prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+# Run DB migration on startup, then launch the app
+CMD ["sh", "-c", "DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} node_modules/.bin/prisma migrate deploy && node server.js"]
