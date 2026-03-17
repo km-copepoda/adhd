@@ -84,6 +84,19 @@
 - `network_mode: host` は Linux 専用。Windows (Docker Desktop) では動作せず ERR_CONNECTION_REFUSED になる
 - `host.docker.internal` は Docker Desktop (Win/Mac) がホスト側DNSに自動追加するため、ブラウザからもコンテナ内からも同じホスト名でアクセス可能
 
+## 2026-03-16: タスクをユーザー（子供）単位で管理
+
+### 決定内容
+- `TaskTemplate` に `assignedChildId` フィールドを追加し、タスクをファミリー全体ではなく特定の子供に紐付ける
+- 親がタスクを作成する際に対象の子供を指定（必須）
+- 子供が自分でタスクを追加する場合は `assignedChildId = 自分のID` を自動設定
+- `GET /api/tasks`（子供ロール）と `GET /api/quests/today` は `assignedChildId = 自分のID` でフィルタリング
+- 親のタスク管理画面に子供セレクターを追加し、各タスクに対象子供名を表示
+
+### 理由
+- 従来は `familyId` でタスクをファミリー共有していたため、複数の子供がいる場合に全員同じタスクが見えてしまう問題があった
+- 子供ごとに異なるタスクを管理できるよう、タスクを個人単位に変更
+
 ## 2026-03-15: 親画面「今日の完了タスク」にSKIPPEDも表示
 
 ### 決定内容

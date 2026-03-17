@@ -8,8 +8,20 @@ export async function GET() {
     return NextResponse.json([], { status: 200 });
   }
 
+  if (user.role === "CHILD") {
+    const tasks = await prisma.taskTemplate.findMany({
+      where: { assignedChildId: user.id, isActive: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(tasks);
+  }
+
+  // PARENT: return all family tasks with assignedChild info
   const tasks = await prisma.taskTemplate.findMany({
     where: { familyId: user.familyId, isActive: true },
+    include: {
+      assignedChild: { select: { id: true, monsterName: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -24,6 +36,18 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const isTemporary: boolean = body.isTemporary === true;
+
+  // CHILD: always assign to self
+  // PARENT: require assignedChildId
+  let assignedChildId: string;
+  if (user.role === "CHILD") {
+    assignedChildId = user.id;
+  } else {
+    if (!body.assignedChildId) {
+      return NextResponse.json({ error: "assignedChildId は必須です" }, { status: 400 });
+    }
+    assignedChildId = body.assignedChildId;
+  }
 
   const task = await prisma.taskTemplate.create({
     data: {
@@ -40,6 +64,7 @@ export async function POST(request: Request) {
         : null,
       createdBy: user.role,
       familyId: user.familyId,
+      assignedChildId,
     },
   });
 

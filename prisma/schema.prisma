@@ -61,28 +61,31 @@ model User {
   minTasksForStreak Int          @default(1)
   familyId    String?
   family      Family?         @relation(fields: [familyId], references: [id])
-  quests      QuestInstance[]
-  streak      Streak?
-  createdAt   DateTime        @default(now())
+  quests          QuestInstance[]
+  streak          Streak?
+  assignedTasks   TaskTemplate[]  @relation("AssignedTasks")
+  createdAt       DateTime        @default(now())
 
   @@unique([familyId, childCode])
 }
 
 model TaskTemplate {
-  id          String          @id @default(cuid())
-  title       String
-  emoji       String          @default("⚔️")
-  category    Category
-  difficulty  Difficulty
-  repeatDays  Int[]
-  isTemporary Boolean         @default(false)
-  targetDate  DateTime?       @db.Date
-  createdBy   Role            @default(PARENT)
-  isActive    Boolean         @default(true)
-  familyId    String
-  family      Family          @relation(fields: [familyId], references: [id])
-  quests      QuestInstance[]
-  createdAt   DateTime        @default(now())
+  id               String          @id @default(cuid())
+  title            String
+  emoji            String          @default("⚔️")
+  category         Category
+  difficulty       Difficulty
+  repeatDays       Int[]
+  isTemporary      Boolean         @default(false)
+  targetDate       DateTime?       @db.Date
+  createdBy        Role            @default(PARENT)
+  isActive         Boolean         @default(true)
+  familyId         String
+  family           Family          @relation(fields: [familyId], references: [id])
+  assignedChildId  String?
+  assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
+  quests           QuestInstance[]
+  createdAt        DateTime        @default(now())
 }
 
 model QuestInstance {
