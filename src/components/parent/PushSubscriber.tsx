@@ -8,17 +8,29 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+const VAPID_KEY_STORAGE = "vapid_pub_key";
+
 async function registerSubscription() {
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidKey) return;
   const reg = await navigator.serviceWorker.ready;
   const existing = await reg.pushManager.getSubscription();
+  const storedKey = localStorage.getItem(VAPID_KEY_STORAGE);
+
+  // VAPIDキーが変わった（または未設定時に作られた）購読は破棄して再作成
+  if (existing && storedKey !== vapidKey) {
+    await existing.unsubscribe();
+  }
+
   const sub =
-    existing ??
+    (storedKey === vapidKey ? existing : null) ??
     (await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(vapidKey),
     }));
+
+  localStorage.setItem(VAPID_KEY_STORAGE, vapidKey);
+
   await fetch("/api/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
