@@ -444,7 +444,7 @@ export default function TasksPage() {
                   {regular.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
                     const diff = DIFFICULTY_LABEL[task.difficulty];
-                    const streak = task.taskStreaks.find((s) => s.childId === child.id)?.currentStreak ?? 0;
+                    const streak = (task.taskStreaks ?? []).find((s) => s.childId === child.id)?.currentStreak ?? 0;
                     return (
                       <div
                         key={task.id}
