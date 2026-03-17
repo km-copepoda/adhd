@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import PushSubscriber from "@/components/parent/PushSubscriber";
 
 const tabs = [
   { href: "/parent/tasks", emoji: "📋", label: "タスク" },
@@ -39,6 +40,11 @@ export default function ParentBottomNav() {
             </Link>
           );
         })}
+        <PushSubscriber
+          className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors text-quest-dim hover:text-quest-gold"
+          iconClassName="text-xl"
+          labelClassName="text-[10px] tracking-wider"
+        />
         <button
           onClick={handleLogout}
           className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors text-quest-dim hover:text-red-400"

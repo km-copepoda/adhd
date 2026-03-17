@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -8,31 +8,57 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
-export default function PushSubscriber() {
+async function registerSubscription() {
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey) return;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  const sub =
+    existing ??
+    (await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    }));
+  await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub),
+  });
+}
+
+export default function PushSubscriber({
+  className,
+  iconClassName = "",
+  labelClassName = "",
+}: {
+  className?: string;
+  iconClassName?: string;
+  labelClassName?: string;
+}) {
+  const [permission, setPermission] = useState<NotificationPermission | null>(null);
+
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!vapidKey) return;
-
-    navigator.serviceWorker.ready.then(async (reg) => {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-
-      const existing = await reg.pushManager.getSubscription();
-      const sub =
-        existing ??
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey),
-        }));
-
-      await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub),
-      });
-    });
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setPermission(Notification.permission);
+    // 既に許可済みなら購読を静かに更新
+    if (Notification.permission === "granted") {
+      registerSubscription().catch(() => {});
+    }
   }, []);
 
-  return null;
+  // 未確認の場合のみボタンを表示
+  if (permission !== "default") return null;
+
+  async function handleClick() {
+    const perm = await Notification.requestPermission();
+    setPermission(perm);
+    if (perm === "granted") await registerSubscription();
+  }
+
+  return (
+    <button onClick={handleClick} className={className} title="通知を有効にする">
+      <span className={iconClassName}>🔔</span>
+      <span className={labelClassName}>通知を有効にする</span>
+    </button>
+  );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import PushSubscriber from "@/components/parent/PushSubscriber";
 
 const links = [
   { href: "/parent/tasks", emoji: "📋", label: "タスク管理" },
@@ -46,7 +47,8 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto pt-4 border-t border-quest-border">
+      <div className="mt-auto pt-4 border-t border-quest-border flex flex-col gap-1">
+        <PushSubscriber className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-quest-dim hover:text-quest-gold hover:bg-quest-gold/5 transition-colors w-full" />
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-quest-dim hover:text-red-400 hover:bg-red-400/5 transition-colors w-full"
