@@ -49,6 +49,8 @@ export async function POST(request: Request) {
     assignedChildId = body.assignedChildId;
   }
 
+  const todayDate = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+
   const task = await prisma.taskTemplate.create({
     data: {
       title: body.title,
@@ -60,8 +62,10 @@ export async function POST(request: Request) {
       targetDate: isTemporary
         ? body.targetDate
           ? new Date(body.targetDate)
-          : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })()
+          : todayDate
         : null,
+      // 子供が作成した通常タスクは申請日を記録（日付をまたいでも当日のみ表示するため）
+      requestedDate: !isTemporary && user.role === "CHILD" ? todayDate : null,
       createdBy: user.role,
       familyId: user.familyId,
       assignedChildId,
