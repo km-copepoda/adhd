@@ -21,17 +21,15 @@ export default function OnboardingPage() {
     setLoading(true);
     setLoginError("");
     try {
-      // クライアント側で匿名認証（cookieが正しくセットされる）
+      // 既存セッション（親など）をクリアしてから匿名認証
       const supabase = createClient();
-      let { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error || !data.user) {
-          setLoginError("認証に失敗しました");
-          return;
-        }
-        user = data.user;
+      await supabase.auth.signOut();
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error || !data.user) {
+        setLoginError("認証に失敗しました");
+        return;
       }
+      const user = data.user;
 
       // APIでコード検証 + supabaseId紐付け
       const res = await fetch("/api/auth/child-rejoin", {
