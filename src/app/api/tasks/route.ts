@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { sendPushToParent } from "@/lib/push";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -67,6 +68,21 @@ export async function POST(request: Request) {
       assignedChildId,
     },
   });
+
+  // 子供がタスクを申請した場合、親に通知
+  if (user.role === "CHILD" && user.familyId) {
+    const parent = await prisma.user.findFirst({
+      where: { familyId: user.familyId, role: "PARENT" },
+    });
+    if (parent) {
+      const childName = user.monsterName ?? user.name ?? "子供";
+      await sendPushToParent(parent.id, {
+        title: "📋 タスク申請",
+        body: `${childName}が「${task.title}」を申請しました`,
+        url: "/parent/tasks",
+      });
+    }
+  }
 
   return NextResponse.json(task);
 }
