@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP, checkEvolution } from "@/lib/constants";
-import { recordDailyAchievement } from "@/lib/streak";
+import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import type { Side } from "@/types";
 
 export async function POST(
@@ -96,6 +96,8 @@ export async function POST(
 
   // ストリーク記録（その日初のAPPROVEDならストリーク更新）
   await recordDailyAchievement(quest.childId, quest.date);
+  // タスク別ストリーク記録
+  await recordTaskStreak(quest.templateId, quest.childId, quest.date);
 
   return NextResponse.json({ ok: true });
 }

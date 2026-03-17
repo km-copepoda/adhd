@@ -21,6 +21,9 @@ export async function GET() {
     where: { familyId: user.familyId, isActive: true },
     include: {
       assignedChild: { select: { id: true, monsterName: true } },
+      taskStreaks: {
+        select: { childId: true, currentStreak: true, bestStreak: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });

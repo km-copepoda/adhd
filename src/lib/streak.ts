@@ -110,6 +110,41 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
   }
 }
 
+/**
+ * クエスト承認時にタスク別ストリークを記録・更新する。
+ * スキップは算入しない（APPROVEDのみ）。
+ */
+export async function recordTaskStreak(taskId: string, childId: string, questDate: Date) {
+  const streak = await prisma.taskStreak.upsert({
+    where: { taskId_childId: { taskId, childId } },
+    create: { taskId, childId, currentStreak: 0, bestStreak: 0 },
+    update: {},
+  });
+
+  const today = normalizeDate(questDate);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
+
+  // 同日処理済み
+  if (lastDate && lastDate.getTime() === today.getTime()) return;
+
+  const newStreak =
+    lastDate && lastDate.getTime() === yesterday.getTime()
+      ? streak.currentStreak + 1
+      : 1;
+
+  await prisma.taskStreak.update({
+    where: { taskId_childId: { taskId, childId } },
+    data: {
+      currentStreak: newStreak,
+      bestStreak: Math.max(newStreak, streak.bestStreak),
+      lastAchievedDate: today,
+    },
+  });
+}
+
 /** 日付を UTC 0:00:00 に正規化（TZ非依存） */
 function normalizeDate(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));

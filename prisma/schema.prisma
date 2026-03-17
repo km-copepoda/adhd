@@ -63,6 +63,7 @@ model User {
   family      Family?         @relation(fields: [familyId], references: [id])
   quests          QuestInstance[]
   streak          Streak?
+  taskStreaks     TaskStreak[]
   assignedTasks   TaskTemplate[]  @relation("AssignedTasks")
   createdAt       DateTime        @default(now())
 
@@ -86,6 +87,7 @@ model TaskTemplate {
   assignedChildId  String?
   assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests           QuestInstance[]
+  taskStreaks      TaskStreak[]
   createdAt        DateTime        @default(now())
 }
 
@@ -115,4 +117,19 @@ model Streak {
   restPassUsedAt   DateTime? @db.Date
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model TaskStreak {
+  id               String       @id @default(cuid())
+  taskId           String
+  task             TaskTemplate @relation(fields: [taskId], references: [id])
+  childId          String
+  child            User         @relation(fields: [childId], references: [id])
+  currentStreak    Int          @default(0)
+  bestStreak       Int          @default(0)
+  lastAchievedDate DateTime?    @db.Date
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([taskId, childId])
 }

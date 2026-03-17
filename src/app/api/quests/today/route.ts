@@ -66,6 +66,10 @@ export async function GET() {
           difficulty: true,
           isTemporary: true,
           createdBy: true,
+          taskStreaks: {
+            where: { childId: user.id },
+            select: { currentStreak: true, bestStreak: true },
+          },
         },
       },
     },
