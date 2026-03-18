@@ -17,8 +17,8 @@
 </style>
 </head>
 <body>
-<h1>32×32 ドット絵たまご — 金色・横帯ひびわれ</h1>
-<p class="sub">参考画像の金色たまごスタイル（横帯ひびわれ2本 / 4段シェード / ハイライト）</p>
+<h1>32×32 ドット絵たまご — 金色・アニメ風ひびわれ</h1>
+<p class="sub">インパクトポイントから4方向に亀裂が放射するアニメ風ひびわれ</p>
 
 <div class="grid" id="gallery"></div>
 
@@ -51,21 +51,43 @@ const EGG_BOT = 31 - [...EGG].reverse().findIndex(r => r !== null);
 const EGG_H   = EGG_BOT - EGG_TOP + 1;
 
 // ─── Crack pixels ─────────────────────────────────────────
-// 参考画像の金色たまご風: 横帯ひびわれ2本
-// Band1: 上1/3あたりを横断 / Band2: 下1/3あたりを横断
+// アニメ風: インパクトポイント(2px幅)から4方向に亀裂が放射
 const CRACK = new Set();
 const cp = (r, c) => CRACK.add(`${r},${c}`);
 
-// Band 1 (row CY-4 〜 CY-3): 横帯ひび (上寄り)
-// 少しうねりをつけてリアルさを出す
-[CX-7,CX-6,CX-5,CX-4,CX-3,CX-2,CX-1,CX,CX+1,CX+2,CX+3,CX+4,CX+5,CX+6].forEach(c => cp(CY-4, c));
-[CX-8,CX-7,CX-6,CX-5,CX-4,CX-3,CX-2].forEach(c => cp(CY-3, c)); // 左側は1行下にずれる
-[CX+3,CX+4,CX+5,CX+6,CX+7].forEach(c => cp(CY-3, c));            // 右側も少しずれる
+// ── メインひび: 上から下へ走るジグザグ幹 ──────────────────
+cp(CY-8, CX+1);
+cp(CY-7, CX);
+cp(CY-6, CX);   cp(CY-6, CX-1);
+cp(CY-5, CX-1); cp(CY-5, CX);   // インパクト付近 (2px幅)
+cp(CY-4, CX-1); cp(CY-4, CX-2); // インパクト (2px幅)
+cp(CY-3, CX-1);
+cp(CY-2, CX);
+cp(CY-1, CX-1);
+cp(CY,   CX-1);
+cp(CY+1, CX);
+cp(CY+2, CX);
+cp(CY+3, CX+1);
+cp(CY+4, CX+1);
 
-// Band 2 (row CY+3 〜 CY+4): 横帯ひび (下寄り)
-[CX-6,CX-5,CX-4,CX-3,CX-2,CX-1,CX,CX+1,CX+2,CX+3,CX+4,CX+5].forEach(c => cp(CY+3, c));
-[CX-7,CX-6,CX-5,CX-4,CX-3].forEach(c => cp(CY+4, c));
-[CX+2,CX+3,CX+4,CX+5,CX+6].forEach(c => cp(CY+4, c));
+// ── 枝1: 右上へ (インパクト付近から分岐) ─────────────────
+cp(CY-6, CX+2);
+cp(CY-7, CX+3); cp(CY-7, CX+2);
+cp(CY-8, CX+4);
+
+// ── 枝2: 左方向 (インパクトから分岐) ────────────────────
+cp(CY-4, CX-3); cp(CY-4, CX-4);
+cp(CY-5, CX-2); cp(CY-5, CX-3);
+cp(CY-6, CX-3);
+
+// ── 枝3: 右下へ ──────────────────────────────────────────
+cp(CY,   CX+1); cp(CY,   CX+2);
+cp(CY+1, CX+3);
+cp(CY+2, CX+3);
+
+// ── 枝4: 左下へ (短め) ───────────────────────────────────
+cp(CY+2, CX-1);
+cp(CY+3, CX-2);
 
 // ─── Pixel type ───────────────────────────────────────────
 function pixelType(row, col) {
