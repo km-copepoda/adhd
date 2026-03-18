@@ -12,7 +12,7 @@ export async function GET() {
 
     const family = await prisma.family.findUnique({
       where: { id: user.familyId },
-      include: { users: true },
+      include: { users: { orderBy: { createdAt: "asc" } } },
     });
 
     const members = (family?.users || []).map((u: Record<string, unknown>) => ({
