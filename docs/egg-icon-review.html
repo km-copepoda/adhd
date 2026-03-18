@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>たまごアイコン案レビュー</title>
+<style>
+  body { background: #07080f; color: #fff; font-family: sans-serif; padding: 40px; }
+  h1 { color: #a78bfa; margin-bottom: 8px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 48px; margin-top: 32px; }
+  .card { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .card h2 { font-size: 14px; color: #94a3b8; margin: 0; }
+  .sizes { display: flex; gap: 16px; align-items: flex-end; }
+  .label { font-size: 11px; color: #64748b; text-align: center; margin-top: 4px; }
+  .bg-check { background: #1e293b; border-radius: 8px; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>たまごアイコン案</h1>
+<p style="color:#64748b">背景: #07080f（アプリ実際の背景色）</p>
+
+<div class="grid">
+
+  <!-- 案1: シンプルかわいいたまご -->
+  <div class="card">
+    <h2>案1 — シンプルかわいい</h2>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g1" cx="40%" cy="35%" r="60%">
+              <stop offset="0%" stop-color="#fff9f0"/>
+              <stop offset="100%" stop-color="#f0d9c0"/>
+            </radialGradient>
+            <filter id="sh1">
+              <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#00000055"/>
+            </filter>
+          </defs>
+          <!-- egg shape -->
+          <ellipse cx="50" cy="58" rx="30" ry="36" fill="url(#g1)" filter="url(#sh1)"/>
+          <ellipse cx="50" cy="30" rx="22" ry="26" fill="url(#g1)" filter="url(#sh1)"/>
+          <!-- shine -->
+          <ellipse cx="38" cy="24" rx="7" ry="5" fill="white" opacity="0.6" transform="rotate(-20,38,24)"/>
+        </svg>
+        <div class="label">48px</div>
+      </div>
+      <div>
+        <svg width="96" height="96" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g1b" cx="40%" cy="35%" r="60%">
+              <stop offset="0%" stop-color="#fff9f0"/>
+              <stop offset="100%" stop-color="#f0d9c0"/>
+            </radialGradient>
+            <filter id="sh1b">
+              <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#00000055"/>
+            </filter>
+          </defs>
+          <ellipse cx="50" cy="58" rx="30" ry="36" fill="url(#g1b)" filter="url(#sh1b)"/>
+          <ellipse cx="50" cy="30" rx="22" ry="26" fill="url(#g1b)" filter="url(#sh1b)"/>
+          <ellipse cx="38" cy="24" rx="7" ry="5" fill="white" opacity="0.6" transform="rotate(-20,38,24)"/>
+        </svg>
+        <div class="label">96px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 案2: やみのたまご（ダーク紫） -->
+  <div class="card">
+    <h2>案2 — やみのたまご</h2>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g2" cx="35%" cy="30%" r="65%">
+              <stop offset="0%" stop-color="#7c3aed"/>
+              <stop offset="60%" stop-color="#2d1b69"/>
+              <stop offset="100%" stop-color="#0f0520"/>
+            </radialGradient>
+            <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sh2">
+              <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#7c3aed" flood-opacity="0.6"/>
+            </filter>
+          </defs>
+          <!-- glow bg -->
+          <ellipse cx="50" cy="50" rx="45" ry="48" fill="url(#glow2)"/>
+          <!-- egg -->
+          <ellipse cx="50" cy="58" rx="29" ry="35" fill="url(#g2)" filter="url(#sh2)"/>
+          <ellipse cx="50" cy="30" rx="21" ry="25" fill="url(#g2)" filter="url(#sh2)"/>
+          <!-- crack lines -->
+          <path d="M46 55 L50 48 L54 53 L58 46" stroke="#c4b5fd" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <!-- shine -->
+          <ellipse cx="38" cy="22" rx="6" ry="4" fill="#c4b5fd" opacity="0.5" transform="rotate(-20,38,22)"/>
+        </svg>
+        <div class="label">48px</div>
+      </div>
+      <div>
+        <svg width="96" height="96" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g2b" cx="35%" cy="30%" r="65%">
+              <stop offset="0%" stop-color="#7c3aed"/>
+              <stop offset="60%" stop-color="#2d1b69"/>
+              <stop offset="100%" stop-color="#0f0520"/>
+            </radialGradient>
+            <radialGradient id="glow2b" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sh2b">
+              <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#7c3aed" flood-opacity="0.6"/>
+            </filter>
+          </defs>
+          <ellipse cx="50" cy="50" rx="45" ry="48" fill="url(#glow2b)"/>
+          <ellipse cx="50" cy="58" rx="29" ry="35" fill="url(#g2b)" filter="url(#sh2b)"/>
+          <ellipse cx="50" cy="30" rx="21" ry="25" fill="url(#g2b)" filter="url(#sh2b)"/>
+          <path d="M46 55 L50 48 L54 53 L58 46" stroke="#c4b5fd" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="38" cy="22" rx="6" ry="4" fill="#c4b5fd" opacity="0.5" transform="rotate(-20,38,22)"/>
+        </svg>
+        <div class="label">96px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 案3: 光のたまご（ゴールド） -->
+  <div class="card">
+    <h2>案3 — 光のたまご</h2>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g3" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#fefce8"/>
+              <stop offset="40%" stop-color="#fbbf24"/>
+              <stop offset="100%" stop-color="#92400e"/>
+            </radialGradient>
+            <radialGradient id="glow3" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#fde68a" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#fde68a" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sh3">
+              <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#fbbf24" flood-opacity="0.7"/>
+            </filter>
+          </defs>
+          <!-- rays -->
+          <g opacity="0.3">
+            <line x1="50" y1="2" x2="50" y2="12" stroke="#fde68a" stroke-width="2"/>
+            <line x1="50" y1="88" x2="50" y2="98" stroke="#fde68a" stroke-width="2"/>
+            <line x1="2" y1="50" x2="12" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="88" y1="50" x2="98" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="14" y1="14" x2="21" y2="21" stroke="#fde68a" stroke-width="2"/>
+            <line x1="79" y1="79" x2="86" y2="86" stroke="#fde68a" stroke-width="2"/>
+            <line x1="86" y1="14" x2="79" y2="21" stroke="#fde68a" stroke-width="2"/>
+            <line x1="14" y1="86" x2="21" y2="79" stroke="#fde68a" stroke-width="2"/>
+          </g>
+          <!-- glow -->
+          <ellipse cx="50" cy="50" rx="45" ry="48" fill="url(#glow3)"/>
+          <!-- egg -->
+          <ellipse cx="50" cy="58" rx="29" ry="35" fill="url(#g3)" filter="url(#sh3)"/>
+          <ellipse cx="50" cy="30" rx="21" ry="25" fill="url(#g3)" filter="url(#sh3)"/>
+          <!-- shine -->
+          <ellipse cx="38" cy="22" rx="7" ry="5" fill="white" opacity="0.7" transform="rotate(-20,38,22)"/>
+          <ellipse cx="42" cy="27" rx="3" ry="2" fill="white" opacity="0.4" transform="rotate(-20,42,27)"/>
+        </svg>
+        <div class="label">48px</div>
+      </div>
+      <div>
+        <svg width="96" height="96" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g3b" cx="35%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#fefce8"/>
+              <stop offset="40%" stop-color="#fbbf24"/>
+              <stop offset="100%" stop-color="#92400e"/>
+            </radialGradient>
+            <radialGradient id="glow3b" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#fde68a" stop-opacity="0.5"/>
+              <stop offset="100%" stop-color="#fde68a" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sh3b">
+              <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#fbbf24" flood-opacity="0.7"/>
+            </filter>
+          </defs>
+          <g opacity="0.3">
+            <line x1="50" y1="2" x2="50" y2="12" stroke="#fde68a" stroke-width="2"/>
+            <line x1="50" y1="88" x2="50" y2="98" stroke="#fde68a" stroke-width="2"/>
+            <line x1="2" y1="50" x2="12" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="88" y1="50" x2="98" y2="50" stroke="#fde68a" stroke-width="2"/>
+            <line x1="14" y1="14" x2="21" y2="21" stroke="#fde68a" stroke-width="2"/>
+            <line x1="79" y1="79" x2="86" y2="86" stroke="#fde68a" stroke-width="2"/>
+            <line x1="86" y1="14" x2="79" y2="21" stroke="#fde68a" stroke-width="2"/>
+            <line x1="14" y1="86" x2="21" y2="79" stroke="#fde68a" stroke-width="2"/>
+          </g>
+          <ellipse cx="50" cy="50" rx="45" ry="48" fill="url(#glow3b)"/>
+          <ellipse cx="50" cy="58" rx="29" ry="35" fill="url(#g3b)" filter="url(#sh3b)"/>
+          <ellipse cx="50" cy="30" rx="21" ry="25" fill="url(#g3b)" filter="url(#sh3b)"/>
+          <ellipse cx="38" cy="22" rx="7" ry="5" fill="white" opacity="0.7" transform="rotate(-20,38,22)"/>
+          <ellipse cx="42" cy="27" rx="3" ry="2" fill="white" opacity="0.4" transform="rotate(-20,42,27)"/>
+        </svg>
+        <div class="label">96px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 案4: ひびが入ったたまご（孵化直前） -->
+  <div class="card">
+    <h2>案4 — ひびたまご（孵化前）</h2>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g4" cx="38%" cy="32%" r="62%">
+              <stop offset="0%" stop-color="#e0e7ff"/>
+              <stop offset="100%" stop-color="#818cf8"/>
+            </radialGradient>
+            <filter id="sh4">
+              <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#4338ca" flood-opacity="0.5"/>
+            </filter>
+            <clipPath id="clip4">
+              <ellipse cx="50" cy="56" rx="30" ry="38"/>
+            </clipPath>
+          </defs>
+          <!-- egg body -->
+          <ellipse cx="50" cy="56" rx="30" ry="38" fill="url(#g4)" filter="url(#sh4)"/>
+          <!-- crack shadow (inside) -->
+          <g clip-path="url(#clip4)">
+            <path d="M42 40 L47 52 L43 58 L48 68 L52 60 L56 65 L60 50"
+                  stroke="#312e81" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- inner glow from crack -->
+            <path d="M42 40 L47 52 L43 58 L48 68 L52 60 L56 65 L60 50"
+                  stroke="#c7d2fe" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <!-- shine -->
+          <ellipse cx="36" cy="26" rx="7" ry="5" fill="white" opacity="0.55" transform="rotate(-15,36,26)"/>
+        </svg>
+        <div class="label">48px</div>
+      </div>
+      <div>
+        <svg width="96" height="96" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g4b" cx="38%" cy="32%" r="62%">
+              <stop offset="0%" stop-color="#e0e7ff"/>
+              <stop offset="100%" stop-color="#818cf8"/>
+            </radialGradient>
+            <filter id="sh4b">
+              <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#4338ca" flood-opacity="0.5"/>
+            </filter>
+            <clipPath id="clip4b">
+              <ellipse cx="50" cy="56" rx="30" ry="38"/>
+            </clipPath>
+          </defs>
+          <ellipse cx="50" cy="56" rx="30" ry="38" fill="url(#g4b)" filter="url(#sh4b)"/>
+          <g clip-path="url(#clip4b)">
+            <path d="M42 40 L47 52 L43 58 L48 68 L52 60 L56 65 L60 50"
+                  stroke="#312e81" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M42 40 L47 52 L43 58 L48 68 L52 60 L56 65 L60 50"
+                  stroke="#c7d2fe" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <ellipse cx="36" cy="26" rx="7" ry="5" fill="white" opacity="0.55" transform="rotate(-15,36,26)"/>
+        </svg>
+        <div class="label">96px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 案5: ミステリアス（星型オーラ付きたまご） -->
+  <div class="card">
+    <h2>案5 — ミステリアスオーラ</h2>
+    <div class="sizes">
+      <div>
+        <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g5" cx="38%" cy="32%" r="65%">
+              <stop offset="0%" stop-color="#f0fdf4"/>
+              <stop offset="50%" stop-color="#86efac"/>
+              <stop offset="100%" stop-color="#14532d"/>
+            </radialGradient>
+            <radialGradient id="aura5" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#4ade80" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#4ade80" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sh5">
+              <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#22c55e" flood-opacity="0.6"/>
+            </filter>
+          </defs>
+          <!-- sparkles -->
+          <g fill="#86efac" opacity="0.7">
+            <polygon points="15,20 16.5,24 20,25 16.5,26 15,30 13.5,26 10,25 13.5,24" transform="scale(0.7) translate(5,5)"/>
+            <polygon points="75,10 76,13 79,14 76,15 75,18 74,15 71,14 74,13" transform="scale(0.6) translate(20,-5)"/>
+            <polygon points="80,65 81,68 84,69 81,70 80,73 79,70 76,69 79,68" transform="scale(0.65) translate(5,5)"/>
+            <polygon points="20,70 21,73 24,74 21,75 20,78 19,75 16,74 19,73" transform="scale(0.55) translate(15,5)"/>
+          </g>
+          <!-- aura -->
+          <ellipse cx="50" cy="50" rx="46" ry="48" fill="url(#aura5)"/>
+          <!-- egg -->
+          <ellipse cx="50" cy="58" rx="29" ry="35" fill="url(#g5)" filter="url(#sh5)"/>
+          <ellipse cx="50" cy="30" rx="21" ry="25" fill="url(#g5)" filter="url(#sh5)"/>
+          <!-- shine -->
+          <ellipse cx="38" cy="22" rx="6" ry="4" fill="white" opacity="0.65" transform="rotate(-20,38,22)"/>
+        </svg>
+        <div class="label">48px</div>
+      </div>
+      <div>
+        <svg width="96" height="96" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g5b" cx="38%" cy="32%" r="65%">
+              <stop offset="0%" stop-color="#f0fdf4"/>
+              <stop offset="50%" stop-color="#86efac"/>
+              <stop offset="100%" stop-color="#14532d"/>
+            </radialGradient>
+            <radialGradient id="aura5b" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#4ade80" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#4ade80" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="sh5b">
+              <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#22c55e" flood-opacity="0.6"/>
+            </filter>
+          </defs>
+          <g fill="#86efac" opacity="0.7">
+            <polygon points="15,20 16.5,24 20,25 16.5,26 15,30 13.5,26 10,25 13.5,24" transform="scale(0.7) translate(5,5)"/>
+            <polygon points="75,10 76,13 79,14 76,15 75,18 74,15 71,14 74,13" transform="scale(0.6) translate(20,-5)"/>
+            <polygon points="80,65 81,68 84,69 81,70 80,73 79,70 76,69 79,68" transform="scale(0.65) translate(5,5)"/>
+            <polygon points="20,70 21,73 24,74 21,75 20,78 19,75 16,74 19,73" transform="scale(0.55) translate(15,5)"/>
+          </g>
+          <ellipse cx="50" cy="50" rx="46" ry="48" fill="url(#aura5b)"/>
+          <ellipse cx="50" cy="58" rx="29" ry="35" fill="url(#g5b)" filter="url(#sh5b)"/>
+          <ellipse cx="50" cy="30" rx="21" ry="25" fill="url(#g5b)" filter="url(#sh5b)"/>
+          <ellipse cx="38" cy="22" rx="6" ry="4" fill="white" opacity="0.65" transform="rotate(-20,38,22)"/>
+        </svg>
+        <div class="label">96px</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<hr style="border-color:#1e293b; margin: 48px 0 32px">
+<p style="color:#475569; font-size:13px">
+  気に入った案の番号を教えてください。選んだ案をファビコン・PWAアイコン（192×192 / 512×512）に変換します。<br>
+  複数を組み合わせたり、色・形の調整もできます。
+</p>
+
+</body>
+</html>
