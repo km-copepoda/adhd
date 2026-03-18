@@ -6,7 +6,8 @@ WORKDIR /app
 # ---- deps ----
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # ---- build ----
 FROM base AS build
@@ -18,12 +19,14 @@ ARG NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build Next.js (standalone)
-RUN npm run build
+# Build Next.js (standalone) — cache persists between builds via BuildKit
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 # ---- runner ----
 FROM base AS runner
