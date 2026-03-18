@@ -49,16 +49,18 @@ export default function MonsterPage() {
           monthlyDays: d.monthlyDays, lastAchievedDate: d.lastAchievedDate, currentTitle: d.currentTitle,
         });
         prevStageRef.current = d.evolutionStage;
-        if (sessionStorage.getItem("pendingEvolution") === "true") {
-          sessionStorage.removeItem("pendingEvolution");
+        // 育成画面以外で進化が起きた場合: 最後に確認したステージと比較して進化演出を表示
+        const lastSeen = parseInt(localStorage.getItem("lastSeenEvolutionStage") ?? "-1");
+        if (d.evolutionStage > lastSeen) {
           if (d.evolutionStage === 1) {
             setHatched(true);
             setTimeout(() => setHatched(false), 3000);
-          } else {
+          } else if (d.evolutionStage > 1) {
             setShowEvolution(true);
             setTimeout(() => setShowEvolution(false), 3000);
           }
         }
+        localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
       })
       .finally(() => setLoading(false));
 
@@ -75,6 +77,7 @@ export default function MonsterPage() {
               setShowEvolution(true);
               setTimeout(() => setShowEvolution(false), 3000);
             }
+            localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
           }
           prevStageRef.current = d.evolutionStage;
           setData({
