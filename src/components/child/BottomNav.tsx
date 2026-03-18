@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { shouldShowBottomNav } from "@/lib/bottom-nav";
 
 const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[] = [
   { href: "/child/quests", emoji: "⚔️", label: "クエスト" },
@@ -13,6 +14,8 @@ const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[]
 
 export default function BottomNav() {
   const pathname = usePathname();
+
+  if (!shouldShowBottomNav(pathname ?? "")) return null;
 
   async function handleLogout() {
     const supabase = createClient();
