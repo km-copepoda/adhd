@@ -34,9 +34,36 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Skip auth check for API routes and public routes
+  // Skip auth check for API routes
   if (pathname.startsWith("/api/")) {
     return supabaseResponse;
+  }
+
+  // Determine role from Supabase user:
+  // - Anonymous users (signInAnonymously) → CHILD
+  // - Email/password users → PARENT
+  const isChild = !!user && (user.is_anonymous === true || !user.email);
+  const isParent = !!user && !isChild;
+
+  // Rule: TOP page + logged in → redirect to role-specific home
+  if (pathname === "/" && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = isChild ? "/child/quests" : "/parent/tasks";
+    return NextResponse.redirect(url);
+  }
+
+  // Rule: CHILD accessing /parent/* → redirect to child home
+  if (pathname.startsWith("/parent") && isChild) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/child/quests";
+    return NextResponse.redirect(url);
+  }
+
+  // Rule: PARENT accessing /child/* → redirect to parent home
+  if (pathname.startsWith("/child") && isParent) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/parent/tasks";
+    return NextResponse.redirect(url);
   }
 
   const isPublicRoute = PUBLIC_ROUTES.some(
