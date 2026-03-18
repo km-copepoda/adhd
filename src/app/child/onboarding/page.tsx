@@ -29,13 +29,12 @@ export default function OnboardingPage() {
         setLoginError("認証に失敗しました");
         return;
       }
-      const user = data.user;
 
-      // APIでコード検証 + supabaseId紐付け
+      // APIでコード検証 + supabaseId紐付け（supabaseIdはサーバー側でセッションから取得）
       const res = await fetch("/api/auth/child-rejoin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ familyCode, childCode, supabaseUserId: user.id }),
+        body: JSON.stringify({ familyCode, childCode }),
       });
       const resData = await res.json();
       if (!res.ok) {

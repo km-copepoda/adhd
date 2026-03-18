@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 // POST: ファミリーコード + ユーザーコードで子どもを検証し、supabaseIdを紐付ける
 export async function POST(request: Request) {
-  const { familyCode, childCode, supabaseUserId } = await request.json();
+  const { familyCode, childCode } = await request.json();
 
   if (!familyCode || !childCode) {
     return NextResponse.json(
@@ -12,12 +13,25 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!supabaseUserId) {
+  // サーバー側でセッションを読み取る（クライアントから ID を受け取らない）
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "認証情報がありません" }, { status: 401 });
+  }
+
+  // email がある = 親のメールアカウント → 子ども認証には使えない
+  if (user.email) {
     return NextResponse.json(
-      { error: "認証情報がありません" },
-      { status: 400 },
+      { error: "子どもアカウントでログインしてください" },
+      { status: 403 },
     );
   }
+
+  const supabaseUserId = user.id;
 
   // ファミリーを検索
   const family = await prisma.family.findUnique({
@@ -40,8 +54,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
   }
 
-  // supabaseId をクライアント側で取得した匿名セッションに更新
-  // 同じsupabaseIdが他ユーザーに紐付いている場合（同デバイスで別の子がログイン済み等）は先に解除
+  // 同じsupabaseIdが他の子どもに紐付いている場合は先に解除
   await prisma.$transaction([
     prisma.user.updateMany({
       where: { supabaseId: supabaseUserId, id: { not: child.id }, role: "CHILD" },
