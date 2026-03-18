@@ -56,6 +56,18 @@ describe("GET /api/family/code", () => {
     expect(json.members[1].childCode).toBe("1234");
   });
 
+  it("usersをcreatedAt昇順で取得すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.family.findUnique.mockResolvedValue(family({ users: [] }) as any);
+
+    await GET();
+
+    expect(mockPrisma.family.findUnique).toHaveBeenCalledWith({
+      where: { id: "fam-1" },
+      include: { users: { orderBy: { createdAt: "asc" } } },
+    });
+  });
+
   it("エラー時に500を返すこと", async () => {
     mockGetCurrentUser.mockRejectedValue(new Error("DB connection failed"));
     const res = await GET();
