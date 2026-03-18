@@ -42,10 +42,12 @@ export default function PushSubscriber({
   className,
   iconClassName = "",
   labelClassName = "",
+  showDenied = false,
 }: {
   className?: string;
   iconClassName?: string;
   labelClassName?: string;
+  showDenied?: boolean;
 }) {
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
 
@@ -57,6 +59,19 @@ export default function PushSubscriber({
       registerSubscription().catch(() => {});
     }
   }, []);
+
+  if (permission === "denied" && showDenied) {
+    return (
+      <button
+        onClick={() => alert("ブラウザの設定 → サイトの設定 → 通知 を「許可」に変えてね！")}
+        className={className}
+        title="通知がオフになっています"
+      >
+        <span className={iconClassName}>🔕</span>
+        <span className={labelClassName}>通知オフ</span>
+      </button>
+    );
+  }
 
   // 未確認の場合のみボタンを表示
   if (permission !== "default") return null;
