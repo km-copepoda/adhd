@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// setup.ts が @/lib/push をグローバルモックしているため、実装をテストするためにアンモック
+vi.unmock("@/lib/push");
+
 import { sendPushToChild } from "@/lib/push";
 import { prisma } from "@/lib/prisma";
 

@@ -7,7 +7,7 @@ vi.mock("@supabase/ssr", () => ({
 
 import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 const mockCreateServerClient = vi.mocked(createServerClient);
 
@@ -15,13 +15,18 @@ function makeRequest(pathname: string): NextRequest {
   return new NextRequest(new URL(`http://localhost${pathname}`));
 }
 
-function mockSupabaseAuth(user: { id: string } | null) {
+function mockSupabaseAuth(
+  user: { id: string; email?: string; is_anonymous?: boolean } | null
+) {
   mockCreateServerClient.mockReturnValue({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user } }),
     },
   } as any);
 }
+
+const parentUser = { id: "parent-1", email: "parent@example.com", is_anonymous: false };
+const childUser = { id: "child-1", is_anonymous: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -34,13 +39,12 @@ describe("updateSession (middleware)", () => {
     it("APIルートは認証チェックをスキップすること", async () => {
       mockSupabaseAuth(null);
       const res = await updateSession(makeRequest("/api/tasks"));
-      // Should not redirect
       expect(res.status).not.toBe(307);
     });
   });
 
-  describe("Public routes", () => {
-    it.each(["/", "/login", "/register", "/child/onboarding"])(
+  describe("Public routes (unauthenticated)", () => {
+    it.each(["/login", "/register", "/child/onboarding"])(
       "%s は未認証でもアクセス可能であること",
       async (route) => {
         mockSupabaseAuth(null);
@@ -68,28 +72,83 @@ describe("updateSession (middleware)", () => {
       mockSupabaseAuth(null);
       const res = await updateSession(makeRequest("/child/quests"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/");
-      // Should NOT redirect to /login for child routes
+      expect(res.headers.get("location")).toMatch(/\/$/);
       expect(res.headers.get("location")).not.toContain("/login");
     });
   });
 
-  describe("Authenticated redirects", () => {
-    it("認証済みユーザーが /login にアクセスしてもリダイレクトしないこと（ロールチェックはlayoutに委譲）", async () => {
-      mockSupabaseAuth({ id: "user-1" });
+  describe("TOP page (/) role-based redirect", () => {
+    it("子アカウントでログイン済みの場合 /child/quests にリダイレクトすること", async () => {
+      mockSupabaseAuth(childUser);
+      const res = await updateSession(makeRequest("/"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/child/quests");
+    });
+
+    it("親アカウントでログイン済みの場合 /parent/tasks にリダイレクトすること", async () => {
+      mockSupabaseAuth(parentUser);
+      const res = await updateSession(makeRequest("/"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/parent/tasks");
+    });
+
+    it("未認証の場合 / をそのまま表示すること", async () => {
+      mockSupabaseAuth(null);
+      const res = await updateSession(makeRequest("/"));
+      expect(res.status).not.toBe(307);
+    });
+  });
+
+  describe("Role protection (authenticated)", () => {
+    it("子アカウントが /parent/* にアクセスすると /child/quests にリダイレクトすること", async () => {
+      mockSupabaseAuth(childUser);
+      const res = await updateSession(makeRequest("/parent/tasks"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/child/quests");
+    });
+
+    it("子アカウントが /parent/approve にアクセスしても /child/quests にリダイレクトすること", async () => {
+      mockSupabaseAuth(childUser);
+      const res = await updateSession(makeRequest("/parent/approve"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/child/quests");
+    });
+
+    it("親アカウントが /child/* にアクセスすると /parent/tasks にリダイレクトすること", async () => {
+      mockSupabaseAuth(parentUser);
+      const res = await updateSession(makeRequest("/child/quests"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/parent/tasks");
+    });
+
+    it("親アカウントが /child/monster にアクセスしても /parent/tasks にリダイレクトすること", async () => {
+      mockSupabaseAuth(parentUser);
+      const res = await updateSession(makeRequest("/child/monster"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/parent/tasks");
+    });
+
+    it("親アカウントが /parent/tasks に正常にアクセスできること", async () => {
+      mockSupabaseAuth(parentUser);
+      const res = await updateSession(makeRequest("/parent/tasks"));
+      expect(res.status).not.toBe(307);
+    });
+
+    it("子アカウントが /child/quests に正常にアクセスできること", async () => {
+      mockSupabaseAuth(childUser);
+      const res = await updateSession(makeRequest("/child/quests"));
+      expect(res.status).not.toBe(307);
+    });
+
+    it("認証済みユーザーが /login にアクセスしてもリダイレクトしないこと", async () => {
+      mockSupabaseAuth(parentUser);
       const res = await updateSession(makeRequest("/login"));
       expect(res.status).not.toBe(307);
     });
 
     it("認証済みユーザーが /register にアクセスしてもリダイレクトしないこと", async () => {
-      mockSupabaseAuth({ id: "user-1" });
+      mockSupabaseAuth(parentUser);
       const res = await updateSession(makeRequest("/register"));
-      expect(res.status).not.toBe(307);
-    });
-
-    it("認証済みユーザーが保護ルートに正常にアクセスできること", async () => {
-      mockSupabaseAuth({ id: "user-1" });
-      const res = await updateSession(makeRequest("/parent/tasks"));
       expect(res.status).not.toBe(307);
     });
   });
