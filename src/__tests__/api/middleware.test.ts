@@ -40,7 +40,7 @@ describe("updateSession (middleware)", () => {
   });
 
   describe("Public routes", () => {
-    it.each(["/", "/login", "/register", "/child/onboarding"])(
+    it.each(["/", "/parent/login", "/register", "/child/login"])(
       "%s は未認証でもアクセス可能であること",
       async (route) => {
         mockSupabaseAuth(null);
@@ -51,17 +51,17 @@ describe("updateSession (middleware)", () => {
 
     it("末尾スラッシュ付きでもパブリックルートとして扱うこと", async () => {
       mockSupabaseAuth(null);
-      const res = await updateSession(makeRequest("/login/"));
+      const res = await updateSession(makeRequest("/parent/login/"));
       expect(res.status).not.toBe(307);
     });
   });
 
   describe("Protected routes (unauthenticated)", () => {
-    it("/parent/* に未認証でアクセスすると /login にリダイレクトすること", async () => {
+    it("/parent/* に未認証でアクセスすると /parent/login にリダイレクトすること", async () => {
       mockSupabaseAuth(null);
       const res = await updateSession(makeRequest("/parent/tasks"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/login");
+      expect(res.headers.get("location")).toContain("/parent/login");
     });
 
     it("/child/* に未認証でアクセスすると / にリダイレクトすること", async () => {
@@ -75,9 +75,9 @@ describe("updateSession (middleware)", () => {
   });
 
   describe("Authenticated redirects", () => {
-    it("認証済みユーザーが /login にアクセスしてもリダイレクトしないこと（ロールチェックはlayoutに委譲）", async () => {
+    it("認証済みユーザーが /parent/login にアクセスしてもリダイレクトしないこと（ロールチェックはlayoutに委譲）", async () => {
       mockSupabaseAuth({ id: "user-1" });
-      const res = await updateSession(makeRequest("/login"));
+      const res = await updateSession(makeRequest("/parent/login"));
       expect(res.status).not.toBe(307);
     });
 

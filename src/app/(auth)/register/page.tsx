@@ -74,7 +74,7 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      <Link href="/login" className="text-quest-dim text-xs mt-6 hover:text-quest-gold">
+      <Link href="/parent/login" className="text-quest-dim text-xs mt-6 hover:text-quest-gold">
         すでにアカウントをお持ちの方 →
       </Link>
     </div>

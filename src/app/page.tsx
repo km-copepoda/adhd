@@ -12,11 +12,11 @@ export default function Home() {
         クエストをクリアして、モンスターを育てよう！
       </p>
       <div className="flex flex-col gap-3 w-full max-w-xs">
-        <Link href="/child/onboarding" className="btn-gold text-center">
+        <Link href="/child/login" className="btn-gold text-center">
           ⚔ ぼうけんをはじめる
         </Link>
         <Link
-          href="/login"
+          href="/parent/login"
           className="text-center text-quest-dim text-sm border border-quest-border rounded-xl py-3 hover:border-quest-gold/30 transition-colors"
         >
           👨‍👩‍👧 ギルドマスター（保護者）はこちら
