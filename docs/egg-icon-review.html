@@ -2,86 +2,76 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>32×32 ドット絵たまご — RPGスタイル</title>
+<title>32×32 ドット絵たまご — まるい版</title>
 <style>
   body { background: #1a1a2e; color: #fff; font-family: sans-serif; padding: 40px; }
   h1 { color: #a78bfa; margin-bottom: 6px; }
-  p.sub { color: #64748b; font-size: 13px; margin-bottom: 32px; }
-  .grid { display: flex; flex-wrap: wrap; gap: 48px; }
+  .sub { color: #64748b; font-size: 13px; margin-bottom: 28px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 40px; }
   .card { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .card h2 { font-size: 13px; color: #94a3b8; margin: 0; text-align: center; }
-  .sizes { display: flex; gap: 16px; align-items: flex-end; }
+  .sizes { display: flex; gap: 14px; align-items: flex-end; }
   .label { font-size: 11px; color: #475569; text-align: center; margin-top: 4px; }
   canvas { image-rendering: pixelated; display: block; }
   .frame { background: #0f0f23; border-radius: 8px; padding: 10px; }
 </style>
 </head>
 <body>
-<h1>32×32 ドット絵たまご — RPGスタイル</h1>
-<p class="sub">参考画像スタイル：黒枠・4段グラデーション・ハイライト・ひびわれ入り</p>
+<h1>32×32 ドット絵たまご — まるい・ひびあり</h1>
+<p class="sub">楕円数式で形を計算（真円に近い丸み）/ RPGスタイル4段シェード / ひびわれ入り</p>
 
 <div class="grid" id="gallery"></div>
 
-<div style="margin-top:56px">
-  <h2 style="color:#475569;font-size:14px;margin-bottom:12px">グリッドマップ（8倍・シアン）</h2>
+<div style="margin-top:52px">
+  <h2 style="color:#475569;font-size:13px;margin-bottom:10px">グリッドマップ（8倍・シアン）</h2>
   <canvas id="grid-canvas" style="border:1px solid #1e293b;border-radius:4px;"></canvas>
-  <p style="font-size:11px;color:#475569;margin-top:6px">黒いジグザグ線 = ひびわれ / 左上白ピクセル = ハイライト</p>
 </div>
 
 <script>
-// ─────────────────────────────────────────────
-// Egg shape: [startCol, endCol] inclusive per row, null = empty
-// 上が細く・最広は row 14-15 (全高の約58%) ← 本物の卵形
-// ─────────────────────────────────────────────
-const EGG = [
-  null, null, null, null,   // 0-3
-  [15, 16],                 // 4  → 2px  (先端)
-  [13, 18],                 // 5  → 6px
-  [11, 20],                 // 6  → 10px
-  [9,  22],                 // 7  → 14px
-  [8,  23],                 // 8  → 16px
-  [7,  24],                 // 9  → 18px
-  [7,  24],                 // 10 → 18px
-  [6,  25],                 // 11 → 20px
-  [6,  25],                 // 12 → 20px
-  [5,  26],                 // 13 → 22px
-  [5,  26],                 // 14 → 22px ← 最広
-  [5,  26],                 // 15 → 22px ← 最広
-  [6,  25],                 // 16 → 20px
-  [7,  24],                 // 17 → 18px
-  [8,  23],                 // 18 → 16px
-  [9,  22],                 // 19 → 14px
-  [11, 20],                 // 20 → 10px (底部急絞り)
-  [12, 19],                 // 21 → 8px
-  [14, 17],                 // 22 → 4px
-  null,                     // 23
-  null, null, null, null, null, null, null, null  // 24-31
-];
+// ─── Egg shape: ellipse math ──────────────────────────────
+// CX,CY = center; RX = horizontal radius
+// RY_TOP = top half vert radius (slightly smaller → pointed top)
+// RY_BOT = bottom half vert radius (slightly larger → rounder bottom)
+const CX=15, CY=14, RX=11, RY_TOP=11, RY_BOT=12;
 
-const EGG_TOP = 4;
-const EGG_BOT = 22;
-const EGG_H   = EGG_BOT - EGG_TOP + 1; // 19 rows
+function computeEgg() {
+  const rows = new Array(32).fill(null);
+  for (let r = 0; r < 32; r++) {
+    const dy = r - CY;
+    const ry = dy <= 0 ? RY_TOP : RY_BOT;
+    if (Math.abs(dy) >= ry) continue;
+    const xh = Math.round(RX * Math.sqrt(Math.max(0, 1 - (dy/ry)**2)));
+    if (xh > 0) rows[r] = [CX - xh, CX + xh];
+  }
+  return rows;
+}
+const EGG = computeEgg();
+const EGG_TOP = EGG.findIndex(r => r !== null);
+const EGG_BOT = 31 - [...EGG].reverse().findIndex(r => r !== null);
+const EGG_H   = EGG_BOT - EGG_TOP + 1;
 
-// ─────────────────────────────────────────────
-// Crack pixels: 明確なジグザグひびわれ 2本
-// ─────────────────────────────────────────────
-const CRACK = new Set([
-  // メインひび (中央から左下へ降りるジグザグ)
-  '6,16',  '7,16',  '7,15',
-  '8,15',  '8,14',
-  '9,14',  '9,15',
-  '10,15', '10,14',
-  '11,14', '12,13', '13,13', '13,14',
-  '14,14', '15,14',
+// ─── Crack pixels ─────────────────────────────────────────
+// メインひび: 上中央からジグザグに左下へ
+// サブひび: 途中から右へ分岐
+const CRACK = new Set();
+const cp = (r, c) => CRACK.add(`${r},${c}`);
 
-  // サブひび (row8から右上へ分岐)
-  '8,17',  '9,18',  '10,18', '10,19',
-  '11,19',
-]);
+// main crack (upper center → lower left zigzag)
+cp(CY-6, CX);   cp(CY-6, CX+1);
+cp(CY-5, CX-1); cp(CY-5, CX);
+cp(CY-4, CX-1);
+cp(CY-3, CX-2); cp(CY-3, CX-1);
+cp(CY-2, CX-2);
+cp(CY-1, CX-3); cp(CY-1, CX-2);
+cp(CY,   CX-3);
+cp(CY+1, CX-3); cp(CY+1, CX-2);
 
-// ─────────────────────────────────────────────
-// Pixel type: 'bg'|'border'|'crack'|'hl'|'light'|'fill'|'dark'|'shadow'
-// ─────────────────────────────────────────────
+// branch crack (right from junction near CY-5)
+cp(CY-5, CX+2);
+cp(CY-4, CX+2); cp(CY-4, CX+3);
+cp(CY-3, CX+3);
+
+// ─── Pixel type ───────────────────────────────────────────
 function pixelType(row, col) {
   const r = EGG[row];
   if (!r) return 'bg';
@@ -89,132 +79,96 @@ function pixelType(row, col) {
   if (col < s || col > e) return 'bg';
   if (col === s || col === e) return 'border';
 
-  // ひびわれ (border内側のみ有効)
+  // Crack (must be strictly inside border)
   if (CRACK.has(`${row},${col}`)) return 'crack';
 
-  // 位置比率 (0=左/上, 1=右/下)
-  const span  = e - s - 1;          // 内部幅
-  const inner = col - s - 1;        // 0-indexed内部X
-  const xR    = span > 0 ? inner / span : 0.5;
-  const yR    = (row - EGG_TOP) / (EGG_H - 1);
+  const inner = col - s - 1;         // 0-indexed interior x
+  const span  = Math.max(1, e - s - 1);
+  const xR    = inner / span;          // 0=left, 1=right
+  const yR    = (row - EGG_TOP) / Math.max(1, EGG_H - 1); // 0=top, 1=bottom
 
-  // ハイライトスポット: 左上2×2エリア
+  // Highlight spot: 上から3行・左端2ピクセル → 白っぽいハイライト
   if (row <= EGG_TOP + 3 && inner <= 1) return 'hl';
 
-  // シェーディング: 右と下が暗い
+  // Diagonal shading: 右下が暗い
   const shade = xR * 0.55 + yR * 0.45;
-  if (shade < 0.22) return 'light';
-  if (shade < 0.52) return 'fill';
-  if (shade < 0.74) return 'dark';
+  if (shade < 0.20) return 'light';
+  if (shade < 0.48) return 'fill';
+  if (shade < 0.72) return 'dark';
   return 'shadow';
 }
 
-// ─────────────────────────────────────────────
-// Palettes
-// ─────────────────────────────────────────────
+// ─── Palettes ─────────────────────────────────────────────
 const PALETTES = [
-  {
-    name: 'シアン\nクリスタル',
-    c: {
-      bg: '#0f0f23', border: '#000000',
-      hl: '#e0f7ff', light: '#7dd3fc', fill: '#38bdf8', dark: '#0369a1', shadow: '#0c2461',
-      crack: '#000000'
-    }
-  },
-  {
-    name: 'クリーム\n(ふつうの卵)',
-    c: {
-      bg: '#0f0f23', border: '#000000',
-      hl: '#ffffff', light: '#fef9f0', fill: '#f5deb3', dark: '#c8a06a', shadow: '#8b5e3c',
-      crack: '#000000'
-    }
-  },
-  {
-    name: 'やみ\nパープル',
-    c: {
-      bg: '#0f0f23', border: '#000000',
-      hl: '#e9d5ff', light: '#c084fc', fill: '#7c3aed', dark: '#4c1d95', shadow: '#1e0035',
-      crack: '#000000'
-    }
-  },
-  {
-    name: 'ゴールド\n(炎)',
-    c: {
-      bg: '#0f0f23', border: '#000000',
-      hl: '#fefce8', light: '#fde68a', fill: '#f59e0b', dark: '#b45309', shadow: '#431407',
-      crack: '#000000'
-    }
-  },
-  {
-    name: 'エメラルド\n(森)',
-    c: {
-      bg: '#0f0f23', border: '#000000',
-      hl: '#d1fae5', light: '#6ee7b7', fill: '#10b981', dark: '#065f46', shadow: '#022c22',
-      crack: '#000000'
-    }
-  },
+  { name: 'シアン', c: {
+    bg:'#0f0f23', border:'#000', hl:'#e0f7ff', light:'#7dd3fc',
+    fill:'#2da8e0', dark:'#0369a1', shadow:'#0c2461', crack:'#000'
+  }},
+  { name: 'クリーム', c: {
+    bg:'#0f0f23', border:'#000', hl:'#ffffff', light:'#fef9f0',
+    fill:'#f0d090', dark:'#c08040', shadow:'#7a4020', crack:'#000'
+  }},
+  { name: 'パープル', c: {
+    bg:'#0f0f23', border:'#000', hl:'#f3e8ff', light:'#c084fc',
+    fill:'#7c3aed', dark:'#4c1d95', shadow:'#200060', crack:'#000'
+  }},
+  { name: 'ゴールド', c: {
+    bg:'#0f0f23', border:'#000', hl:'#fefce8', light:'#fde68a',
+    fill:'#f59e0b', dark:'#b45309', shadow:'#431407', crack:'#000'
+  }},
+  { name: 'エメラルド', c: {
+    bg:'#0f0f23', border:'#000', hl:'#d1fae5', light:'#6ee7b7',
+    fill:'#10b981', dark:'#065f46', shadow:'#022c22', crack:'#000'
+  }},
 ];
 
-// ─────────────────────────────────────────────
-// Draw
-// ─────────────────────────────────────────────
-function drawEgg(ctx, pal, scale) {
+// ─── Draw ─────────────────────────────────────────────────
+function draw(ctx, pal, scale) {
   ctx.fillStyle = pal.c.bg;
-  ctx.fillRect(0, 0, 32 * scale, 32 * scale);
+  ctx.fillRect(0, 0, 32*scale, 32*scale);
   for (let row = 0; row < 32; row++) {
     for (let col = 0; col < 32; col++) {
       const t = pixelType(row, col);
       if (t === 'bg') continue;
       ctx.fillStyle = pal.c[t];
-      ctx.fillRect(col * scale, row * scale, scale, scale);
+      ctx.fillRect(col*scale, row*scale, scale, scale);
     }
   }
 }
 
-// ─────────────────────────────────────────────
-// Build gallery
-// ─────────────────────────────────────────────
+// ─── Gallery ──────────────────────────────────────────────
 const gallery = document.getElementById('gallery');
 PALETTES.forEach(pal => {
   const card = document.createElement('div');
   card.className = 'card';
-
   const h2 = document.createElement('h2');
-  h2.style.whiteSpace = 'pre';
   h2.textContent = pal.name;
   card.appendChild(h2);
-
   const sizes = document.createElement('div');
   sizes.className = 'sizes';
-
   [[6, '192px (×6)'], [1, '32px (実寸)']].forEach(([sc, lbl]) => {
     const wrap = document.createElement('div');
     wrap.className = 'frame';
     const cv = document.createElement('canvas');
-    cv.width  = 32 * sc;
-    cv.height = 32 * sc;
-    cv.style.cssText = `image-rendering:pixelated;width:${32*sc}px;height:${32*sc}px`;
-    if (sc === 1) { cv.style.width = '32px'; cv.style.height = '32px'; }
-    drawEgg(cv.getContext('2d'), pal, sc);
-    const label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = lbl;
-    wrap.appendChild(cv);
-    wrap.appendChild(label);
+    cv.width = 32*sc; cv.height = 32*sc;
+    cv.style.cssText = `image-rendering:pixelated;width:${sc===1?32:32*sc}px;height:${sc===1?32:32*sc}px`;
+    draw(cv.getContext('2d'), pal, sc);
+    const lb = document.createElement('div');
+    lb.className = 'label'; lb.textContent = lbl;
+    wrap.appendChild(cv); wrap.appendChild(lb);
     sizes.appendChild(wrap);
   });
-
   card.appendChild(sizes);
   gallery.appendChild(card);
 });
 
-// Grid preview
+// ─── Grid preview ─────────────────────────────────────────
 const gc = document.getElementById('grid-canvas');
 gc.width = 256; gc.height = 256;
 gc.style.cssText = 'image-rendering:pixelated;width:256px;height:256px';
+draw(gc.getContext('2d'), PALETTES[0], 8);
 const gctx = gc.getContext('2d');
-drawEgg(gctx, PALETTES[0], 8);
-gctx.strokeStyle = 'rgba(30,41,59,0.7)';
+gctx.strokeStyle = 'rgba(30,41,59,0.6)';
 gctx.lineWidth = 0.5;
 for (let i = 0; i <= 32; i++) {
   gctx.beginPath(); gctx.moveTo(i*8,0); gctx.lineTo(i*8,256); gctx.stroke();
@@ -224,8 +178,8 @@ for (let i = 0; i <= 32; i++) {
 
 <hr style="border-color:#1e293b;margin:48px 0 24px">
 <p style="color:#475569;font-size:13px">
-  気に入ったカラーを教えてください。ひびの太さ・位置・色の調整も可能です。<br>
-  決定したらファビコン・PWAアイコン（PNG 192×192 / 512×512）に変換します。
+  気に入ったカラーを教えてください。形・ひびの太さ・位置も調整できます。<br>
+  決定したらPNG（192×192 / 512×512）に変換しファビコン・PWAアイコンへ適用します。
 </p>
 </body>
 </html>
