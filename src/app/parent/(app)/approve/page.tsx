@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, XP_MAP } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Difficulty, QuestStatus } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type PendingQuest = {
   id: string;
@@ -70,7 +71,7 @@ export default function ApprovePage() {
   }
 
   if (loading) {
-    return <div className="text-quest-dim">読み込み中...</div>;
+    return <LoadingSpinner />;
   }
 
   return (

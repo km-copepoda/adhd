@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MONSTER_STAGES } from "@/lib/constants";
 import type { Side } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ZukanData = {
   side: Side;
@@ -22,9 +23,7 @@ export default function ZukanPage() {
 
   if (loading || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-quest-dim">読み込み中...</div>
-      </div>
+      <LoadingSpinner />
     );
   }
 
