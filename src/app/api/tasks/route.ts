@@ -29,7 +29,20 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(tasks);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const taskIds = tasks.map((t) => t.id);
+  const completedQuests = await prisma.questInstance.findMany({
+    where: {
+      templateId: { in: taskIds },
+      date: today,
+      status: { in: ["APPROVED", "SKIPPED"] },
+    },
+    select: { templateId: true },
+  });
+  const completedSet = new Set(completedQuests.map((q) => q.templateId));
+
+  return NextResponse.json(tasks.map((t) => ({ ...t, completedToday: completedSet.has(t.id) })));
 }
 
 export async function POST(request: Request) {
