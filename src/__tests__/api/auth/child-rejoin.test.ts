@@ -64,4 +64,17 @@ describe("POST /api/auth/child-rejoin", () => {
     await POST(req({ familyCode: "abc123", childCode: "5678", supabaseUserId: "s" }));
     expect(mockPrisma.family.findUnique).toHaveBeenCalledWith({ where: { code: "ABC123" } });
   });
+
+  it("detachはCHILDロールのみ対象にし、PARENTのsupabaseIdを奪わないこと", async () => {
+    mockPrisma.family.findUnique.mockResolvedValue(family() as any);
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ monsterName: "ドラゴン", side: "DARK" }) as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await POST(req({ familyCode: "ABC123", childCode: "1234", supabaseUserId: "sup-new" }));
+
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+      where: { supabaseId: "sup-new", id: { not: "child-1" }, role: "CHILD" },
+      data: { supabaseId: expect.stringMatching(/^detached_/) },
+    });
+  });
 });
