@@ -3,6 +3,7 @@ import { vi } from "vitest";
 // Mock Prisma
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: vi.fn().mockImplementation((ops: unknown[]) => Promise.all(ops)),
     user: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -10,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
       create: vi.fn(),
       update: vi.fn(),
       upsert: vi.fn(),
+      updateMany: vi.fn(),
     },
     family: {
       findUnique: vi.fn(),
@@ -22,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     questInstance: {
       findUnique: vi.fn(),
@@ -31,11 +34,23 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       upsert: vi.fn(),
       count: vi.fn(),
+      deleteMany: vi.fn(),
     },
     streak: {
       findUnique: vi.fn(),
       upsert: vi.fn(),
       update: vi.fn(),
+    },
+    taskStreak: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      update: vi.fn(),
+    },
+    pushSubscription: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      upsert: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));

@@ -60,19 +60,19 @@ describe("DIFFICULTY_LABEL", () => {
 });
 
 describe("MONSTER_STAGES", () => {
-  it("DARK/LIGHT 両方に4段階あること", () => {
-    expect(MONSTER_STAGES.DARK).toHaveLength(4);
-    expect(MONSTER_STAGES.LIGHT).toHaveLength(4);
+  it("DARK/LIGHT 両方に5段階あること", () => {
+    expect(MONSTER_STAGES.DARK).toHaveLength(5);
+    expect(MONSTER_STAGES.LIGHT).toHaveLength(5);
   });
 
   it("最終段階のptToEvolveがnullであること", () => {
-    expect(MONSTER_STAGES.DARK[3].ptToEvolve).toBeNull();
-    expect(MONSTER_STAGES.LIGHT[3].ptToEvolve).toBeNull();
+    expect(MONSTER_STAGES.DARK[4].ptToEvolve).toBeNull();
+    expect(MONSTER_STAGES.LIGHT[4].ptToEvolve).toBeNull();
   });
 
-  it("進化閾値が 10→30→70→null の順であること", () => {
+  it("進化閾値が 1→10→30→70→null の順であること（stage0はたまご）", () => {
     for (const side of ["DARK", "LIGHT"] as const) {
-      expect(MONSTER_STAGES[side].map((s) => s.ptToEvolve)).toEqual([10, 30, 70, null]);
+      expect(MONSTER_STAGES[side].map((s) => s.ptToEvolve)).toEqual([1, 10, 30, 70, null]);
     }
   });
 
@@ -102,17 +102,17 @@ describe("DAY_LABELS", () => {
 describe("getMonsterStage", () => {
   it("正常なステージインデックスで正しいステージを返すこと", () => {
     const stage0 = getMonsterStage("DARK", 0);
-    expect(stage0.emoji).toBe("👾");
-    expect(stage0.name).toBe("シャドウ");
+    expect(stage0.emoji).toBe("🥚");
+    expect(stage0.name).toBe("やみのたまご");
 
     const stage2 = getMonsterStage("LIGHT", 2);
-    expect(stage2.emoji).toBe("🦄");
-    expect(stage2.name).toBe("ユニコーン");
+    expect(stage2.emoji).toBe("🦊");
+    expect(stage2.name).toBe("キツネ");
   });
 
   it("最大ステージを返すこと (境界値)", () => {
-    const stage3 = getMonsterStage("DARK", 3);
-    expect(stage3.name).toBe("真・魔王");
+    const stage4 = getMonsterStage("DARK", 4);
+    expect(stage4.name).toBe("真・魔王");
   });
 
   it("ステージが範囲外の場合、最大ステージにクランプされること", () => {
@@ -122,9 +122,7 @@ describe("getMonsterStage", () => {
   });
 
   it("負のステージインデックスでも最低限動作すること", () => {
-    // Math.min(-1, 3) = -1 → stages[-1] = undefined, but this is an edge case
-    // 実装上 stages[Math.min(evolutionStage, stages.length-1)] なので
-    // Math.min(-1, 3) = -1 → stages[-1] = undefined
+    // Math.min(-1, 4) = -1 → stages[-1] = undefined, but this is an edge case
     const stage = getMonsterStage("LIGHT", -1);
     expect(stage).toBeUndefined();
   });
@@ -135,10 +133,10 @@ describe("getMonsterStage", () => {
 describe("checkEvolution", () => {
   describe("進化条件を満たさない場合", () => {
     it("合計ポイントが閾値未満なら evolved=false を返すこと", () => {
-      const result = checkEvolution("DARK", 0, 3, 3, 3); // total=9 < 10
+      const result = checkEvolution("DARK", 1, 3, 3, 3); // total=9 < 10 (ステージ1の閾値)
       expect(result).toEqual({
         evolved: false,
-        newStage: 0,
+        newStage: 1,
         resetStudy: 3,
         resetStamina: 3,
         resetLife: 3,
@@ -146,15 +144,15 @@ describe("checkEvolution", () => {
     });
 
     it("ポイント0でも正常に動作すること", () => {
-      const result = checkEvolution("LIGHT", 0, 0, 0, 0);
+      const result = checkEvolution("LIGHT", 1, 0, 0, 0);
       expect(result.evolved).toBe(false);
-      expect(result.newStage).toBe(0);
+      expect(result.newStage).toBe(1);
     });
   });
 
   describe("進化条件を満たす場合", () => {
-    it("ステージ0→1: 合計10ptで進化すること", () => {
-      const result = checkEvolution("DARK", 0, 5, 3, 2); // total=10
+    it("ステージ0（たまご）→1: 合計1ptで孵化すること", () => {
+      const result = checkEvolution("DARK", 0, 1, 0, 0); // total=1 >= 1
       expect(result).toEqual({
         evolved: true,
         newStage: 1,
@@ -164,8 +162,8 @@ describe("checkEvolution", () => {
       });
     });
 
-    it("ステージ1→2: 合計30ptで進化すること", () => {
-      const result = checkEvolution("LIGHT", 1, 10, 10, 10); // total=30
+    it("ステージ1→2: 合計10ptで進化すること", () => {
+      const result = checkEvolution("DARK", 1, 5, 3, 2); // total=10
       expect(result).toEqual({
         evolved: true,
         newStage: 2,
@@ -175,8 +173,8 @@ describe("checkEvolution", () => {
       });
     });
 
-    it("ステージ2→3: 合計70ptで進化すること", () => {
-      const result = checkEvolution("DARK", 2, 25, 25, 20); // total=70
+    it("ステージ2→3: 合計30ptで進化すること", () => {
+      const result = checkEvolution("LIGHT", 2, 10, 10, 10); // total=30
       expect(result).toEqual({
         evolved: true,
         newStage: 3,
@@ -186,74 +184,90 @@ describe("checkEvolution", () => {
       });
     });
 
+    it("ステージ3→4: 合計70ptで進化すること", () => {
+      const result = checkEvolution("DARK", 3, 25, 25, 20); // total=70
+      expect(result).toEqual({
+        evolved: true,
+        newStage: 4,
+        resetStudy: 0,
+        resetStamina: 0,
+        resetLife: 0,
+      });
+    });
+
     it("閾値を超過しても進化すること", () => {
-      const result = checkEvolution("DARK", 0, 10, 10, 10); // total=30 >> 10
+      const result = checkEvolution("DARK", 1, 10, 10, 10); // total=30 >> 10
       expect(result.evolved).toBe(true);
-      expect(result.newStage).toBe(1);
+      expect(result.newStage).toBe(2);
       expect(result.resetStudy).toBe(0);
     });
   });
 
   describe("最大進化ステージ", () => {
-    it("ステージ3では進化しないこと (ptToEvolve=null)", () => {
-      const result = checkEvolution("DARK", 3, 100, 100, 100);
+    it("ステージ4では進化しないこと (ptToEvolve=null)", () => {
+      const result = checkEvolution("DARK", 4, 100, 100, 100);
       expect(result).toEqual({
         evolved: false,
-        newStage: 3,
+        newStage: 4,
         resetStudy: 100,
         resetStamina: 100,
         resetLife: 100,
       });
     });
 
-    it("LIGHT側ステージ3でも進化しないこと", () => {
-      const result = checkEvolution("LIGHT", 3, 50, 50, 50);
+    it("LIGHT側ステージ4でも進化しないこと", () => {
+      const result = checkEvolution("LIGHT", 4, 50, 50, 50);
       expect(result.evolved).toBe(false);
     });
   });
 
   describe("境界値テスト", () => {
-    it("閾値ちょうど（10pt）で進化すること", () => {
-      const result = checkEvolution("LIGHT", 0, 10, 0, 0);
+    it("ステージ0: 閾値ちょうど（1pt）で孵化すること", () => {
+      const result = checkEvolution("LIGHT", 0, 1, 0, 0);
       expect(result.evolved).toBe(true);
     });
 
-    it("閾値-1pt（9pt）で進化しないこと", () => {
-      const result = checkEvolution("LIGHT", 0, 9, 0, 0);
+    it("ステージ1: 閾値ちょうど（10pt）で進化すること", () => {
+      const result = checkEvolution("LIGHT", 1, 10, 0, 0);
+      expect(result.evolved).toBe(true);
+    });
+
+    it("ステージ1: 閾値-1pt（9pt）で進化しないこと", () => {
+      const result = checkEvolution("LIGHT", 1, 9, 0, 0);
       expect(result.evolved).toBe(false);
     });
 
-    it("ステージ1で閾値ちょうど（30pt）で進化すること", () => {
-      const result = checkEvolution("DARK", 1, 10, 10, 10);
+    it("ステージ2: 閾値ちょうど（30pt）で進化すること", () => {
+      const result = checkEvolution("DARK", 2, 10, 10, 10);
       expect(result.evolved).toBe(true);
     });
 
-    it("ステージ1で閾値-1pt（29pt）で進化しないこと", () => {
-      const result = checkEvolution("DARK", 1, 10, 10, 9);
+    it("ステージ2: 閾値-1pt（29pt）で進化しないこと", () => {
+      const result = checkEvolution("DARK", 2, 10, 10, 9);
       expect(result.evolved).toBe(false);
     });
 
-    it("ステージ2で閾値ちょうど（70pt）で進化すること", () => {
-      const result = checkEvolution("LIGHT", 2, 30, 20, 20);
+    it("ステージ3: 閾値ちょうど（70pt）で進化すること", () => {
+      const result = checkEvolution("LIGHT", 3, 30, 20, 20);
       expect(result.evolved).toBe(true);
     });
 
-    it("ステージ2で閾値-1pt（69pt）で進化しないこと", () => {
-      const result = checkEvolution("LIGHT", 2, 30, 20, 19);
+    it("ステージ3: 閾値-1pt（69pt）で進化しないこと", () => {
+      const result = checkEvolution("LIGHT", 3, 30, 20, 19);
       expect(result.evolved).toBe(false);
     });
   });
 
   describe("カテゴリ別ポイント分布", () => {
-    it("1カテゴリのみでも進化すること", () => {
-      expect(checkEvolution("DARK", 0, 10, 0, 0).evolved).toBe(true);
-      expect(checkEvolution("DARK", 0, 0, 10, 0).evolved).toBe(true);
-      expect(checkEvolution("DARK", 0, 0, 0, 10).evolved).toBe(true);
+    it("1カテゴリのみでも孵化すること（たまご→ステージ1）", () => {
+      expect(checkEvolution("DARK", 0, 1, 0, 0).evolved).toBe(true);
+      expect(checkEvolution("DARK", 0, 0, 1, 0).evolved).toBe(true);
+      expect(checkEvolution("DARK", 0, 0, 0, 1).evolved).toBe(true);
     });
 
-    it("3カテゴリ均等でも進化すること", () => {
+    it("ステージ1で3カテゴリ均等でも進化すること", () => {
       // 10/3 ≈ 3.33 なので均等だと 3+3+4=10
-      expect(checkEvolution("LIGHT", 0, 4, 3, 3).evolved).toBe(true);
+      expect(checkEvolution("LIGHT", 1, 4, 3, 3).evolved).toBe(true);
     });
   });
 });
@@ -261,10 +275,20 @@ describe("checkEvolution", () => {
 // ─── getXpInfo ────────────────────────────────────────
 
 describe("getXpInfo", () => {
-  it("ステージ0での基本情報を返すこと", () => {
-    const info = getXpInfo("DARK", 0, 3, 2, 1);
-    expect(info.totalPt).toBe(6);
+  it("ステージ0（たまご）での基本情報を返すこと", () => {
+    const info = getXpInfo("DARK", 0, 0, 0, 0);
+    expect(info.totalPt).toBe(0);
     expect(info.evolutionStage).toBe(0);
+    expect(info.xpInStage).toBe(0);
+    expect(info.xpToEvolve).toBe(1);
+    expect(info.nextEvolution).not.toBeNull();
+    expect(info.nextEvolution!.ptNeeded).toBe(1); // 1-0
+  });
+
+  it("ステージ1での基本情報を返すこと", () => {
+    const info = getXpInfo("DARK", 1, 3, 2, 1);
+    expect(info.totalPt).toBe(6);
+    expect(info.evolutionStage).toBe(1);
     expect(info.xpInStage).toBe(6);
     expect(info.xpToEvolve).toBe(10);
     expect(info.nextEvolution).not.toBeNull();
@@ -272,7 +296,7 @@ describe("getXpInfo", () => {
   });
 
   it("次のステージ情報を含むこと", () => {
-    const info = getXpInfo("LIGHT", 0, 5, 0, 0);
+    const info = getXpInfo("LIGHT", 1, 5, 0, 0);
     expect(info.nextEvolution).toMatchObject({
       emoji: "🦊",
       name: "キツネ",
@@ -280,22 +304,22 @@ describe("getXpInfo", () => {
     });
   });
 
-  it("ステージ1での進化情報を返すこと", () => {
-    const info = getXpInfo("DARK", 1, 10, 5, 5);
+  it("ステージ2での進化情報を返すこと", () => {
+    const info = getXpInfo("DARK", 2, 10, 5, 5);
     expect(info.totalPt).toBe(20);
     expect(info.xpToEvolve).toBe(30);
     expect(info.nextEvolution!.ptNeeded).toBe(10); // 30-20
   });
 
-  it("最大ステージではnextEvolutionがnullであること", () => {
-    const info = getXpInfo("DARK", 3, 100, 100, 100);
-    expect(info.evolutionStage).toBe(3);
+  it("最大ステージ（4）ではnextEvolutionがnullであること", () => {
+    const info = getXpInfo("DARK", 4, 100, 100, 100);
+    expect(info.evolutionStage).toBe(4);
     expect(info.xpToEvolve).toBeNull();
     expect(info.nextEvolution).toBeNull();
   });
 
-  it("ポイント0でも正常に計算されること", () => {
-    const info = getXpInfo("LIGHT", 0, 0, 0, 0);
+  it("ポイント0でも正常に計算されること（ステージ1）", () => {
+    const info = getXpInfo("LIGHT", 1, 0, 0, 0);
     expect(info.totalPt).toBe(0);
     expect(info.xpInStage).toBe(0);
     expect(info.nextEvolution!.ptNeeded).toBe(10);
@@ -303,14 +327,14 @@ describe("getXpInfo", () => {
 
   it("ステージが範囲外の場合、最大ステージにクランプされること", () => {
     const info = getXpInfo("LIGHT", 99, 10, 10, 10);
-    expect(info.evolutionStage).toBe(3);
+    expect(info.evolutionStage).toBe(4);
     expect(info.xpToEvolve).toBeNull();
     expect(info.nextEvolution).toBeNull();
   });
 
   it("ptNeededが負になるケース（閾値超過）", () => {
-    // ステージ0で11pt → ptNeeded = 10-11 = -1
-    const info = getXpInfo("DARK", 0, 5, 3, 3);
+    // ステージ1で11pt → ptNeeded = 10-11 = -1
+    const info = getXpInfo("DARK", 1, 5, 3, 3);
     expect(info.nextEvolution!.ptNeeded).toBe(-1);
   });
 });

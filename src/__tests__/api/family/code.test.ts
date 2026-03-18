@@ -49,6 +49,7 @@ describe("GET /api/family/code", () => {
       role: "PARENT",
       monsterName: null,
       side: null,
+      evolutionStage: 0,
       childCode: null,
       minTasksForStreak: 1,
     });
