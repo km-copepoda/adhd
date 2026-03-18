@@ -17,8 +17,8 @@
 </style>
 </head>
 <body>
-<h1>32×32 ドット絵たまご — まるい・ひびあり</h1>
-<p class="sub">楕円数式で形を計算（真円に近い丸み）/ RPGスタイル4段シェード / ひびわれ入り</p>
+<h1>32×32 ドット絵たまご — 金色・横帯ひびわれ</h1>
+<p class="sub">参考画像の金色たまごスタイル（横帯ひびわれ2本 / 4段シェード / ハイライト）</p>
 
 <div class="grid" id="gallery"></div>
 
@@ -51,25 +51,21 @@ const EGG_BOT = 31 - [...EGG].reverse().findIndex(r => r !== null);
 const EGG_H   = EGG_BOT - EGG_TOP + 1;
 
 // ─── Crack pixels ─────────────────────────────────────────
-// メインひび: 上中央からジグザグに左下へ
-// サブひび: 途中から右へ分岐
+// 参考画像の金色たまご風: 横帯ひびわれ2本
+// Band1: 上1/3あたりを横断 / Band2: 下1/3あたりを横断
 const CRACK = new Set();
 const cp = (r, c) => CRACK.add(`${r},${c}`);
 
-// main crack (upper center → lower left zigzag)
-cp(CY-6, CX);   cp(CY-6, CX+1);
-cp(CY-5, CX-1); cp(CY-5, CX);
-cp(CY-4, CX-1);
-cp(CY-3, CX-2); cp(CY-3, CX-1);
-cp(CY-2, CX-2);
-cp(CY-1, CX-3); cp(CY-1, CX-2);
-cp(CY,   CX-3);
-cp(CY+1, CX-3); cp(CY+1, CX-2);
+// Band 1 (row CY-4 〜 CY-3): 横帯ひび (上寄り)
+// 少しうねりをつけてリアルさを出す
+[CX-7,CX-6,CX-5,CX-4,CX-3,CX-2,CX-1,CX,CX+1,CX+2,CX+3,CX+4,CX+5,CX+6].forEach(c => cp(CY-4, c));
+[CX-8,CX-7,CX-6,CX-5,CX-4,CX-3,CX-2].forEach(c => cp(CY-3, c)); // 左側は1行下にずれる
+[CX+3,CX+4,CX+5,CX+6,CX+7].forEach(c => cp(CY-3, c));            // 右側も少しずれる
 
-// branch crack (right from junction near CY-5)
-cp(CY-5, CX+2);
-cp(CY-4, CX+2); cp(CY-4, CX+3);
-cp(CY-3, CX+3);
+// Band 2 (row CY+3 〜 CY+4): 横帯ひび (下寄り)
+[CX-6,CX-5,CX-4,CX-3,CX-2,CX-1,CX,CX+1,CX+2,CX+3,CX+4,CX+5].forEach(c => cp(CY+3, c));
+[CX-7,CX-6,CX-5,CX-4,CX-3].forEach(c => cp(CY+4, c));
+[CX+2,CX+3,CX+4,CX+5,CX+6].forEach(c => cp(CY+4, c));
 
 // ─── Pixel type ───────────────────────────────────────────
 function pixelType(row, col) {
@@ -100,6 +96,13 @@ function pixelType(row, col) {
 
 // ─── Palettes ─────────────────────────────────────────────
 const PALETTES = [
+  // ★ 参考画像の金色たまごスタイル (先頭)
+  { name: '★ゴールド\n(参考画像)', c: {
+    bg:'#0f0f23', border:'#000',
+    hl:'#fff9c4', light:'#ffd54f',
+    fill:'#ffb300', dark:'#e65100', shadow:'#6d2600',
+    crack:'#000'
+  }},
   { name: 'シアン', c: {
     bg:'#0f0f23', border:'#000', hl:'#e0f7ff', light:'#7dd3fc',
     fill:'#2da8e0', dark:'#0369a1', shadow:'#0c2461', crack:'#000'
@@ -111,10 +114,6 @@ const PALETTES = [
   { name: 'パープル', c: {
     bg:'#0f0f23', border:'#000', hl:'#f3e8ff', light:'#c084fc',
     fill:'#7c3aed', dark:'#4c1d95', shadow:'#200060', crack:'#000'
-  }},
-  { name: 'ゴールド', c: {
-    bg:'#0f0f23', border:'#000', hl:'#fefce8', light:'#fde68a',
-    fill:'#f59e0b', dark:'#b45309', shadow:'#431407', crack:'#000'
   }},
   { name: 'エメラルド', c: {
     bg:'#0f0f23', border:'#000', hl:'#d1fae5', light:'#6ee7b7',
@@ -166,7 +165,7 @@ PALETTES.forEach(pal => {
 const gc = document.getElementById('grid-canvas');
 gc.width = 256; gc.height = 256;
 gc.style.cssText = 'image-rendering:pixelated;width:256px;height:256px';
-draw(gc.getContext('2d'), PALETTES[0], 8);
+draw(gc.getContext('2d'), PALETTES[0], 8); // ゴールド
 const gctx = gc.getContext('2d');
 gctx.strokeStyle = 'rgba(30,41,59,0.6)';
 gctx.lineWidth = 0.5;
