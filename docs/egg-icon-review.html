@@ -2,273 +2,184 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ドット絵「卵」アイコン案</title>
+<title>32×32 ドット絵たまご</title>
 <style>
   body { background: #07080f; color: #fff; font-family: sans-serif; padding: 40px; }
   h1 { color: #a78bfa; margin-bottom: 8px; }
-  .grid { display: flex; flex-wrap: wrap; gap: 48px; margin-top: 32px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 40px; margin-top: 32px; }
   .card { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .card h2 { font-size: 13px; color: #94a3b8; margin: 0; text-align: center; }
-  .sizes { display: flex; gap: 20px; align-items: flex-end; }
+  .sizes { display: flex; gap: 16px; align-items: flex-end; }
   .label { font-size: 11px; color: #64748b; text-align: center; margin-top: 4px; }
-  .bg-dark { background: #07080f; border-radius: 8px; }
-  .bg-card { background: #0f172a; border-radius: 8px; padding: 4px; }
+  canvas { image-rendering: pixelated; display: block; }
+  .bg-frame { background: #0f172a; border-radius: 6px; padding: 8px; }
 </style>
 </head>
 <body>
-<h1>ドット絵「卵」アイコン — 5カラー</h1>
-<p style="color:#64748b">漢字「卵」を10×9ドットのピクセルアートで表現（各カラーバリエーション）</p>
+<h1>32×32 ドット絵たまご — 5カラー</h1>
+<p style="color:#64748b">左: 6倍表示（192px）　右: 実寸（32px）</p>
 
-<!-- 卵ドット絵の定義 (10col × 10row, cell=8px, viewBox=100x100) -->
-<!-- ドットパターン: -->
-<!-- row0: .##..##. -->
-<!-- row1: #..##..# -->
-<!-- row2: #.####.# (横棒) -->
-<!-- row3: #..##..# -->
-<!-- row4: #.#..#.# (点々) -->
-<!-- row5: #..##..# -->
-<!-- row6: .#....#. -->
-<!-- row7: ..####.. -->
-<!-- row8: ..#..#.. -->
-<!-- row9: ..####.. -->
+<div class="grid" id="gallery"></div>
 
-<svg width="0" height="0">
-  <defs>
-    <symbol id="kanji-egg" viewBox="0 0 100 100">
-      <!-- row 0 (y=10): cols 1,2,5,6 -->
-      <rect x="22" y="10" width="8" height="8" fill="currentColor"/>
-      <rect x="30" y="10" width="8" height="8" fill="currentColor"/>
-      <rect x="54" y="10" width="8" height="8" fill="currentColor"/>
-      <rect x="62" y="10" width="8" height="8" fill="currentColor"/>
-      <!-- row 1 (y=18): cols 0,3,4,7 -->
-      <rect x="14" y="18" width="8" height="8" fill="currentColor"/>
-      <rect x="38" y="18" width="8" height="8" fill="currentColor"/>
-      <rect x="46" y="18" width="8" height="8" fill="currentColor"/>
-      <rect x="70" y="18" width="8" height="8" fill="currentColor"/>
-      <!-- row 2 (y=26): cols 0,2,3,4,5,7 (横棒) -->
-      <rect x="14" y="26" width="8" height="8" fill="currentColor"/>
-      <rect x="30" y="26" width="8" height="8" fill="currentColor"/>
-      <rect x="38" y="26" width="8" height="8" fill="currentColor"/>
-      <rect x="46" y="26" width="8" height="8" fill="currentColor"/>
-      <rect x="54" y="26" width="8" height="8" fill="currentColor"/>
-      <rect x="70" y="26" width="8" height="8" fill="currentColor"/>
-      <!-- row 3 (y=34): cols 0,3,4,7 -->
-      <rect x="14" y="34" width="8" height="8" fill="currentColor"/>
-      <rect x="38" y="34" width="8" height="8" fill="currentColor"/>
-      <rect x="46" y="34" width="8" height="8" fill="currentColor"/>
-      <rect x="70" y="34" width="8" height="8" fill="currentColor"/>
-      <!-- row 4 (y=42): cols 0,2,5,7 (点々) -->
-      <rect x="14" y="42" width="8" height="8" fill="currentColor"/>
-      <rect x="30" y="42" width="8" height="8" fill="currentColor"/>
-      <rect x="54" y="42" width="8" height="8" fill="currentColor"/>
-      <rect x="70" y="42" width="8" height="8" fill="currentColor"/>
-      <!-- row 5 (y=50): cols 0,3,4,7 -->
-      <rect x="14" y="50" width="8" height="8" fill="currentColor"/>
-      <rect x="38" y="50" width="8" height="8" fill="currentColor"/>
-      <rect x="46" y="50" width="8" height="8" fill="currentColor"/>
-      <rect x="70" y="50" width="8" height="8" fill="currentColor"/>
-      <!-- row 6 (y=58): cols 1,6 (くびれ) -->
-      <rect x="22" y="58" width="8" height="8" fill="currentColor"/>
-      <rect x="62" y="58" width="8" height="8" fill="currentColor"/>
-      <!-- row 7 (y=66): cols 2,3,4,5 (下部囲み上) -->
-      <rect x="30" y="66" width="8" height="8" fill="currentColor"/>
-      <rect x="38" y="66" width="8" height="8" fill="currentColor"/>
-      <rect x="46" y="66" width="8" height="8" fill="currentColor"/>
-      <rect x="54" y="66" width="8" height="8" fill="currentColor"/>
-      <!-- row 8 (y=74): cols 2,5 (下部囲み左右) -->
-      <rect x="30" y="74" width="8" height="8" fill="currentColor"/>
-      <rect x="54" y="74" width="8" height="8" fill="currentColor"/>
-      <!-- row 9 (y=82): cols 2,3,4,5 (下部囲み下) -->
-      <rect x="30" y="82" width="8" height="8" fill="currentColor"/>
-      <rect x="38" y="82" width="8" height="8" fill="currentColor"/>
-      <rect x="46" y="82" width="8" height="8" fill="currentColor"/>
-      <rect x="54" y="82" width="8" height="8" fill="currentColor"/>
-    </symbol>
-  </defs>
-</svg>
-
-<div class="grid">
-
-  <!-- カラー1: シアン（クリスタル） -->
-  <div class="card">
-    <h2>シアン<br>クリスタル</h2>
-    <div class="sizes">
-      <div class="bg-card">
-        <svg width="48" height="48" viewBox="0 0 100 100">
-          <defs>
-            <filter id="glow1">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#38bdf8" flood-opacity="0.8"/>
-            </filter>
-          </defs>
-          <use href="#kanji-egg" width="100" height="100" style="color:#38bdf8;" filter="url(#glow1)"/>
-        </svg>
-        <div class="label">48px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="96" height="96" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#38bdf8;" filter="url(#glow1)"/>
-        </svg>
-        <div class="label">96px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="160" height="160" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#38bdf8;" filter="url(#glow1)"/>
-        </svg>
-        <div class="label">160px</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- カラー2: バイオレット（やみ） -->
-  <div class="card">
-    <h2>バイオレット<br>やみ</h2>
-    <div class="sizes">
-      <div class="bg-card">
-        <svg width="48" height="48" viewBox="0 0 100 100">
-          <defs>
-            <filter id="glow2">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#a78bfa" flood-opacity="0.8"/>
-            </filter>
-          </defs>
-          <use href="#kanji-egg" width="100" height="100" style="color:#a78bfa;" filter="url(#glow2)"/>
-        </svg>
-        <div class="label">48px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="96" height="96" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#a78bfa;" filter="url(#glow2)"/>
-        </svg>
-        <div class="label">96px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="160" height="160" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#a78bfa;" filter="url(#glow2)"/>
-        </svg>
-        <div class="label">160px</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- カラー3: アンバー（ゴールド） -->
-  <div class="card">
-    <h2>アンバー<br>ゴールド</h2>
-    <div class="sizes">
-      <div class="bg-card">
-        <svg width="48" height="48" viewBox="0 0 100 100">
-          <defs>
-            <filter id="glow3">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#fbbf24" flood-opacity="0.8"/>
-            </filter>
-          </defs>
-          <use href="#kanji-egg" width="100" height="100" style="color:#fbbf24;" filter="url(#glow3)"/>
-        </svg>
-        <div class="label">48px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="96" height="96" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#fbbf24;" filter="url(#glow3)"/>
-        </svg>
-        <div class="label">96px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="160" height="160" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#fbbf24;" filter="url(#glow3)"/>
-        </svg>
-        <div class="label">160px</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- カラー4: エメラルド（自然） -->
-  <div class="card">
-    <h2>エメラルド<br>自然</h2>
-    <div class="sizes">
-      <div class="bg-card">
-        <svg width="48" height="48" viewBox="0 0 100 100">
-          <defs>
-            <filter id="glow4">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#34d399" flood-opacity="0.8"/>
-            </filter>
-          </defs>
-          <use href="#kanji-egg" width="100" height="100" style="color:#34d399;" filter="url(#glow4)"/>
-        </svg>
-        <div class="label">48px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="96" height="96" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#34d399;" filter="url(#glow4)"/>
-        </svg>
-        <div class="label">96px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="160" height="160" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#34d399;" filter="url(#glow4)"/>
-        </svg>
-        <div class="label">160px</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- カラー5: ホワイト（レトロゲーム） -->
-  <div class="card">
-    <h2>ホワイト<br>レトロ</h2>
-    <div class="sizes">
-      <div class="bg-card">
-        <svg width="48" height="48" viewBox="0 0 100 100">
-          <defs>
-            <filter id="glow5">
-              <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#ffffff" flood-opacity="0.6"/>
-            </filter>
-          </defs>
-          <use href="#kanji-egg" width="100" height="100" style="color:#ffffff;" filter="url(#glow5)"/>
-        </svg>
-        <div class="label">48px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="96" height="96" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#ffffff;" filter="url(#glow5)"/>
-        </svg>
-        <div class="label">96px</div>
-      </div>
-      <div class="bg-card">
-        <svg width="160" height="160" viewBox="0 0 100 100">
-          <use href="#kanji-egg" width="100" height="100" style="color:#ffffff;" filter="url(#glow5)"/>
-        </svg>
-        <div class="label">160px</div>
-      </div>
-    </div>
-  </div>
-
+<div style="margin-top: 56px">
+  <h2 style="color:#475569; font-size:14px; margin-bottom: 12px">グリッドマップ（8倍・シアン）</h2>
+  <canvas id="grid-canvas" style="border:1px solid #1e293b; border-radius:4px;"></canvas>
+  <p style="font-size:11px; color:#475569; margin-top:6px">各マスが1ドット = 実際は右の32px</p>
 </div>
 
-<!-- ドット絵グリッド説明 -->
-<div style="margin-top: 60px;">
-  <h2 style="color:#475569; font-size:14px; margin-bottom:16px">ドットパターン（10×10マス）</h2>
-  <svg width="240" height="240" viewBox="0 0 100 100" style="border: 1px solid #1e293b; border-radius:4px; background:#0f172a">
-    <!-- grid lines -->
-    <g stroke="#1e293b" stroke-width="0.3">
-      <line x1="14" y1="10" x2="14" y2="90"/><line x1="22" y1="10" x2="22" y2="90"/>
-      <line x1="30" y1="10" x2="30" y2="90"/><line x1="38" y1="10" x2="38" y2="90"/>
-      <line x1="46" y1="10" x2="46" y2="90"/><line x1="54" y1="10" x2="54" y2="90"/>
-      <line x1="62" y1="10" x2="62" y2="90"/><line x1="70" y1="10" x2="70" y2="90"/>
-      <line x1="78" y1="10" x2="78" y2="90"/>
-      <line x1="14" y1="10" x2="78" y2="10"/><line x1="14" y1="18" x2="78" y2="18"/>
-      <line x1="14" y1="26" x2="78" y2="26"/><line x1="14" y1="34" x2="78" y2="34"/>
-      <line x1="14" y1="42" x2="78" y2="42"/><line x1="14" y1="50" x2="78" y2="50"/>
-      <line x1="14" y1="58" x2="78" y2="58"/><line x1="14" y1="66" x2="78" y2="66"/>
-      <line x1="14" y1="74" x2="78" y2="74"/><line x1="14" y1="82" x2="78" y2="82"/>
-      <line x1="14" y1="90" x2="78" y2="90"/>
-    </g>
-    <use href="#kanji-egg" width="100" height="100" style="color:#38bdf8;" opacity="0.9"/>
-  </svg>
-  <p style="color:#475569; font-size:11px; margin-top:8px">実寸グリッド（×2.4 表示）</p>
-</div>
+<script>
+// 32×32 egg pixel map: each entry is [startCol, endCol] inclusive, or null
+const eggRows = [
+  null, null,       // 0-1
+  [15, 16],         // 2  (2px)
+  [13, 18],         // 3  (6px)
+  [11, 20],         // 4  (10px)
+  [10, 21],         // 5  (12px)
+  [9, 22],          // 6  (14px)
+  [8, 23],          // 7  (16px)
+  [8, 23],          // 8  (16px)
+  [7, 24],          // 9  (18px)
+  [7, 24],          // 10 (18px)
+  [6, 25],          // 11 (20px)
+  [6, 25],          // 12 (20px)
+  [6, 25],          // 13 (20px)
+  [6, 25],          // 14 (20px) ← widest
+  [7, 24],          // 15 (18px)
+  [7, 24],          // 16 (18px)
+  [8, 23],          // 17 (16px)
+  [9, 22],          // 18 (14px)
+  [10, 21],         // 19 (12px)
+  [11, 20],         // 20 (10px)
+  [12, 19],         // 21 (8px)
+  [14, 17],         // 22 (4px)
+  null, null, null, null, null, null, null, null, null  // 23-31
+];
 
-<hr style="border-color:#1e293b; margin: 48px 0 32px">
+function getPixelType(row, col) {
+  const r = eggRows[row];
+  if (!r) return 'bg';
+  const [s, e] = r;
+  if (col < s || col > e) return 'bg';
+  if (col === s || col === e) return 'border';
+
+  const span = e - s;        // total width including borders
+  const inner = col - s;     // 1 … span-1
+
+  // highlight: upper portion, left side
+  const hlW = Math.max(1, Math.floor((span - 1) * 0.30));
+  if (row <= 8 && inner <= hlW) return 'highlight';
+
+  // shadow: lower portion, right side
+  const shStart = span - 1 - Math.max(1, Math.floor((span - 1) * 0.30));
+  if (row >= 12 && inner >= shStart) return 'shadow';
+
+  return 'fill';
+}
+
+const palettes = [
+  {
+    name: 'クリーム卵',
+    colors: { bg: '#07080f', border: '#7c2d12', fill: '#fef3c7', highlight: '#ffffff', shadow: '#d97706' }
+  },
+  {
+    name: 'クリスタル',
+    colors: { bg: '#07080f', border: '#1e40af', fill: '#93c5fd', highlight: '#eff6ff', shadow: '#1d4ed8' }
+  },
+  {
+    name: 'やみ',
+    colors: { bg: '#07080f', border: '#2e1065', fill: '#4c1d95', highlight: '#a78bfa', shadow: '#1e0035' }
+  },
+  {
+    name: 'ゴールド',
+    colors: { bg: '#07080f', border: '#78350f', fill: '#fcd34d', highlight: '#fefce8', shadow: '#b45309' }
+  },
+  {
+    name: 'モノクロ',
+    colors: { bg: '#07080f', border: '#374151', fill: '#9ca3af', highlight: '#f9fafb', shadow: '#4b5563' }
+  },
+];
+
+function drawEgg(ctx, palette, scale) {
+  ctx.fillStyle = palette.colors.bg;
+  ctx.fillRect(0, 0, 32 * scale, 32 * scale);
+  for (let row = 0; row < 32; row++) {
+    for (let col = 0; col < 32; col++) {
+      const type = getPixelType(row, col);
+      if (type === 'bg') continue;
+      ctx.fillStyle = palette.colors[type];
+      ctx.fillRect(col * scale, row * scale, scale, scale);
+    }
+  }
+}
+
+const gallery = document.getElementById('gallery');
+
+palettes.forEach(palette => {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const h2 = document.createElement('h2');
+  h2.textContent = palette.name;
+  card.appendChild(h2);
+
+  const sizes = document.createElement('div');
+  sizes.className = 'sizes';
+
+  // 6× preview
+  const wrap6 = document.createElement('div');
+  wrap6.className = 'bg-frame';
+  const c6 = document.createElement('canvas');
+  c6.width = 32 * 6;
+  c6.height = 32 * 6;
+  c6.style.cssText = 'image-rendering:pixelated;width:192px;height:192px';
+  drawEgg(c6.getContext('2d'), palette, 6);
+  const l6 = document.createElement('div');
+  l6.className = 'label';
+  l6.textContent = '192px (×6)';
+  wrap6.appendChild(c6);
+  wrap6.appendChild(l6);
+  sizes.appendChild(wrap6);
+
+  // 1× actual size
+  const wrap1 = document.createElement('div');
+  wrap1.className = 'bg-frame';
+  const c1 = document.createElement('canvas');
+  c1.width = 32;
+  c1.height = 32;
+  c1.style.cssText = 'image-rendering:pixelated;width:32px;height:32px';
+  drawEgg(c1.getContext('2d'), palette, 1);
+  const l1 = document.createElement('div');
+  l1.className = 'label';
+  l1.textContent = '32px (実寸)';
+  wrap1.appendChild(c1);
+  wrap1.appendChild(l1);
+  sizes.appendChild(wrap1);
+
+  card.appendChild(sizes);
+  gallery.appendChild(card);
+});
+
+// Grid preview
+const gc = document.getElementById('grid-canvas');
+gc.width = 32 * 8;
+gc.height = 32 * 8;
+gc.style.cssText = `image-rendering:pixelated;width:${32*8}px;height:${32*8}px`;
+const gctx = gc.getContext('2d');
+drawEgg(gctx, palettes[1], 8); // crystal color
+
+// grid lines
+gctx.strokeStyle = 'rgba(15,23,42,0.8)';
+gctx.lineWidth = 0.5;
+for (let i = 0; i <= 32; i++) {
+  gctx.beginPath(); gctx.moveTo(i * 8, 0); gctx.lineTo(i * 8, 256); gctx.stroke();
+  gctx.beginPath(); gctx.moveTo(0, i * 8); gctx.lineTo(256, i * 8); gctx.stroke();
+}
+</script>
+
+<hr style="border-color:#1e293b; margin: 48px 0 24px">
 <p style="color:#475569; font-size:13px">
-  気に入ったカラーを教えてください。決定したらファビコン・PWAアイコン（PNG）に変換します。<br>
-  ドット絵の形を調整したい場合も言ってください。
+  気に入ったカラーを教えてください。形の調整（幅・高さ・ハイライトの広さ等）も可能です。<br>
+  決定したらPNGファイルとしてエクスポートしファビコン・PWAアイコンに適用します。
 </p>
-
 </body>
 </html>
