@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR, XP_MAP, DAY_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Difficulty, QuestStatus } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type Quest = {
   id: string;
@@ -169,9 +170,7 @@ export default function QuestsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-quest-dim">読み込み中...</div>
-      </div>
+      <LoadingSpinner />
     );
   }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, XP_MAP } from "@/lib/constants";
 import type { Category, Difficulty } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type CompletedQuest = {
   id: string;
@@ -35,7 +36,7 @@ export default function CompletedTodayPage() {
   const totalXp = approvedQuests.reduce((sum, q) => sum + XP_MAP[q.template.difficulty], 0);
 
   if (loading) {
-    return <div className="text-quest-dim">読み込み中...</div>;
+    return <LoadingSpinner />;
   }
 
   return (

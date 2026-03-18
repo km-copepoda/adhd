@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getMonsterStage } from "@/lib/constants";
 import type { Side } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type Member = {
   id: string;
@@ -126,7 +127,7 @@ export default function FamilyPage() {
   }
 
   if (loading) {
-    return <div className="text-quest-dim">読み込み中...</div>;
+    return <LoadingSpinner />;
   }
 
   return (

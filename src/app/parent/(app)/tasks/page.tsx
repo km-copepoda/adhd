@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, DIFFICULTY_LABEL, XP_MAP, DAY_LABELS } from "@/lib/constants";
 import type { Category, Difficulty } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type Task = {
   id: string;
@@ -43,6 +44,7 @@ const defaultForm = (childId: string) => ({
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
+  const [loading, setLoading] = useState(true);
   // openChildId: どの子供のフォームが開いているか
   const [openChildId, setOpenChildId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,8 +52,7 @@ export default function TasksPage() {
   const [form, setForm] = useState(defaultForm(""));
 
   useEffect(() => {
-    fetchTasks();
-    fetchChildren();
+    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
   }, []);
 
   async function fetchTasks() {
@@ -343,6 +344,8 @@ export default function TasksPage() {
       </div>
     );
   }
+
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div>

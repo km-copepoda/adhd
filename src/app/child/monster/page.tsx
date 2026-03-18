@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Side } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type MonsterData = {
   name: string;
@@ -84,9 +85,7 @@ export default function MonsterPage() {
 
   if (loading || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-quest-dim">読み込み中...</div>
-      </div>
+      <LoadingSpinner />
     );
   }
 
