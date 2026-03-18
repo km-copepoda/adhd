@@ -56,7 +56,11 @@ export default function QuestsPage() {
       .channel("quest-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, async () => {
         await refreshQuests();
-        // 進化チェック: ステージが上がっていたら sessionStorage にフラグセット
+        // 進化チェックは User テーブルの変更で行う
+        // (approve 処理は QuestInstance→User の順に更新するため、ここで検査すると競合が発生する)
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, async () => {
+        // User テーブルが更新されるのは承認後にXP/進化ステージが確定したタイミング
         try {
           const res = await fetch("/api/monster");
           if (res.ok) {
