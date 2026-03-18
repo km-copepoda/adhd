@@ -4,8 +4,8 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "PARENT") {
-    return NextResponse.json({ error: "親のみ登録可能" }, { status: 403 });
+  if (!user) {
+    return NextResponse.json({ error: "認証が必要です" }, { status: 403 });
   }
 
   const sub = await request.json();

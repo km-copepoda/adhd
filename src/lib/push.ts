@@ -9,6 +9,32 @@ function initVapid() {
   return true;
 }
 
+export async function sendPushToChild(
+  childId: string,
+  payload: { title: string; body: string; url?: string }
+) {
+  if (!initVapid()) return;
+
+  const subs = await prisma.pushSubscription.findMany({
+    where: { userId: childId },
+  });
+
+  await Promise.allSettled(
+    subs.map((sub) =>
+      webpush
+        .sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        )
+        .catch(async (err: { statusCode?: number }) => {
+          if (err.statusCode === 410) {
+            await prisma.pushSubscription.delete({ where: { id: sub.id } });
+          }
+        })
+    )
+  );
+}
+
 export async function sendPushToParent(
   parentId: string,
   payload: { title: string; body: string; url?: string }

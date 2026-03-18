@@ -133,6 +133,20 @@ export default function TasksPage() {
     fetchTasks();
   }
 
+  async function handleRemind(childId: string) {
+    const res = await fetch("/api/push/notify-child", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId }),
+    });
+    if (res.ok) {
+      alert("リマインドを送りました！");
+    } else {
+      const json = await res.json().catch(() => ({}));
+      alert(json.error || "送信に失敗しました");
+    }
+  }
+
   function startEdit(task: Task) {
     setForm({
       title: task.title,
@@ -360,12 +374,21 @@ export default function TasksPage() {
                 </span>
               </div>
               {!isOpen && (
-                <button
-                  onClick={() => openFormForChild(child.id)}
-                  className="btn-gold text-xs px-3 py-1.5"
-                >
-                  + タスク追加
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRemind(child.id)}
+                    className="text-xs text-quest-dim hover:text-yellow-400 border border-quest-border hover:border-yellow-400/30 rounded-lg px-3 py-1.5 transition-colors"
+                    title="今日の未完了タスクをリマインド"
+                  >
+                    🔔 リマインド
+                  </button>
+                  <button
+                    onClick={() => openFormForChild(child.id)}
+                    className="btn-gold text-xs px-3 py-1.5"
+                  >
+                    + タスク追加
+                  </button>
+                </div>
               )}
             </div>
 

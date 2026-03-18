@@ -68,4 +68,5 @@ vi.mock("@/lib/auth", () => ({
 // Mock push notifications (web-push is not available in test environment)
 vi.mock("@/lib/push", () => ({
   sendPushToParent: vi.fn(),
+  sendPushToChild: vi.fn(),
 }));
