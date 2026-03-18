@@ -64,3 +64,8 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/auth", () => ({
   getCurrentUser: vi.fn(),
 }));
+
+// Mock push notifications (web-push is not available in test environment)
+vi.mock("@/lib/push", () => ({
+  sendPushToParent: vi.fn(),
+}));
