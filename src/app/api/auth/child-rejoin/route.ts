@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   // 同じsupabaseIdが他ユーザーに紐付いている場合（同デバイスで別の子がログイン済み等）は先に解除
   await prisma.$transaction([
     prisma.user.updateMany({
-      where: { supabaseId: supabaseUserId, id: { not: child.id } },
+      where: { supabaseId: supabaseUserId, id: { not: child.id }, role: "CHILD" },
       data: { supabaseId: `detached_${Date.now()}` },
     }),
     prisma.user.update({

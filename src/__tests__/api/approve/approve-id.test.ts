@@ -5,9 +5,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { makeRequest, makeParams } from "../../helpers/request";
 import { parentUser, childUser } from "../../helpers/fixtures";
 
-// recordDailyAchievement をモックして承認テストから分離
+// recordDailyAchievement / recordTaskStreak をモックして承認テストから分離
 vi.mock("@/lib/streak", () => ({
   recordDailyAchievement: vi.fn().mockResolvedValue(undefined),
+  recordTaskStreak: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockPrisma = vi.mocked(prisma);
@@ -88,21 +89,21 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "EASY", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 1, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", side: "LIGHT", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
       await POST(makeRequest("/api/approve/q1b", { action: "approve" }), makeParams("q1b"));
 
-      // EASY=1pt → studyPt: 1+1=2, total=2 < 10 → 進化しない
+      // EASY=1pt → studyPt: 1+1=2, total=2 < 10 (ステージ1の閾値) → 進化しない
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "child-1" },
         data: {
           studyPt: 2,
           staminaPt: 0,
           lifePt: 0,
-          evolutionStage: 0,
+          evolutionStage: 1,
         },
       });
     });

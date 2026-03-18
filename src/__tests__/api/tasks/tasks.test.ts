@@ -41,6 +41,12 @@ describe("GET /api/tasks", () => {
     expect(json).toEqual(tasks);
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
       where: { familyId: "fam-1", isActive: true },
+      include: {
+        assignedChild: { select: { id: true, monsterName: true } },
+        taskStreaks: {
+          select: { childId: true, currentStreak: true, bestStreak: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
   });
@@ -71,6 +77,7 @@ describe("POST /api/tasks", () => {
         category: "STUDY",
         difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
+        assignedChildId: "child-1",
       })
     );
     const json = await res.json();
@@ -85,8 +92,10 @@ describe("POST /api/tasks", () => {
         repeatDays: [1, 2, 3, 4, 5],
         isTemporary: false,
         targetDate: null,
+        requestedDate: null,
         createdBy: "PARENT",
         familyId: "fam-1",
+        assignedChildId: "child-1",
       },
     });
   });
@@ -144,7 +153,7 @@ describe("POST /api/tasks", () => {
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-def" } as any);
 
     await POST(
-      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", difficulty: "EASY" })
+      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", difficulty: "EASY", assignedChildId: "child-1" })
     );
 
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
@@ -157,7 +166,7 @@ describe("POST /api/tasks", () => {
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-norep" } as any);
 
     await POST(
-      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", difficulty: "EASY" })
+      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", difficulty: "EASY", assignedChildId: "child-1" })
     );
 
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
