@@ -33,18 +33,25 @@ export default function MonsterPage() {
   const [hatched, setHatched] = useState(false);
   const prevStageRef = useRef<number | null>(null);
 
+  const fetchStatus = () =>
+    fetch("/api/monster-status").then((r) => r.json());
+
   useEffect(() => {
-    Promise.all([
-      fetch("/api/monster").then((r) => r.json()),
-      fetch("/api/streak").then((r) => r.json()),
-    ])
-      .then(([monsterData, streakData]) => {
-        setData(monsterData);
-        setStreak(streakData);
-        prevStageRef.current = monsterData.evolutionStage;
+    fetchStatus()
+      .then((d) => {
+        setData({
+          name: d.name, side: d.side, evolutionStage: d.evolutionStage,
+          studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
+          pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
+        });
+        setStreak({
+          currentStreak: d.currentStreak, bestStreak: d.bestStreak,
+          monthlyDays: d.monthlyDays, lastAchievedDate: d.lastAchievedDate, currentTitle: d.currentTitle,
+        });
+        prevStageRef.current = d.evolutionStage;
         if (sessionStorage.getItem("pendingEvolution") === "true") {
           sessionStorage.removeItem("pendingEvolution");
-          if (monsterData.evolutionStage === 1) {
+          if (d.evolutionStage === 1) {
             setHatched(true);
             setTimeout(() => setHatched(false), 3000);
           } else {
@@ -59,27 +66,32 @@ export default function MonsterPage() {
     const channel = supabase
       .channel("monster-changes")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
-        Promise.all([
-          fetch("/api/monster").then((r) => r.json()),
-          fetch("/api/streak").then((r) => r.json()),
-        ]).then(([d, s]) => {
-            if (prevStageRef.current !== null && d.evolutionStage > prevStageRef.current) {
-              if (prevStageRef.current === 0) {
-                setHatched(true);
-                setTimeout(() => setHatched(false), 3000);
-              } else {
-                setShowEvolution(true);
-                setTimeout(() => setShowEvolution(false), 3000);
-              }
+        fetchStatus().then((d) => {
+          if (prevStageRef.current !== null && d.evolutionStage > prevStageRef.current) {
+            if (prevStageRef.current === 0) {
+              setHatched(true);
+              setTimeout(() => setHatched(false), 3000);
+            } else {
+              setShowEvolution(true);
+              setTimeout(() => setShowEvolution(false), 3000);
             }
-            prevStageRef.current = d.evolutionStage;
-            setData(d);
-            setStreak(s);
+          }
+          prevStageRef.current = d.evolutionStage;
+          setData({
+            name: d.name, side: d.side, evolutionStage: d.evolutionStage,
+            studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
+            pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
           });
+          setStreak({
+            currentStreak: d.currentStreak, bestStreak: d.bestStreak,
+            monthlyDays: d.monthlyDays, lastAchievedDate: d.lastAchievedDate, currentTitle: d.currentTitle,
+          });
+        });
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading || !data) {

@@ -1,0 +1,122 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GET } from "@/app/api/monster-status/route";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { childUser, streak } from "../../helpers/fixtures";
+
+const mockPrisma = vi.mocked(prisma);
+const mockGetCurrentUser = vi.mocked(getCurrentUser);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("GET /api/monster-status", () => {
+  it("未認証の場合、401を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    const res = await GET();
+    expect(res.status).toBe(401);
+  });
+
+  it("モンスター情報とストリーク情報を1レスポンスで返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(
+      childUser({ evolutionStage: 2, studyPt: 10, staminaPt: 5, lifePt: 3, side: "DARK" }) as any,
+    );
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)       // pendingQuests
+      .mockResolvedValueOnce([] as any);      // monthlyQuests
+    mockPrisma.streak.findUnique.mockResolvedValue(
+      streak({ currentStreak: 7, bestStreak: 15, lastAchievedDate: new Date("2026-03-13") }) as any,
+    );
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const json = await res.json();
+
+    // monster fields
+    expect(json.evolutionStage).toBe(2);
+    expect(json.side).toBe("DARK");
+    expect(json.studyPt).toBe(10);
+    expect(json.staminaPt).toBe(5);
+    expect(json.lifePt).toBe(3);
+    expect(json.pendingStudyPt).toBe(0);
+    expect(json.pendingStaminaPt).toBe(0);
+    expect(json.pendingLifePt).toBe(0);
+
+    // streak fields
+    expect(json.currentStreak).toBe(7);
+    expect(json.bestStreak).toBe(15);
+    expect(json.monthlyDays).toBe(0);
+    expect(json.lastAchievedDate).toBe("2026-03-13");
+  });
+
+  it("承認待ちクエストのpendingXPをカテゴリ別に集計すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(
+      childUser({ monsterName: "ピカ", studyPt: 5, staminaPt: 3, lifePt: 1 }) as any,
+    );
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([
+        { template: { difficulty: "NORMAL", category: "STUDY" } },   // +3
+        { template: { difficulty: "HARD", category: "STUDY" } },     // +5
+        { template: { difficulty: "EASY", category: "STAMINA" } },   // +1
+        { template: { difficulty: "NORMAL", category: "LIFE" } },    // +3
+      ] as any)
+      .mockResolvedValueOnce([] as any); // monthlyQuests
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.pendingStudyPt).toBe(8);
+    expect(json.pendingStaminaPt).toBe(1);
+    expect(json.pendingLifePt).toBe(3);
+  });
+
+  it("今月の達成日数を正しく返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any) // pendingQuests
+      .mockResolvedValueOnce([
+        { date: new Date("2026-03-01") },
+        { date: new Date("2026-03-05") },
+        { date: new Date("2026-03-10") },
+      ] as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.monthlyDays).toBe(3);
+  });
+
+  it("ストリーク未作成の場合、デフォルト値を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.currentStreak).toBe(0);
+    expect(json.bestStreak).toBe(0);
+    expect(json.monthlyDays).toBe(0);
+    expect(json.currentTitle).toBeNull();
+    expect(json.lastAchievedDate).toBeNull();
+  });
+
+  it("REPORTEDクエストのみpending集計に使用すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    await GET();
+
+    // 1回目の呼び出しがpendingQuests (status=REPORTED)
+    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { childId: "child-1", status: "REPORTED" },
+        include: { template: true },
+      }),
+    );
+  });
+});

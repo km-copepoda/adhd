@@ -69,6 +69,7 @@ model User {
   createdAt           DateTime           @default(now())
 
   @@unique([familyId, childCode])
+  @@index([familyId])
 }
 
 model TaskTemplate {
@@ -90,6 +91,9 @@ model TaskTemplate {
   quests           QuestInstance[]
   taskStreaks      TaskStreak[]
   createdAt        DateTime        @default(now())
+
+  @@index([familyId])
+  @@index([assignedChildId])
 }
 
 model QuestInstance {
@@ -106,6 +110,9 @@ model QuestInstance {
   createdAt  DateTime     @default(now())
 
   @@unique([templateId, childId, date])
+  @@index([childId])
+  @@index([childId, date])
+  @@index([childId, status])
 }
 
 model Streak {

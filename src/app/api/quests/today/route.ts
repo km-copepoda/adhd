@@ -30,24 +30,26 @@ export async function GET() {
     },
   });
 
-  // Create quest instances for today if they don't exist
-  for (const template of templates) {
-    await prisma.questInstance.upsert({
-      where: {
-        templateId_childId_date: {
+  // Create quest instances for today if they don't exist (parallel)
+  await Promise.all(
+    templates.map((template) =>
+      prisma.questInstance.upsert({
+        where: {
+          templateId_childId_date: {
+            templateId: template.id,
+            childId: user.id,
+            date: today,
+          },
+        },
+        update: {},
+        create: {
           templateId: template.id,
           childId: user.id,
           date: today,
         },
-      },
-      update: {},
-      create: {
-        templateId: template.id,
-        childId: user.id,
-        date: today,
-      },
-    });
-  }
+      })
+    )
+  );
 
   // Fetch all today's quests (active templates only)
   const quests = await prisma.questInstance.findMany({
