@@ -1,0 +1,99 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+
+type HistoryStatus = "APPROVED" | "SKIPPED" | "NO_ACTION";
+
+function parseDate(dateStr: string | null): Date {
+  if (!dateStr) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+  const parsed = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "PARENT" || !user.familyId) {
+    return NextResponse.json([]);
+  }
+
+  const { searchParams } = new URL(request.url);
+  const targetDate = parseDate(searchParams.get("date"));
+  const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, ...
+
+  // Step 1: Get all QuestInstances on that date for this family
+  const instances = await prisma.questInstance.findMany({
+    where: {
+      date: targetDate,
+      template: { familyId: user.familyId },
+    },
+    include: {
+      child: { select: { id: true, name: true, monsterName: true, side: true } },
+      template: { select: { title: true, emoji: true, category: true, difficulty: true } },
+    },
+    orderBy: { approvedAt: "desc" },
+  });
+
+  // Collect (templateId, childId) pairs already covered by instances
+  const coveredPairs = new Set(instances.map((i) => `${i.templateId}:${i.childId}`));
+
+  // Step 2: Get templates scheduled for that day without a QuestInstance
+  const templates = await prisma.taskTemplate.findMany({
+    where: {
+      familyId: user.familyId,
+      isActive: true,
+      OR: [
+        { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
+        { isTemporary: true, targetDate },
+      ],
+    },
+    include: {
+      assignedChild: { select: { id: true, name: true, monsterName: true, side: true } },
+    },
+  });
+
+  // Filter out templates already covered by a QuestInstance
+  const uncoveredTemplates = templates.filter(
+    (t) => t.assignedChildId && !coveredPairs.has(`${t.id}:${t.assignedChildId}`)
+  );
+
+  // Build response
+  const result = [
+    ...instances.map((i) => ({
+      id: i.id,
+      status: (i.status === "APPROVED" || i.status === "SKIPPED"
+        ? i.status
+        : "NO_ACTION") as HistoryStatus,
+      date: i.date,
+      approvedAt: i.approvedAt,
+      comment: i.comment,
+      child: i.child,
+      template: i.template,
+    })),
+    ...uncoveredTemplates.map((t) => ({
+      id: null,
+      status: "NO_ACTION" as HistoryStatus,
+      date: targetDate,
+      approvedAt: null,
+      comment: null,
+      child: t.assignedChild,
+      template: {
+        title: t.title,
+        emoji: t.emoji,
+        category: t.category,
+        difficulty: t.difficulty,
+      },
+    })),
+  ];
+
+  return NextResponse.json(result);
+}

@@ -9,6 +9,7 @@ const links = [
   { href: "/parent/tasks", emoji: "📋", label: "タスク管理" },
   { href: "/parent/approve", emoji: "✅", label: "承認" },
   { href: "/parent/completed", emoji: "🏆", label: "今日の完了" },
+  { href: "/parent/history", emoji: "📅", label: "過去の記録" },
   { href: "/parent/family", emoji: "👨‍👩‍👧‍👦", label: "ファミリー" },
 ] as const;
 
