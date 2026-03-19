@@ -246,7 +246,6 @@ describe("GET /api/quests/history", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           familyId: "fam-1",
-          isActive: true,
           OR: expect.arrayContaining([
             expect.objectContaining({ repeatDays: { has: 4 } }),
           ]),
@@ -269,6 +268,40 @@ describe("GET /api/quests/history", () => {
         }),
       })
     );
+  });
+
+  it("削除済みテンプレート（isActive:false）でQuestInstanceがない場合もNO_ACTIONに含めること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([
+      {
+        id: "tpl-deleted",
+        title: "削除されたタスク",
+        emoji: "🗑️",
+        category: "LIFE",
+        difficulty: "EASY",
+        assignedChildId: "child-1",
+        assignedChild: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+      },
+    ] as any);
+
+    const res = await GET(makeRequest({ date: "2026-03-12" }));
+    const json = await res.json();
+
+    expect(json).toHaveLength(1);
+    expect(json[0].status).toBe("NO_ACTION");
+    expect(json[0].template.title).toBe("削除されたタスク");
+  });
+
+  it("テンプレートクエリでisActiveフィルタを使用しないこと（削除済みも含む）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    await GET(makeRequest({ date: "2026-03-12" }));
+
+    const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0] as any;
+    expect(call.where.isActive).toBeUndefined();
   });
 
   it("対象日より後に作成されたテンプレートはNO_ACTIONに含まれないこと", async () => {

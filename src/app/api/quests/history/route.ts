@@ -54,7 +54,6 @@ export async function GET(request: NextRequest) {
   const templates = await prisma.taskTemplate.findMany({
     where: {
       familyId: user.familyId,
-      isActive: true,
       createdAt: { lt: nextDay },
       OR: [
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
