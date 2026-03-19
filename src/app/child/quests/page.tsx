@@ -452,6 +452,8 @@ export default function QuestsPage() {
       {activeQuest && (
         <QuestActionSheet
           quest={activeQuest as SheetQuest}
+          questsCompleted={completedCount}
+          questsTotal={quests.length}
           onReport={handleReport}
           onSkip={handleSkip}
           onClose={() => setActiveQuest(null)}

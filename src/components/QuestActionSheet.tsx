@@ -18,6 +18,8 @@ export type SheetQuest = {
 
 type Props = {
   quest: SheetQuest;
+  questsCompleted: number;
+  questsTotal: number;
   onReport: (questId: string, comment: string | null) => Promise<void>;
   onSkip: (questId: string, reason: string) => Promise<void>;
   onClose: () => void;
@@ -25,7 +27,7 @@ type Props = {
 
 type SheetState = "idle" | "submitting" | "success-complete" | "success-skip";
 
-export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: Props) {
+export default function QuestActionSheet({ quest, questsCompleted, questsTotal, onReport, onSkip, onClose }: Props) {
   const [comment, setComment] = useState("");
   const [showComment, setShowComment] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
@@ -69,21 +71,40 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
         onClick={(e) => e.stopPropagation()}
       >
         {isSuccess ? (
-          /* ── Success state (centered, no scroll needed) ── */
-          <div className="text-center py-10 px-5">
-            <p className="text-5xl mb-3">
-              {sheetState === "success-complete" ? "🎉" : "😴"}
-            </p>
-            <p className="text-xl font-bold text-quest-gold">
-              {sheetState === "success-complete"
-                ? `+${xp}pt ゲット！`
-                : "スキップを申請したよ"}
-            </p>
-            <p className="text-xs text-quest-dim mt-2">
-              {sheetState === "success-complete"
-                ? "親の確認後にポイント確定"
-                : "親が確認するよ"}
-            </p>
+          /* ── Success state ── */
+          <div className="text-center py-8 px-5">
+            {sheetState === "success-complete" ? (
+              <>
+                <p className="text-5xl mb-3">🎉</p>
+                <p className="text-2xl font-black text-quest-gold mb-1">+{xp}pt ゲット！</p>
+                <p className="text-xs text-quest-dim mb-4">親の確認でポイント確定</p>
+                {/* Quest progress */}
+                {questsTotal > 0 && (() => {
+                  const newCompleted = questsCompleted + 1;
+                  const remaining = questsTotal - newCompleted;
+                  const allDone = remaining <= 0;
+                  return (
+                    <div className="bg-quest-bg rounded-xl px-4 py-3 text-sm">
+                      <p className="text-quest-dim text-xs mb-1">今日のクエスト</p>
+                      <p className="font-bold text-quest-text">
+                        {newCompleted} / {questsTotal} 完了
+                      </p>
+                      {allDone ? (
+                        <p className="text-quest-gold font-bold mt-1">🏆 全部クリア！すごい！</p>
+                      ) : (
+                        <p className="text-quest-dim text-xs mt-1">あと{remaining}個！</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </>
+            ) : (
+              <>
+                <p className="text-5xl mb-3">😴</p>
+                <p className="text-xl font-bold text-quest-gold">スキップを申請したよ</p>
+                <p className="text-xs text-quest-dim mt-2">親が確認するよ</p>
+              </>
+            )}
           </div>
         ) : (
           <>
