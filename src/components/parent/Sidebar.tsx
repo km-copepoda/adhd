@@ -19,7 +19,7 @@ export default function Sidebar() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    window.location.href = "/parent/login";
   }
 
   return (

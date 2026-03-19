@@ -20,7 +20,7 @@ export default function BottomNav() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/child/onboarding";
+    window.location.href = "/child/login";
   }
 
   return (
