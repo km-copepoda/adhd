@@ -57,7 +57,7 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col justify-end"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center px-4"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -65,12 +65,9 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
 
       {/* Sheet: flex column, max 85dvh, scroll inside */}
       <div
-        className="relative bg-quest-card rounded-t-2xl shadow-2xl flex flex-col max-h-[85dvh]"
+        className="relative bg-quest-card rounded-2xl shadow-2xl flex flex-col w-full max-w-md max-h-[85dvh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
-        <div className="w-10 h-1 bg-quest-border rounded-full mx-auto mt-4 mb-1 shrink-0" />
-
         {isSuccess ? (
           /* ── Success state (centered, no scroll needed) ── */
           <div className="text-center py-10 px-5">
@@ -91,7 +88,7 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
         ) : (
           <>
             {/* ── Scrollable upper area ── */}
-            <div className="overflow-y-auto flex-1 px-5 pt-3 pb-2">
+            <div className="overflow-y-auto flex-1 px-5 pt-5 pb-2">
               {/* Quest info header */}
               <div className="flex items-center gap-3 mb-5">
                 <div
