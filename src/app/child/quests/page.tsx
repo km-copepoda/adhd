@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR, XP_MAP, DAY_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Difficulty, QuestStatus } from "@/types";
@@ -33,7 +33,6 @@ export default function QuestsPage() {
   const [comment, setComment] = useState("");
   const [skippingId, setSkippingId] = useState<string | null>(null);
   const [skipComment, setSkipComment] = useState("");
-  const prevEvolutionStageRef = useRef<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>("temporary");
   const [form, setForm] = useState({
@@ -47,27 +46,12 @@ export default function QuestsPage() {
 
   useEffect(() => {
     fetchQuests();
-    // 初回の進化ステージを記録
-    fetch("/api/monster").then((r) => r.json()).then((d) => {
-      if (d.evolutionStage !== undefined) prevEvolutionStageRef.current = d.evolutionStage;
-    }).catch(() => {});
 
     const supabase = createClient();
     const channel = supabase
       .channel("quest-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, async () => {
         await refreshQuests();
-        // 進化チェック: ステージが上がっていたら sessionStorage にフラグセット
-        try {
-          const res = await fetch("/api/monster");
-          if (res.ok) {
-            const d = await res.json();
-            if (prevEvolutionStageRef.current !== null && d.evolutionStage > prevEvolutionStageRef.current) {
-              sessionStorage.setItem("pendingEvolution", "true");
-            }
-            prevEvolutionStageRef.current = d.evolutionStage;
-          }
-        } catch {}
       })
       .subscribe();
 
