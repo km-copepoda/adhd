@@ -7,6 +7,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 type CompletedQuest = {
   id: string;
+  templateId: string;
   status: "APPROVED" | "SKIPPED";
   date: string;
   approvedAt: string;
@@ -17,12 +18,22 @@ type CompletedQuest = {
     emoji: string;
     category: Category;
     difficulty: Difficulty;
+    isTemporary: boolean;
   };
+};
+
+const getTomorrowStr = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
 };
 
 export default function CompletedTodayPage() {
   const [quests, setQuests] = useState<CompletedQuest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copyDates, setCopyDates] = useState<Record<string, string>>({});
+  const [copyLoading, setCopyLoading] = useState<Record<string, boolean>>({});
+  const [copyDone, setCopyDone] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/quests/completed-today")
@@ -34,6 +45,20 @@ export default function CompletedTodayPage() {
   const approvedQuests = quests.filter((q) => q.status === "APPROVED");
   const skippedQuests = quests.filter((q) => q.status === "SKIPPED");
   const totalXp = approvedQuests.reduce((sum, q) => sum + XP_MAP[q.template.difficulty], 0);
+
+  async function handleCopy(quest: CompletedQuest) {
+    const targetDate = copyDates[quest.id] ?? getTomorrowStr();
+    setCopyLoading((prev) => ({ ...prev, [quest.id]: true }));
+    const res = await fetch(`/api/tasks/${quest.templateId}/copy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetDate }),
+    });
+    setCopyLoading((prev) => ({ ...prev, [quest.id]: false }));
+    if (res.ok) {
+      setCopyDone((prev) => ({ ...prev, [quest.id]: true }));
+    }
+  }
 
   if (loading) {
     return <LoadingSpinner />;
@@ -66,6 +91,7 @@ export default function CompletedTodayPage() {
             hour: "2-digit",
             minute: "2-digit",
           });
+          const showCopyUI = isSkipped && quest.template.isTemporary;
           return (
             <div
               key={quest.id}
@@ -85,6 +111,32 @@ export default function CompletedTodayPage() {
                     <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">
                       💬 {quest.comment}
                     </p>
+                  )}
+                  {showCopyUI && (
+                    <div className="mt-3 flex items-center gap-2">
+                      {copyDone[quest.id] ? (
+                        <span className="text-xs text-green-400">✓ 翌日に送りました</span>
+                      ) : (
+                        <>
+                          <input
+                            type="date"
+                            className="text-xs bg-quest-bg border border-quest-border rounded-lg px-2 py-1 text-quest-text"
+                            value={copyDates[quest.id] ?? getTomorrowStr()}
+                            min={getTomorrowStr()}
+                            onChange={(e) =>
+                              setCopyDates((prev) => ({ ...prev, [quest.id]: e.target.value }))
+                            }
+                          />
+                          <button
+                            className="text-xs bg-orange-500/20 border border-orange-500/40 text-orange-300 rounded-lg px-3 py-1 hover:bg-orange-500/30 disabled:opacity-50"
+                            disabled={copyLoading[quest.id]}
+                            onClick={() => handleCopy(quest)}
+                          >
+                            {copyLoading[quest.id] ? "送信中…" : "📅 次の日に送る"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="text-right text-xs text-quest-dim shrink-0">

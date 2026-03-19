@@ -27,7 +27,7 @@ export async function GET() {
         select: { name: true, monsterName: true, side: true },
       },
       template: {
-        select: { title: true, emoji: true, category: true, difficulty: true },
+        select: { title: true, emoji: true, category: true, difficulty: true, isTemporary: true },
       },
     },
     orderBy: { approvedAt: "desc" },

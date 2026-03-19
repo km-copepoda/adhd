@@ -57,6 +57,28 @@ describe("GET /api/quests/completed-today", () => {
     expect(json[0].child.name).toBe("太郎");
   });
 
+  it("templateにisTemporaryが含まれること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+    const quests = [
+      {
+        id: "q1",
+        templateId: "tpl-1",
+        status: "SKIPPED",
+        approvedAt: new Date("2026-03-12T10:00:00"),
+        child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
+        template: { title: "英語", emoji: "📖", category: "STUDY", difficulty: "EASY", isTemporary: true },
+      },
+    ];
+    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].template.isTemporary).toBe(true);
+    expect(json[0].templateId).toBe("tpl-1");
+  });
+
   it("今日の日付範囲（00:00〜翌日00:00）でフィルタすること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
