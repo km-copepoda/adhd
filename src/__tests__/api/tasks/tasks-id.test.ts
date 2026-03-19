@@ -46,7 +46,7 @@ describe("PUT /api/tasks/[id]", () => {
 
     expect(json.title).toBe("更新後");
     expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith({
-      where: { id: "t1" },
+      where: { id: "t1", familyId: "fam-1" },
       data: {
         title: "更新後",
         emoji: "📝",
@@ -55,6 +55,15 @@ describe("PUT /api/tasks/[id]", () => {
         repeatDays: [0, 6],
       },
     });
+  });
+
+  it("familyIdがnullのPARENTは403を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    const res = await PUT(
+      makeRequest("/api/tasks/t1", { title: "test" }),
+      makeParams("t1")
+    );
+    expect(res.status).toBe(403);
   });
 });
 

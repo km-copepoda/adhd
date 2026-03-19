@@ -11,11 +11,14 @@ export async function PUT(
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
+  if (!user.familyId) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
 
   const { id } = await params;
   const body = await request.json();
   const task = await prisma.taskTemplate.update({
-    where: { id },
+    where: { id, familyId: user.familyId },
     data: {
       title: body.title,
       emoji: body.emoji,
