@@ -27,18 +27,22 @@ describe("GET /api/tasks", () => {
     expect(json).toEqual([]);
   });
 
-  it("ファミリーのアクティブタスクを返すこと", async () => {
+  it("ファミリーのアクティブタスクを返すこと（completedToday付き）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     const tasks = [
       { id: "t1", title: "宿題", isActive: true },
       { id: "t2", title: "運動", isActive: true },
     ];
     mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     const res = await GET();
     const json = await res.json();
 
-    expect(json).toEqual(tasks);
+    expect(json).toEqual([
+      { ...tasks[0], completedToday: false },
+      { ...tasks[1], completedToday: false },
+    ]);
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
       where: { familyId: "fam-1", isActive: true },
       include: {
@@ -49,6 +53,52 @@ describe("GET /api/tasks", () => {
       },
       orderBy: { createdAt: "desc" },
     });
+  });
+
+  it("当日にAPPROVEDのクエストがあるタスクはcompletedToday=trueになること", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [
+      { id: "t1", title: "宿題", isActive: true },
+      { id: "t2", title: "運動", isActive: true },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { templateId: "t1" },
+    ] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json).toEqual([
+      { ...tasks[0], completedToday: true },
+      { ...tasks[1], completedToday: false },
+    ]);
+    const expectedToday = new Date("2026-03-18T10:00:00");
+    expectedToday.setHours(0, 0, 0, 0);
+    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
+      where: {
+        templateId: { in: ["t1", "t2"] },
+        date: expectedToday,
+        status: { in: ["APPROVED", "SKIPPED"] },
+      },
+      select: { templateId: true },
+    });
+  });
+
+  it("当日にSKIPPEDのクエストがあるタスクもcompletedToday=trueになること", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [{ id: "t1", title: "宿題", isActive: true }];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { templateId: "t1" },
+    ] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].completedToday).toBe(true);
   });
 });
 

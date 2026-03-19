@@ -20,6 +20,7 @@ type Task = {
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
+  completedToday: boolean;
 };
 
 type Child = {
@@ -172,13 +173,13 @@ export default function TasksPage() {
     }));
   }
 
-  // 子供ごとにタスクを振り分け
+  // 子供ごとにタスクを振り分け（完了済み一時タスクは除外）
   function tasksForChild(childId: string) {
     const all = tasks.filter((t) => t.assignedChildId === childId);
     return {
       pending: all.filter((t) => t.createdBy === "CHILD"),
       regular: all.filter((t) => !t.isTemporary && t.createdBy !== "CHILD"),
-      temporary: all.filter((t) => t.isTemporary && t.createdBy !== "CHILD"),
+      temporary: all.filter((t) => t.isTemporary && t.createdBy !== "CHILD" && !t.completedToday),
     };
   }
 
@@ -474,13 +475,22 @@ export default function TasksPage() {
                     return (
                       <div
                         key={task.id}
-                        className="bg-quest-card border border-quest-border rounded-xl p-4 flex items-center gap-4"
+                        className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
+                          task.completedToday
+                            ? "border-quest-border/30 opacity-40"
+                            : "border-quest-border"
+                        }`}
                       >
                         <div className="text-2xl">{task.emoji}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-medium truncate">{task.title}</p>
-                            {streak >= 1 && (
+                            {task.completedToday && (
+                              <span className="text-[9px] text-green-400 border border-green-400/30 rounded px-1 shrink-0">
+                                ✓ 完了
+                              </span>
+                            )}
+                            {!task.completedToday && streak >= 1 && (
                               <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
                                 🔥{streak}日
                               </span>
