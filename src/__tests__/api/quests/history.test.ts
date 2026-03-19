@@ -86,7 +86,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-1",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -111,7 +111,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-2",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "運動", emoji: "🏃", category: "STAMINA", difficulty: "EASY" },
+        template: { title: "運動", emoji: "🏃", category: "STAMINA", difficulty: "EASY", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -136,7 +136,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-3",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "読書", emoji: "📖", category: "STUDY", difficulty: "EASY" },
+        template: { title: "読書", emoji: "📖", category: "STUDY", difficulty: "EASY", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -161,7 +161,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-4",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "片付け", emoji: "🧹", category: "LIFE", difficulty: "EASY" },
+        template: { title: "片付け", emoji: "🧹", category: "LIFE", difficulty: "EASY", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -210,7 +210,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-6",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL", isActive: true },
       },
     ] as any);
     // Same template also returned by taskTemplate query
@@ -246,7 +246,6 @@ describe("GET /api/quests/history", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           familyId: "fam-1",
-          isActive: true,
           OR: expect.arrayContaining([
             expect.objectContaining({ repeatDays: { has: 4 } }),
           ]),
@@ -266,6 +265,117 @@ describe("GET /api/quests/history", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           template: { familyId: "fam-1" },
+        }),
+      })
+    );
+  });
+
+  it("削除済みテンプレート（isActive:false）でQuestInstanceがない場合はNO_ACTIONに含めないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    // テンプレートクエリはisActive:trueのみ返すので、削除済みは含まれない
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    const res = await GET(makeRequest({ date: "2026-03-12" }));
+    const json = await res.json();
+
+    expect(json).toHaveLength(0);
+  });
+
+  it("テンプレートクエリでisActive:trueでフィルタすること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    await GET(makeRequest({ date: "2026-03-12" }));
+
+    const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0] as any;
+    expect(call.where.isActive).toBe(true);
+  });
+
+  it("削除済みテンプレート（isActive:false）のAPPROVEDクエストは表示すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        id: "q-approved-deleted",
+        status: "APPROVED",
+        date: new Date("2026-03-12"),
+        approvedAt: new Date("2026-03-12T10:00:00"),
+        comment: null,
+        templateId: "tpl-del",
+        childId: "child-1",
+        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", difficulty: "EASY", isActive: false },
+      },
+    ] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    const res = await GET(makeRequest({ date: "2026-03-12" }));
+    const json = await res.json();
+
+    expect(json).toHaveLength(1);
+    expect(json[0].status).toBe("APPROVED");
+  });
+
+  it("削除済みテンプレート（isActive:false）のSKIPPEDクエストは表示しないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        id: "q-skipped-deleted",
+        status: "SKIPPED",
+        date: new Date("2026-03-12"),
+        approvedAt: new Date("2026-03-12T10:00:00"),
+        comment: null,
+        templateId: "tpl-del",
+        childId: "child-1",
+        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", difficulty: "EASY", isActive: false },
+      },
+    ] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    const res = await GET(makeRequest({ date: "2026-03-12" }));
+    const json = await res.json();
+
+    expect(json).toHaveLength(0);
+  });
+
+  it("削除済みテンプレート（isActive:false）のPENDINGクエストは表示しないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        id: "q-pending-deleted",
+        status: "PENDING",
+        date: new Date("2026-03-12"),
+        approvedAt: null,
+        comment: null,
+        templateId: "tpl-del",
+        childId: "child-1",
+        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", difficulty: "EASY", isActive: false },
+      },
+    ] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    const res = await GET(makeRequest({ date: "2026-03-12" }));
+    const json = await res.json();
+
+    expect(json).toHaveLength(0);
+  });
+
+  it("対象日より後に作成されたテンプレートはNO_ACTIONに含まれないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    // 2026-03-10 を対象日とする
+    await GET(makeRequest({ date: "2026-03-10" }));
+
+    const nextDay = new Date("2026-03-11T00:00:00");
+    expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { lt: nextDay },
         }),
       })
     );

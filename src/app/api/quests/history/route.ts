@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       child: { select: { id: true, name: true, monsterName: true, side: true } },
-      template: { select: { title: true, emoji: true, category: true, difficulty: true } },
+      template: { select: { title: true, emoji: true, category: true, difficulty: true, isActive: true } },
     },
     orderBy: { approvedAt: "desc" },
   });
@@ -46,11 +46,16 @@ export async function GET(request: NextRequest) {
   // Collect (templateId, childId) pairs already covered by instances
   const coveredPairs = new Set(instances.map((i) => `${i.templateId}:${i.childId}`));
 
-  // Step 2: Get templates scheduled for that day without a QuestInstance
+  const nextDay = new Date(targetDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  // Step 2: Get active templates scheduled for that day without a QuestInstance
+  // Only include templates that existed on targetDate (createdAt < nextDay)
   const templates = await prisma.taskTemplate.findMany({
     where: {
       familyId: user.familyId,
       isActive: true,
+      createdAt: { lt: nextDay },
       OR: [
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
         { isTemporary: true, targetDate },
@@ -67,18 +72,21 @@ export async function GET(request: NextRequest) {
   );
 
   // Build response
+  // 削除済みテンプレート（isActive=false）はAPPROVEDのみ表示、それ以外は除外
   const result = [
-    ...instances.map((i) => ({
-      id: i.id,
-      status: (i.status === "APPROVED" || i.status === "SKIPPED"
-        ? i.status
-        : "NO_ACTION") as HistoryStatus,
-      date: i.date,
-      approvedAt: i.approvedAt,
-      comment: i.comment,
-      child: i.child,
-      template: i.template,
-    })),
+    ...instances
+      .filter((i) => i.template.isActive || i.status === "APPROVED")
+      .map((i) => ({
+        id: i.id,
+        status: (i.status === "APPROVED" || i.status === "SKIPPED"
+          ? i.status
+          : "NO_ACTION") as HistoryStatus,
+        date: i.date,
+        approvedAt: i.approvedAt,
+        comment: i.comment,
+        child: i.child,
+        template: i.template,
+      })),
     ...uncoveredTemplates.map((t) => ({
       id: null,
       status: "NO_ACTION" as HistoryStatus,
