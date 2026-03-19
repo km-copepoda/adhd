@@ -430,7 +430,7 @@ export default function QuestsPage() {
 
                   {/* XP + Action */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-xs font-bold ${isSkipped || isSkipReported ? "text-quest-dim line-through" : isRejected ? "text-red-400/70 line-through" : isApproved ? "text-quest-gold" : isReported ? "text-quest-gold/40" : "text-quest-gold"}`}>+{xp}XP</span>
+                    <span className={`text-xs font-bold ${isSkipped || isSkipReported ? "text-quest-dim line-through" : isApproved ? "text-quest-gold" : isReported ? "text-quest-gold/40" : "text-quest-gold"}`}>+{xp}XP</span>
                     {isApproved ? (
                       <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm" title="承認済み">
                         ✓
