@@ -23,7 +23,7 @@ export default function OnboardingPage() {
     try {
       // 既存セッション（親など）をクリアしてから匿名認証
       const supabase = createClient();
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       const { data, error } = await supabase.auth.signInAnonymously();
       if (error || !data.user) {
         setLoginError("認証に失敗しました");

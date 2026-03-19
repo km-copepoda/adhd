@@ -16,7 +16,7 @@ export default function LoginPage() {
     setError("");
 
     const supabase = createClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
