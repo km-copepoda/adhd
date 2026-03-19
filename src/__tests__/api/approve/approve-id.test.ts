@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/approve/[id]/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { recordTaskStreak } from "@/lib/streak";
 import { makeRequest, makeParams } from "../../helpers/request";
 import { parentUser, childUser } from "../../helpers/fixtures";
 
@@ -10,6 +11,8 @@ vi.mock("@/lib/streak", () => ({
   recordDailyAchievement: vi.fn().mockResolvedValue(undefined),
   recordTaskStreak: vi.fn().mockResolvedValue(undefined),
 }));
+
+const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
 
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
@@ -133,6 +136,29 @@ describe("POST /api/approve/[id]", () => {
         where: { id: "tpl-child" },
         data: { createdBy: "PARENT" },
       });
+    });
+
+    it("一時タスク承認時にrecordTaskStreakを呼ばないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-tmp",
+        date: new Date("2026-03-19"),
+        childId: "child-1",
+        templateId: "tpl-tmp",
+        template: { difficulty: "EASY", category: "LIFE", createdBy: "PARENT", isTemporary: true },
+        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      const res = await POST(
+        makeRequest("/api/approve/q-tmp", { action: "approve" }),
+        makeParams("q-tmp"),
+      );
+      const json = await res.json();
+
+      expect(json.ok).toBe(true);
+      expect(mockRecordTaskStreak).not.toHaveBeenCalled();
     });
 
     it("PARENT作成テンプレートの場合、テンプレート承認をスキップすること", async () => {

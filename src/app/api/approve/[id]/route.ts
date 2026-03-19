@@ -107,8 +107,10 @@ export async function POST(
 
   // ストリーク記録（その日初のAPPROVEDならストリーク更新）
   await recordDailyAchievement(quest.childId, quest.date);
-  // タスク別ストリーク記録
-  await recordTaskStreak(quest.templateId, quest.childId, quest.date);
+  // タスク別ストリーク記録（一時タスクは対象外）
+  if (!quest.template.isTemporary) {
+    await recordTaskStreak(quest.templateId, quest.childId, quest.date);
+  }
 
   return NextResponse.json({ ok: true });
 }
