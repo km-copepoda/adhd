@@ -456,7 +456,7 @@ export default function QuestsPage() {
                 </div>
 
                 {/* 差し戻し理由バナー */}
-                {isRejected && quest.rejectionReason && activeQuest?.id !== quest.id && (
+                {isRejected && quest.rejectionReason && (
                   <div className="bg-red-400/5 border border-red-400/20 border-t-0 rounded-b-xl px-4 py-3 flex items-start gap-2">
                     <span className="text-red-400 text-xs mt-0.5 shrink-0">⚠</span>
                     <div>
