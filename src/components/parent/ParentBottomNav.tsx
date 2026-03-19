@@ -9,6 +9,7 @@ const tabs = [
   { href: "/parent/tasks", emoji: "📋", label: "タスク" },
   { href: "/parent/approve", emoji: "✅", label: "承認" },
   { href: "/parent/completed", emoji: "🏆", label: "完了" },
+  { href: "/parent/history", emoji: "📅", label: "履歴" },
   { href: "/parent/family", emoji: "👨‍👩‍👧‍👦", label: "家族" },
 ] as const;
 
