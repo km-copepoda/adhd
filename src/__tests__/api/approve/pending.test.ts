@@ -43,10 +43,11 @@ describe("GET /api/approve/pending", () => {
       },
       {
         id: "q2",
+        templateId: "tpl-2",
         status: "SKIP_REPORTED",
         reportedAt: new Date("2026-03-12T09:00:00"),
         child: { name: "花子", monsterName: "ユニコーン", side: "LIGHT" },
-        template: { title: "運動", emoji: "💪", category: "STAMINA", difficulty: "HARD" },
+        template: { title: "運動", emoji: "💪", category: "STAMINA", difficulty: "HARD", isTemporary: true },
       },
     ];
     mockPrisma.questInstance.findMany.mockResolvedValue(pendingQuests as any);
@@ -55,6 +56,7 @@ describe("GET /api/approve/pending", () => {
     const json = await res.json();
 
     expect(json).toHaveLength(2);
+    expect(json[1].templateId).toBeDefined();
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
       where: {
         OR: [{ status: "REPORTED" }, { status: "SKIP_REPORTED" }],
@@ -62,7 +64,7 @@ describe("GET /api/approve/pending", () => {
       },
       include: {
         child: { select: { name: true, monsterName: true, side: true } },
-        template: { select: { title: true, emoji: true, category: true, difficulty: true } },
+        template: { select: { title: true, emoji: true, category: true, difficulty: true, isTemporary: true } },
       },
       orderBy: { reportedAt: "desc" },
     });

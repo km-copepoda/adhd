@@ -8,6 +8,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 type PendingQuest = {
   id: string;
+  templateId: string;
   date: string;
   status: QuestStatus;
   comment: string | null;
@@ -18,12 +19,21 @@ type PendingQuest = {
     emoji: string;
     category: Category;
     difficulty: Difficulty;
+    isTemporary: boolean;
   };
+};
+
+const getTomorrowStr = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
 };
 
 export default function ApprovePage() {
   const [quests, setQuests] = useState<PendingQuest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copyEnabled, setCopyEnabled] = useState<Record<string, boolean>>({});
+  const [copyDates, setCopyDates] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchPending();
@@ -48,25 +58,33 @@ export default function ApprovePage() {
     setLoading(false);
   }
 
-  async function handleAction(id: string, action: "approve" | "reject") {
-    await fetch(`/api/approve/${id}`, {
+  async function handleAction(quest: PendingQuest, action: "approve" | "reject") {
+    await fetch(`/api/approve/${quest.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
+
+    // スキップ承認 + 一時タスク + コピーオン の場合、翌日にコピー
+    if (
+      action === "approve" &&
+      quest.status === "SKIP_REPORTED" &&
+      quest.template.isTemporary &&
+      copyEnabled[quest.id]
+    ) {
+      const targetDate = copyDates[quest.id] ?? getTomorrowStr();
+      await fetch(`/api/tasks/${quest.templateId}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetDate }),
+      });
+    }
+
     fetchPending();
   }
 
   async function handleBulkApprove() {
-    await Promise.all(
-      quests.map((q) =>
-        fetch(`/api/approve/${q.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "approve" }),
-        })
-      )
-    );
+    await Promise.all(quests.map((q) => handleAction(q, "approve")));
     fetchPending();
   }
 
@@ -102,10 +120,11 @@ export default function ApprovePage() {
           const cat = CATEGORY_LABEL[quest.template.category];
           const xp = XP_MAP[quest.template.difficulty];
           const isSkipRequest = quest.status === "SKIP_REPORTED";
+          const showCopyOption = isSkipRequest && quest.template.isTemporary;
           return (
             <div
               key={quest.id}
-              onClick={() => handleAction(quest.id, "approve")}
+              onClick={() => handleAction(quest, "approve")}
               className={`bg-quest-card border rounded-xl p-5 cursor-pointer transition-colors ${
                 isSkipRequest
                   ? "border-red-400/20 hover:border-red-400/40"
@@ -131,6 +150,36 @@ export default function ApprovePage() {
                   💬 {quest.comment}
                 </div>
               )}
+              {showCopyOption && (
+                <div
+                  className="flex items-center gap-2 mb-4 p-3 bg-orange-500/5 border border-orange-500/20 rounded-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    id={`copy-${quest.id}`}
+                    checked={copyEnabled[quest.id] ?? false}
+                    onChange={(e) =>
+                      setCopyEnabled((prev) => ({ ...prev, [quest.id]: e.target.checked }))
+                    }
+                    className="accent-orange-400"
+                  />
+                  <label htmlFor={`copy-${quest.id}`} className="text-xs text-orange-300 cursor-pointer">
+                    📅 次の日に送る
+                  </label>
+                  {copyEnabled[quest.id] && (
+                    <input
+                      type="date"
+                      className="ml-auto text-xs bg-quest-bg border border-quest-border rounded-lg px-2 py-1 text-quest-text"
+                      value={copyDates[quest.id] ?? getTomorrowStr()}
+                      min={getTomorrowStr()}
+                      onChange={(e) =>
+                        setCopyDates((prev) => ({ ...prev, [quest.id]: e.target.value }))
+                      }
+                    />
+                  )}
+                </div>
+              )}
               <div className="flex gap-2">
                 <div className={`flex-1 text-sm py-2 text-center rounded-xl ${
                   isSkipRequest
@@ -140,7 +189,7 @@ export default function ApprovePage() {
                   {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${xp}XP)`}
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleAction(quest.id, "reject"); }}
+                  onClick={(e) => { e.stopPropagation(); handleAction(quest, "reject"); }}
                   className="text-quest-dim text-sm border border-quest-border rounded-xl px-4 py-2 hover:border-red-400/30 hover:text-red-400"
                 >
                   差し戻し
