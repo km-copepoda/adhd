@@ -57,7 +57,7 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col justify-end"
+      className="fixed inset-0 z-[60] flex flex-col justify-end"
       onClick={onClose}
     >
       {/* Backdrop */}
