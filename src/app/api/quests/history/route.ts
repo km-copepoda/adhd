@@ -46,11 +46,16 @@ export async function GET(request: NextRequest) {
   // Collect (templateId, childId) pairs already covered by instances
   const coveredPairs = new Set(instances.map((i) => `${i.templateId}:${i.childId}`));
 
+  const nextDay = new Date(targetDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+
   // Step 2: Get templates scheduled for that day without a QuestInstance
+  // Only include templates that existed on targetDate (createdAt < nextDay)
   const templates = await prisma.taskTemplate.findMany({
     where: {
       familyId: user.familyId,
       isActive: true,
+      createdAt: { lt: nextDay },
       OR: [
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
         { isTemporary: true, targetDate },

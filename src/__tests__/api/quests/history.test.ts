@@ -270,4 +270,22 @@ describe("GET /api/quests/history", () => {
       })
     );
   });
+
+  it("対象日より後に作成されたテンプレートはNO_ACTIONに含まれないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    // 2026-03-10 を対象日とする
+    await GET(makeRequest({ date: "2026-03-10" }));
+
+    const nextDay = new Date("2026-03-11T00:00:00");
+    expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: { lt: nextDay },
+        }),
+      })
+    );
+  });
 });
