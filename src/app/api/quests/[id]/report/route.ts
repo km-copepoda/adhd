@@ -28,10 +28,10 @@ export async function POST(
   const xp = XP_MAP[quest.template.difficulty];
   const category = quest.template.category;
 
-  // ステータスのみ更新（ポイント付与は承認時に行う）
+  // ステータスのみ更新（ポイント付与は承認時に行う）。再報告時は差し戻し理由をクリア
   await prisma.questInstance.update({
     where: { id },
-    data: { status: "REPORTED", comment, reportedAt: new Date() },
+    data: { status: "REPORTED", comment, reportedAt: new Date(), rejectionReason: null },
   });
 
   // 親に通知

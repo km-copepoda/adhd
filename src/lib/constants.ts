@@ -145,6 +145,31 @@ export function distributeBonus(bonus: number): { study: number; stamina: number
   return { study: base + remainder, stamina: base, life: base };
 }
 
+// Rejection reason presets by category
+export const REJECTION_REASONS: Record<Category, string[]> = {
+  STUDY: [
+    "宿題のページが違うよ",
+    "まだ全部終わってないみたい",
+    "字が読めないよ、書き直してね",
+    "写真が暗くてよく見えないよ",
+    "その他",
+  ],
+  STAMINA: [
+    "時間が短すぎるよ、もう少しやってみよう",
+    "まだ全部終わってないみたい",
+    "写真や動画をつけてね",
+    "別のことをやってたみたい",
+    "その他",
+  ],
+  LIFE: [
+    "まだ全部終わってないみたい",
+    "きれいになってないところがあるよ",
+    "写真が暗くてよく見えないよ",
+    "もう少し丁寧にやってみよう",
+    "その他",
+  ],
+};
+
 // Generate 4-digit child code (ユーザーコード)
 export function generateChildCode(): string {
   const digits = "0123456789";

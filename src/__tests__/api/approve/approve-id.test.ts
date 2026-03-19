@@ -216,10 +216,30 @@ describe("POST /api/approve/[id]", () => {
   // XPは承認時付与のため、差し戻しではステータス変更のみ
 
   describe("action: reject", () => {
-    it("クエストをREJECTEDに更新すること（XP差し引きなし）", async () => {
+    it("rejectionReason なしで400を返すこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q4",
+        status: "REPORTED",
+        childId: "child-1",
+        templateId: "tpl-1",
+        template: { difficulty: "NORMAL", category: "STUDY" },
+        child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+      } as any);
+
+      const res = await POST(
+        makeRequest("/api/approve/q4", { action: "reject" }),
+        makeParams("q4"),
+      );
+      expect(res.status).toBe(400);
+      expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    });
+
+    it("クエストをREJECTEDに更新しrejectionReasonを保存すること（XP差し引きなし）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q4",
+        status: "REPORTED",
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "NORMAL", category: "STUDY" },
@@ -228,7 +248,7 @@ describe("POST /api/approve/[id]", () => {
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
       const res = await POST(
-        makeRequest("/api/approve/q4", { action: "reject" }),
+        makeRequest("/api/approve/q4", { action: "reject", rejectionReason: "写真が暗くてよく見えないよ" }),
         makeParams("q4"),
       );
       const json = await res.json();
@@ -236,10 +256,57 @@ describe("POST /api/approve/[id]", () => {
       expect(json.ok).toBe(true);
       expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
         where: { id: "q4" },
-        data: { status: "REJECTED" },
+        data: { status: "REJECTED", rejectionReason: "写真が暗くてよく見えないよ" },
       });
       // XPは承認時付与のため差し引き不要
       expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("その他を選択し追加メッセージなしで400を返すこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q4b",
+        status: "REPORTED",
+        childId: "child-1",
+        templateId: "tpl-1",
+        template: { difficulty: "NORMAL", category: "STUDY" },
+        child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+      } as any);
+
+      const res = await POST(
+        makeRequest("/api/approve/q4b", { action: "reject", rejectionReason: "その他" }),
+        makeParams("q4b"),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("その他＋追加メッセージでREJECTEDに更新すること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q4c",
+        status: "REPORTED",
+        childId: "child-1",
+        templateId: "tpl-1",
+        template: { difficulty: "NORMAL", category: "STUDY" },
+        child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+      const res = await POST(
+        makeRequest("/api/approve/q4c", {
+          action: "reject",
+          rejectionReason: "その他",
+          rejectionComment: "算数プリントだけやってね",
+        }),
+        makeParams("q4c"),
+      );
+      const json = await res.json();
+
+      expect(json.ok).toBe(true);
+      expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+        where: { id: "q4c" },
+        data: { status: "REJECTED", rejectionReason: "算数プリントだけやってね" },
+      });
     });
   });
 });

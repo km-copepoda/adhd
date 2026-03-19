@@ -11,6 +11,7 @@ type Quest = {
   date: string;
   status: QuestStatus;
   comment: string | null;
+  rejectionReason: string | null;
   template: {
     id: string;
     title: string;
@@ -359,14 +360,19 @@ export default function QuestsPage() {
           const isReported = quest.status === "REPORTED";
           const isSkipped = quest.status === "SKIPPED";
           const isSkipReported = quest.status === "SKIP_REPORTED";
+          const isRejected = quest.status === "REJECTED";
           const isDone = isApproved || isReported || isSkipped || isSkipReported;
 
           return (
             <div key={quest.id}>
               <div
-                onClick={() => !isDone && setReportingId(reportingId === quest.id ? null : quest.id)}
-                className={`relative bg-quest-card border border-quest-border rounded-xl overflow-hidden transition-all ${
-                  isDone ? "opacity-50" : "cursor-pointer hover:border-quest-gold/30"
+                onClick={() => (!isDone || isRejected) && setReportingId(reportingId === quest.id ? null : quest.id)}
+                className={`relative bg-quest-card border rounded-xl overflow-hidden transition-all ${
+                  isRejected
+                    ? "border-red-400/40 cursor-pointer hover:border-red-400/60"
+                    : isDone
+                    ? "border-quest-border opacity-50"
+                    : "border-quest-border cursor-pointer hover:border-quest-gold/30"
                 }`}
               >
                 {/* Difficulty stripe */}
@@ -424,7 +430,7 @@ export default function QuestsPage() {
 
                   {/* XP + Action */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-xs font-bold ${isSkipped || isSkipReported ? "text-quest-dim line-through" : isApproved ? "text-quest-gold" : isReported ? "text-quest-gold/40" : "text-quest-gold"}`}>+{xp}XP</span>
+                    <span className={`text-xs font-bold ${isSkipped || isSkipReported ? "text-quest-dim line-through" : isRejected ? "text-red-400/70 line-through" : isApproved ? "text-quest-gold" : isReported ? "text-quest-gold/40" : "text-quest-gold"}`}>+{xp}XP</span>
                     {isApproved ? (
                       <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm" title="承認済み">
                         ✓
@@ -432,6 +438,10 @@ export default function QuestsPage() {
                     ) : isReported ? (
                       <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-400/40 text-sm" title="確認待ち">
                         ✓
+                      </div>
+                    ) : isRejected ? (
+                      <div className="w-8 h-8 rounded-full bg-red-400/10 flex items-center justify-center text-red-400 text-sm" title="差し戻し">
+                        ✕
                       </div>
                     ) : isSkipReported ? (
                       <div className="w-8 h-8 rounded-full bg-red-400/10 flex items-center justify-center text-red-400/50 text-sm" title="スキップ申請中">
@@ -447,6 +457,18 @@ export default function QuestsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* 差し戻し理由バナー */}
+              {isRejected && quest.rejectionReason && reportingId !== quest.id && (
+                <div className="bg-red-400/5 border border-red-400/20 border-t-0 rounded-b-xl px-4 py-3 flex items-start gap-2">
+                  <span className="text-red-400 text-xs mt-0.5 shrink-0">⚠</span>
+                  <div>
+                    <p className="text-xs text-red-400/80 font-medium">差し戻し理由</p>
+                    <p className="text-xs text-red-300/70 mt-0.5">{quest.rejectionReason}</p>
+                    <p className="text-[10px] text-quest-dim mt-1">タップしてもう一度報告してね</p>
+                  </div>
+                </div>
+              )}
 
               {/* Report form */}
               {reportingId === quest.id && (
