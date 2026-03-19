@@ -43,7 +43,7 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
     setSheetState("submitting");
     await onReport(quest.id, comment || null);
     setSheetState("success-complete");
-    setTimeout(() => onClose(), 1800);
+    setTimeout(() => onClose(), 3000);
   }
 
   async function handleSkip() {
@@ -51,7 +51,7 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
     setSheetState("submitting");
     await onSkip(quest.id, skipReason);
     setSheetState("success-skip");
-    setTimeout(() => onClose(), 1800);
+    setTimeout(() => onClose(), 3000);
   }
 
   const isSubmitting = sheetState === "submitting";
