@@ -64,7 +64,8 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
 
       {/* Sheet */}
       <div
-        className="relative bg-quest-card rounded-t-2xl px-5 pt-4 pb-8 shadow-2xl"
+        className="relative bg-quest-card rounded-t-2xl px-5 pt-4 pb-safe shadow-2xl max-h-[85dvh] overflow-y-auto"
+        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom, 0px) + 1rem)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle */}
@@ -151,7 +152,7 @@ export default function QuestActionSheet({ quest, onReport, onSkip, onClose }: P
             {/* ── Skip section ── */}
             <button
               onClick={() => setShowSkip((v) => !v)}
-              className="w-full text-xs text-quest-dim/50 py-1 flex items-center justify-center gap-1"
+              className="w-full text-xs text-quest-dim py-2 flex items-center justify-center gap-1"
             >
               😴 今日はできない場合
               <span className="text-[10px] opacity-60">{showSkip ? "▲" : "▼"}</span>
