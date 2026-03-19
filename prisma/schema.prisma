@@ -97,11 +97,12 @@ model TaskTemplate {
 }
 
 model QuestInstance {
-  id         String       @id @default(cuid())
-  date       DateTime     @db.Date
-  status     QuestStatus  @default(PENDING)
-  comment    String?
-  templateId String
+  id               String       @id @default(cuid())
+  date             DateTime     @db.Date
+  status           QuestStatus  @default(PENDING)
+  comment          String?
+  rejectionReason  String?
+  templateId       String
   template   TaskTemplate @relation(fields: [templateId], references: [id])
   childId    String
   child      User         @relation(fields: [childId], references: [id])

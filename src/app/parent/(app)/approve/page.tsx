@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, XP_MAP } from "@/lib/constants";
+import { CATEGORY_LABEL, REJECTION_REASONS, XP_MAP } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Difficulty, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -23,6 +23,12 @@ type PendingQuest = {
   };
 };
 
+type RejectModalState = {
+  quest: PendingQuest;
+  selectedReason: string;
+  otherComment: string;
+};
+
 const getTomorrowStr = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -34,6 +40,7 @@ export default function ApprovePage() {
   const [loading, setLoading] = useState(true);
   const [copyEnabled, setCopyEnabled] = useState<Record<string, boolean>>({});
   const [copyDates, setCopyDates] = useState<Record<string, string>>({});
+  const [rejectModal, setRejectModal] = useState<RejectModalState | null>(null);
 
   useEffect(() => {
     fetchPending();
@@ -58,11 +65,11 @@ export default function ApprovePage() {
     setLoading(false);
   }
 
-  async function handleAction(quest: PendingQuest, action: "approve" | "reject") {
+  async function handleAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string) {
     await fetch(`/api/approve/${quest.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, rejectionReason, rejectionComment }),
     });
 
     // スキップ承認 + 一時タスク + コピーオン の場合、翌日にコピー
@@ -83,10 +90,24 @@ export default function ApprovePage() {
     fetchPending();
   }
 
+  function openRejectModal(quest: PendingQuest) {
+    setRejectModal({ quest, selectedReason: "", otherComment: "" });
+  }
+
+  async function submitReject() {
+    if (!rejectModal) return;
+    const { quest, selectedReason, otherComment } = rejectModal;
+    await handleAction(quest, "reject", selectedReason, otherComment);
+    setRejectModal(null);
+  }
+
   async function handleBulkApprove() {
     await Promise.all(quests.map((q) => handleAction(q, "approve")));
     fetchPending();
   }
+
+  const canSubmitReject = rejectModal && rejectModal.selectedReason &&
+    (rejectModal.selectedReason !== "その他" || rejectModal.otherComment.trim());
 
   if (loading) {
     return <LoadingSpinner />;
@@ -189,7 +210,7 @@ export default function ApprovePage() {
                   {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${xp}XP)`}
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleAction(quest, "reject"); }}
+                  onClick={(e) => { e.stopPropagation(); openRejectModal(quest); }}
                   className="text-quest-dim text-sm border border-quest-border rounded-xl px-4 py-2 hover:border-red-400/30 hover:text-red-400"
                 >
                   差し戻し
@@ -199,6 +220,65 @@ export default function ApprovePage() {
           );
         })}
       </div>
+
+      {/* 差し戻しモーダル */}
+      {rejectModal && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 p-4"
+          onClick={() => setRejectModal(null)}
+        >
+          <div
+            className="bg-quest-card border border-quest-border rounded-2xl p-5 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-medium mb-1">差し戻し理由を選んでください</h2>
+            <p className="text-xs text-quest-dim mb-4">
+              {rejectModal.quest.child.monsterName || rejectModal.quest.child.name} の「{rejectModal.quest.template.title}」
+            </p>
+
+            <div className="flex flex-col gap-2 mb-4">
+              {REJECTION_REASONS[rejectModal.quest.template.category].map((reason) => (
+                <button
+                  key={reason}
+                  onClick={() => setRejectModal((s) => s ? { ...s, selectedReason: reason } : s)}
+                  className={`text-left text-sm px-4 py-2.5 rounded-xl border transition-colors ${
+                    rejectModal.selectedReason === reason
+                      ? "border-red-400/50 bg-red-400/10 text-red-300"
+                      : "border-quest-border text-quest-dim hover:border-red-400/30"
+                  }`}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+
+            {rejectModal.selectedReason === "その他" && (
+              <textarea
+                value={rejectModal.otherComment}
+                onChange={(e) => setRejectModal((s) => s ? { ...s, otherComment: e.target.value } : s)}
+                placeholder="理由を入力してください（必須）"
+                className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-red-400/30 resize-none h-16 mb-4"
+              />
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setRejectModal(null)}
+                className="flex-1 text-sm border border-quest-border rounded-xl py-2.5 text-quest-dim"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={submitReject}
+                disabled={!canSubmitReject}
+                className="flex-1 text-sm bg-red-400/10 border border-red-400/30 text-red-300 rounded-xl py-2.5 disabled:opacity-40"
+              >
+                差し戻す
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

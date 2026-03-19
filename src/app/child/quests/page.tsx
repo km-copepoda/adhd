@@ -12,6 +12,7 @@ type Quest = {
   date: string;
   status: QuestStatus;
   comment: string | null;
+  rejectionReason: string | null;
   template: {
     id: string;
     title: string;
@@ -345,103 +346,126 @@ export default function QuestsPage() {
             const isReported = quest.status === "REPORTED";
             const isSkipped = quest.status === "SKIPPED";
             const isSkipReported = quest.status === "SKIP_REPORTED";
+            const isRejected = quest.status === "REJECTED";
             const isDone = isApproved || isReported || isSkipped || isSkipReported;
 
             return (
-              <div
-                key={quest.id}
-                onClick={() => !isDone && setActiveQuest(quest)}
-                className={`relative bg-quest-card border border-quest-border rounded-xl overflow-hidden transition-all ${
-                  isDone ? "opacity-60" : "cursor-pointer hover:border-quest-gold/30 active:scale-[0.99]"
-                }`}
-              >
-                {/* Difficulty stripe */}
+              <div key={quest.id}>
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1"
-                  style={{ backgroundColor: diff.color }}
-                />
-
-                <div className="flex items-center gap-3 p-4 pl-5">
-                  {/* Icon */}
+                  onClick={() => (!isDone || isRejected) && setActiveQuest(quest)}
+                  className={`relative bg-quest-card border rounded-xl overflow-hidden transition-all ${
+                    isRejected
+                      ? "border-red-400/40 cursor-pointer hover:border-red-400/60 active:scale-[0.99]"
+                      : isDone
+                      ? "border-quest-border opacity-60"
+                      : "border-quest-border cursor-pointer hover:border-quest-gold/30 active:scale-[0.99]"
+                  }`}
+                >
+                  {/* Difficulty stripe */}
                   <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
-                    style={{ backgroundColor: `${CATEGORY_COLOR[quest.template.category]}15` }}
-                  >
-                    {quest.template.emoji}
-                  </div>
+                    className="absolute left-0 top-0 bottom-0 w-1"
+                    style={{ backgroundColor: diff.color }}
+                  />
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium truncate">{quest.template.title}</p>
-                      {isTemporary && (
-                        <span className="text-[9px] text-amber-400/70 border border-amber-400/30 rounded px-1">
-                          一時
+                  <div className="flex items-center gap-3 p-4 pl-5">
+                    {/* Icon */}
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
+                      style={{ backgroundColor: `${CATEGORY_COLOR[quest.template.category]}15` }}
+                    >
+                      {quest.template.emoji}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium truncate">{quest.template.title}</p>
+                        {isTemporary && (
+                          <span className="text-[9px] text-amber-400/70 border border-amber-400/30 rounded px-1">
+                            一時
+                          </span>
+                        )}
+                        {quest.template.createdBy === "CHILD" && (
+                          <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1">
+                            仮
+                          </span>
+                        )}
+                        {taskStreak >= 1 && (
+                          <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
+                            🔥{taskStreak}日
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: `${diff.color}20`, color: diff.color }}
+                        >
+                          {diff.name}
                         </span>
-                      )}
-                      {quest.template.createdBy === "CHILD" && (
-                        <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1">
-                          仮
+                        <span className="text-[10px] text-quest-dim">
+                          {cat.emoji} {cat.name}
                         </span>
-                      )}
-                      {taskStreak >= 1 && (
-                        <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
-                          🔥{taskStreak}日
-                        </span>
+                      </div>
+                    </div>
+
+                    {/* XP + Status */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`text-xs font-bold ${
+                        isSkipped || isSkipReported
+                          ? "text-quest-dim line-through"
+                          : isApproved
+                          ? "text-quest-gold"
+                          : isReported
+                          ? "text-quest-gold/50"
+                          : "text-quest-gold"
+                      }`}>
+                        +{xp}XP
+                      </span>
+
+                      {isApproved ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</div>
+                          <span className="text-[9px] text-green-400/70">承認済み</span>
+                        </div>
+                      ) : isReported ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="w-7 h-7 rounded-full bg-green-500/10 flex items-center justify-center text-green-400/50 text-sm">✓</div>
+                          <span className="text-[9px] text-quest-dim">確認中...</span>
+                        </div>
+                      ) : isRejected ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="w-7 h-7 rounded-full bg-red-400/10 flex items-center justify-center text-red-400 text-sm">✕</div>
+                          <span className="text-[9px] text-red-400/70">差し戻し</span>
+                        </div>
+                      ) : isSkipReported ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="w-7 h-7 rounded-full bg-red-400/10 flex items-center justify-center text-red-400/50 text-sm">−</div>
+                          <span className="text-[9px] text-quest-dim">申請中...</span>
+                        </div>
+                      ) : isSkipped ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="w-7 h-7 rounded-full bg-quest-border/30 flex items-center justify-center text-quest-dim text-sm">−</div>
+                          <span className="text-[9px] text-quest-dim">スキップ</span>
+                        </div>
+                      ) : (
+                        <div className="w-7 h-7 rounded-full border-2 border-quest-border/60" />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: `${diff.color}20`, color: diff.color }}
-                      >
-                        {diff.name}
-                      </span>
-                      <span className="text-[10px] text-quest-dim">
-                        {cat.emoji} {cat.name}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* XP + Status */}
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={`text-xs font-bold ${
-                      isSkipped || isSkipReported
-                        ? "text-quest-dim line-through"
-                        : isApproved
-                        ? "text-quest-gold"
-                        : isReported
-                        ? "text-quest-gold/50"
-                        : "text-quest-gold"
-                    }`}>
-                      +{xp}XP
-                    </span>
-
-                    {isApproved ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</div>
-                        <span className="text-[9px] text-green-400/70">承認済み</span>
-                      </div>
-                    ) : isReported ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="w-7 h-7 rounded-full bg-green-500/10 flex items-center justify-center text-green-400/50 text-sm">✓</div>
-                        <span className="text-[9px] text-quest-dim">確認中...</span>
-                      </div>
-                    ) : isSkipReported ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="w-7 h-7 rounded-full bg-red-400/10 flex items-center justify-center text-red-400/50 text-sm">−</div>
-                        <span className="text-[9px] text-quest-dim">申請中...</span>
-                      </div>
-                    ) : isSkipped ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="w-7 h-7 rounded-full bg-quest-border/30 flex items-center justify-center text-quest-dim text-sm">−</div>
-                        <span className="text-[9px] text-quest-dim">スキップ</span>
-                      </div>
-                    ) : (
-                      <div className="w-7 h-7 rounded-full border-2 border-quest-border/60" />
-                    )}
                   </div>
                 </div>
+
+                {/* 差し戻し理由バナー */}
+                {isRejected && quest.rejectionReason && activeQuest?.id !== quest.id && (
+                  <div className="bg-red-400/5 border border-red-400/20 border-t-0 rounded-b-xl px-4 py-3 flex items-start gap-2">
+                    <span className="text-red-400 text-xs mt-0.5 shrink-0">⚠</span>
+                    <div>
+                      <p className="text-xs text-red-400/80 font-medium">差し戻し理由</p>
+                      <p className="text-xs text-red-300/70 mt-0.5">{quest.rejectionReason}</p>
+                      <p className="text-[10px] text-quest-dim mt-1">タップしてもう一度報告してね</p>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

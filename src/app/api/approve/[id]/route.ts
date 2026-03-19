@@ -15,7 +15,7 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { action } = await request.json();
+  const { action, rejectionReason, rejectionComment } = await request.json();
 
   const quest = await prisma.questInstance.findUnique({
     where: { id },
@@ -45,10 +45,21 @@ export async function POST(
   }
 
   if (action === "reject") {
+    // rejectionReason は必須
+    if (!rejectionReason) {
+      return NextResponse.json({ error: "差し戻し理由を選択してください" }, { status: 400 });
+    }
+    // 「その他」の場合は追加メッセージ必須
+    if (rejectionReason === "その他" && !rejectionComment?.trim()) {
+      return NextResponse.json({ error: "「その他」の場合は追加メッセージを入力してください" }, { status: 400 });
+    }
+
     // 差し戻し: ポイントは承認時付与のため、ステータス変更のみ
+    // 「その他」の場合は rejectionComment を実際の理由として保存
+    const reason = rejectionReason === "その他" ? rejectionComment!.trim() : rejectionReason;
     await prisma.questInstance.update({
       where: { id },
-      data: { status: "REJECTED" },
+      data: { status: "REJECTED", rejectionReason: reason },
     });
 
     return NextResponse.json({ ok: true });
