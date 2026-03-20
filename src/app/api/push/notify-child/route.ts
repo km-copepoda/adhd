@@ -26,6 +26,41 @@ export async function POST(request: Request) {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const dayOfWeek = today.getDay();
+  
+  // QuestInstance は子供がアプリを開いたときに遅延生成されるため、
+  // 親がリマインドを送る時点で未精製の可能性があるので、先に生成する
+  const templates = await prisma.taskTemplate.findMany({
+    where: {
+      familyId: user.familyId,
+      assignedChildId: childId,
+      isActive: true,
+      OR: [
+        { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
+        { isTemporary: false, createdBy: "CHILD", requestedDate: today, repeatDays: { has: dayOfWeek } },
+        { isTemporary: true, targetDate: today },
+      ],
+    },
+  });
+  await Promise.all(
+    templates.map((template) =>
+      prisma.questInstance.upsert({
+        where: {
+          templateId_childId_date: {
+            templateId: template.id,
+            childId,
+            date: today,
+          },
+        },
+        update: {},
+        create: {
+          templateId: template.id,
+          childId,
+          date: today,
+        },
+      })
+    )
+  );
 
   if (taskId) {
     // 特定タスクへのリマインド
