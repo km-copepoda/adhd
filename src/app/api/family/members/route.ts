@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { generateChildCode } from "@/lib/constants";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const rlog = routeLogger("POST", "/api/family/members");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT" || !user.familyId) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
     },
   });
 
+  rlog.info("Child member created", { childId: child.id, familyId: user.familyId });
   return NextResponse.json({
     id: child.id,
     monsterName: child.monsterName,
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const rlog = routeLogger("PATCH", "/api/family/members");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT" || !user.familyId) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -74,5 +78,6 @@ export async function PATCH(request: Request) {
     data: { minTasksForStreak },
   });
 
+  rlog.info("Min tasks updated", { childId, minTasksForStreak });
   return NextResponse.json({ ok: true });
 }

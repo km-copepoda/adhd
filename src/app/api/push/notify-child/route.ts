@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToChild } from "@/lib/push";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const rlog = routeLogger("POST", "/api/push/notify-child");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT" || !user.familyId) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -56,5 +58,6 @@ export async function POST(request: Request) {
     });
   }
 
+  rlog.info("Reminder sent", { childId, taskId: taskId || "all", userId: user.id });
   return NextResponse.json({ ok: true });
 }

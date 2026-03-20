@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { generateChildCode } from "@/lib/constants";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const rlog = routeLogger("POST", "/api/auth/child-join");
   const { monsterName, side, familyCode } = await request.json();
   const supabase = await createClient();
 
@@ -24,6 +26,7 @@ export async function POST(request: Request) {
   if (familyCode) {
     const family = await prisma.family.findUnique({ where: { code: familyCode.toUpperCase() } });
     if (!family) {
+      rlog.warn("Family not found", { familyCode: "***" });
       return NextResponse.json({ error: "ファミリーコードが見つかりません" }, { status: 404 });
     }
     familyId = family.id;
@@ -62,5 +65,6 @@ export async function POST(request: Request) {
     },
   });
 
+  rlog.info("Child joined", { childId: dbUser.id, familyId: familyId ?? undefined, side });
   return NextResponse.json({ userId: dbUser.id, childCode: dbUser.childCode });
 }

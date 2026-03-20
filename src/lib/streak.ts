@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { checkEvolution, getNewMilestoneBonus, distributeBonus } from "@/lib/constants";
+import { log } from "@/lib/logger";
 import type { Side } from "@/types";
 
 /**
@@ -67,6 +68,8 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
     },
   });
 
+  log.info("Streak updated", { childId, oldStreak, newStreak, newBest });
+
   // マイルストーンボーナスチェック
   const bonus = getNewMilestoneBonus(oldStreak, newStreak);
   if (bonus > 0) {
@@ -94,6 +97,13 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
           lifePt: evolution.resetLife,
           evolutionStage: evolution.newStage,
         },
+      });
+      
+      log.info("Streak milestone bonus", {
+        childId,
+        newStreak,
+        bonus,
+        evolved: evolution.evolved,
       });
     }
   }
@@ -124,14 +134,17 @@ export async function recordTaskStreak(taskId: string, childId: string, questDat
       ? streak.currentStreak + 1
       : 1;
 
+  const newBest = Math.max(newStreak, streak.bestStreak);
   await prisma.taskStreak.update({
     where: { taskId_childId: { taskId, childId } },
     data: {
       currentStreak: newStreak,
-      bestStreak: Math.max(newStreak, streak.bestStreak),
+      bestStreak: newBest,
       lastAchievedDate: today,
     },
   });
+  
+  log.info("Task streak updated", { taskId, childId, newStreak, newBest });
 }
 
 /** 日付を UTC 0:00:00 に正規化（TZ非依存） */

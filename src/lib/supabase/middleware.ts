@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { log } from "@/lib/logger";
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ["/", "/parent/login", "/register", "/child/login"];
@@ -49,6 +50,7 @@ export async function updateSession(request: NextRequest) {
   if (pathname === "/" && user) {
     const url = request.nextUrl.clone();
     url.pathname = isChild ? "/child/quests" : "/parent/tasks";
+    log.info("Middleware redirect", { from: pathname, to: url.pathname, isChild, isParent });
     return NextResponse.redirect(url);
   }
 
@@ -56,6 +58,7 @@ export async function updateSession(request: NextRequest) {
   if (pathname.startsWith("/parent") && isChild) {
     const url = request.nextUrl.clone();
     url.pathname = "/child/quests";
+    log.info("Middleware redirect: child accessing parent area", { from: pathname });
     return NextResponse.redirect(url);
   }
 
@@ -63,6 +66,7 @@ export async function updateSession(request: NextRequest) {
   if (pathname.startsWith("/child") && isParent) {
     const url = request.nextUrl.clone();
     url.pathname = "/parent/tasks";
+    log.info("Middleware redirect: parent accessing child area", { from: pathname });
     return NextResponse.redirect(url);
   }
 
@@ -75,6 +79,7 @@ export async function updateSession(request: NextRequest) {
     const redirectTo = pathname.startsWith("/parent") ? "/parent/login" : "/";
     const url = request.nextUrl.clone();
     url.pathname = redirectTo;
+    log.info("Middleware redirect: unauthenticated", { from: pathname, to: redirectTo });
     return NextResponse.redirect(url);
   }
 

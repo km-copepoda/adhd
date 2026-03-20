@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP, checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
+import { routeLogger } from "@/lib/logger";
 import type { Side } from "@/types";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlog = routeLogger("POST", "/api/approve/[id]");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -22,6 +24,7 @@ export async function POST(
     include: { template: true, child: true },
   });
   if (!quest) {
+    rlog.warn("Quest not found", {questId: id, userId: user.id });
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
@@ -33,6 +36,7 @@ export async function POST(
         where: { id },
         data: { status: "PENDING", comment: null },
       });
+      rlog.info("Skip rejected, reset to PENDING", { questId: id, childId: quest.childId });
     } else {
       // スキップ承認: SKIPPEDに確定（XP付与なし、ストリーク記録あり）
       await prisma.questInstance.update({
@@ -40,6 +44,7 @@ export async function POST(
         data: { status: "SKIPPED", approvedAt: new Date() },
       });
       await recordDailyAchievement(quest.childId, quest.date);
+      rlog.info("Skip approved", { questId: id, childId: quest.childId });
     }
     return NextResponse.json({ ok: true });
   }
@@ -62,6 +67,7 @@ export async function POST(
       data: { status: "REJECTED", rejectionReason: reason },
     });
 
+    rlog.info("Quest rejected", { questId: id, childId: quest.childId, reason });
     return NextResponse.json({ ok: true });
   }
 
@@ -103,6 +109,7 @@ export async function POST(
       where: { id: quest.templateId },
       data: { createdBy: "PARENT" },
     });
+    rlog.info("Child template promoted to PARENT", { templateId: quest.templateId });
   }
 
   // ストリーク記録（その日初のAPPROVEDならストリーク更新）
@@ -112,5 +119,13 @@ export async function POST(
     await recordTaskStreak(quest.templateId, quest.childId, quest.date);
   }
 
+  rlog.done("Quest approved", {
+    questId: id,
+    childId: quest.childId,
+    xp,
+    category,
+    evolved: evolution.evolved,
+    newStage: evolution.newStage,
+  });
   return NextResponse.json({ ok: true });
 }

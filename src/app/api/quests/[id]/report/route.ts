@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP } from "@/lib/constants";
 import { sendPushToParent } from "@/lib/push";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlog = routeLogger("POST", "/api/quests/[id]/report");
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -49,5 +51,6 @@ export async function POST(
     }
   }
 
+  rlog.info("Quest reported", { questId: id, childId: user.id, xp, category });
   return NextResponse.json({ ok: true, xpAdded: xp, category });
 }

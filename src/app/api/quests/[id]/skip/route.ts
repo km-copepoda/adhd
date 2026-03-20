@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const rlog = routeLogger("POST", "/api/quests/[id]/skip");
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -54,5 +56,6 @@ export async function POST(
     }
   }
 
+  rlog.info("Skip requested", { questId: id, childId: user.id });
   return NextResponse.json({ ok: true });
 }

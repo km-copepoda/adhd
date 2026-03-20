@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { routeLogger } from "@/lib/logger";
 
 // POST: ファミリーコード + ユーザーコードで子どもを検証し、supabaseIdを紐付ける
 export async function POST(request: Request) {
+  const rlog = routeLogger("POST", "/api/auth/child-rejoin");
   const { familyCode, childCode } = await request.json();
 
   if (!familyCode || !childCode) {
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
     where: { code: familyCode.toUpperCase() },
   });
   if (!family) {
+    rlog.warn("Family not found on rejoin");
     return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
   }
 
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
     },
   });
   if (!child || child.role !== "CHILD") {
+    rlog.warn("Child not found on region", { familyId: family.id });
     return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
   }
 
@@ -66,6 +70,7 @@ export async function POST(request: Request) {
     }),
   ]);
 
+  rlog.info("Child rejoin success", { childId: child.id, familyId: family.id });
   return NextResponse.json({
     userId: child.id,
     monsterName: child.monsterName,

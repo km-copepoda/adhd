@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { generateFamilyCode } from "@/lib/constants";
+import { log, routeLogger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -32,12 +33,13 @@ export async function GET() {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error("GET /api/family/code error:", message, e);
+    log.error("Family code fetch failed", { route: "GET /api/family/code", error: message });
     return NextResponse.json({ code: null, members: [], error: message }, { status: 500 });
   }
 }
 
 export async function POST() {
+  const rlog = routeLogger("POST", "/api/family/code");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -49,6 +51,7 @@ export async function POST() {
       where: { id: user.familyId },
       data: { code: generateFamilyCode() },
     });
+    rlog.info("Family code regenerated", { familyId: user.familyId });
     return NextResponse.json({ code: family.code });
   }
 

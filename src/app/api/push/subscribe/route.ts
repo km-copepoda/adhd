@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
+  const rlog = routeLogger("POST", "/api/push/subscribe");
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 403 });
@@ -25,5 +27,6 @@ export async function POST(request: Request) {
     },
   });
 
+  rlog.info("Push subscription registered", { userId: user.id, role: user.role });
   return NextResponse.json({ ok: true });
 }

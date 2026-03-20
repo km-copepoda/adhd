@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
+import { routeLogger } from "@/lib/logger";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -46,6 +47,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const rlog = routeLogger("POST", "/api/tasks");
   const user = await getCurrentUser();
   if (!user || !user.familyId) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -104,5 +106,13 @@ export async function POST(request: Request) {
     }
   }
 
+  rlog.info("Task created", {
+    taskId: task.id,
+    userId: user.id,
+    role: user.role,
+    isTemporary: String(isTemporary),
+    assignedChildId,
+    familyId: user.familyId,
+  });
   return NextResponse.json(task);
 }

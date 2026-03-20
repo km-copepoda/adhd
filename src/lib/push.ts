@@ -1,10 +1,14 @@
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { log } from "@/lib/logger";
 
 function initVapid() {
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv) return false;
+  if (!pub || !priv ) {
+    log.warn("Push skipped: VAPID not configured");
+    return false;
+  }
   webpush.setVapidDetails("mailto:admin@questboard.app", pub, priv);
   return true;
 }
@@ -19,7 +23,7 @@ export async function sendPushToChild(
     where: { userId: childId },
   });
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     subs.map((sub) =>
       webpush
         .sendNotification(
@@ -29,10 +33,16 @@ export async function sendPushToChild(
         .catch(async (err: { statusCode?: number }) => {
           if (err.statusCode === 410) {
             await prisma.pushSubscription.delete({ where: { id: sub.id } });
+            log.info("Push subscription expired, removed", { userId: childId, subId: sub.id });
+          } else {
+            log.error("Push send failed", { userId: childId, statusCode: err.statusCode });
           }
         })
     )
   );
+  
+  const sent = results.filter((r) => r.status === "fulfilled").length;
+  log.info("Push sent to child", { userId: childId, subsCount: subs.length, sent, title: payload.title });
 }
 
 export async function sendPushToParent(
@@ -45,7 +55,7 @@ export async function sendPushToParent(
     where: { userId: parentId },
   });
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     subs.map((sub) =>
       webpush
         .sendNotification(
@@ -56,8 +66,14 @@ export async function sendPushToParent(
           // 410 Gone = subscription expired, remove it
           if (err.statusCode === 410) {
             await prisma.pushSubscription.delete({ where: { id: sub.id } });
+            log.info("Push subscription expired, removed", { userId: parentId, subId: sub.id });
+          } else {
+            log.error("Push send failed", { userId: parentId, statusCode: err.statusCode });
           }
         })
     )
   );
+  
+  const sent = results.filter((r) => r.status === "fulfilled").length;
+  log.info("Push sent to parent", { userId: parentId, subsCount: subs.length, sent, title: payload.title });
 }

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { routeLogger } from "@/lib/logger";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlog = routeLogger("POST", "/api/tasks/[id]/copy");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT" || !user.familyId) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -52,5 +54,6 @@ export async function POST(
     },
   });
 
+  rlog.info("Task copied", { originalId: id, newId: newTask.id, targetDate: targetDate.toISOString() });
   return NextResponse.json(newTask);
 }

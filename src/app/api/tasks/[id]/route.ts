@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP } from "@/lib/constants";
+import { routeLogger } from "@/lib/logger";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlog = routeLogger("PUT", "/api/tasks/[id]");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -28,6 +30,7 @@ export async function PUT(
     },
   });
 
+  rlog.info("Task updated", { taskId: id, userId: user.id });
   return NextResponse.json(task);
 }
 
@@ -35,6 +38,7 @@ export async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlog = routeLogger("PATCH", "/api/tasks/[id]");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -46,6 +50,7 @@ export async function PATCH(
     data: { createdBy: "PARENT" },
   });
 
+  rlog.info("Child task approved by parent", { taskId: id, userId: user.id });
   return NextResponse.json(task);
 }
 
@@ -53,6 +58,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlog = routeLogger("DELETE", "/api/tasks/[id]");
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -101,6 +107,13 @@ export async function DELETE(
           data: { status: "REJECTED" },
         });
       }
+      rlog.warn("XP clawback on task rejection", {
+        taskId: id,
+        xp,
+        category,
+        questCount: task.quests.length,
+        userId: user.id,
+      });
     }
   }
 
@@ -109,5 +122,6 @@ export async function DELETE(
     data: { isActive: false },
   });
 
+  rlog.info("Task soft-deleted", { taskId: id, userId: user.id, role: user.role });
   return NextResponse.json({ ok: true });
 }
