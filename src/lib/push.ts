@@ -5,7 +5,7 @@ import { log } from "@/lib/logger";
 function initVapid() {
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv ) {
+  if (!pub || !priv) {
     log.warn("Push skipped: VAPID not configured");
     return false;
   }

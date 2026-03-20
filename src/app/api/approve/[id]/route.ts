@@ -24,7 +24,7 @@ export async function POST(
     include: { template: true, child: true },
   });
   if (!quest) {
-    rlog.warn("Quest not found", {questId: id, userId: user.id });
+    rlog.warn("Quest not found", { questId: id, userId: user.id });
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 

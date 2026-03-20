@@ -11,7 +11,7 @@ interface LogContext {
 }
 
 function formatLog(level: LogLevel, message: string, ctx?: LogContext): string {
-  return JSON.stringify({ level, msg: message, ...ctx, tx: new Date().toISOString() });
+  return JSON.stringify({ level, msg: message, ...ctx, ts: new Date().toISOString() });
 }
 
 export const log = {

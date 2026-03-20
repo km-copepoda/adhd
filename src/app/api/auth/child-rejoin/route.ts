@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     },
   });
   if (!child || child.role !== "CHILD") {
-    rlog.warn("Child not found on region", { familyId: family.id });
+    rlog.warn("Child not found on rejoin", { familyId: family.id });
     return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
   }
 
