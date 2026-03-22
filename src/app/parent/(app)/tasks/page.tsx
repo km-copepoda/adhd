@@ -48,6 +48,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   // openChildId: どの子供のフォームが開いているか
   const [openChildId, setOpenChildId] = useState<string | null>(null);
+  const todayDow = new Date().getDay(); // 0=日 ... 6=土
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));
@@ -439,7 +440,7 @@ export default function TasksPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => startEdit(task)}
-                            className="text-xs text-quest-dim hover:text-quest-gold border border-quest-border rounded-lg px-2 py-1"
+                            className="text-xs text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-2 py-1"
                           >
                             編集
                           </button>
@@ -451,7 +452,7 @@ export default function TasksPage() {
                           </button>
                           <button
                             onClick={() => handleDelete(task.id)}
-                            className="text-xs text-quest-dim hover:text-red-400 px-2 py-1"
+                            className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
                           >
                             却下
                           </button>
@@ -472,17 +473,20 @@ export default function TasksPage() {
                     const cat = CATEGORY_LABEL[task.category];
                     const diff = DIFFICULTY_LABEL[task.difficulty];
                     const streak = (task.taskStreaks ?? []).find((s) => s.childId === child.id)?.currentStreak ?? 0;
+                    const isOffDay = !task.repeatDays.includes(todayDow);
                     return (
                       <div
                         key={task.id}
                         className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
                           task.completedToday
                             ? "border-quest-border/30 opacity-40"
+                            : isOffDay
+                            ? "border-quest-border/30"
                             : "border-quest-border"
                         }`}
                       >
-                        <div className="text-2xl">{task.emoji}</div>
-                        <div className="flex-1 min-w-0">
+                        <div className={`text-2xl ${isOffDay && !task.completedToday ? "opacity-35" : ""}`}>{task.emoji}</div>
+                        <div className={`flex-1 min-w-0 ${isOffDay && !task.completedToday ? "opacity-35" : ""}`}>
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-medium truncate">{task.title}</p>
                             {task.completedToday && (
@@ -516,19 +520,26 @@ export default function TasksPage() {
                             ))}
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => startEdit(task)}
-                            className="text-xs text-quest-dim hover:text-quest-gold px-2 py-1"
-                          >
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleDelete(task.id)}
-                            className="text-xs text-quest-dim hover:text-red-400 px-2 py-1"
-                          >
-                            削除
-                          </button>
+                        <div className="flx flex-col items-end gap-1">
+                          {!task.completedToday && isOffDay && (
+                            <span className="text-[9px] text-quest-dim border border-quest-border rounded px-1">
+                              対象外
+                            </span>
+                          )}
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => startEdit(task)}
+                              className="text-xs text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-2 py-1"
+                            >
+                              編集
+                           </button>
+                           <button
+                             onClick={() => handleDelete(task.id)}
+                             className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
+                           >
+                             削除
+                           </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -566,7 +577,7 @@ export default function TasksPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleDelete(task.id)}
-                            className="text-xs text-quest-dim hover:text-red-400 px-2 py-1"
+                            className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
                           >
                             削除
                           </button>
