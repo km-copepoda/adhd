@@ -18,6 +18,7 @@ type Task = {
   requestedDate: string | null;
   isActive: boolean;
   createdBy: string;
+  requirePhoto: boolean;
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
@@ -40,6 +41,7 @@ const defaultForm = (childId: string) => ({
   difficulty: "NORMAL" as Difficulty,
   repeatDays: [1, 2, 3, 4, 5] as number[],
   targetDate: "",
+  requirePhoto: false,
   assignedChildId: childId,
 });
 
@@ -100,6 +102,7 @@ export default function TasksPage() {
           difficulty: form.difficulty,
           isTemporary: true,
           targetDate: form.targetDate || null,
+          requirePhoto: form.requirePhoto,
           assignedChildId: form.assignedChildId,
         }
       : {
@@ -109,6 +112,7 @@ export default function TasksPage() {
           difficulty: form.difficulty,
           repeatDays: form.repeatDays,
           isTemporary: false,
+          requirePhoto: form.requirePhoto,
           assignedChildId: form.assignedChildId,
         };
 
@@ -159,6 +163,7 @@ export default function TasksPage() {
       difficulty: task.difficulty,
       repeatDays: task.repeatDays,
       targetDate: task.targetDate ? task.targetDate.slice(0, 10) : "",
+      requirePhoto: task.requirePhoto,
       assignedChildId: task.assignedChildId || "",
     });
     setFormMode(task.isTemporary ? "temporary" : "regular");
@@ -294,6 +299,26 @@ export default function TasksPage() {
               </button>
             );
           })}
+        </div>
+
+        {/* Photo required toggle */}
+        <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
+          <div>
+            <p className="text-quest-text text-sm">📷 写真報告を必須にする</p>
+            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると、子供は写真なしで報告できません</p>
+          </div>
+          <button
+            onClick={() => setForm((f) => ({ ...f, requirePhoto: !f.requirePhoto }))}
+            className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 ${
+              form.requirePhoto ? "bg-quest-gold" : "bg-quest-border"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                form.requirePhoto ? "translate-x-4" : "translate-x-0.5"
+              }`}
+            />
+          </button>
         </div>
 
         {/* Regular: repeat days / Temporary: target date */}

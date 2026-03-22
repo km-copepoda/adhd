@@ -16,7 +16,7 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { comment } = await request.json();
+  const { comment, photoUrl } = await request.json();
 
   // クエストとテンプレート情報を取得
   const quest = await prisma.questInstance.findUnique({
@@ -27,13 +27,17 @@ export async function POST(
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
+  if (quest.template.requirePhoto && !photoUrl) {
+    return NextResponse.json({ error: "このタスクには写真が必要です" }, { status: 400 });
+  }
+
   const xp = XP_MAP[quest.template.difficulty];
   const category = quest.template.category;
 
   // ステータスのみ更新（ポイント付与は承認時に行う）。再報告時は差し戻し理由をクリア
   await prisma.questInstance.update({
     where: { id },
-    data: { status: "REPORTED", comment, reportedAt: new Date(), rejectionReason: null },
+    data: { status: "REPORTED", comment, photoUrl: photoUrl ?? null, reportedAt: new Date(), rejectionReason: null },
   });
 
   // 親に通知

@@ -87,6 +87,7 @@ model TaskTemplate {
   requestedDate    DateTime?       @db.Date
   familyId         String
   family           Family          @relation(fields: [familyId], references: [id])
+  requirePhoto     Boolean         @default(false)
   assignedChildId  String?
   assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests           QuestInstance[]
@@ -102,6 +103,7 @@ model QuestInstance {
   date             DateTime     @db.Date
   status           QuestStatus  @default(PENDING)
   comment          String?
+  photoUrl         String?
   rejectionReason  String?
   templateId       String
   template   TaskTemplate @relation(fields: [templateId], references: [id])
