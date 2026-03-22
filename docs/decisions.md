@@ -171,6 +171,20 @@
 ### 理由
 - 親がスキップを承認した以上、その結果を完了一覧で確認できるのが自然。ストリークでもSKIPPEDを算入済みであり、「親が承認した今日の全アクション」を一覧できる方が監督しやすい
 
+## 2026-03-22: 自動承認機能の導入
+
+### 決定内容
+- 親が承認し忘れた REPORTED/SKIP_REPORTED クエストを、翌日0時（JST）に自動承認する
+- `Family` モデルに `autoApproveTime String @default("24:00")` を追加（将来の時刻カスタマイズ用）
+- 承認ロジックを `src/lib/approve.ts` に抽出（`approveQuestInstance` / `approveSkipQuestInstance`）
+- `POST /api/cron/auto-approve` エンドポイントで一括処理（`CRON_SECRET` で保護）
+- Vercel cron: `0 15 * * *`（UTC 15:00 = JST 0:00）
+
+### 理由
+- XP は承認時付与のため、承認し忘れると子供の報酬が永遠に付与されない
+- ADHD 特性上、フィードバックの遅延はモチベーション低下に直結する
+- 子供のタスク締め切り設定はフェーズB以降の別機能として切り離す
+
 ## 2026-03-22: バー場サイド日付計算をJST基準に統一
 
 ### 決定内容

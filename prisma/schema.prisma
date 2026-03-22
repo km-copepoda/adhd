@@ -39,11 +39,12 @@ enum QuestStatus {
 }
 
 model Family {
-  id        String         @id @default(cuid())
-  code      String         @unique
-  createdAt DateTime       @default(now())
-  users     User[]
-  tasks     TaskTemplate[]
+  id               String         @id @default(cuid())
+  code             String         @unique
+  createdAt        DateTime       @default(now())
+  autoApproveTime  String         @default("24:00")
+  users            User[]
+  tasks            TaskTemplate[]
 }
 
 model User {
