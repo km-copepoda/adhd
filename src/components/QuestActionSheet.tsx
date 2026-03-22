@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { compressImage } from "@/lib/imageUtils";
 import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR, XP_MAP } from "@/lib/constants";
 import type { Category, Difficulty, QuestStatus } from "@/types";
 
@@ -57,9 +58,10 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
   async function uploadPhoto(): Promise<string | null> {
     if (!photoFile) return null;
     const supabase = createClient();
+    const compressed = await compressImage(photoFile);
     const ext = photoFile.name.split(".").pop() ?? "jpg";
     const path = `${quest.id}_${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("quest-photos").upload(path, photoFile);
+    const { error } = await supabase.storage.from("quest-photos").upload(path, compressed);
     if (error) {
       setUploadError("写真のアップロードに失敗しました");
       return null;
