@@ -21,6 +21,7 @@ type Quest = {
     difficulty: Difficulty;
     isTemporary: boolean;
     createdBy: string;
+    requirePhoto: boolean;
     taskStreaks: { currentStreak: number; bestStreak: number }[];
   };
 };
@@ -68,11 +69,11 @@ export default function QuestsPage() {
     setLoading(false);
   }
 
-  async function handleReport(questId: string, comment: string | null) {
+  async function handleReport(questId: string, comment: string | null, photoUrl: string | null) {
     await fetch(`/api/quests/${questId}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comment }),
+      body: JSON.stringify({ comment, photoUrl }),
     });
     await refreshQuests();
   }

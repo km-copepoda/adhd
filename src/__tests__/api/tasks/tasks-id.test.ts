@@ -53,7 +53,32 @@ describe("PUT /api/tasks/[id]", () => {
         category: "STUDY",
         difficulty: "HARD",
         repeatDays: [0, 6],
+        requirePhoto: undefined,
       },
+    });
+  });
+
+  it("requirePhoto=true を指定してタスクを更新できること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", requirePhoto: true } as any);
+
+    const res = await PUT(
+      makeRequest("/api/tasks/t1", {
+        title: "宿題",
+        emoji: "📝",
+        category: "STUDY",
+        difficulty: "NORMAL",
+        repeatDays: [1, 2, 3, 4, 5],
+        requirePhoto: true,
+      }),
+      makeParams("t1")
+    );
+    const json = await res.json();
+
+    expect(json.requirePhoto).toBe(true);
+    expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith({
+      where: { id: "t1", familyId: "fam-1" },
+      data: expect.objectContaining({ requirePhoto: true }),
     });
   });
 

@@ -27,6 +27,7 @@ export async function PUT(
       category: body.category,
       difficulty: body.difficulty,
       repeatDays: body.repeatDays,
+      requirePhoto: body.requirePhoto,
     },
   });
 

@@ -12,6 +12,7 @@ type PendingQuest = {
   date: string;
   status: QuestStatus;
   comment: string | null;
+  photoUrl: string | null;
   reportedAt: string;
   child: { name: string; monsterName: string; side: string };
   template: {
@@ -164,6 +165,15 @@ export default function ApprovePage() {
                   </p>
                 </div>
               </div>
+              {quest.photoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={quest.photoUrl}
+                  alt="報告写真"
+                  className="w-full max-h-48 object-cover rounded-lg mb-4"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )}
               {quest.comment && (
                 <div className={`rounded-lg p-3 mb-4 text-sm ${
                   isSkipRequest ? "bg-red-400/5 text-red-400/70" : "bg-quest-bg text-quest-dim"

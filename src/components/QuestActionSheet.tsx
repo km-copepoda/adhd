@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR, XP_MAP } from "@/lib/constants";
 import type { Category, Difficulty, QuestStatus } from "@/types";
 
@@ -12,6 +13,7 @@ export type SheetQuest = {
     emoji: string;
     category: Category;
     difficulty: Difficulty;
+    requirePhoto: boolean;
     taskStreaks: { currentStreak: number; bestStreak: number }[];
   };
 };
@@ -20,7 +22,7 @@ type Props = {
   quest: SheetQuest;
   questsCompleted: number;
   questsTotal: number;
-  onReport: (questId: string, comment: string | null) => Promise<void>;
+  onReport: (questId: string, comment: string | null, photoUrl: string | null) => Promise<void>;
   onSkip: (questId: string, reason: string) => Promise<void>;
   onClose: () => void;
 };
@@ -33,15 +35,54 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
   const [showSkip, setShowSkip] = useState(false);
   const [skipReason, setSkipReason] = useState("");
   const [sheetState, setSheetState] = useState<SheetState>("idle");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cat = CATEGORY_LABEL[quest.template.category];
   const diff = DIFFICULTY_LABEL[quest.template.difficulty];
   const xp = XP_MAP[quest.template.difficulty];
   const streak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
+  const requirePhoto = quest.template.requirePhoto;
+
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setUploadError(null);
+  }
+
+  async function uploadPhoto(): Promise<string | null> {
+    if (!photoFile) return null;
+    const supabase = createClient();
+    const ext = photoFile.name.split(".").pop() ?? "jpg";
+    const path = `${quest.id}_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("quest-photos").upload(path, photoFile);
+    if (error) {
+      setUploadError("写真のアップロードに失敗しました");
+      return null;
+    }
+    const { data } = supabase.storage.from("quest-photos").getPublicUrl(path);
+    return data.publicUrl;
+  }
 
   async function handleReport() {
+    if (requirePhoto && !photoFile) {
+      setUploadError("写真を選んでください");
+      return;
+    }
     setSheetState("submitting");
-    await onReport(quest.id, comment || null);
+    let photoUrl: string | null = null;
+    if (photoFile) {
+      photoUrl = await uploadPhoto();
+      if (!photoUrl) {
+        setSheetState("idle");
+        return;
+      }
+    }
+    await onReport(quest.id, comment || null, photoUrl);
     setSheetState("success-complete");
     setTimeout(() => onClose(), 3000);
   }
@@ -56,6 +97,7 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
 
   const isSubmitting = sheetState === "submitting";
   const isSuccess = sheetState === "success-complete" || sheetState === "success-skip";
+  const canReport = !requirePhoto || !!photoFile;
 
   return (
     <div
@@ -131,6 +173,9 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                     {streak >= 1 && (
                       <span className="text-[11px] text-orange-400">🔥{streak}日</span>
                     )}
+                    {requirePhoto && (
+                      <span className="text-[11px] text-blue-400 border border-blue-400/30 rounded px-1">📷 写真必須</span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
@@ -139,10 +184,47 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                 </div>
               </div>
 
+              {/* Photo upload section */}
+              <div className="mb-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`w-full rounded-xl border-2 border-dashed transition-colors py-3 flex flex-col items-center gap-1 ${
+                    photoPreview
+                      ? "border-blue-400/50 bg-blue-400/5"
+                      : requirePhoto
+                      ? "border-blue-400/40 bg-blue-400/5"
+                      : "border-quest-border/50 hover:border-quest-border"
+                  }`}
+                >
+                  {photoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoPreview} alt="プレビュー" className="max-h-40 rounded-lg object-contain" />
+                  ) : (
+                    <>
+                      <span className="text-2xl">📷</span>
+                      <span className="text-xs text-quest-dim">
+                        {requirePhoto ? "写真を撮る（必須）" : "写真を追加（任意）"}
+                      </span>
+                    </>
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handlePhotoSelect}
+                />
+                {uploadError && (
+                  <p className="text-xs text-red-400 mt-1 text-center">{uploadError}</p>
+                )}
+              </div>
+
               {/* Complete button */}
               <button
                 onClick={handleReport}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !canReport}
                 className="btn-gold w-full py-4 text-base font-bold rounded-xl mb-2 disabled:opacity-50"
               >
                 {isSubmitting ? "送信中..." : "⚔ クエスト完了！"}

@@ -171,6 +171,21 @@
 ### 理由
 - 親がスキップを承認した以上、その結果を完了一覧で確認できるのが自然。ストリークでもSKIPPEDを算入済みであり、「親が承認した今日の全アクション」を一覧できる方が監督しやすい
 
+## 2026-03-22: タスク報告への写真添付機能（Supabase Storage）
+
+### 決定内容
+- `TaskTemplate` に `requirePhoto Boolean @default(false)` を追加（写真必須フラグ）
+- `QuestInstance` に `photoUrl String?` を追加（アップロードされた写真の公開URL）
+- Supabase Storage バケット `quest-photos`（public）を使用
+- 写真は子供のブラウザからクライアントサイドで直接 Storage にアップロード（APIを経由しない）
+- アップロードパス: `{questId}_{timestamp}.{ext}`
+- `requirePhoto=true` かつ `photoUrl` なしで報告した場合、APIは 400 を返す
+- 親の承認画面でサムネイルを表示
+
+### 理由
+- ファイルアップロードをAPIサーバ経由にすると Next.js の request body サイズ制限に引っかかる可能性があり、Supabase Storage への直接アップロードが最小変更で済む
+- パブリックバケットにすることで `<img src>` による表示が署名なしで可能。ファミリー専用アプリのため一般公開リスクは低い
+
 ## 2026-03-22: バー場サイド日付計算をJST基準に統一
 
 ### 決定内容
