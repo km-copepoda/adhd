@@ -1,3 +1,9 @@
 {
-  "buildCommand": "DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} prisma migrate deploy && npm run build"
+  "buildCommand": "DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} prisma migrate deploy && npm run build",
+  "crons": [
+    {
+      "path": "/api/cron/auto-approve",
+      "schedule": "0 15 * * *"
+    }
+  ]
 }
