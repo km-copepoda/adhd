@@ -121,8 +121,8 @@ describe("GET /api/quests/today", () => {
 
     await GET();
 
-    const today = new Date("2026-03-12T00:00:00.000Z");
-    today.setHours(0, 0, 0, 0);
+    
+    const today = new Date("2026-03-12T00:00:00Z");
 
     // OR条件に targetDate=今日 の一時タスク条件が含まれ、targetDate=null 条件は含まれないこと
     const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0];
@@ -132,6 +132,27 @@ describe("GET /api/quests/today", () => {
     );
     expect(orConditions).not.toEqual(
       expect.arrayContaining([{ isTemporary: true, targetDate: null }])
+    );
+  });
+  
+  if("JST深夜（UTCは前日）でもJST基準の日付でリクエストを生成すること", async () => {
+    // JST 2026-03-12 01:00 = UTC 2026-03-11 16:00
+    vi.setSystemTime(new Date("2026-03-11T16:00:00Z"));
+    
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    
+    await GET();
+    
+    // JST 3/12(木曜=4)の日付・曜日で検索されること (UTC 3/11 水曜=3 ではない）
+    const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0];
+    const orConditions = call.where.OR;
+    expect(orConditions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ repeatDays: { has: 4 } }), // 木曜
+        { isTemporary: true, targetDate: new Date("2026-03-12T00:00:00Z") },
+      ])
     );
   });
 });

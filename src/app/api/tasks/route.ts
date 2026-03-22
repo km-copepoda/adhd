@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
+import { todayJST } from "@/lib/date";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -30,8 +31,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayJST();
   const taskIds = tasks.map((t) => t.id);
   const completedQuests = await prisma.questInstance.findMany({
     where: {
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     assignedChildId = body.assignedChildId;
   }
 
-  const todayDate = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+  const todayDate = todayJST();
 
   const task = await prisma.taskTemplate.create({
     data: {

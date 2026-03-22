@@ -73,9 +73,7 @@ describe("POST /api/tasks/[id]/copy", () => {
     const res = await POST(makeRequest("/api/tasks/tpl-1/copy", {}), makeParams("tpl-1"));
     expect(res.status).toBe(200);
 
-    const tomorrow = new Date("2026-03-19T12:00:00");
-    tomorrow.setHours(0, 0, 0, 0);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = new Date("2026-03-20T00:00:00Z");
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         title: "英語の宿題",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { XP_MAP, getStreakTitle } from "@/lib/constants";
+import { monthStartJST, monthEndJST } from "@/lib/date";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -9,9 +10,8 @@ export async function GET() {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const monthStart = monthStartJST();
+  const monthEnd = monthEndJST();
 
   // 3クエリを並列実行
   const [pendingQuests, streakRecord, monthlyQuests] = await Promise.all([

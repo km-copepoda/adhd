@@ -51,7 +51,7 @@ describe("GET /api/quests/history", () => {
 
     await GET(makeRequest());
 
-    const today = new Date("2026-03-12T00:00:00");
+    const today = new Date("2026-03-12T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ date: today }),
@@ -66,7 +66,7 @@ describe("GET /api/quests/history", () => {
 
     await GET(makeRequest({ date: "2026-03-10" }));
 
-    const targetDate = new Date("2026-03-10T00:00:00");
+    const targetDate = new Date("2026-03-10T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ date: targetDate }),
@@ -371,7 +371,7 @@ describe("GET /api/quests/history", () => {
     // 2026-03-10 を対象日とする
     await GET(makeRequest({ date: "2026-03-10" }));
 
-    const nextDay = new Date("2026-03-11T00:00:00");
+    const nextDay = new Date("2026-03-11T00:00:00Z");
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

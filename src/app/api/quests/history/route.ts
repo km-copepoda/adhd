@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { todayJST } from "@/lib/date";
 
 type HistoryStatus = "APPROVED" | "SKIPPED" | "NO_ACTION";
 
 function parseDate(dateStr: string | null): Date {
   if (!dateStr) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    return todayJST();
   }
-  const parsed = new Date(`${dateStr}T00:00:00`);
+  const parsed = new Date(`${dateStr}T00:00:00Z`);
   if (isNaN(parsed.getTime())) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
+    return todayJST();
   }
-  parsed.setHours(0, 0, 0, 0);
   return parsed;
 }
 

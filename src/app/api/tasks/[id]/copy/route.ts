@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { todayJST } from "@/lib/date";
 
 export async function POST(
   request: Request,
@@ -33,9 +34,8 @@ export async function POST(
   if (body.targetDate) {
     targetDate = new Date(body.targetDate);
   } else {
-    const tomorrow = new Date();
-    tomorrow.setHours(0, 0, 0, 0);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = todayJST();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     targetDate = tomorrow;
   }
 

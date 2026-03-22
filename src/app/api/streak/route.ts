@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStreakTitle } from "@/lib/constants";
+import { monthStartJST, monthEndJST } from "@/lib/date";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -14,9 +15,8 @@ export async function GET() {
   });
 
   // 今月の達成日数（APPROVED or SKIPPED クエストの DISTINCT date）
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const monthStart = monthStartJST();
+  const monthEnd = monthEndJST();
 
   const monthlyQuests = await prisma.questInstance.findMany({
     where: {

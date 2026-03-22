@@ -74,8 +74,7 @@ describe("GET /api/tasks", () => {
       { ...tasks[0], completedToday: true },
       { ...tasks[1], completedToday: false },
     ]);
-    const expectedToday = new Date("2026-03-18T10:00:00");
-    expectedToday.setHours(0, 0, 0, 0);
+    const expectedToday = new Date("2026-03-18T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
       where: {
         templateId: { in: ["t1", "t2"] },
@@ -188,8 +187,7 @@ describe("POST /api/tasks", () => {
       })
     );
 
-    const today = new Date("2026-03-12T00:00:00");
-    today.setHours(0, 0, 0, 0);
+    const today = new Date("2026-03-12T00:00:00Z");
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         isTemporary: true,

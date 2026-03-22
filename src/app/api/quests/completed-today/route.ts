@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { todayRangeJST } from "@/lib/date";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -8,17 +9,14 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const { start, end } = todayRangeJST();
 
   const quests = await prisma.questInstance.findMany({
     where: {
       status: { in: ["APPROVED", "SKIPPED"] },
       approvedAt: {
-        gte: today,
-        lt: tomorrow,
+        gte: start,
+        lt: end,
       },
       template: { familyId: user.familyId },
     },

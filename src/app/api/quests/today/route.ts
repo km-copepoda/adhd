@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { todayJST, dayOfWeekJST } from "@/lib/date";
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user || !user.familyId) {
     return NextResponse.json([]);
   }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ...
+  
+  const today = todayJST();
+  const dayOfWeek = dayOfWeekJST();
 
   // Get active templates for today (regular + temporary) assigned to this child
   const templates = await prisma.taskTemplate.findMany({

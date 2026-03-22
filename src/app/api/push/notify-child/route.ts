@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToChild } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
+import { todayJST, dayOfWeekJST } from "@/lib/date";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/push/notify-child");
@@ -24,9 +25,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 403 });
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dayOfWeek = today.getDay();
+  const today = todayJST();
+  const dayOfWeek = dayOfWeekJST();
   
   // QuestInstance は子供がアプリを開いたときに遅延生成されるため、
   // 親がリマインドを送る時点で未精製の可能性があるので、先に生成する
