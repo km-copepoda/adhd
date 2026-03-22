@@ -170,7 +170,7 @@ export default function ApprovePage() {
                 <img
                   src={quest.photoUrl}
                   alt="報告写真"
-                  className="w-full max-h-48 object-cover rounded-lg mb-4"
+                  className="w-full max-h-64 object-contain rounded-lg mb-4 bg-quest-bg"
                   onClick={(e) => e.stopPropagation()}
                 />
               )}
