@@ -1,5 +1,5 @@
 {
-  "buildCommand": "DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} prisma migrate deploy && npm run build",
+  "buildCommand": "DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} prisma migrate deploy && DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} prisma db execute --file supabase/seed.sql && npm run build"
   "crons": [
     {
       "path": "/api/cron/auto-approve",
