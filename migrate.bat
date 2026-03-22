@@ -1,8 +1,8 @@
 @echo off
-REM Prisma ãƒã‚¤ã‚°ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³å®Ÿè¡Œã‚¹ã‚¯ãƒªãƒ—ãƒˆ
-REM ä½¿ã„æ–¹: migrate.bat
-REM  - ãƒ­ãƒ¼ã‚«ãƒ« Supabase (port 54332) ã«æœªé©ç”¨ã®ãƒã‚¤ã‚°ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã‚’å…¨ã¦é©ç”¨ã—ã¾ã™
-REM  - shadow DB ã‚’ä½¿ã‚ãªã„ migrate deploy ã‚’ä½¿ç”¨ï¼ˆsupabase_realtime å•é¡Œã‚’å›é¿ï¼‰
+REM Prisma ƒ}ƒCƒOƒŒ[ƒVƒ‡ƒ“ÀsƒXƒNƒŠƒvƒg
+REM g‚¢•û: migrate.bat
+REM  - ƒ[ƒJƒ‹ Supabase (port 54332) ‚É–¢“K—p‚Ìƒ}ƒCƒOƒŒ[ƒVƒ‡ƒ“‚ğ‘S‚Ä“K—p‚µ‚Ü‚·
+REM  - shadow DB ‚ğg‚í‚È‚¢ migrate deploy ‚ğg—pisupabase_realtime –â‘è‚ğ‰ñ”ğj
 
 cd /d "%~dp0"
 node node_modules\prisma\build\index.js migrate deploy
