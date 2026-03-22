@@ -1,6 +1,6 @@
 export const MAX_WIDTH = 1280;
 export const MAX_HEIGHT = 1280;
-export const JPEG_QUALITY = 0.8;
+export const IMAGE_QUALITY = 0.8;
 
 /** スケールダウン係数を計算（拡大しない）。テスト可能な純粋関数 */
 export function calcScale(w: number, h: number): number {
@@ -40,11 +40,11 @@ export function compressImage(file: File): Promise<File> {
             resolve(file);
             return;
           }
-          const compressed = new File([blob], file.name, { type: "image/jpeg" });
+          const compressed = new File([blob], file.name, { type: "image/webp" });
           resolve(compressed);
         },
-        "image/jpeg",
-        JPEG_QUALITY,
+        "image/webp",
+        IMAGE_QUALITY,
       );
     };
 

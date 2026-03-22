@@ -59,8 +59,7 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
     if (!photoFile) return null;
     const supabase = createClient();
     const compressed = await compressImage(photoFile);
-    const ext = photoFile.name.split(".").pop() ?? "jpg";
-    const path = `${quest.id}_${Date.now()}.${ext}`;
+    const path = `${quest.id}_${Date.now()}.webp`;
     const { error } = await supabase.storage.from("quest-photos").upload(path, compressed);
     if (error) {
       setUploadError("写真のアップロードに失敗しました");

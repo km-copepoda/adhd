@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcScale, MAX_WIDTH, MAX_HEIGHT, JPEG_QUALITY } from "@/lib/imageUtils";
+import { calcScale, MAX_WIDTH, MAX_HEIGHT, IMAGE_QUALITY } from "@/lib/imageUtils";
 
 describe("imageUtils", () => {
   it("MAX_WIDTH と MAX_HEIGHT が公開されていること", () => {
@@ -7,9 +7,9 @@ describe("imageUtils", () => {
     expect(MAX_HEIGHT).toBeGreaterThan(0);
   });
 
-  it("JPEG_QUALITY が 0〜1 の範囲であること", () => {
-    expect(JPEG_QUALITY).toBeGreaterThan(0);
-    expect(JPEG_QUALITY).toBeLessThanOrEqual(1);
+  it("IMAGE_QUALITY が 0〜1 の範囲であること", () => {
+    expect(IMAGE_QUALITY).toBeGreaterThan(0);
+    expect(IMAGE_QUALITY).toBeLessThanOrEqual(1);
   });
 
   describe("calcScale", () => {
