@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, REJECTION_REASONS, XP_MAP } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Difficulty, QuestStatus } from "@/types";
+import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type PendingQuest = {
@@ -157,6 +158,7 @@ export default function ApprovePage() {
                 <div className="flex-1">
                   <p className="text-sm text-quest-dim">
                     {isSkipRequest ? "😴" : "🧒"} {quest.child.monsterName || quest.child.name} からの{isSkipRequest ? "スキップ申請" : "報告"}
+                    <span className="ml-2 text-xs opacity-60">🕐 {formatReportedTime(quest.reportedAt)}</span>
                   </p>
                   <p className="text-base font-medium mt-1">{quest.template.title}</p>
                   <p className="text-xs text-quest-dim mt-1">

@@ -1,3 +1,18 @@
+/** 報告時刻を相対時間で表示（クライアント用）*/
+export function formatReportedTime(iso: string, now?: Date): string {
+  const d = new Date(iso);
+  const ref = now ?? new Date();
+  const diffMs = ref.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "たった今";
+  if (diffMin < 60) return `${diffMin}分前`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}時間前`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+
+
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 function jstNow(): Date {

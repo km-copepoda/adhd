@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask } from "@/lib/date";
+import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask, formatReportedTime } from "@/lib/date";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -89,6 +89,47 @@ describe("monthStartJST / monthEndJST", () => {
   });
 });
 
+describe("formatReportedTime", () => {
+  const now = new Date("2026-03-22T10:30:00+09:00");
+  
+  it("1分未満は「たった今」", () => {
+    const reported = new Date(now.getTime() - 30 * 1000).toISOString();
+    expect(formatReportedTime(reported, now)).toBe("たった今");
+  });
+  
+  it("1分ちょうどは「1分前」", () => {
+    const reported = new Date(now.getTime() - 60 * 1000).toISOString();
+    expect(formatReportedTime(reported, now)).toBe("1分前");
+  });
+  
+  it("30分前", () => {
+    const reported = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
+    expect(formatReportedTime(reported, now)).toBe("30分前");
+  });
+  
+  it("59分前", () => {
+    const reported = new Date(now.getTime() - 59 * 60 * 1000).toISOString();
+    expect(formatReportedTime(reported, now)).toBe("59分前");
+  });
+  
+  it("1時間ちょうどは「1時間前」", () => {
+    const reported = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    expect(formatReportedTime(reported, now)).toBe("1時間前");
+  });
+  
+  it("23時間前", () => {
+    const reported = new Date(now.getTime() - 23 * 60 * 60 * 1000).toISOString();
+    expect(formatReportedTime(reported, now)).toBe("23時間前");
+  });
+  
+  it("24時間以上は絶対日時表示", () => {
+    const reported = new Date(now.getTime() - 25 * 60 * 60 * 1000).toISOString();
+    const result = formatReportedTime(reported, now);
+    // ローカルTZで月/日 時:分 の形式
+    expect(result).toMatch(/^\d{1,2}\/\d{1,2} \d{1,2}:\d{2}$/);
+  });
+});
+
 describe("todayRangeJST", () => {
   it("JST 1日の範囲を返すこと", () => {
     // JST 2026-03-12 の範囲：UTC 2026-03-11T15:00 ～ UTC 2026-03-12T15:00
@@ -143,3 +184,4 @@ describe("isVisibleTemporaryTask", () => {
     expect(isVisibleTemporaryTask({ ...base, completedToday: true }, today)).toBe(false);
   });
 });
+
