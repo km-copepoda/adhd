@@ -1,7 +1,7 @@
 @echo off
-REM Supabase Storage: quest-photos ãƒã‚±ãƒƒãƒˆä½œæˆ + RLS ãƒãƒªã‚·ãƒ¼è¨­å®š
-REM ä½¿ã„æ–¹: storage-setup.bat
-REM supabase db reset å¾Œã‚„åˆå›ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—æ™‚ã«å®Ÿè¡Œã™ã‚‹
+REM Supabase Storage: quest-photos ƒoƒPƒbƒgì¬ + RLS ƒ|ƒŠƒV[İ’è
+REM g‚¢•û: storage-setup.bat
+REM supabase db reset Œã‚â‰‰ñƒZƒbƒgƒAƒbƒv‚ÉÀs‚·‚é
 
 cd /d "%~dp0"
 node node_modules\prisma\build\index.js db execute --file supabase/seed.sql
