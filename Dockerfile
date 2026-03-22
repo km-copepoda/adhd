@@ -3,15 +3,11 @@ FROM node:24-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# ---- deps ----
-FROM base AS deps
+# ---- build ----
+FROM base AS build
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci
-
-# ---- build ----
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # All env vars are inlined at build time (Edge Runtime middleware cannot read runtime env)
