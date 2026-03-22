@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, DIFFICULTY_LABEL, XP_MAP, DAY_LABELS } from "@/lib/constants";
 import type { Category, Difficulty } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
 
 type Task = {
   id: string;
@@ -174,13 +175,14 @@ export default function TasksPage() {
     }));
   }
 
-  // 子供ごとにタスクを振り分け（完了済み一時タスクは除外）
+  // 子供ごとにタスクを振り分け（完了済み・期限切れの一時タスクは除外）
   function tasksForChild(childId: string) {
     const all = tasks.filter((t) => t.assignedChildId === childId);
+    const todayStr = todayStringJST();
     return {
       pending: all.filter((t) => t.createdBy === "CHILD"),
       regular: all.filter((t) => !t.isTemporary && t.createdBy !== "CHILD"),
-      temporary: all.filter((t) => t.isTemporary && t.createdBy !== "CHILD" && !t.completedToday),
+      temporary: all.filter((t) => isVisibleTemporaryTask(t, todayStr)),
     };
   }
 
@@ -520,7 +522,7 @@ export default function TasksPage() {
                             ))}
                           </div>
                         </div>
-                        <div className="flx flex-col items-end gap-1">
+                        <div className="flex flex-col items-end gap-1">
                           {!task.completedToday && isOffDay && (
                             <span className="text-[9px] text-quest-dim border border-quest-border rounded px-1">
                               対象外

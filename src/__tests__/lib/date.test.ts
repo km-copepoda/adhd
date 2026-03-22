@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST } from "@/lib/date";
+import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask } from "@/lib/date";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -104,5 +104,42 @@ describe("todayRangeJST", () => {
     const { start, end } = todayRangeJST();
     expect(start).toEqual(new Date("2026-03-11T15:00:00Z"));
     expect(end).toEqual(new Date("2026-03-12T15:00:00Z"));
+  });
+});
+
+describe("isVisibleTemporaryTask", () => {
+  const today = "2026-03-22";
+  const base = { isTemporary: true, createdBy: "PARENT", completedToday: false, targetDate: "2026-03-22" };
+  
+  it("当日の一時タスクは表示される", () => {
+    expect(isVisibleTemporaryTask(base, today)).toBe(true);
+  });
+  
+  it("未来日の一時タスクは表示される", () => {
+    expect(isVisibleTemporaryTask({ ...base, targetDate: "2026-03-25" }, today)).toBe(true);
+  });
+  
+  it("期限切れの一時タスクは非表示になる", () => {
+    expect(isVisibleTemporaryTask({ ...base, targetDate: "2026-03-21" }, today)).toBe(false);
+  });
+  
+  it("過去日の一時タスクは非表示になる", () => {
+    expect(isVisibleTemporaryTask({ ...base, targetDate: "2026-03-01" }, today)).toBe(false);
+  });
+  
+  it("targetDateがnullの一時タスクは表示される", () => {
+    expect(isVisibleTemporaryTask({ ...base, targetDate: null }, today)).toBe(true);
+  });
+  
+  it("通常タスク（isTemporary=false）は非表示", () => {
+    expect(isVisibleTemporaryTask({ ...base, isTemporary: false }, today)).toBe(false);
+  });
+  
+  it("子供作成タスク（未承認タスク）は非表示", () => {
+    expect(isVisibleTemporaryTask({ ...base, createdBy: "CHILD" }, today)).toBe(false);
+  });
+  
+  it("今日完了済みのタスクは非表示", () => {
+    expect(isVisibleTemporaryTask({ ...base, completedToday: true }, today)).toBe(false);
   });
 });

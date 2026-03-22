@@ -34,3 +34,18 @@ export function todayRangeJST(): { start: Date; end: Date } {
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { start, end };
 }
+
+/** JST の今日を "YYYY-MM-DD" 文字列で返す（クライアント/サーバ共用）*/
+export function todayStringJST(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}
+
+/** 期限切れでない表示可能な一時タスクかどうか */
+export function isVisibleTemporaryTask(
+  task: { isTemporary: boolean; createdBy: string; completedToday: boolean; targetDate: string | null },
+  todayStr: string,
+): boolean {
+  if (!task.isTemporary || task.createdBy === "CHILD" || task.completedToday) return false;
+  if (task.targetDate && task.targetDate.slice(0, 10) < todayStr) return false;
+  return true;
+}
