@@ -42,6 +42,7 @@ export default function ApprovePage() {
   const [copyEnabled, setCopyEnabled] = useState<Record<string, boolean>>({});
   const [copyDates, setCopyDates] = useState<Record<string, string>>({});
   const [rejectModal, setRejectModal] = useState<RejectModalState | null>(null);
+  const [photoModal, setPhotoModal] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPending();
@@ -166,13 +167,12 @@ export default function ApprovePage() {
                 </div>
               </div>
               {quest.photoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={quest.photoUrl}
-                  alt="報告写真"
-                  className="w-full max-h-64 object-contain rounded-lg mb-4 bg-quest-bg"
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <button
+                  onClick={(e) => { e.stopPropagation(); setPhotoModal(quest.photoUrl); }}
+                  className="flex items-center gap-1.5 text-xs text-quest-dim border border-quest-border rounded-lg px-2.5 py-1 mb-4 hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
+                >
+                  📷 写真を見る
+                </button>
               )}
               {quest.comment && (
                 <div className={`rounded-lg p-3 mb-4 text-sm ${
@@ -230,6 +230,22 @@ export default function ApprovePage() {
           );
         })}
       </div>
+
+      {/* 写真モーダル */}
+      {photoModal && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setPhotoModal(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoModal}
+            alt="報告写真"
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* 差し戻しモーダル */}
       {rejectModal && (
