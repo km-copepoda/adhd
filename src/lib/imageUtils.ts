@@ -1,6 +1,6 @@
-export const MAX_WIDTH = 1280;
-export const MAX_HEIGHT = 1280;
-export const IMAGE_QUALITY = 0.8;
+export const MAX_WIDTH = 960;
+export const MAX_HEIGHT = 960;
+export const IMAGE_QUALITY = 0.75;
 
 /** スケールダウン係数を計算（拡大しない）。テスト可能な純粋関数 */
 export function calcScale(w: number, h: number): number {
@@ -8,10 +8,11 @@ export function calcScale(w: number, h: number): number {
 }
 
 /**
- * 画像ファイルを Canvas でリサイズ・JPEG圧縮して返す。
+ * 画像ファイルを Canvas でリサイズ・WebP 圧縮して返す。
  * - 最大 MAX_WIDTH × MAX_HEIGHT に収まるよう縦横比を維持してスケールダウン
  * - それ以下のサイズはそのまま（拡大しない）
- * - canvas.toBlob が失敗した場合は元ファイルをそのまま返す（フォールバック）
+ * - WebP 未対応環境（iOS 古い Safari 等）は JPEG にフォールバック
+ * - canvas.toBlob が両方失敗した場合のみ元ファイルをそのまま返す
  */
 export function compressImage(file: File): Promise<File> {
   return new Promise((resolve) => {
@@ -36,12 +37,22 @@ export function compressImage(file: File): Promise<File> {
 
       canvas.toBlob(
         (blob) => {
-          if (!blob) {
-            resolve(file);
+          if (blob) {
+            resolve(new File([blob], file.name, { type: "image/webp" }));
             return;
           }
-          const compressed = new File([blob], file.name, { type: "image/webp" });
-          resolve(compressed);
+          // WebP 未対応: JPEG にフォールバック
+          canvas.toBlob(
+            (jpegBlob) => {
+              if (jpegBlob) {
+                resolve(new File([jpegBlob], file.name, { type: "image/jpeg" }));
+              } else {
+                resolve(file);
+              }
+            },
+            "image/jpeg",
+            IMAGE_QUALITY,
+          );
         },
         "image/webp",
         IMAGE_QUALITY,
@@ -50,7 +61,7 @@ export function compressImage(file: File): Promise<File> {
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(file); // フォールバック
+      resolve(file);
     };
 
     img.src = url;
