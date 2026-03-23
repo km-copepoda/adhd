@@ -493,9 +493,9 @@ export default function TasksPage() {
                         }`}
                       >
                         <div className={`text-2xl ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
-                        <div className={`flex-1 min-w-0 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium truncate">{task.title}</p>
+                            <p className={`text-sm font-medium truncate ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
                             {task.completedToday && (
                               <span className="text-xs font-bold text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1.5 py-0.5 shrink-0">
                                 ✓ 完了
@@ -507,12 +507,12 @@ export default function TasksPage() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
+                          <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             <span>{cat.emoji} {cat.name}</span>
                             <span style={{ color: diff.color }}>{diff.name}</span>
                             <span>+{XP_MAP[task.difficulty]}XP</span>
                           </div>
-                          <div className="flex gap-0.5 mt-1">
+                          <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             {DAY_LABELS.map((label, i) => (
                               <span
                                 key={i}
