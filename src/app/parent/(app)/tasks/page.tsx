@@ -487,15 +487,13 @@ export default function TasksPage() {
                       <div
                         key={task.id}
                         className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
-                          task.completedToday
-                            ? "border-quest-border/30 opacity-40"
-                            : isOffDay
+                          task.completedToday || isOffDay
                             ? "border-quest-border/30"
                             : "border-quest-border"
                         }`}
                       >
-                        <div className={`text-2xl ${isOffDay && !task.completedToday ? "opacity-35" : ""}`}>{task.emoji}</div>
-                        <div className={`flex-1 min-w-0 ${isOffDay && !task.completedToday ? "opacity-35" : ""}`}>
+                        <div className={`text-2xl ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
+                        <div className={`flex-1 min-w-0 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-medium truncate">{task.title}</p>
                             {task.completedToday && (
