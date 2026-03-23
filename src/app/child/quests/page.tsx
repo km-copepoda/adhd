@@ -26,7 +26,6 @@ type Quest = {
   };
 };
 
-const EMOJIS = ["⚔️", "📖", "🏃", "🧹", "🎹", "📐", "🥗", "🛏️", "🐕", "✏️"];
 type FormMode = "regular" | "temporary";
 
 export default function QuestsPage() {
@@ -232,23 +231,6 @@ export default function QuestsPage() {
               placeholder="タスク名を入力..."
               className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-3"
             />
-
-            {/* Emoji */}
-            <div className="flex gap-1 mb-3 flex-wrap">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setForm((f) => ({ ...f, emoji: e }))}
-                  className={`w-8 h-8 rounded-lg text-base flex items-center justify-center border transition-colors ${
-                    form.emoji === e
-                      ? "border-quest-gold bg-quest-gold/10"
-                      : "border-quest-border"
-                  }`}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
 
             {/* Category */}
             <div className="flex gap-1.5 mb-3">

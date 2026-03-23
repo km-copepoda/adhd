@@ -30,7 +30,6 @@ type Child = {
   monsterName: string | null;
 };
 
-const EMOJIS = ["⚔️", "📖", "🏃", "🧹", "🎹", "📐", "🥗", "🛏️", "🐕", "✏️"];
 
 type FormMode = "regular" | "temporary";
 
@@ -238,24 +237,6 @@ export default function TasksPage() {
           placeholder="例: 算数ドリルをやる"
           className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-4"
         />
-
-        {/* Emoji */}
-        <label className="block text-quest-dim text-xs mb-1 tracking-wider">アイコン</label>
-        <div className="flex gap-1 mb-4 flex-wrap">
-          {EMOJIS.map((e) => (
-            <button
-              key={e}
-              onClick={() => setForm((f) => ({ ...f, emoji: e }))}
-              className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center border transition-colors ${
-                form.emoji === e
-                  ? "border-quest-gold bg-quest-gold/10"
-                  : "border-quest-border hover:border-quest-gold/30"
-              }`}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
 
         {/* Category */}
         <label className="block text-quest-dim text-xs mb-1 tracking-wider">カテゴリ</label>
