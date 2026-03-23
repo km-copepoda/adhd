@@ -169,7 +169,7 @@ export default function ApprovePage() {
               {quest.photoUrl && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setPhotoModal(quest.photoUrl); }}
-                  className="flex items-center gap-1.5 text-xs text-quest-dim border border-quest-border rounded-lg px-2.5 py-1 mb-4 hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
+                  className="flex items-center gap-2 text-sm text-quest-dim border border-quest-border rounded-xl px-4 py-2.5 mb-4 w-full justify-center hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
                 >
                   📷 写真を見る
                 </button>
