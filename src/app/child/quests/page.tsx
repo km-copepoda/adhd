@@ -260,11 +260,13 @@ export default function QuestsPage() {
                   <button
                     key={diff}
                     onClick={() => setForm((f) => ({ ...f, difficulty: diff }))}
-                    className="flex-1 py-1.5 rounded-lg text-xs border transition-colors"
+                    className={`flex-1 py-1.5 rounded-lg text-xs border transition-colors ${
+                      form.difficulty !== diff ? "border-quest-border text-quest-dim" : ""
+                    }`}
                     style={
                       form.difficulty === diff
                         ? { borderColor: label.color, backgroundColor: `${label.color}20`, color: label.color }
-                        : { borderColor: "var(--quest-border)", color: "var(--quest-dim)" }
+                        : undefined
                     }
                   >
                     {label.name}

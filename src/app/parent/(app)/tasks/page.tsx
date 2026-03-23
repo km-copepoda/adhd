@@ -267,7 +267,9 @@ export default function TasksPage() {
               <button
                 key={diff}
                 onClick={() => setForm((f) => ({ ...f, difficulty: diff }))}
-                className={`flex-1 py-2 rounded-lg text-sm border transition-colors`}
+                className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
+                  form.difficulty !== diff ? "border-quest-border text-quest-dim" : ""
+                }`}
                 style={
                   form.difficulty === diff
                     ? { borderColor: label.color, backgroundColor: `${label.color}20`, color: label.color }
