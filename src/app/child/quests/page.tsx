@@ -36,7 +36,6 @@ export default function QuestsPage() {
   const [formMode, setFormMode] = useState<FormMode>("temporary");
   const [form, setForm] = useState({
     title: "",
-    emoji: "⚔️",
     category: "STUDY" as Category,
     difficulty: "NORMAL" as Difficulty,
     repeatDays: [1, 2, 3, 4, 5] as number[],
@@ -89,17 +88,18 @@ export default function QuestsPage() {
   async function handleAddTask() {
     setSubmitting(true);
     const isTemporary = formMode === "temporary";
+    const emoji = CATEGORY_LABEL[form.category].emoji;
     const body = isTemporary
       ? {
           title: form.title,
-          emoji: form.emoji,
+          emoji,
           category: form.category,
           difficulty: form.difficulty,
           isTemporary: true,
         }
       : {
           title: form.title,
-          emoji: form.emoji,
+          emoji,
           category: form.category,
           difficulty: form.difficulty,
           isTemporary: false,
@@ -114,7 +114,7 @@ export default function QuestsPage() {
     setSubmitting(false);
     if (res.ok) {
       setShowAddForm(false);
-      setForm({ title: "", emoji: "⚔️", category: "STUDY", difficulty: "NORMAL", repeatDays: [1, 2, 3, 4, 5] });
+      setForm({ title: "", category: "STUDY", difficulty: "NORMAL", repeatDays: [1, 2, 3, 4, 5] });
       fetchQuests();
     }
   }

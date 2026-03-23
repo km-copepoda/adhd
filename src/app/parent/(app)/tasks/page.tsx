@@ -35,7 +35,6 @@ type FormMode = "regular" | "temporary";
 
 const defaultForm = (childId: string) => ({
   title: "",
-  emoji: "⚔️",
   category: "STUDY" as Category,
   difficulty: "NORMAL" as Difficulty,
   repeatDays: [1, 2, 3, 4, 5] as number[],
@@ -93,10 +92,11 @@ export default function TasksPage() {
     const isTemporary = formMode === "temporary";
     const method = editingId ? "PUT" : "POST";
     const url = editingId ? `/api/tasks/${editingId}` : "/api/tasks";
+    const emoji = CATEGORY_LABEL[form.category].emoji;
     const body = isTemporary
       ? {
           title: form.title,
-          emoji: form.emoji,
+          emoji,
           category: form.category,
           difficulty: form.difficulty,
           isTemporary: true,
@@ -106,7 +106,7 @@ export default function TasksPage() {
         }
       : {
           title: form.title,
-          emoji: form.emoji,
+          emoji,
           category: form.category,
           difficulty: form.difficulty,
           repeatDays: form.repeatDays,
@@ -157,7 +157,6 @@ export default function TasksPage() {
   function startEdit(task: Task) {
     setForm({
       title: task.title,
-      emoji: task.emoji,
       category: task.category,
       difficulty: task.difficulty,
       repeatDays: task.repeatDays,
