@@ -258,32 +258,41 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
               className="shrink-0 px-5 pt-2"
               style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
             >
-              <div className="border-t border-quest-border/40 mb-2" />
+              <div className="border-t border-quest-border/40 mb-3" />
 
-              <button
-                onClick={() => setShowSkip((v) => !v)}
-                className="w-full text-xs text-quest-dim py-2 flex items-center justify-center gap-1"
-              >
-                😴 今日はできない場合
-                <span className="text-[10px] opacity-60">{showSkip ? "▲" : "▼"}</span>
-              </button>
-
-              {showSkip && (
-                <div className="mt-2 space-y-2">
+              {!showSkip ? (
+                <button
+                  onClick={() => setShowSkip(true)}
+                  className="w-full py-3 rounded-xl border border-red-400/40 text-red-400 text-sm font-medium flex items-center justify-center gap-2 hover:bg-red-400/10 active:scale-[0.99] transition-all"
+                >
+                  😴 今日はスキップする
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-quest-dim text-center">スキップする理由を入力してね</p>
                   <input
                     type="text"
                     value={skipReason}
                     onChange={(e) => setSkipReason(e.target.value)}
                     placeholder="理由を入力（必須）"
-                    className="w-full bg-quest-bg border border-quest-border rounded-xl px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-red-400/30"
+                    className="w-full bg-quest-bg border border-red-400/30 rounded-xl px-3 py-2.5 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-red-400/50"
+                    autoFocus
                   />
-                  <button
-                    onClick={handleSkip}
-                    disabled={!skipReason.trim() || isSubmitting}
-                    className="w-full text-xs border border-red-400/30 text-red-400/60 rounded-xl py-2.5 hover:bg-red-400/10 transition-colors disabled:opacity-40"
-                  >
-                    😴 スキップを申請する
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowSkip(false); setSkipReason(""); }}
+                      className="flex-none px-4 py-3 rounded-xl border border-quest-border text-quest-dim text-sm hover:bg-quest-border/20 transition-colors"
+                    >
+                      戻る
+                    </button>
+                    <button
+                      onClick={handleSkip}
+                      disabled={!skipReason.trim() || isSubmitting}
+                      className="flex-1 py-3 rounded-xl border border-red-400/50 bg-red-400/10 text-red-400 text-sm font-medium hover:bg-red-400/20 transition-colors disabled:opacity-40"
+                    >
+                      {isSubmitting ? "申請中..." : "😴 スキップを申請する"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
