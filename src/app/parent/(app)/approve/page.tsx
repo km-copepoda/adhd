@@ -243,8 +243,7 @@ export default function ApprovePage() {
           <img
             src={photoModal}
             alt="報告写真"
-            className="max-w-full max-h-full object-contain rounded-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full object-contain rounded-xl cursor-pointer"
           />
         </div>
       )}
