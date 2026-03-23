@@ -283,19 +283,19 @@ export default function TasksPage() {
 
         {/* Photo required toggle */}
         <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-quest-text text-sm">📷 写真報告を必須にする</p>
             <p className="text-quest-dim text-[11px] mt-0.5">ONにすると、子供は写真なしで報告できません</p>
           </div>
           <button
             onClick={() => setForm((f) => ({ ...f, requirePhoto: !f.requirePhoto }))}
-            className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 ${
+            className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 overflow-hidden ${
               form.requirePhoto ? "bg-quest-gold" : "bg-quest-border"
             }`}
           >
             <span
-              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                form.requirePhoto ? "translate-x-4" : "translate-x-0.5"
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                form.requirePhoto ? "translate-x-4" : "translate-x-0"
               }`}
             />
           </button>
