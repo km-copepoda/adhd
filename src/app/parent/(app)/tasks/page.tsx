@@ -497,7 +497,7 @@ export default function TasksPage() {
                           <div className="flex items-center gap-1.5">
                             <p className={`text-sm font-medium truncate ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
                             {task.completedToday && (
-                              <span className="text-xs font-bold text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1.5 py-0.5 shrink-0">
+                              <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1 shrink-0">
                                 ✓ 完了
                               </span>
                             )}
