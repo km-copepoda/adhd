@@ -1,6 +1,6 @@
-export const MAX_WIDTH = 1280;
-export const MAX_HEIGHT = 1280;
-export const IMAGE_QUALITY = 0.8;
+export const MAX_WIDTH = 960;
+export const MAX_HEIGHT = 960;
+export const IMAGE_QUALITY = 0.75;
 
 /** スケールダウン係数を計算（拡大しない）。テスト可能な純粋関数 */
 export function calcScale(w: number, h: number): number {
