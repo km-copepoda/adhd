@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { MONSTER_TABLE, EGG_STAGE, EVOLUTION_THRESHOLDS } from "@/lib/constants";
+import { MONSTER_TABLE, EGG_STAGE, EVOLUTION_THRESHOLDS, CATEGORY_LABEL } from "@/lib/constants";
+import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ZukanData = {
@@ -41,15 +42,21 @@ export default function ZukanPage() {
     };
   });
 
+  // パスセグメント → カテゴリ絵文字の配列
+  const pathToEmojis = (segments: string[]) =>
+    segments.map((s) => CATEGORY_LABEL[s as Category]?.emoji ?? "❓");
+
   return (
     <div className="px-4 pt-6 pb-6">
       <h1 className="font-serif text-quest-gold text-xl tracking-widest mb-6 text-center">
         📖 モンスター図鑑
       </h1>
       <div className="flex flex-col gap-4">
-        {stages.map(({ stage, data: monster }) => {
+        {stages.map(({ stage, path, data: monster }) => {
           const isUnlocked = stage <= data.evolutionStage;
           const isCurrent = stage === data.evolutionStage;
+          const segments = path ? path.split("_") : [];
+          const emojis = pathToEmojis(segments);
 
           return (
             <div
@@ -58,33 +65,59 @@ export default function ZukanPage() {
                 isUnlocked ? "border-quest-border" : "border-quest-border/40 opacity-50"
               }`}
             >
-              <div className="w-14 h-14 flex items-center justify-center text-center flex-shrink-0">
+              {/* モンスター画像 */}
+              <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
                 {isUnlocked
                   ? monster.image
-                    ? <Image src={monster.image} alt={monster.name} width={56} height={56} className="w-full h-full object-contain" />
+                    ? <Image src={monster.image} alt={monster.name} width={64} height={64} className="w-full h-full object-contain" />
                     : <span className="text-5xl">{monster.emoji}</span>
                   : <span className="text-3xl text-quest-dim">？</span>}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`font-serif text-lg ${isUnlocked ? "text-quest-text" : "text-quest-dim"}`}>
+
+              {/* 情報 */}
+              <div className="flex-1 min-w-0">
+                {/* 系統パス */}
+                {stage > 0 && (
+                  <div className="flex items-center gap-0.5 mb-1">
+                    {isUnlocked
+                      ? emojis.map((emoji, i) => (
+                          <span key={i} className="flex items-center gap-0.5">
+                            {i > 0 && <span className="text-quest-dim/50 text-[10px]">→</span>}
+                            <span className="text-base">{emoji}</span>
+                          </span>
+                        ))
+                      : Array.from({ length: stage }).map((_, i) => (
+                          <span key={i} className="flex items-center gap-0.5">
+                            {i > 0 && <span className="text-quest-dim/50 text-[10px]">→</span>}
+                            <span className="text-base text-quest-dim/40">❓</span>
+                          </span>
+                        ))}
+                  </div>
+                )}
+
+                {/* 名前 */}
+                <div className="flex items-center gap-2">
+                  <span className={`font-serif text-base ${isUnlocked ? "text-quest-text" : "text-quest-dim"}`}>
                     {isUnlocked ? monster.name : "？？？"}
                   </span>
                   {isCurrent && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-quest-gold/20 text-quest-gold border border-quest-gold/30 tracking-wider">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-quest-gold/20 text-quest-gold border border-quest-gold/30 tracking-wider shrink-0">
                       現在
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-quest-dim">
+
+                {/* 進化情報 */}
+                <div className="text-[11px] text-quest-dim mt-0.5">
                   {isUnlocked
                     ? monster.ptToEvolve === null
                       ? "最終形態"
                       : `次の進化まで ${monster.ptToEvolve} pt`
-                    : "まだ未解放（進化先は運命次第…）"}
+                    : "進化先は運命次第…"}
                 </div>
               </div>
-              <div className="text-quest-dim/50 text-xs">
+
+              <div className="text-quest-dim/50 text-[11px] shrink-0">
                 {isUnlocked ? `Stage ${stage}` : "🔒"}
               </div>
             </div>
