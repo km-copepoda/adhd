@@ -31,64 +31,61 @@ export const DIFFICULTY_LABEL: Record<Difficulty, { name: string; color: string 
 // ─── 進化閾値 ─────────────────────────────────────────
 // EVOLUTION_THRESHOLDS[evolutionStage] = そのステージから次に進化するために必要な合計pt
 // null = 最終形態（進化しない）
-export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, 70, null];
+// stage0(卵)→1: 1pt  stage1→2: 10pt  stage2→3(最終): 30pt
+export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, null];
 
 // ─── たまご ───────────────────────────────────────────
 export const EGG_STAGE = { emoji: "🥚", name: "たまご", ptToEvolve: 1 };
 
 // ─── モンスターテーブル ───────────────────────────────
-// キー = 進化パス履歴（"" = stage1ひよこ、"STUDY" = stage2、"STUDY_LIFE" = stage3、等）
-// 40体: "" x1, stage2 x3, stage3 x9, stage4 x27
-export const MONSTER_TABLE: Record<string, { emoji: string; name: string }> = {
-  // Stage 1: ひよこ（共通）
-  "": { emoji: "🐣", name: "ひよこ" },
+// キー = 進化パス履歴（"STUDY" = stage1、"STUDY_LIFE" = stage2、等）
+// ひよこ（共通stage1）は廃止。孵化直後に3系統に分岐する。
+// 39体: stage1 x3, stage2 x9, stage3 x27
+export const MONSTER_TABLE: Record<string, { image: string; name: string }> = {
+  // Stage 1: 3体（孵化直後に分岐）
+  "STUDY":   { image: "/monsters/STUDY_ラーン.webp",   name: "ラーン" },
+  "STAMINA": { image: "/monsters/STAMINA_ストーン.webp", name: "ストーン" },
+  "LIFE":    { image: "/monsters/LIFE_ヘルプ.webp",    name: "ヘルプ" },
 
-  // Stage 2: 3体
-  "STUDY":   { emoji: "🧠", name: "まなびの子" },
-  "STAMINA": { emoji: "⚡", name: "きたえの子" },
-  "LIFE":    { emoji: "🌱", name: "くらしの子" },
+  // Stage 2: 9体
+  "STUDY_STUDY":     { image: "/monsters/STUDY_STUDY_ライブラ.webp",       name: "ライブラ" },
+  "STUDY_STAMINA":   { image: "/monsters/STUDY_STAMINA_アーマード.webp",   name: "アーマード" },
+  "STUDY_LIFE":      { image: "/monsters/STUDY_LIFE_クリン.webp",          name: "クリン" },
+  "STAMINA_STUDY":   { image: "/monsters/STAMINA_STUDY_グラビド.webp",     name: "グラビド" },
+  "STAMINA_STAMINA": { image: "/monsters/STAMINA_STAMINA_ブロック.webp",   name: "ブロック" },
+  "STAMINA_LIFE":    { image: "/monsters/STAMINA_LIFE_わっしょい.webp",    name: "わっしょい" },
+  "LIFE_STUDY":      { image: "/monsters/LIFE_STUDY_チックタック.webp",    name: "チックタック" },
+  "LIFE_STAMINA":    { image: "/monsters/LIFE_STAMINA_キャリア.webp",      name: "キャリア" },
+  "LIFE_LIFE":       { image: "/monsters/LIFE_LIFE_マザー.webp",           name: "マザー" },
 
-  // Stage 3: 9体 (勉勉, 勉体, 勉生, 体勉, 体体, 体生, 生勉, 生体, 生生)
-  "STUDY_STUDY":   { emoji: "📖", name: "秀才" },
-  "STUDY_STAMINA": { emoji: "⚔️", name: "文武の士" },
-  "STUDY_LIFE":    { emoji: "🌿", name: "賢者の卵" },
-  "STAMINA_STUDY": { emoji: "🏋️", name: "武芸学者" },
-  "STAMINA_STAMINA": { emoji: "🦁", name: "剛力の獣" },
-  "STAMINA_LIFE":  { emoji: "🐗", name: "野生の護衛" },
-  "LIFE_STUDY":    { emoji: "🌺", name: "知恵の守り手" },
-  "LIFE_STAMINA":  { emoji: "🐯", name: "生命の戦士" },
-  "LIFE_LIFE":     { emoji: "🌳", name: "大地の精霊" },
-
-  // Stage 4: 27体 (勉勉勉, 勉勉体, 勉勉生, 勉体勉, ...)
-  "STUDY_STUDY_STUDY":   { emoji: "🧙", name: "大賢者" },
-  "STUDY_STUDY_STAMINA": { emoji: "🦅", name: "知将" },
-  "STUDY_STUDY_LIFE":    { emoji: "🌟", name: "スタースピリット" },
-  "STUDY_STAMINA_STUDY": { emoji: "🏰", name: "騎士団長" },
-  "STUDY_STAMINA_STAMINA": { emoji: "🐉", name: "ドラゴンナイト" },
-  "STUDY_STAMINA_LIFE":  { emoji: "🦊", name: "賢狐の将" },
-  "STUDY_LIFE_STUDY":    { emoji: "🌙", name: "月の学者" },
-  "STUDY_LIFE_STAMINA":  { emoji: "🦋", name: "変革の翼" },
-  "STUDY_LIFE_LIFE":     { emoji: "🌈", name: "虹の賢者" },
-
-  "STAMINA_STUDY_STUDY":   { emoji: "🏹", name: "射撃の名手" },
-  "STAMINA_STUDY_STAMINA": { emoji: "⚡", name: "雷神" },
-  "STAMINA_STUDY_LIFE":    { emoji: "🌊", name: "海の守護者" },
-  "STAMINA_STAMINA_STUDY": { emoji: "🔥", name: "炎の覇者" },
-  "STAMINA_STAMINA_STAMINA": { emoji: "👑", name: "武神" },
-  "STAMINA_STAMINA_LIFE":  { emoji: "🐺", name: "鋼鉄の狼" },
-  "STAMINA_LIFE_STUDY":    { emoji: "🦄", name: "聖なる角" },
-  "STAMINA_LIFE_STAMINA":  { emoji: "🐲", name: "生命の龍" },
-  "STAMINA_LIFE_LIFE":     { emoji: "🌿", name: "大自然の守人" },
-
-  "LIFE_STUDY_STUDY":   { emoji: "🔮", name: "占い師" },
-  "LIFE_STUDY_STAMINA": { emoji: "🌸", name: "花の剣士" },
-  "LIFE_STUDY_LIFE":    { emoji: "🍀", name: "四葉の精" },
-  "LIFE_STAMINA_STUDY": { emoji: "🐻", name: "森の賢者" },
-  "LIFE_STAMINA_STAMINA": { emoji: "🦊", name: "炎の狐" },
-  "LIFE_STAMINA_LIFE":  { emoji: "🐸", name: "大地の戦士" },
-  "LIFE_LIFE_STUDY":    { emoji: "🌻", name: "太陽の子" },
-  "LIFE_LIFE_STAMINA":  { emoji: "🌊", name: "海の精霊" },
-  "LIFE_LIFE_LIFE":     { emoji: "🌍", name: "大地母神" },
+  // Stage 3: 27体（最終形態）
+  "STUDY_STUDY_STUDY":     { image: "/monsters/STUDY_STUDY_STUDY_ウィズダム.webp",           name: "ウィズダム" },
+  "STUDY_STUDY_STAMINA":   { image: "/monsters/STUDY_STUDY_STAMINA_タクティクス.webp",       name: "タクティクス" },
+  "STUDY_STUDY_LIFE":      { image: "/monsters/STUDY_STUDY_LIFE_エジソン.webp",              name: "エジソン" },
+  "STUDY_STAMINA_STUDY":   { image: "/monsters/STUDY_STAMINA_STUDY_フォート.webp",           name: "フォート" },
+  "STUDY_STAMINA_STAMINA": { image: "/monsters/STUDY_STAMINA_STAMINA_イージス.webp",         name: "イージス" },
+  "STUDY_STAMINA_LIFE":    { image: "/monsters/STUDY_STAMINA_LIFE_レスキュー.webp",          name: "レスキュー" },
+  "STUDY_LIFE_STUDY":      { image: "/monsters/STUDY_LIFE_STUDY_マイスター.webp",            name: "マイスター" },
+  "STUDY_LIFE_STAMINA":    { image: "/monsters/STUDY_LIFE_STAMINA_スリープ.webp",            name: "スリープ" },
+  "STUDY_LIFE_LIFE":       { image: "/monsters/STUDY_LIFE_LIFE_セバス.webp",                 name: "セバス" },
+  "STAMINA_STUDY_STUDY":   { image: "/monsters/STAMINA_STUDY_STUDY_クリスタル.webp",         name: "クリスタル" },
+  "STAMINA_STUDY_STAMINA": { image: "/monsters/STAMINA_STUDY_STAMINA_マギグラビ.webp",       name: "マギグラビ" },
+  "STAMINA_STUDY_LIFE":    { image: "/monsters/STAMINA_STUDY_LIFE_クロック.webp",            name: "クロック" },
+  "STAMINA_STAMINA_STUDY": { image: "/monsters/STAMINA_STAMINA_STUDY_ガイア.webp",           name: "ガイア" },
+  "STAMINA_STAMINA_STAMINA": { image: "/monsters/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp", name: "ゴッドストーン" },
+  "STAMINA_STAMINA_LIFE":  { image: "/monsters/STAMINA_STAMINA_LIFE_ガーディアン.webp",      name: "ガーディアン" },
+  "STAMINA_LIFE_STUDY":    { image: "/monsters/STAMINA_LIFE_STUDY_エール.webp",              name: "エール" },
+  "STAMINA_LIFE_STAMINA":  { image: "/monsters/STAMINA_LIFE_STAMINA_グロウ.webp",            name: "グロウ" },
+  "STAMINA_LIFE_LIFE":     { image: "/monsters/STAMINA_LIFE_LIFE_ミコシ.webp",               name: "ミコシ" },
+  "LIFE_STUDY_STUDY":      { image: "/monsters/LIFE_STUDY_STUDY_カレンダー.webp",            name: "カレンダー" },
+  "LIFE_STUDY_STAMINA":    { image: "/monsters/LIFE_STUDY_STAMINA_マイスター.webp",          name: "マイスター" },
+  "LIFE_STUDY_LIFE":       { image: "/monsters/LIFE_STUDY_LIFE_カロリー.webp",               name: "カロリー" },
+  "LIFE_STAMINA_STUDY":    { image: "/monsters/LIFE_STAMINA_STUDY_マーチャント.webp",        name: "マーチャント" },
+  "LIFE_STAMINA_STAMINA":  { image: "/monsters/LIFE_STAMINA_STAMINA_ムービング.webp",        name: "ムービング" },
+  "LIFE_STAMINA_LIFE":     { image: "/monsters/LIFE_STAMINA_LIFE_ナース.webp",               name: "ナース" },
+  "LIFE_LIFE_STUDY":       { image: "/monsters/LIFE_LIFE_STUDY_シェフ.webp",                 name: "シェフ" },
+  "LIFE_LIFE_STAMINA":     { image: "/monsters/LIFE_LIFE_STAMINA_サンシャイン.webp",         name: "サンシャイン" },
+  "LIFE_LIFE_LIFE":        { image: "/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp",            name: "ゴッドセバス" },
 };
 
 // ─── getMonsterStage ──────────────────────────────────
@@ -98,7 +95,7 @@ export function getMonsterStage(evolutionStage: number, evolutionPath: string) {
 
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
   const ptToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
-  const monster = MONSTER_TABLE[evolutionPath] ?? { emoji: "❓", name: "???" };
+  const monster = MONSTER_TABLE[evolutionPath] ?? { image: "", name: "???" };
 
   return { ...monster, ptToEvolve };
 }
@@ -199,14 +196,9 @@ export function checkEvolution(
     };
   }
 
-  // 孵化（stage 0→1）はパス選択しない
-  let newPath: string;
-  if (evolutionStage === 0) {
-    newPath = "";
-  } else {
-    const selected = selectEvolutionPath(studyPt, staminaPt, lifePt);
-    newPath = evolutionPath ? `${evolutionPath}_${selected}` : selected;
-  }
+  // 全ステージでパスを選択（孵化時も含む）
+  const selected = selectEvolutionPath(studyPt, staminaPt, lifePt);
+  const newPath = evolutionPath ? `${evolutionPath}_${selected}` : selected;
 
   return {
     evolved: true,

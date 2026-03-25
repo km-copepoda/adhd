@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { MONSTER_TABLE, EGG_STAGE, EVOLUTION_THRESHOLDS } from "@/lib/constants";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -25,20 +26,18 @@ export default function ZukanPage() {
   }
 
   // ステージごとのパス履歴を再構築
-  // stage 0: egg, stage 1: "", stage 2: "STUDY", stage 3: "STUDY_STAMINA" ...
+  // stage 0: egg, stage 1: "STUDY", stage 2: "STUDY_STAMINA", stage 3: "STUDY_STAMINA_LIFE"
   const pathSegments = data.evolutionPath ? data.evolutionPath.split("_") : [];
   const MAX_STAGE = EVOLUTION_THRESHOLDS.length - 1;
 
   const stages = Array.from({ length: MAX_STAGE + 1 }, (_, i) => {
-    if (i === 0) return { stage: 0, path: null, data: EGG_STAGE };
-    const partialPath = pathSegments.slice(0, i - 1).join("_");
-    // stage1 のパスは "" (ひよこ)
-    const key = i === 1 ? "" : pathSegments.slice(0, i - 1).join("_");
-    const monster = MONSTER_TABLE[key] ?? { emoji: "❓", name: "???" };
+    if (i === 0) return { stage: 0, path: null, data: EGG_STAGE as { name: string; ptToEvolve: number | null; emoji?: string; image?: string } };
+    const key = pathSegments.slice(0, i).join("_");
+    const monster = MONSTER_TABLE[key] ?? { image: "", name: "???" };
     return {
       stage: i,
       path: key,
-      data: { ...monster, ptToEvolve: EVOLUTION_THRESHOLDS[i] },
+      data: { ...monster, ptToEvolve: EVOLUTION_THRESHOLDS[i] } as { name: string; ptToEvolve: number | null; emoji?: string; image?: string },
     };
   });
 
@@ -59,8 +58,12 @@ export default function ZukanPage() {
                 isUnlocked ? "border-quest-border" : "border-quest-border/40 opacity-50"
               }`}
             >
-              <div className="text-5xl w-14 text-center">
-                {isUnlocked ? monster.emoji : "？"}
+              <div className="w-14 h-14 flex items-center justify-center text-center flex-shrink-0">
+                {isUnlocked
+                  ? monster.image
+                    ? <Image src={monster.image} alt={monster.name} width={56} height={56} className="w-full h-full object-contain" />
+                    : <span className="text-5xl">{monster.emoji}</span>
+                  : <span className="text-3xl text-quest-dim">？</span>}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">

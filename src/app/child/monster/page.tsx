@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -124,8 +125,8 @@ export default function MonsterPage() {
           style={{ animation: "fadeIn 0.3s ease-out" }}
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {getMonsterStage(data.evolutionStage, data.evolutionPath).emoji}
+            <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+              {(() => { const m = getMonsterStage(data.evolutionStage, data.evolutionPath); return "image" in m ? <Image src={m.image} alt={m.name} width={160} height={160} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>; })()}
             </div>
           </div>
           <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
@@ -151,8 +152,8 @@ export default function MonsterPage() {
           style={{ animation: "fadeIn 0.3s ease-out" }}
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {getMonsterStage(data.evolutionStage, data.evolutionPath).emoji}
+            <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+              {(() => { const m = getMonsterStage(data.evolutionStage, data.evolutionPath); return "image" in m ? <Image src={m.image} alt={m.name} width={160} height={160} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>; })()}
             </div>
           </div>
           <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
@@ -172,8 +173,8 @@ export default function MonsterPage() {
 
       {/* Monster hero */}
       <div className="flex flex-col items-center py-8 mb-6 rounded-2xl bg-gradient-to-b from-purple-950/30 to-transparent">
-        <div className="text-7xl animate-float mb-4" style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}>
-          {monster.emoji}
+        <div className="w-28 h-28 animate-float mb-4 mx-auto" style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}>
+          {"image" in monster ? <Image src={monster.image} alt={monster.name} width={112} height={112} className="w-full h-full object-contain" /> : <span className="text-7xl">{monster.emoji}</span>}
         </div>
         <p className="font-serif text-quest-gold text-xl tracking-wider">
           {data.name}

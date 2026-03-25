@@ -63,40 +63,38 @@ describe("DIFFICULTY_LABEL", () => {
 });
 
 describe("EVOLUTION_THRESHOLDS", () => {
-  it("5段階の閾値が定義されていること", () => {
-    expect(EVOLUTION_THRESHOLDS).toHaveLength(5);
+  it("4段階の閾値が定義されていること", () => {
+    expect(EVOLUTION_THRESHOLDS).toHaveLength(4);
   });
 
-  it("閾値が 1→10→30→70→null の順であること", () => {
-    expect(EVOLUTION_THRESHOLDS).toEqual([1, 10, 30, 70, null]);
+  it("閾値が 1→10→30→null の順であること", () => {
+    expect(EVOLUTION_THRESHOLDS).toEqual([1, 10, 30, null]);
   });
 
   it("最終ステージのみnullであること", () => {
-    expect(EVOLUTION_THRESHOLDS[4]).toBeNull();
-    for (let i = 0; i < 4; i++) {
+    expect(EVOLUTION_THRESHOLDS[3]).toBeNull();
+    for (let i = 0; i < 3; i++) {
       expect(EVOLUTION_THRESHOLDS[i]).not.toBeNull();
     }
   });
 });
 
 describe("MONSTER_TABLE", () => {
-  it("40体（ひよこ1+3+9+27）が定義されていること", () => {
-    expect(Object.keys(MONSTER_TABLE)).toHaveLength(40);
+  it("39体（3+9+27）が定義されていること（ひよこなし）", () => {
+    expect(Object.keys(MONSTER_TABLE)).toHaveLength(39);
   });
 
-  it("ひよこ（空パス）が存在すること", () => {
-    expect(MONSTER_TABLE[""]).toBeDefined();
-    expect(MONSTER_TABLE[""].emoji.length).toBeGreaterThan(0);
-    expect(MONSTER_TABLE[""].name.length).toBeGreaterThan(0);
+  it("空パス（ひよこ）は存在しないこと", () => {
+    expect(MONSTER_TABLE[""]).toBeUndefined();
   });
 
-  it("stage2の3パスが全て存在すること", () => {
+  it("stage1の3パスが全て存在すること", () => {
     for (const path of ["STUDY", "STAMINA", "LIFE"]) {
       expect(MONSTER_TABLE[path]).toBeDefined();
     }
   });
 
-  it("stage3の9パスが全て存在すること", () => {
+  it("stage2の9パスが全て存在すること", () => {
     const paths = ["STUDY", "STAMINA", "LIFE"];
     for (const p1 of paths) {
       for (const p2 of paths) {
@@ -105,7 +103,7 @@ describe("MONSTER_TABLE", () => {
     }
   });
 
-  it("stage4の27パスが全て存在すること", () => {
+  it("stage3の27パスが全て存在すること", () => {
     const paths = ["STUDY", "STAMINA", "LIFE"];
     for (const p1 of paths) {
       for (const p2 of paths) {
@@ -116,9 +114,9 @@ describe("MONSTER_TABLE", () => {
     }
   });
 
-  it("全エントリにemoji・nameが存在すること", () => {
+  it("全エントリにimage・nameが存在すること", () => {
     for (const [, entry] of Object.entries(MONSTER_TABLE)) {
-      expect(entry.emoji.length).toBeGreaterThan(0);
+      expect(entry.image.length).toBeGreaterThan(0);
       expect(entry.name.length).toBeGreaterThan(0);
     }
   });
@@ -144,30 +142,25 @@ describe("getMonsterStage", () => {
     expect(stage.ptToEvolve).toBe(1);
   });
 
-  it("stage1（ひよこ）はMONSTER_TABLE[\"\"]を返すこと", () => {
-    const stage = getMonsterStage(1, "");
-    expect(stage.emoji).toBe(MONSTER_TABLE[""].emoji);
+  it("stage1はevolutionPathのモンスターを返しptToEvolve=10であること", () => {
+    const stage = getMonsterStage(1, "STUDY");
+    expect(stage.image).toBe(MONSTER_TABLE["STUDY"].image);
+    expect(stage.name).toBe(MONSTER_TABLE["STUDY"].name);
     expect(stage.ptToEvolve).toBe(10);
   });
 
-  it("stage2のSTUDYパスを返すこと", () => {
-    const stage = getMonsterStage(2, "STUDY");
-    expect(stage.emoji).toBe(MONSTER_TABLE["STUDY"].emoji);
+  it("stage2の複合パスを返しptToEvolve=30であること", () => {
+    const stage = getMonsterStage(2, "STUDY_STAMINA");
+    expect(stage.image).toBe(MONSTER_TABLE["STUDY_STAMINA"].image);
     expect(stage.ptToEvolve).toBe(30);
   });
 
-  it("stage3の複合パスを返すこと", () => {
-    const stage = getMonsterStage(3, "STUDY_STAMINA");
-    expect(stage.emoji).toBe(MONSTER_TABLE["STUDY_STAMINA"].emoji);
-    expect(stage.ptToEvolve).toBe(70);
-  });
-
-  it("stage4（最終）のptToEvolveがnullであること", () => {
-    const stage = getMonsterStage(4, "STUDY_STAMINA_LIFE");
+  it("stage3（最終）のptToEvolveがnullであること", () => {
+    const stage = getMonsterStage(3, "STUDY_STAMINA_LIFE");
     expect(stage.ptToEvolve).toBeNull();
   });
 
-  it("ステージが範囲外(5+)の場合、最大ステージの設定を使うこと", () => {
+  it("ステージが範囲外(4+)の場合、最大ステージの設定を使うこと", () => {
     const stage = getMonsterStage(99, "STUDY_STUDY_STUDY");
     expect(stage.ptToEvolve).toBeNull();
   });
@@ -270,63 +263,54 @@ describe("selectEvolutionPath", () => {
 describe("checkEvolution", () => {
   describe("進化条件を満たさない場合", () => {
     it("合計ポイントが閾値未満なら evolved=false を返すこと", () => {
-      const result = checkEvolution(1, "", 3, 3, 3); // total=9 < 10
+      const result = checkEvolution(1, "STUDY", 3, 3, 3); // total=9 < 10
       expect(result.evolved).toBe(false);
       expect(result.newStage).toBe(1);
-      expect(result.newPath).toBe("");
+      expect(result.newPath).toBe("STUDY");
       expect(result.resetStudy).toBe(3);
       expect(result.resetStamina).toBe(3);
       expect(result.resetLife).toBe(3);
     });
 
     it("ポイント0でも正常に動作すること", () => {
-      const result = checkEvolution(1, "", 0, 0, 0);
+      const result = checkEvolution(1, "STAMINA", 0, 0, 0);
       expect(result.evolved).toBe(false);
       expect(result.newStage).toBe(1);
     });
   });
 
   describe("進化条件を満たす場合", () => {
-    it("ステージ0（たまご）→1: 1ptで孵化しnewPath=''であること", () => {
-      vi.spyOn(Math, "random").mockReturnValue(0);
+    it("ステージ0（たまご）→1: 1ptで孵化しパスが選択されること", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
       const result = checkEvolution(0, "", 1, 0, 0);
       expect(result.evolved).toBe(true);
       expect(result.newStage).toBe(1);
-      expect(result.newPath).toBe(""); // 孵化時はパス選択しない
+      expect(result.newPath).toBe("STUDY"); // 孵化時もパス選択する
       expect(result.resetStudy).toBe(0);
       vi.restoreAllMocks();
     });
 
-    it("ステージ1→2: 10ptで進化しnewPathが設定されること", () => {
+    it("ステージ1→2: 10ptで進化しnewPathが追記されること", () => {
       vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
-      const result = checkEvolution(1, "", 10, 0, 0);
+      const result = checkEvolution(1, "STAMINA", 10, 0, 0);
       expect(result.evolved).toBe(true);
       expect(result.newStage).toBe(2);
-      expect(result.newPath).toBe("STUDY");
-      vi.restoreAllMocks();
-    });
-
-    it("ステージ2→3: 既存パスに新パスが追記されること", () => {
-      vi.spyOn(Math, "random").mockReturnValue(0); // STUDY選択
-      const result = checkEvolution(2, "STAMINA", 30, 0, 0);
-      expect(result.evolved).toBe(true);
-      expect(result.newStage).toBe(3);
       expect(result.newPath).toBe("STAMINA_STUDY");
       vi.restoreAllMocks();
     });
 
-    it("ステージ3→4: 3段目のパスが追記されること", () => {
-      vi.spyOn(Math, "random").mockReturnValue(0.99); // LIFEが選ばれる想定
-      const result = checkEvolution(3, "STUDY_STAMINA", 0, 0, 70);
+    it("ステージ2→3: 既存パスに新パスが追記されること（最終形態）", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0.99); // LIFE が選ばれる想定
+      const result = checkEvolution(2, "STUDY_STAMINA", 0, 0, 30);
       expect(result.evolved).toBe(true);
-      expect(result.newStage).toBe(4);
+      expect(result.newStage).toBe(3);
       expect(result.newPath).toBe("STUDY_STAMINA_LIFE");
       vi.restoreAllMocks();
     });
 
     it("閾値を超過しても進化すること", () => {
       vi.spyOn(Math, "random").mockReturnValue(0);
-      const result = checkEvolution(1, "", 30, 0, 0);
+      const result = checkEvolution(1, "STAMINA", 30, 0, 0);
       expect(result.evolved).toBe(true);
       expect(result.newStage).toBe(2);
       vi.restoreAllMocks();
@@ -334,10 +318,10 @@ describe("checkEvolution", () => {
   });
 
   describe("最大進化ステージ", () => {
-    it("ステージ4では進化しないこと", () => {
-      const result = checkEvolution(4, "STUDY_STAMINA_LIFE", 100, 100, 100);
+    it("ステージ3（最終）では進化しないこと", () => {
+      const result = checkEvolution(3, "STUDY_STAMINA_LIFE", 100, 100, 100);
       expect(result.evolved).toBe(false);
-      expect(result.newStage).toBe(4);
+      expect(result.newStage).toBe(3);
       expect(result.newPath).toBe("STUDY_STAMINA_LIFE");
       expect(result.resetStudy).toBe(100);
     });
@@ -352,32 +336,22 @@ describe("checkEvolution", () => {
 
     it("ステージ1: 閾値ちょうど（10pt）で進化すること", () => {
       vi.spyOn(Math, "random").mockReturnValue(0);
-      expect(checkEvolution(1, "", 10, 0, 0).evolved).toBe(true);
+      expect(checkEvolution(1, "STUDY", 10, 0, 0).evolved).toBe(true);
       vi.restoreAllMocks();
     });
 
     it("ステージ1: 閾値-1pt（9pt）で進化しないこと", () => {
-      expect(checkEvolution(1, "", 9, 0, 0).evolved).toBe(false);
+      expect(checkEvolution(1, "STUDY", 9, 0, 0).evolved).toBe(false);
     });
 
     it("ステージ2: 閾値ちょうど（30pt）で進化すること", () => {
       vi.spyOn(Math, "random").mockReturnValue(0);
-      expect(checkEvolution(2, "STUDY", 10, 10, 10).evolved).toBe(true);
+      expect(checkEvolution(2, "STUDY_STAMINA", 10, 10, 10).evolved).toBe(true);
       vi.restoreAllMocks();
     });
 
     it("ステージ2: 閾値-1pt（29pt）で進化しないこと", () => {
-      expect(checkEvolution(2, "STUDY", 10, 10, 9).evolved).toBe(false);
-    });
-
-    it("ステージ3: 閾値ちょうど（70pt）で進化すること", () => {
-      vi.spyOn(Math, "random").mockReturnValue(0);
-      expect(checkEvolution(3, "STUDY_STAMINA", 30, 20, 20).evolved).toBe(true);
-      vi.restoreAllMocks();
-    });
-
-    it("ステージ3: 閾値-1pt（69pt）で進化しないこと", () => {
-      expect(checkEvolution(3, "STUDY_STAMINA", 30, 20, 19).evolved).toBe(false);
+      expect(checkEvolution(2, "STUDY_STAMINA", 10, 10, 9).evolved).toBe(false);
     });
   });
 });
@@ -418,9 +392,9 @@ describe("getXpInfo", () => {
     expect(info.ptNeeded).toBe(10); // 30-20
   });
 
-  it("最大ステージ（4）ではevolutionWeightsがnullであること", () => {
-    const info = getXpInfo(4, "STUDY_STAMINA_LIFE", 100, 100, 100);
-    expect(info.evolutionStage).toBe(4);
+  it("最大ステージ（3）ではevolutionWeightsがnullであること", () => {
+    const info = getXpInfo(3, "STUDY_STAMINA_LIFE", 100, 100, 100);
+    expect(info.evolutionStage).toBe(3);
     expect(info.xpToEvolve).toBeNull();
     expect(info.evolutionWeights).toBeNull();
     expect(info.ptNeeded).toBeNull();
@@ -434,7 +408,7 @@ describe("getXpInfo", () => {
 
   it("ステージが範囲外の場合、最大ステージにクランプされること", () => {
     const info = getXpInfo(99, "STUDY_STAMINA_LIFE", 10, 10, 10);
-    expect(info.evolutionStage).toBe(4);
+    expect(info.evolutionStage).toBe(3);
     expect(info.xpToEvolve).toBeNull();
     expect(info.evolutionWeights).toBeNull();
   });

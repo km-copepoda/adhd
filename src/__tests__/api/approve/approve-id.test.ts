@@ -49,6 +49,7 @@ describe("POST /api/approve/[id]", () => {
 
   describe("action: approve", () => {
     it("クエストをAPPROVEDに更新しXPを付与すること", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1",
@@ -72,7 +73,7 @@ describe("POST /api/approve/[id]", () => {
         where: { id: "q1" },
         data: { status: "APPROVED", approvedAt: expect.any(Date) },
       });
-      // NORMAL=3pt → studyPt: 5+3=8, total=8+3+1=12 >= 10 → 進化
+      // NORMAL=3pt → studyPt: 5+3=8, total=8+3+1=12 >= 1（stage0閾値） → 孵化、STUDY選択
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "child-1" },
         data: {
@@ -80,9 +81,10 @@ describe("POST /api/approve/[id]", () => {
           staminaPt: 0,
           lifePt: 0,
           evolutionStage: 1,
-          evolutionPath: "",
+          evolutionPath: "STUDY",
         },
       });
+      vi.restoreAllMocks();
     });
 
     it("進化閾値未満ならステージ変更なしでポイント更新すること", async () => {

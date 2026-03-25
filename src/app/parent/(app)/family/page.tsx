@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { getMonsterStage } from "@/lib/constants";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -234,8 +235,8 @@ export default function FamilyPage() {
               className="bg-quest-bg rounded-lg"
             >
             <div className="flex items-center gap-3 p-3">
-              <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg">
-                {member.role === "PARENT" ? "👑" : getMonsterStage(member.evolutionStage, member.evolutionPath ?? "").emoji}
+              <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg overflow-hidden">
+                {member.role === "PARENT" ? "👑" : (() => { const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? ""); return "image" in m ? <Image src={m.image} alt={m.name} width={40} height={40} className="w-full h-full object-contain" /> : <span>{m.emoji}</span>; })()}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">
