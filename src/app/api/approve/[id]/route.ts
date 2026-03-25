@@ -4,7 +4,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP, checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import { routeLogger } from "@/lib/logger";
-import type { Side } from "@/types";
 
 export async function POST(
   request: Request,
@@ -81,8 +80,8 @@ export async function POST(
   const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
 
   const evolution = checkEvolution(
-    (child.side || "LIGHT") as Side,
     child.evolutionStage,
+    child.evolutionPath,
     newStudy,
     newStamina,
     newLife,
@@ -100,6 +99,7 @@ export async function POST(
       staminaPt: evolution.resetStamina,
       lifePt: evolution.resetLife,
       evolutionStage: evolution.newStage,
+      evolutionPath: evolution.newPath,
     },
   });
 

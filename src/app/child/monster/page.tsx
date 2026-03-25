@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
-import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type MonsterData = {
   name: string;
-  side: Side;
   evolutionStage: number;
+  evolutionPath: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -41,7 +40,7 @@ export default function MonsterPage() {
     fetchStatus()
       .then((d) => {
         setData({
-          name: d.name, side: d.side, evolutionStage: d.evolutionStage,
+          name: d.name, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
           studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
           pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
         });
@@ -105,8 +104,8 @@ export default function MonsterPage() {
   }
 
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
-  const xpInfo = getXpInfo(data.side, data.evolutionStage, data.studyPt, data.staminaPt, data.lifePt);
-  const monster = getMonsterStage(data.side, data.evolutionStage);
+  const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt);
+  const monster = getMonsterStage(data.evolutionStage, data.evolutionPath);
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
   const params = [
@@ -126,14 +125,14 @@ export default function MonsterPage() {
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
             <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {getMonsterStage(data.side, data.evolutionStage).emoji}
+              {getMonsterStage(data.evolutionStage, data.evolutionPath).emoji}
             </div>
           </div>
           <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
             進化した！
           </p>
           <p className="text-quest-gold/70 text-lg mb-8">
-            {getMonsterStage(data.side, data.evolutionStage).name}
+            {getMonsterStage(data.evolutionStage, data.evolutionPath).name}
           </p>
           <p className="text-quest-dim text-xs">タップして閉じる</p>
           <style>{`
@@ -153,14 +152,14 @@ export default function MonsterPage() {
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
             <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {getMonsterStage(data.side, data.evolutionStage).emoji}
+              {getMonsterStage(data.evolutionStage, data.evolutionPath).emoji}
             </div>
           </div>
           <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
             うまれた！
           </p>
           <p className="text-quest-gold/70 text-lg mb-8">
-            {getMonsterStage(data.side, data.evolutionStage).name}
+            {getMonsterStage(data.evolutionStage, data.evolutionPath).name}
           </p>
           <p className="text-quest-dim text-xs">タップして閉じる</p>
           <style>{`
@@ -340,16 +339,24 @@ export default function MonsterPage() {
         })}
       </div>
 
-      {/* Next evolution hint */}
-      {xpInfo.nextEvolution && (
-        <div className="mt-4 bg-quest-card/50 border border-quest-border rounded-xl p-4 text-center">
-          <p className="text-quest-dim text-xs mb-1">次の進化</p>
-          <p className="text-quest-gold">
-            <span className="text-2xl">{xpInfo.nextEvolution.emoji}</span>
-            <span className="text-sm ml-2">
-              {xpInfo.nextEvolution.name} · あと {xpInfo.nextEvolution.ptNeeded} pt
-            </span>
+      {/* Next evolution hint: probabilistic weights */}
+      {xpInfo.evolutionWeights && xpInfo.ptNeeded !== null && (
+        <div className="mt-4 bg-quest-card/50 border border-quest-border rounded-xl p-4">
+          <p className="text-quest-dim text-xs mb-2 text-center">
+            次の進化 · あと {Math.max(0, xpInfo.ptNeeded)} pt
           </p>
+          <div className="flex gap-2">
+            {(["STUDY", "STAMINA", "LIFE"] as const).map((path) => (
+              <div key={path} className="flex-1 text-center">
+                <p className="text-xs" style={{ color: CATEGORY_COLOR[path] }}>
+                  {CATEGORY_LABEL[path].emoji} {CATEGORY_LABEL[path].name}
+                </p>
+                <p className="text-quest-gold font-bold text-sm">
+                  {Math.round(xpInfo.evolutionWeights![path] * 100)}%
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

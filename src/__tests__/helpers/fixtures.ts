@@ -16,6 +16,7 @@ interface UserFixture {
   monsterName: string | null;
   side: "DARK" | "LIGHT" | null;
   evolutionStage: number;
+  evolutionPath: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -53,6 +54,7 @@ export function childUser(overrides?: Partial<UserFixture>): UserFixture {
     monsterName: "ドラゴン",
     side: "LIGHT",
     evolutionStage: 0,
+    evolutionPath: "",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,

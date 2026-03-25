@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { getMonsterStage } from "@/lib/constants";
-import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type Member = {
@@ -10,8 +9,8 @@ type Member = {
   name: string;
   role: string;
   monsterName: string | null;
-  side: string | null;
   evolutionStage: number;
+  evolutionPath: string;
   childCode: string | null;
   minTasksForStreak: number;
 };
@@ -236,7 +235,7 @@ export default function FamilyPage() {
             >
             <div className="flex items-center gap-3 p-3">
               <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg">
-                {member.role === "PARENT" ? "👑" : getMonsterStage((member.side || "LIGHT") as Side, member.evolutionStage).emoji}
+                {member.role === "PARENT" ? "👑" : getMonsterStage(member.evolutionStage, member.evolutionPath ?? "").emoji}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">

@@ -56,6 +56,7 @@ model User {
   monsterName String?
   childCode      String?
   evolutionStage Int             @default(0)
+  evolutionPath  String          @default("")
   studyPt        Int             @default(0)
   staminaPt      Int             @default(0)
   lifePt         Int             @default(0)

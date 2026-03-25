@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MONSTER_STAGES } from "@/lib/constants";
-import type { Side } from "@/types";
+import { MONSTER_TABLE, EGG_STAGE, EVOLUTION_THRESHOLDS } from "@/lib/constants";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ZukanData = {
-  side: Side;
   evolutionStage: number;
+  evolutionPath: string;
 };
 
 export default function ZukanPage() {
@@ -17,17 +16,31 @@ export default function ZukanPage() {
   useEffect(() => {
     fetch("/api/monster")
       .then((r) => r.json())
-      .then((d: ZukanData) => setData({ side: d.side, evolutionStage: d.evolutionStage }))
+      .then((d: ZukanData) => setData({ evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "" }))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading || !data) {
-    return (
-      <LoadingSpinner />
-    );
+    return <LoadingSpinner />;
   }
 
-  const stages = MONSTER_STAGES[data.side];
+  // ステージごとのパス履歴を再構築
+  // stage 0: egg, stage 1: "", stage 2: "STUDY", stage 3: "STUDY_STAMINA" ...
+  const pathSegments = data.evolutionPath ? data.evolutionPath.split("_") : [];
+  const MAX_STAGE = EVOLUTION_THRESHOLDS.length - 1;
+
+  const stages = Array.from({ length: MAX_STAGE + 1 }, (_, i) => {
+    if (i === 0) return { stage: 0, path: null, data: EGG_STAGE };
+    const partialPath = pathSegments.slice(0, i - 1).join("_");
+    // stage1 のパスは "" (ひよこ)
+    const key = i === 1 ? "" : pathSegments.slice(0, i - 1).join("_");
+    const monster = MONSTER_TABLE[key] ?? { emoji: "❓", name: "???" };
+    return {
+      stage: i,
+      path: key,
+      data: { ...monster, ptToEvolve: EVOLUTION_THRESHOLDS[i] },
+    };
+  });
 
   return (
     <div className="px-4 pt-6 pb-6">
@@ -35,24 +48,24 @@ export default function ZukanPage() {
         📖 モンスター図鑑
       </h1>
       <div className="flex flex-col gap-4">
-        {stages.map((stage, i) => {
-          const isUnlocked = i <= data.evolutionStage;
-          const isCurrent = i === data.evolutionStage;
+        {stages.map(({ stage, data: monster }) => {
+          const isUnlocked = stage <= data.evolutionStage;
+          const isCurrent = stage === data.evolutionStage;
 
           return (
             <div
-              key={i}
+              key={stage}
               className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
                 isUnlocked ? "border-quest-border" : "border-quest-border/40 opacity-50"
               }`}
             >
               <div className="text-5xl w-14 text-center">
-                {isUnlocked ? stage.emoji : "？"}
+                {isUnlocked ? monster.emoji : "？"}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`font-serif text-lg ${isUnlocked ? "text-quest-text" : "text-quest-dim"}`}>
-                    {isUnlocked ? stage.name : "？？？"}
+                    {isUnlocked ? monster.name : "？？？"}
                   </span>
                   {isCurrent && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-quest-gold/20 text-quest-gold border border-quest-gold/30 tracking-wider">
@@ -62,14 +75,14 @@ export default function ZukanPage() {
                 </div>
                 <div className="text-xs text-quest-dim">
                   {isUnlocked
-                    ? i === stages.length - 1
+                    ? monster.ptToEvolve === null
                       ? "最終形態"
-                      : `次の進化まで ${stage.ptToEvolve} pt`
-                    : "まだ未解放"}
+                      : `次の進化まで ${monster.ptToEvolve} pt`
+                    : "まだ未解放（進化先は運命次第…）"}
                 </div>
               </div>
               <div className="text-quest-dim/50 text-xs">
-                {isUnlocked ? `Stage ${i}` : "🔒"}
+                {isUnlocked ? `Stage ${stage}` : "🔒"}
               </div>
             </div>
           );

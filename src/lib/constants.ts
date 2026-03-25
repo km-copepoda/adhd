@@ -1,4 +1,4 @@
-import type { Difficulty, Category, Side } from "@/types";
+import type { Difficulty, Category, MonsterPath } from "@/types";
 
 // XP per difficulty
 export const XP_MAP: Record<Difficulty, number> = {
@@ -28,74 +28,216 @@ export const DIFFICULTY_LABEL: Record<Difficulty, { name: string; color: string 
   HARD: { name: "むずかしい", color: "#e05c5c" },
 };
 
-// Monster evolution stages per side
-// ptToEvolve = points needed to evolve FROM this stage to the next (points reset on evolution)
-// Stage 0 = egg (hatches with 1pt), 1→2: 10pt, 2→3: 30pt, 3→4: 70pt, 4 = max
-export const MONSTER_STAGES: Record<Side, { emoji: string; name: string; ptToEvolve: number | null }[]> = {
-  DARK: [
-    { emoji: "🥚", name: "やみのたまご", ptToEvolve: 1 },
-    { emoji: "👾", name: "シャドウ", ptToEvolve: 10 },
-    { emoji: "🧿", name: "スペクター", ptToEvolve: 30 },
-    { emoji: "😈", name: "デーモン", ptToEvolve: 70 },
-    { emoji: "👑", name: "真・魔王", ptToEvolve: null },
-  ],
-  LIGHT: [
-    { emoji: "🥚", name: "たまご", ptToEvolve: 1 },
-    { emoji: "🐣", name: "ヒヨコ", ptToEvolve: 10 },
-    { emoji: "🦊", name: "キツネ", ptToEvolve: 30 },
-    { emoji: "🦄", name: "ユニコーン", ptToEvolve: 70 },
-    { emoji: "🌟", name: "スタースピリット", ptToEvolve: null },
-  ],
+// ─── 進化閾値 ─────────────────────────────────────────
+// EVOLUTION_THRESHOLDS[evolutionStage] = そのステージから次に進化するために必要な合計pt
+// null = 最終形態（進化しない）
+export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, 70, null];
+
+// ─── たまご ───────────────────────────────────────────
+export const EGG_STAGE = { emoji: "🥚", name: "たまご", ptToEvolve: 1 };
+
+// ─── モンスターテーブル ───────────────────────────────
+// キー = 進化パス履歴（"" = stage1ひよこ、"STUDY" = stage2、"STUDY_LIFE" = stage3、等）
+// 40体: "" x1, stage2 x3, stage3 x9, stage4 x27
+export const MONSTER_TABLE: Record<string, { emoji: string; name: string }> = {
+  // Stage 1: ひよこ（共通）
+  "": { emoji: "🐣", name: "ひよこ" },
+
+  // Stage 2: 3体
+  "STUDY":   { emoji: "🧠", name: "まなびの子" },
+  "STAMINA": { emoji: "⚡", name: "きたえの子" },
+  "LIFE":    { emoji: "🌱", name: "くらしの子" },
+
+  // Stage 3: 9体 (勉勉, 勉体, 勉生, 体勉, 体体, 体生, 生勉, 生体, 生生)
+  "STUDY_STUDY":   { emoji: "📖", name: "秀才" },
+  "STUDY_STAMINA": { emoji: "⚔️", name: "文武の士" },
+  "STUDY_LIFE":    { emoji: "🌿", name: "賢者の卵" },
+  "STAMINA_STUDY": { emoji: "🏋️", name: "武芸学者" },
+  "STAMINA_STAMINA": { emoji: "🦁", name: "剛力の獣" },
+  "STAMINA_LIFE":  { emoji: "🐗", name: "野生の護衛" },
+  "LIFE_STUDY":    { emoji: "🌺", name: "知恵の守り手" },
+  "LIFE_STAMINA":  { emoji: "🐯", name: "生命の戦士" },
+  "LIFE_LIFE":     { emoji: "🌳", name: "大地の精霊" },
+
+  // Stage 4: 27体 (勉勉勉, 勉勉体, 勉勉生, 勉体勉, ...)
+  "STUDY_STUDY_STUDY":   { emoji: "🧙", name: "大賢者" },
+  "STUDY_STUDY_STAMINA": { emoji: "🦅", name: "知将" },
+  "STUDY_STUDY_LIFE":    { emoji: "🌟", name: "スタースピリット" },
+  "STUDY_STAMINA_STUDY": { emoji: "🏰", name: "騎士団長" },
+  "STUDY_STAMINA_STAMINA": { emoji: "🐉", name: "ドラゴンナイト" },
+  "STUDY_STAMINA_LIFE":  { emoji: "🦊", name: "賢狐の将" },
+  "STUDY_LIFE_STUDY":    { emoji: "🌙", name: "月の学者" },
+  "STUDY_LIFE_STAMINA":  { emoji: "🦋", name: "変革の翼" },
+  "STUDY_LIFE_LIFE":     { emoji: "🌈", name: "虹の賢者" },
+
+  "STAMINA_STUDY_STUDY":   { emoji: "🏹", name: "射撃の名手" },
+  "STAMINA_STUDY_STAMINA": { emoji: "⚡", name: "雷神" },
+  "STAMINA_STUDY_LIFE":    { emoji: "🌊", name: "海の守護者" },
+  "STAMINA_STAMINA_STUDY": { emoji: "🔥", name: "炎の覇者" },
+  "STAMINA_STAMINA_STAMINA": { emoji: "👑", name: "武神" },
+  "STAMINA_STAMINA_LIFE":  { emoji: "🐺", name: "鋼鉄の狼" },
+  "STAMINA_LIFE_STUDY":    { emoji: "🦄", name: "聖なる角" },
+  "STAMINA_LIFE_STAMINA":  { emoji: "🐲", name: "生命の龍" },
+  "STAMINA_LIFE_LIFE":     { emoji: "🌿", name: "大自然の守人" },
+
+  "LIFE_STUDY_STUDY":   { emoji: "🔮", name: "占い師" },
+  "LIFE_STUDY_STAMINA": { emoji: "🌸", name: "花の剣士" },
+  "LIFE_STUDY_LIFE":    { emoji: "🍀", name: "四葉の精" },
+  "LIFE_STAMINA_STUDY": { emoji: "🐻", name: "森の賢者" },
+  "LIFE_STAMINA_STAMINA": { emoji: "🦊", name: "炎の狐" },
+  "LIFE_STAMINA_LIFE":  { emoji: "🐸", name: "大地の戦士" },
+  "LIFE_LIFE_STUDY":    { emoji: "🌻", name: "太陽の子" },
+  "LIFE_LIFE_STAMINA":  { emoji: "🌊", name: "海の精霊" },
+  "LIFE_LIFE_LIFE":     { emoji: "🌍", name: "大地母神" },
 };
 
-// Get current monster stage by evolutionStage index
-export function getMonsterStage(side: Side, evolutionStage: number) {
-  const stages = MONSTER_STAGES[side];
-  return stages[Math.min(evolutionStage, stages.length - 1)];
+// ─── getMonsterStage ──────────────────────────────────
+// evolutionStage=0 → 卵、1+ → MONSTER_TABLE[evolutionPath]
+export function getMonsterStage(evolutionStage: number, evolutionPath: string) {
+  if (evolutionStage <= 0) return EGG_STAGE;
+
+  const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
+  const ptToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
+  const monster = MONSTER_TABLE[evolutionPath] ?? { emoji: "❓", name: "???" };
+
+  return { ...monster, ptToEvolve };
 }
 
-// Check if evolution should happen after adding points.
-// Returns { evolved, newStage, resetStudy, resetStamina, resetLife }
-export function checkEvolution(
-  side: Side,
-  evolutionStage: number,
+// ─── computeEvolutionWeights ──────────────────────────
+// dominant パラメータは最大60%の確率、残り40%は2番目・3番目の比率で分配
+export function computeEvolutionWeights(
   studyPt: number,
   staminaPt: number,
   lifePt: number,
-): { evolved: boolean; newStage: number; resetStudy: number; resetStamina: number; resetLife: number } {
-  const stages = MONSTER_STAGES[side];
-  const current = stages[Math.min(evolutionStage, stages.length - 1)];
+): { STUDY: number; STAMINA: number; LIFE: number } {
   const total = studyPt + staminaPt + lifePt;
 
-  if (current.ptToEvolve !== null && total >= current.ptToEvolve) {
+  if (total === 0) {
+    return { STUDY: 1 / 3, STAMINA: 1 / 3, LIFE: 1 / 3 };
+  }
+
+  const entries: [MonsterPath, number][] = [
+    ["STUDY", studyPt],
+    ["STAMINA", staminaPt],
+    ["LIFE", lifePt],
+  ];
+  entries.sort((a, b) => b[1] - a[1]);
+
+  const [first, second, third] = entries;
+  const firstProb = Math.min(first[1] / total, 0.6);
+  const remaining = 1 - firstProb;
+
+  const secondAndThirdTotal = second[1] + third[1];
+  let secondProb: number;
+  let thirdProb: number;
+
+  if (secondAndThirdTotal === 0) {
+    secondProb = remaining / 2;
+    thirdProb = remaining / 2;
+  } else {
+    secondProb = remaining * (second[1] / secondAndThirdTotal);
+    thirdProb = remaining * (third[1] / secondAndThirdTotal);
+  }
+
+  const weights = { STUDY: 0, STAMINA: 0, LIFE: 0 };
+  weights[first[0]] = firstProb;
+  weights[second[0]] = secondProb;
+  weights[third[0]] = thirdProb;
+
+  return weights;
+}
+
+// ─── selectEvolutionPath ─────────────────────────────
+// 加重乱数でパスを選択する
+export function selectEvolutionPath(
+  studyPt: number,
+  staminaPt: number,
+  lifePt: number,
+): MonsterPath {
+  const weights = computeEvolutionWeights(studyPt, staminaPt, lifePt);
+  const r = Math.random();
+  let cumulative = 0;
+
+  for (const path of ["STUDY", "STAMINA", "LIFE"] as MonsterPath[]) {
+    cumulative += weights[path];
+    if (r < cumulative) return path;
+  }
+
+  return "LIFE"; // 丸め誤差フォールバック
+}
+
+// ─── checkEvolution ───────────────────────────────────
+// 進化チェック。進化した場合はパラメータをリセットし新パスを返す。
+// ステージ0→1（孵化）はパス選択なし（newPath = ""）
+// ステージ1以降の進化でパスを加重乱数で選択し追記する。
+export function checkEvolution(
+  evolutionStage: number,
+  evolutionPath: string,
+  studyPt: number,
+  staminaPt: number,
+  lifePt: number,
+): {
+  evolved: boolean;
+  newStage: number;
+  newPath: string;
+  resetStudy: number;
+  resetStamina: number;
+  resetLife: number;
+} {
+  const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
+  const threshold = EVOLUTION_THRESHOLDS[stageIdx];
+  const total = studyPt + staminaPt + lifePt;
+
+  if (threshold === null || total < threshold) {
     return {
-      evolved: true,
-      newStage: evolutionStage + 1,
-      resetStudy: 0,
-      resetStamina: 0,
-      resetLife: 0,
+      evolved: false,
+      newStage: evolutionStage,
+      newPath: evolutionPath,
+      resetStudy: studyPt,
+      resetStamina: staminaPt,
+      resetLife: lifePt,
     };
   }
 
-  return { evolved: false, newStage: evolutionStage, resetStudy: studyPt, resetStamina: staminaPt, resetLife: lifePt };
+  // 孵化（stage 0→1）はパス選択しない
+  let newPath: string;
+  if (evolutionStage === 0) {
+    newPath = "";
+  } else {
+    const selected = selectEvolutionPath(studyPt, staminaPt, lifePt);
+    newPath = evolutionPath ? `${evolutionPath}_${selected}` : selected;
+  }
+
+  return {
+    evolved: true,
+    newStage: evolutionStage + 1,
+    newPath,
+    resetStudy: 0,
+    resetStamina: 0,
+    resetLife: 0,
+  };
 }
 
-// Compute XP info for display (progress toward next evolution)
-export function getXpInfo(side: Side, evolutionStage: number, studyPt: number, staminaPt: number, lifePt: number) {
+// ─── getXpInfo ────────────────────────────────────────
+export function getXpInfo(
+  evolutionStage: number,
+  evolutionPath: string,
+  studyPt: number,
+  staminaPt: number,
+  lifePt: number,
+) {
   const total = studyPt + staminaPt + lifePt;
-  const stages = MONSTER_STAGES[side];
-  const stageIdx = Math.min(evolutionStage, stages.length - 1);
-  const current = stages[stageIdx];
-  const nextStage = stageIdx + 1 < stages.length ? stages[stageIdx + 1] : null;
+  const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
+  const xpToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
 
   return {
     totalPt: total,
     evolutionStage: stageIdx,
     xpInStage: total,
-    xpToEvolve: current.ptToEvolve,
-    nextEvolution: nextStage && current.ptToEvolve !== null
-      ? { ...nextStage, ptNeeded: current.ptToEvolve - total }
-      : null,
+    xpToEvolve,
+    ptNeeded: xpToEvolve !== null ? xpToEvolve - total : null,
+    evolutionWeights:
+      xpToEvolve !== null ? computeEvolutionWeights(studyPt, staminaPt, lifePt) : null,
   };
 }
 

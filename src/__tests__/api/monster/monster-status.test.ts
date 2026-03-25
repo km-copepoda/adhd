@@ -20,7 +20,7 @@ describe("GET /api/monster-status", () => {
 
   it("モンスター情報とストリーク情報を1レスポンスで返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ evolutionStage: 2, studyPt: 10, staminaPt: 5, lifePt: 3, side: "DARK" }) as any,
+      childUser({ evolutionStage: 2, studyPt: 10, staminaPt: 5, lifePt: 3, evolutionPath: "STUDY_STAMINA" }) as any,
     );
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)       // pendingQuests
@@ -35,7 +35,7 @@ describe("GET /api/monster-status", () => {
 
     // monster fields
     expect(json.evolutionStage).toBe(2);
-    expect(json.side).toBe("DARK");
+    expect(json.evolutionPath).toBe("STUDY_STAMINA");
     expect(json.studyPt).toBe(10);
     expect(json.staminaPt).toBe(5);
     expect(json.lifePt).toBe(3);

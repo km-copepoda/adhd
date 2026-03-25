@@ -56,7 +56,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "NORMAL", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -80,6 +80,7 @@ describe("POST /api/approve/[id]", () => {
           staminaPt: 0,
           lifePt: 0,
           evolutionStage: 1,
+          evolutionPath: "",
         },
       });
     });
@@ -92,7 +93,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "EASY", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -107,6 +108,7 @@ describe("POST /api/approve/[id]", () => {
           staminaPt: 0,
           lifePt: 0,
           evolutionStage: 1,
+          evolutionPath: "",
         },
       });
     });
@@ -119,7 +121,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-child",
         template: { difficulty: "EASY", category: "LIFE", createdBy: "CHILD" },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -146,7 +148,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-tmp",
         template: { difficulty: "EASY", category: "LIFE", createdBy: "PARENT", isTemporary: true },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -169,7 +171,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-parent",
         template: { difficulty: "HARD", category: "STAMINA", createdBy: "PARENT" },
-        child: { id: "child-1", side: "DARK", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -192,7 +194,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "NORMAL", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
@@ -220,7 +222,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "NORMAL", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", side: "LIGHT", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
 

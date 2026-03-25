@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { XP_MAP, checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
-import type { Side } from "@/types";
-
 type QuestWithRelations = {
   id: string;
   date: Date;
@@ -17,8 +15,8 @@ type QuestWithRelations = {
   };
   child: {
     id: string;
-    side: Side | null;
     evolutionStage: number;
+    evolutionPath: string;
     studyPt: number;
     staminaPt: number;
     lifePt: number;
@@ -35,8 +33,8 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
   const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
 
   const evolution = checkEvolution(
-    (child.side || "LIGHT") as Side,
     child.evolutionStage,
+    child.evolutionPath,
     newStudy,
     newStamina,
     newLife,
@@ -54,6 +52,7 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
       staminaPt: evolution.resetStamina,
       lifePt: evolution.resetLife,
       evolutionStage: evolution.newStage,
+      evolutionPath: evolution.newPath,
     },
   });
 
