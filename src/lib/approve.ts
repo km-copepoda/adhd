@@ -17,6 +17,7 @@ type QuestWithRelations = {
     id: string;
     evolutionStage: number;
     evolutionPath: string;
+    collectedPaths: string;
     studyPt: number;
     staminaPt: number;
     lifePt: number;
@@ -45,6 +46,14 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
     data: { status: "APPROVED", approvedAt: new Date() },
   });
 
+  // collectedPaths: 進化時に新パスを追加、転生時はそのまま保持
+  let collectedPaths = JSON.parse(child.collectedPaths) as string[];
+  if (evolution.evolved) {
+    if (!collectedPaths.includes(evolution.newPath)) {
+      collectedPaths = [...collectedPaths, evolution.newPath];
+    }
+  }
+
   await prisma.user.update({
     where: { id: quest.childId },
     data: {
@@ -53,6 +62,7 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
       lifePt: evolution.resetLife,
       evolutionStage: evolution.newStage,
       evolutionPath: evolution.newPath,
+      collectedPaths: JSON.stringify(collectedPaths),
     },
   });
 

@@ -32,6 +32,7 @@ export default function MonsterPage() {
   const [loading, setLoading] = useState(true);
   const [showEvolution, setShowEvolution] = useState(false);
   const [hatched, setHatched] = useState(false);
+  const [reborn, setReborn] = useState(false);
   const prevStageRef = useRef<number | null>(null);
 
   const fetchStatus = () =>
@@ -52,7 +53,10 @@ export default function MonsterPage() {
         prevStageRef.current = d.evolutionStage;
         // 育成画面以外で進化が起きた場合: 最後に確認したステージと比較して進化演出を表示
         const lastSeen = parseInt(localStorage.getItem("lastSeenEvolutionStage") ?? "-1");
-        if (d.evolutionStage > lastSeen) {
+        if (d.evolutionStage === 0 && lastSeen >= 3) {
+          setReborn(true);
+          setTimeout(() => setReborn(false), 3000);
+        } else if (d.evolutionStage > lastSeen) {
           if (d.evolutionStage === 1) {
             setHatched(true);
             setTimeout(() => setHatched(false), 3000);
@@ -70,15 +74,21 @@ export default function MonsterPage() {
       .channel("monster-changes")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
         fetchStatus().then((d) => {
-          if (prevStageRef.current !== null && d.evolutionStage > prevStageRef.current) {
-            if (prevStageRef.current === 0) {
-              setHatched(true);
-              setTimeout(() => setHatched(false), 3000);
-            } else {
-              setShowEvolution(true);
-              setTimeout(() => setShowEvolution(false), 3000);
+          if (prevStageRef.current !== null) {
+            if (d.evolutionStage === 0 && prevStageRef.current >= 3) {
+              setReborn(true);
+              setTimeout(() => setReborn(false), 3000);
+              localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
+            } else if (d.evolutionStage > prevStageRef.current) {
+              if (prevStageRef.current === 0) {
+                setHatched(true);
+                setTimeout(() => setHatched(false), 3000);
+              } else {
+                setShowEvolution(true);
+                setTimeout(() => setShowEvolution(false), 3000);
+              }
+              localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
             }
-            localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
           }
           prevStageRef.current = d.evolutionStage;
           setData({
@@ -162,6 +172,31 @@ export default function MonsterPage() {
           <p className="text-quest-gold/70 text-lg mb-8">
             {getMonsterStage(data.evolutionStage, data.evolutionPath).name}
           </p>
+          <p className="text-quest-dim text-xs">タップして閉じる</p>
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+          `}</style>
+        </div>
+      )}
+
+      {/* Rebirth cut-in overlay */}
+      {reborn && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
+          onClick={() => setReborn(false)}
+          style={{ animation: "fadeIn 0.3s ease-out" }}
+        >
+          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+            <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(139,92,246,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+              <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>
+            </div>
+          </div>
+          <p className="font-serif text-purple-400 text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(139,92,246,0.8)" }}>
+            転生！
+          </p>
+          <p className="text-purple-400/70 text-lg mb-8">新たな冒険がはじまる…</p>
           <p className="text-quest-dim text-xs">タップして閉じる</p>
           <style>{`
             @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }

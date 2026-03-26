@@ -30,9 +30,13 @@ export const DIFFICULTY_LABEL: Record<Difficulty, { name: string; color: string 
 
 // ─── 進化閾値 ─────────────────────────────────────────
 // EVOLUTION_THRESHOLDS[evolutionStage] = そのステージから次に進化するために必要な合計pt
-// null = 最終形態（進化しない）
+// null = 最終形態（進化しない。代わりにREBIRTH_THRESHOLDで転生判定）
 // stage0(卵)→1: 1pt  stage1→2: 10pt  stage2→3(最終): 30pt
 export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, null];
+
+// ─── 転生閾値 ─────────────────────────────────────────
+// 最終形態（stage 3）でこのptを貯めると卵（stage 0）に転生する
+export const REBIRTH_THRESHOLD = 70;
 
 // ─── たまご ───────────────────────────────────────────
 export const EGG_STAGE = { emoji: "🥚", name: "たまご", ptToEvolve: 1 };
@@ -175,6 +179,7 @@ export function checkEvolution(
   lifePt: number,
 ): {
   evolved: boolean;
+  reborn: boolean;
   newStage: number;
   newPath: string;
   resetStudy: number;
@@ -185,9 +190,34 @@ export function checkEvolution(
   const threshold = EVOLUTION_THRESHOLDS[stageIdx];
   const total = studyPt + staminaPt + lifePt;
 
-  if (threshold === null || total < threshold) {
+  // 最終形態（stage 3）: 転生判定
+  if (threshold === null) {
+    if (total >= REBIRTH_THRESHOLD) {
+      return {
+        evolved: false,
+        reborn: true,
+        newStage: 0,
+        newPath: "",
+        resetStudy: 0,
+        resetStamina: 0,
+        resetLife: 0,
+      };
+    }
     return {
       evolved: false,
+      reborn: false,
+      newStage: evolutionStage,
+      newPath: evolutionPath,
+      resetStudy: studyPt,
+      resetStamina: staminaPt,
+      resetLife: lifePt,
+    };
+  }
+
+  if (total < threshold) {
+    return {
+      evolved: false,
+      reborn: false,
       newStage: evolutionStage,
       newPath: evolutionPath,
       resetStudy: studyPt,
@@ -202,6 +232,7 @@ export function checkEvolution(
 
   return {
     evolved: true,
+    reborn: false,
     newStage: evolutionStage + 1,
     newPath,
     resetStudy: 0,

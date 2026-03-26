@@ -17,6 +17,7 @@ interface UserFixture {
   side: "DARK" | "LIGHT" | null;
   evolutionStage: number;
   evolutionPath: string;
+  collectedPaths: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -35,6 +36,8 @@ export function parentUser(overrides?: Partial<UserFixture>): UserFixture {
     monsterName: null,
     side: null,
     evolutionStage: 0,
+    evolutionPath: "",
+    collectedPaths: "[]",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,
@@ -55,6 +58,7 @@ export function childUser(overrides?: Partial<UserFixture>): UserFixture {
     side: "LIGHT",
     evolutionStage: 0,
     evolutionPath: "",
+    collectedPaths: "[]",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,

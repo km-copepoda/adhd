@@ -2,14 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { MONSTER_TABLE, EGG_STAGE, EVOLUTION_THRESHOLDS, CATEGORY_LABEL } from "@/lib/constants";
+import { MONSTER_TABLE, CATEGORY_LABEL } from "@/lib/constants";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ZukanData = {
-  evolutionStage: number;
-  evolutionPath: string;
+  collectedPaths: string;
 };
+
+// パスキーを「ステージ1 → ステージ2 → ステージ3」でグループ化
+const STAGE1_KEYS = Object.keys(MONSTER_TABLE).filter((k) => k.split("_").length === 1);
+const STAGE2_KEYS = Object.keys(MONSTER_TABLE).filter((k) => k.split("_").length === 2);
+const STAGE3_KEYS = Object.keys(MONSTER_TABLE).filter((k) => k.split("_").length === 3);
+
+const pathToEmojis = (path: string) =>
+  path.split("_").map((s) => CATEGORY_LABEL[s as Category]?.emoji ?? "❓");
 
 export default function ZukanPage() {
   const [data, setData] = useState<ZukanData | null>(null);
@@ -18,7 +25,7 @@ export default function ZukanPage() {
   useEffect(() => {
     fetch("/api/monster")
       .then((r) => r.json())
-      .then((d: ZukanData) => setData({ evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "" }))
+      .then((d: ZukanData) => setData({ collectedPaths: d.collectedPaths ?? "[]" }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -26,104 +33,73 @@ export default function ZukanPage() {
     return <LoadingSpinner />;
   }
 
-  // ステージごとのパス履歴を再構築
-  // stage 0: egg, stage 1: "STUDY", stage 2: "STUDY_STAMINA", stage 3: "STUDY_STAMINA_LIFE"
-  const pathSegments = data.evolutionPath ? data.evolutionPath.split("_") : [];
-  const MAX_STAGE = EVOLUTION_THRESHOLDS.length - 1;
+  const collected = new Set<string>(JSON.parse(data.collectedPaths) as string[]);
+  const total = collected.size;
+  const max = Object.keys(MONSTER_TABLE).length;
 
-  const stages = Array.from({ length: MAX_STAGE + 1 }, (_, i) => {
-    if (i === 0) return { stage: 0, path: null, data: EGG_STAGE as { name: string; ptToEvolve: number | null; emoji?: string; image?: string } };
-    const key = pathSegments.slice(0, i).join("_");
-    const monster = MONSTER_TABLE[key] ?? { image: "", name: "???" };
-    return {
-      stage: i,
-      path: key,
-      data: { ...monster, ptToEvolve: EVOLUTION_THRESHOLDS[i] } as { name: string; ptToEvolve: number | null; emoji?: string; image?: string },
-    };
-  });
-
-  // パスセグメント → カテゴリ絵文字の配列
-  const pathToEmojis = (segments: string[]) =>
-    segments.map((s) => CATEGORY_LABEL[s as Category]?.emoji ?? "❓");
-
-  return (
-    <div className="px-4 pt-6 pb-6">
-      <h1 className="font-serif text-quest-gold text-xl tracking-widest mb-6 text-center">
-        📖 モンスター図鑑
-      </h1>
-      <div className="flex flex-col gap-4">
-        {stages.map(({ stage, path, data: monster }) => {
-          const isUnlocked = stage <= data.evolutionStage;
-          const isCurrent = stage === data.evolutionStage;
-          const segments = path ? path.split("_") : [];
-          const emojis = pathToEmojis(segments);
+  const renderGroup = (label: string, keys: string[]) => (
+    <div key={label} className="mb-6">
+      <h2 className="text-quest-dim text-xs tracking-widest mb-3 px-1">{label}</h2>
+      <div className="grid grid-cols-3 gap-3">
+        {keys.map((key) => {
+          const monster = MONSTER_TABLE[key];
+          const isCollected = collected.has(key);
+          const emojis = pathToEmojis(key);
 
           return (
             <div
-              key={stage}
-              className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
-                isUnlocked ? "border-quest-border" : "border-quest-border/40 opacity-50"
+              key={key}
+              className={`bg-quest-card border rounded-xl p-3 flex flex-col items-center gap-1 ${
+                isCollected ? "border-quest-border" : "border-quest-border/30 opacity-50"
               }`}
             >
+              {/* 系統パス */}
+              <div className="flex items-center gap-0.5 text-[10px]">
+                {isCollected
+                  ? emojis.map((emoji, i) => (
+                      <span key={i} className="flex items-center">
+                        {i > 0 && <span className="text-quest-dim/50 mx-0.5">→</span>}
+                        <span>{emoji}</span>
+                      </span>
+                    ))
+                  : emojis.map((_, i) => (
+                      <span key={i} className="flex items-center text-quest-dim/30">
+                        {i > 0 && <span className="mx-0.5">→</span>}
+                        <span>❓</span>
+                      </span>
+                    ))}
+              </div>
+
               {/* モンスター画像 */}
-              <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
-                {isUnlocked
-                  ? monster.image
-                    ? <Image src={monster.image} alt={monster.name} width={64} height={64} className="w-full h-full object-contain" />
-                    : <span className="text-5xl">{monster.emoji}</span>
-                  : <span className="text-3xl text-quest-dim">？</span>}
+              <div className="w-16 h-16 flex items-center justify-center">
+                {isCollected
+                  ? <Image src={monster.image} alt={monster.name} width={64} height={64} className="w-full h-full object-contain" />
+                  : <span className="text-3xl text-quest-dim/30">？</span>}
               </div>
 
-              {/* 情報 */}
-              <div className="flex-1 min-w-0">
-                {/* 系統パス */}
-                {stage > 0 && (
-                  <div className="flex items-center gap-0.5 mb-1">
-                    {isUnlocked
-                      ? emojis.map((emoji, i) => (
-                          <span key={i} className="flex items-center gap-0.5">
-                            {i > 0 && <span className="text-quest-dim/50 text-[10px]">→</span>}
-                            <span className="text-base">{emoji}</span>
-                          </span>
-                        ))
-                      : Array.from({ length: stage }).map((_, i) => (
-                          <span key={i} className="flex items-center gap-0.5">
-                            {i > 0 && <span className="text-quest-dim/50 text-[10px]">→</span>}
-                            <span className="text-base text-quest-dim/40">❓</span>
-                          </span>
-                        ))}
-                  </div>
-                )}
-
-                {/* 名前 */}
-                <div className="flex items-center gap-2">
-                  <span className={`font-serif text-base ${isUnlocked ? "text-quest-text" : "text-quest-dim"}`}>
-                    {isUnlocked ? monster.name : "？？？"}
-                  </span>
-                  {isCurrent && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-quest-gold/20 text-quest-gold border border-quest-gold/30 tracking-wider shrink-0">
-                      現在
-                    </span>
-                  )}
-                </div>
-
-                {/* 進化情報 */}
-                <div className="text-[11px] text-quest-dim mt-0.5">
-                  {isUnlocked
-                    ? monster.ptToEvolve === null
-                      ? "最終形態"
-                      : `次の進化まで ${monster.ptToEvolve} pt`
-                    : "進化先は運命次第…"}
-                </div>
-              </div>
-
-              <div className="text-quest-dim/50 text-[11px] shrink-0">
-                {isUnlocked ? `Stage ${stage}` : "🔒"}
-              </div>
+              {/* 名前 */}
+              <p className={`text-[11px] text-center ${isCollected ? "text-quest-text" : "text-quest-dim/30"}`}>
+                {isCollected ? monster.name : "？？？"}
+              </p>
             </div>
           );
         })}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="px-4 pt-6 pb-6">
+      <h1 className="font-serif text-quest-gold text-xl tracking-widest mb-2 text-center">
+        📖 モンスター図鑑
+      </h1>
+      <p className="text-quest-dim text-xs text-center mb-6">
+        {total} / {max} 体
+      </p>
+
+      {renderGroup("Stage 1", STAGE1_KEYS)}
+      {renderGroup("Stage 2", STAGE2_KEYS)}
+      {renderGroup("Stage 3（最終形態）", STAGE3_KEYS)}
     </div>
   );
 }

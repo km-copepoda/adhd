@@ -87,6 +87,14 @@ export async function POST(
     newLife,
   );
 
+  // collectedPaths: 進化時に新パスを追加、転生時はそのまま保持
+  let collectedPaths = JSON.parse(child.collectedPaths) as string[];
+  if (evolution.evolved) {
+    if (!collectedPaths.includes(evolution.newPath)) {
+      collectedPaths = [...collectedPaths, evolution.newPath];
+    }
+  }
+
   await prisma.questInstance.update({
     where: { id },
     data: { status: "APPROVED", approvedAt: new Date() },
@@ -100,6 +108,7 @@ export async function POST(
       lifePt: evolution.resetLife,
       evolutionStage: evolution.newStage,
       evolutionPath: evolution.newPath,
+      collectedPaths: JSON.stringify(collectedPaths),
     },
   });
 

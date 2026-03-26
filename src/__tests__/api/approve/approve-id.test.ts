@@ -57,7 +57,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "NORMAL", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]" },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -82,6 +82,7 @@ describe("POST /api/approve/[id]", () => {
           lifePt: 0,
           evolutionStage: 1,
           evolutionPath: "STUDY",
+          collectedPaths: '["STUDY"]',
         },
       });
       vi.restoreAllMocks();
@@ -95,7 +96,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { difficulty: "EASY", category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -111,6 +112,7 @@ describe("POST /api/approve/[id]", () => {
           lifePt: 0,
           evolutionStage: 1,
           evolutionPath: "",
+          collectedPaths: "[]",
         },
       });
     });
@@ -123,7 +125,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-child",
         template: { difficulty: "EASY", category: "LIFE", createdBy: "CHILD" },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1, collectedPaths: "[]" },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -150,7 +152,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-tmp",
         template: { difficulty: "EASY", category: "LIFE", createdBy: "PARENT", isTemporary: true },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -173,7 +175,7 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-parent",
         template: { difficulty: "HARD", category: "STAMINA", createdBy: "PARENT" },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -181,6 +183,50 @@ describe("POST /api/approve/[id]", () => {
       await POST(makeRequest("/api/approve/q3", { action: "approve" }), makeParams("q3"));
 
       expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
+    });
+
+    it("転生条件達成時にstage0・空パスにリセットしcollectedPathsは保持されること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      // stage3で既に "STUDY_STAMINA_LIFE" を持ちHARD STUDYで転生閾値に達する
+      // 現在pt: studyPt=64, total=64+3+3=70 → REBIRTH_THRESHOLD=70 → 転生
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-rebirth",
+        date: new Date("2026-03-26"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        template: { difficulty: "HARD", category: "STUDY", createdBy: "PARENT", isTemporary: false },
+        child: {
+          id: "child-1",
+          evolutionPath: "STUDY_STAMINA_LIFE",
+          evolutionStage: 3,
+          studyPt: 59,
+          staminaPt: 3,
+          lifePt: 3,
+          collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+        },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      const res = await POST(
+        makeRequest("/api/approve/q-rebirth", { action: "approve" }),
+        makeParams("q-rebirth"),
+      );
+      const json = await res.json();
+
+      expect(json.ok).toBe(true);
+      // HARD=5pt → studyPt=64, total=64+3+3=70 >= 70 → 転生
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "child-1" },
+        data: {
+          studyPt: 0,
+          staminaPt: 0,
+          lifePt: 0,
+          evolutionStage: 0,
+          evolutionPath: "",
+          collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+        },
+      });
     });
   });
 

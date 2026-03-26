@@ -33,6 +33,7 @@ const baseQuest = {
     id: "child-1",
     evolutionStage: 0,
     evolutionPath: "",
+    collectedPaths: "[]",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,

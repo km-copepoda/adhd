@@ -55,8 +55,9 @@ model User {
   side        Side?
   monsterName String?
   childCode      String?
-  evolutionStage Int             @default(0)
-  evolutionPath  String          @default("")
+  evolutionStage  Int    @default(0)
+  evolutionPath   String @default("")
+  collectedPaths  String @default("[]")
   studyPt        Int             @default(0)
   staminaPt      Int             @default(0)
   lifePt         Int             @default(0)

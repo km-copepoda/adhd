@@ -6,6 +6,7 @@ import {
   DIFFICULTY_LABEL,
   MONSTER_TABLE,
   EVOLUTION_THRESHOLDS,
+  REBIRTH_THRESHOLD,
   DAY_LABELS,
   STREAK_MILESTONES,
   getMonsterStage,
@@ -59,6 +60,13 @@ describe("DIFFICULTY_LABEL", () => {
       expect(DIFFICULTY_LABEL[key]).toHaveProperty("name");
       expect(DIFFICULTY_LABEL[key]).toHaveProperty("color");
     }
+  });
+});
+
+describe("REBIRTH_THRESHOLD", () => {
+  it("正の整数であること", () => {
+    expect(REBIRTH_THRESHOLD).toBeGreaterThan(0);
+    expect(Number.isInteger(REBIRTH_THRESHOLD)).toBe(true);
   });
 });
 
@@ -317,13 +325,38 @@ describe("checkEvolution", () => {
     });
   });
 
-  describe("最大進化ステージ", () => {
-    it("ステージ3（最終）では進化しないこと", () => {
-      const result = checkEvolution(3, "STUDY_STAMINA_LIFE", 100, 100, 100);
+  describe("転生（Rebirth）", () => {
+    it("ステージ3でREBIRTH_THRESHOLD未満なら転生しないこと", () => {
+      const result = checkEvolution(3, "STUDY_STAMINA_LIFE", 1, 0, 0);
       expect(result.evolved).toBe(false);
+      expect(result.reborn).toBe(false);
       expect(result.newStage).toBe(3);
-      expect(result.newPath).toBe("STUDY_STAMINA_LIFE");
-      expect(result.resetStudy).toBe(100);
+    });
+
+    it("ステージ3でREBIRTH_THRESHOLD以上なら転生しstage0・空パスに戻ること", () => {
+      const result = checkEvolution(3, "STUDY_STAMINA_LIFE", REBIRTH_THRESHOLD, 0, 0);
+      expect(result.evolved).toBe(false);
+      expect(result.reborn).toBe(true);
+      expect(result.newStage).toBe(0);
+      expect(result.newPath).toBe("");
+      expect(result.resetStudy).toBe(0);
+      expect(result.resetStamina).toBe(0);
+      expect(result.resetLife).toBe(0);
+    });
+
+    it("転生後は evolved=false であること", () => {
+      const result = checkEvolution(3, "LIFE_LIFE_LIFE", 0, 0, REBIRTH_THRESHOLD);
+      expect(result.evolved).toBe(false);
+      expect(result.reborn).toBe(true);
+    });
+  });
+
+  describe("evolved/reborn フラグが常に含まれること", () => {
+    it("通常時 reborn=false が返ること", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const result = checkEvolution(0, "", 1, 0, 0);
+      expect(result.reborn).toBe(false);
+      vi.restoreAllMocks();
     });
   });
 

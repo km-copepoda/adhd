@@ -46,6 +46,7 @@ export async function GET() {
     name: user.monsterName || user.name || "ぼうけんしゃ",
     evolutionStage: user.evolutionStage,
     evolutionPath: user.evolutionPath,
+    collectedPaths: user.collectedPaths,
     studyPt: user.studyPt,
     staminaPt: user.staminaPt,
     lifePt: user.lifePt,
