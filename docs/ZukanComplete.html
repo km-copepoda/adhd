@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=375, initial-scale=1">
+<title>モンスター図鑑 — 全コンプリート</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d14;
+    color: #e2d5b0;
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .phone {
+    width: 375px;
+    min-height: 100vh;
+    background: #0d0d14;
+    padding: 0 16px 80px;
+    position: relative;
+  }
+
+  /* ── ヘッダー ─────────────────────── */
+  .header {
+    padding: 24px 0 8px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 20px;
+    letter-spacing: 0.15em;
+    color: #fbbf24;
+    text-shadow: 0 0 16px rgba(251,191,36,0.5);
+    margin-bottom: 4px;
+  }
+  .header .count {
+    font-size: 12px;
+    color: #9a8c6e;
+  }
+
+  /* ── 全コンプリートバナー ──────────── */
+  .complete-banner {
+    margin: 12px 0 20px;
+    border: 1px solid rgba(251,191,36,0.5);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(139,92,246,0.12));
+    padding: 14px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .complete-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 6px,
+      rgba(251,191,36,0.03) 6px,
+      rgba(251,191,36,0.03) 12px
+    );
+  }
+  .complete-banner .stars {
+    font-size: 22px;
+    letter-spacing: 6px;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .complete-banner .title {
+    font-size: 15px;
+    color: #fbbf24;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 12px rgba(251,191,36,0.7);
+    margin-bottom: 4px;
+    position: relative;
+  }
+  .complete-banner .sub {
+    font-size: 11px;
+    color: #9a8c6e;
+    position: relative;
+  }
+
+  /* ── セクション ───────────────────── */
+  .section {
+    margin-bottom: 24px;
+  }
+  .section-label {
+    font-size: 11px;
+    color: #6b5f45;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    padding: 0 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(107,95,69,0.3);
+  }
+
+  /* ── カードグリッド ───────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .card {
+    background: #1a1829;
+    border: 1px solid #2e2a42;
+    border-radius: 12px;
+    padding: 10px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: border-color 0.2s;
+  }
+  .card:hover {
+    border-color: rgba(251,191,36,0.4);
+  }
+
+  /* Stage3 の特別カード */
+  .card.final {
+    border-color: #3d3450;
+    background: linear-gradient(160deg, #1e1a2e, #1a1829);
+  }
+  .card.final:hover {
+    border-color: rgba(139,92,246,0.5);
+  }
+
+  /* ── パスブレッドクラム ───────────── */
+  .path {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 9px;
+    min-height: 14px;
+  }
+  .path .arrow {
+    color: rgba(154,140,110,0.4);
+    font-size: 8px;
+  }
+
+  /* ── モンスター画像 ───────────────── */
+  .img-wrap {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  /* ── モンスター名 ─────────────────── */
+  .name {
+    font-size: 10px;
+    text-align: center;
+    color: #c9bfa0;
+    line-height: 1.3;
+  }
+
+  /* ── ボトムナビ（雰囲気用） ───────── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 375px;
+    background: #12111c;
+    border-top: 1px solid #2e2a42;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 14px;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 9px;
+    color: #6b5f45;
+  }
+  .nav-item.active {
+    color: #fbbf24;
+  }
+  .nav-item .icon { font-size: 22px; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <h1>📖 モンスター図鑑</h1>
+    <p class="count">39 / 39 体</p>
+  </div>
+
+  <!-- 全コンプリートバナー -->
+  <div class="complete-banner">
+    <div class="stars">⭐️⭐️⭐️</div>
+    <div class="title">コンプリート！</div>
+    <div class="sub">全 39 体のモンスターを記録した！</div>
+  </div>
+
+  <!-- Stage 1 -->
+  <div class="section">
+    <div class="section-label">Stage 1</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="path"><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉_ラーン.png" alt="ラーン"></div>
+        <div class="name">ラーン</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体_ストーン.png" alt="ストーン"></div>
+        <div class="name">ストーン</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生_ヘルプ.png" alt="ヘルプ"></div>
+        <div class="name">ヘルプ</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Stage 2 -->
+  <div class="section">
+    <div class="section-label">Stage 2</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉勉_ライブラ.png" alt="ライブラ"></div>
+        <div class="name">ライブラ</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉体_アーマード.png" alt="アーマード"></div>
+        <div class="name">アーマード</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉生_クリン.png" alt="クリン"></div>
+        <div class="name">クリン</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体勉_グラビド.png" alt="グラビド"></div>
+        <div class="name">グラビド</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体体_ブロック.png" alt="ブロック"></div>
+        <div class="name">ブロック</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体生_わっしょい.png" alt="わっしょい"></div>
+        <div class="name">わっしょい</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生勉_チックタック.png" alt="チックタック"></div>
+        <div class="name">チックタック</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生体_キャリア.png" alt="キャリア"></div>
+        <div class="name">キャリア</div>
+      </div>
+
+      <div class="card">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生生_マザー.png" alt="マザー"></div>
+        <div class="name">マザー</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Stage 3 最終形態 -->
+  <div class="section">
+    <div class="section-label">Stage 3（最終形態）</div>
+    <div class="grid">
+
+      <!-- STUDY系 9体 -->
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉勉勉_ウィズダム.png" alt="ウィズダム"></div>
+        <div class="name">ウィズダム</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉勉体_タクティクス.png" alt="タクティクス"></div>
+        <div class="name">タクティクス</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉勉生_エジソン.png" alt="エジソン"></div>
+        <div class="name">エジソン</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉体勉_フォート.png" alt="フォート"></div>
+        <div class="name">フォート</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉体体_イージス.png" alt="イージス"></div>
+        <div class="name">イージス</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉体生_レスキュー.png" alt="レスキュー"></div>
+        <div class="name">レスキュー</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉生勉_マイスター.png" alt="マイスター"></div>
+        <div class="name">マイスター</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉生体_スリープ.png" alt="スリープ"></div>
+        <div class="name">スリープ</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/勉生生_セバス.png" alt="セバス"></div>
+        <div class="name">セバス</div>
+      </div>
+
+      <!-- STAMINA系 9体 -->
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体勉勉_クリスタル.png" alt="クリスタル"></div>
+        <div class="name">クリスタル</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体勉体_マギグラビ.png" alt="マギグラビ"></div>
+        <div class="name">マギグラビ</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体勉生_クロック.png" alt="クロック"></div>
+        <div class="name">クロック</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体体勉_ガイア.png" alt="ガイア"></div>
+        <div class="name">ガイア</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体体体_ゴッドストーン.png" alt="ゴッドストーン"></div>
+        <div class="name">ゴッドストーン</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体体生_ガーディアン.png" alt="ガーディアン"></div>
+        <div class="name">ガーディアン</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体生勉_エール.png" alt="エール"></div>
+        <div class="name">エール</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体生体_グロウ.png" alt="グロウ"></div>
+        <div class="name">グロウ</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/体生生_ミコシ.png" alt="ミコシ"></div>
+        <div class="name">ミコシ</div>
+      </div>
+
+      <!-- LIFE系 9体 -->
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生勉勉_カレンダー.png" alt="カレンダー"></div>
+        <div class="name">カレンダー</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生勉体_マイスター.png" alt="マイスター"></div>
+        <div class="name">マイスター</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生勉生_カロリー.png" alt="カロリー"></div>
+        <div class="name">カロリー</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生体勉_マーチャント.png" alt="マーチャント"></div>
+        <div class="name">マーチャント</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生体体_ムービング.png" alt="ムービング"></div>
+        <div class="name">ムービング</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生体生_ナース.png" alt="ナース"></div>
+        <div class="name">ナース</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生生勉_シェフ.png" alt="シェフ"></div>
+        <div class="name">シェフ</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生生体_サンシャイン.png" alt="サンシャイン"></div>
+        <div class="name">サンシャイン</div>
+      </div>
+
+      <div class="card final">
+        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
+        <div class="img-wrap"><img src="キャラクター/man/生生生_ゴッドセバス.png" alt="ゴッドセバス"></div>
+        <div class="name">ゴッドセバス</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ボトムナビ（雰囲気用） -->
+<div class="bottom-nav" style="left:50%;transform:translateX(-50%);">
+  <div class="nav-item"><span class="icon">⚔️</span><span>クエスト</span></div>
+  <div class="nav-item active"><span class="icon">📖</span><span>図鑑</span></div>
+  <div class="nav-item"><span class="icon">🥚</span><span>モンスター</span></div>
+</div>
+
+</body>
+</html>
