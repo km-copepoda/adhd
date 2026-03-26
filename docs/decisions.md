@@ -212,7 +212,7 @@
 ## 2026-03-25: パラメータ連動の進化パス分岐（確率的選択）
 
 ### 決定内容
-- モンスター進化先を STUDY / STAMINA / LIFE の3系統40種に拡張（卵1 + 孵化後1 + 3 + 9 + 27）
+- モンスター進化先を STUDY / STAMINA / LIFE の3系統39種に拡張（孵化直後に3系統分岐: stage1 x3 + stage2 x9 + stage3 x27）
 - `evolutionPath` を User テーブルに追加（例: `"STUDY_STAMINA"` = ステージ3でSTAMINA方向に進化したSTUDY系）
 - 進化先は確率的加重ランダム選択（`selectEvolutionPath`）: 最多パラメータが最大60%の確率で選ばれ、残り40%を2番目・3番目のパラメータ比率で配分
 - 進化判定は毎回の進化で実施（経路は累積: `"" → "STUDY" → "STUDY_STAMINA" → "STUDY_STAMINA_LIFE"`）
