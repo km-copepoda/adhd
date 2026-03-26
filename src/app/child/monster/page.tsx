@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES } from "@/lib/constants";
+import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -128,58 +128,72 @@ export default function MonsterPage() {
   return (
     <div className="px-4 pt-6">
       {/* Evolution cut-in overlay */}
-      {showEvolution && data && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 animate-fade-in"
-          onClick={() => setShowEvolution(false)}
-          style={{ animation: "fadeIn 0.3s ease-out" }}
-        >
-          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {(() => { const m = getMonsterStage(data.evolutionStage, data.evolutionPath); return "image" in m ? <Image src={m.image} alt={m.name} width={160} height={160} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>; })()}
+      {showEvolution && data && (() => {
+        const m = getMonsterStage(data.evolutionStage, data.evolutionPath);
+        const desc = MONSTER_TABLE[data.evolutionPath]?.description;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6"
+            onClick={() => setShowEvolution(false)}
+            style={{ animation: "fadeIn 0.3s ease-out" }}
+          >
+            <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+              <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+                {"image" in m ? <Image src={m.image} alt={m.name} width={160} height={160} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>}
+              </div>
             </div>
+            <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
+              進化した！
+            </p>
+            <p className="text-quest-gold/70 text-lg mb-4">{m.name}</p>
+            {desc && (
+              <p className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs" style={{ animation: "evolveIn 0.7s ease-out" }}>
+                {desc}
+              </p>
+            )}
+            <p className="text-quest-dim text-xs">タップして閉じる</p>
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+              @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+            `}</style>
           </div>
-          <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
-            進化した！
-          </p>
-          <p className="text-quest-gold/70 text-lg mb-8">
-            {getMonsterStage(data.evolutionStage, data.evolutionPath).name}
-          </p>
-          <p className="text-quest-dim text-xs">タップして閉じる</p>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
-          `}</style>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Hatch cut-in overlay (egg → first form) */}
-      {hatched && data && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 animate-fade-in"
-          onClick={() => setHatched(false)}
-          style={{ animation: "fadeIn 0.3s ease-out" }}
-        >
-          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {(() => { const m = getMonsterStage(data.evolutionStage, data.evolutionPath); return "image" in m ? <Image src={m.image} alt={m.name} width={160} height={160} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>; })()}
+      {hatched && data && (() => {
+        const m = getMonsterStage(data.evolutionStage, data.evolutionPath);
+        const desc = MONSTER_TABLE[data.evolutionPath]?.description;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6"
+            onClick={() => setHatched(false)}
+            style={{ animation: "fadeIn 0.3s ease-out" }}
+          >
+            <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+              <div className="w-40 h-40 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+                {"image" in m ? <Image src={m.image} alt={m.name} width={160} height={160} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>}
+              </div>
             </div>
+            <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
+              うまれた！
+            </p>
+            <p className="text-quest-gold/70 text-lg mb-4">{m.name}</p>
+            {desc && (
+              <p className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs" style={{ animation: "evolveIn 0.7s ease-out" }}>
+                {desc}
+              </p>
+            )}
+            <p className="text-quest-dim text-xs">タップして閉じる</p>
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+              @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+            `}</style>
           </div>
-          <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
-            うまれた！
-          </p>
-          <p className="text-quest-gold/70 text-lg mb-8">
-            {getMonsterStage(data.evolutionStage, data.evolutionPath).name}
-          </p>
-          <p className="text-quest-dim text-xs">タップして閉じる</p>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
-          `}</style>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Rebirth cut-in overlay */}
       {reborn && (
