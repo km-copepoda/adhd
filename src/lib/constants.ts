@@ -92,9 +92,51 @@ export const MONSTER_TABLE: Record<string, { image: string; name: string; descri
   "LIFE_LIFE_LIFE":        { image: "/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp",            name: "ゴッドセバス",   description: "生活力を極めた究極の奉仕者。存在自体がその場所を「完璧な快適空間」に変える。常に最高の笑顔で、主人の望みを先読みして叶える。" },
 };
 
-// LIGHT（女の子）用テーブル。現時点は DARK と同じ画像/名前を使用。
-// 女の子用画像が揃い次第、個別エントリを上書きして差し替える。
-export const MONSTER_TABLE_LIGHT: typeof MONSTER_TABLE = { ...MONSTER_TABLE };
+// LIGHT（女の子）用テーブル。public/monsters/light/ の webp を使用。
+export const MONSTER_TABLE_LIGHT: typeof MONSTER_TABLE = {
+  // Stage 1
+  "STUDY":   { image: "/monsters/light/STUDY_ルミナ.webp",   name: "ルミナ",   description: MONSTER_TABLE["STUDY"].description },
+  "STAMINA": { image: "/monsters/light/STAMINA_アクティ.webp", name: "アクティ", description: MONSTER_TABLE["STAMINA"].description },
+  "LIFE":    { image: "/monsters/light/LIFE_メルル.webp",    name: "メルル",   description: MONSTER_TABLE["LIFE"].description },
+  // Stage 2
+  "STUDY_STUDY":     { image: "/monsters/light/STUDY_STUDY_インテリキャット.webp",       name: "インテリキャット",         description: MONSTER_TABLE["STUDY_STUDY"].description },
+  "STUDY_STAMINA":   { image: "/monsters/light/STUDY_STAMINA_クリスタルバード.webp",     name: "クリスタルバード",         description: MONSTER_TABLE["STUDY_STAMINA"].description },
+  "STUDY_LIFE":      { image: "/monsters/light/STUDY_LIFE_インクペンギン.webp",          name: "インクペンギン",           description: MONSTER_TABLE["STUDY_LIFE"].description },
+  "STAMINA_STUDY":   { image: "/monsters/light/STAMINA_STUDY_スカウトフォックス.webp",   name: "スカウトフォックス",       description: MONSTER_TABLE["STAMINA_STUDY"].description },
+  "STAMINA_STAMINA": { image: "/monsters/light/STAMINA_STAMINA_ブレイブレオ.webp",       name: "ブレイブレオ",             description: MONSTER_TABLE["STAMINA_STAMINA"].description },
+  "STAMINA_LIFE":    { image: "/monsters/light/STAMINA_LIFE_レスキューパピー.webp",      name: "レスキューパピー",         description: MONSTER_TABLE["STAMINA_LIFE"].description },
+  "LIFE_STUDY":      { image: "/monsters/light/LIFE_STUDY_ミントアライグマ.webp",        name: "ミントアライグマ",         description: MONSTER_TABLE["LIFE_STUDY"].description },
+  "LIFE_STAMINA":    { image: "/monsters/light/LIFE_STAMINA_ポポパンダ.webp",            name: "ポポパンダ",               description: MONSTER_TABLE["LIFE_STAMINA"].description },
+  "LIFE_LIFE":       { image: "/monsters/light/LIFE_LIFE_コットンラム.webp",             name: "コットンラム",             description: MONSTER_TABLE["LIFE_LIFE"].description },
+  // Stage 3
+  "STUDY_STUDY_STUDY":     { image: "/monsters/light/STUDY_STUDY_STUDY_大魔導士プラチナキャット.webp",       name: "大魔導士プラチナキャット",     description: MONSTER_TABLE["STUDY_STUDY_STUDY"].description },
+  "STUDY_STUDY_STAMINA":   { image: "/monsters/light/STUDY_STUDY_STAMINA_チェスナイト・スノーレオ.webp",     name: "チェスナイト・スノーレオ",     description: MONSTER_TABLE["STUDY_STUDY_STAMINA"].description },
+  "STUDY_STUDY_LIFE":      { image: "/monsters/light/STUDY_STUDY_LIFE_古書堂のミケネコ.webp",                name: "古書堂のミケネコ",             description: MONSTER_TABLE["STUDY_STUDY_LIFE"].description },
+  "STUDY_STAMINA_STUDY":   { image: "/monsters/light/STUDY_STAMINA_STUDY_極光のペガサス.webp",               name: "極光のペガサス",               description: MONSTER_TABLE["STUDY_STAMINA_STUDY"].description },
+  "STUDY_STAMINA_STAMINA": { image: "/monsters/light/STUDY_STAMINA_STAMINA_空の覇者グリフォン.webp",         name: "空の覇者グリフォン",           description: MONSTER_TABLE["STUDY_STAMINA_STAMINA"].description },
+  "STUDY_STAMINA_LIFE":    { image: "/monsters/light/STUDY_STAMINA_LIFE_幸運の青い鳥.webp",                  name: "幸運の青い鳥",                 description: MONSTER_TABLE["STUDY_STAMINA_LIFE"].description },
+  "STUDY_LIFE_STUDY":      { image: "/monsters/light/STUDY_LIFE_STUDY_時計仕掛けのラビット.webp",            name: "時計仕掛けのラビット",         description: MONSTER_TABLE["STUDY_LIFE_STUDY"].description },
+  "STUDY_LIFE_STAMINA":    { image: "/monsters/light/STUDY_LIFE_STAMINA_発明家のビーバー.webp",              name: "発明家のビーバー",             description: MONSTER_TABLE["STUDY_LIFE_STAMINA"].description },
+  "STUDY_LIFE_LIFE":       { image: "/monsters/light/STUDY_LIFE_LIFE_調香師のリス.webp",                     name: "調香師のリス",                 description: MONSTER_TABLE["STUDY_LIFE_LIFE"].description },
+  "STAMINA_STUDY_STUDY":   { image: "/monsters/light/STAMINA_STUDY_STUDY_氷上のフィギュアフォックス.webp",   name: "氷上のフィギュアフォックス",   description: MONSTER_TABLE["STAMINA_STUDY_STUDY"].description },
+  "STAMINA_STUDY_STAMINA": { image: "/monsters/light/STAMINA_STUDY_STAMINA_蒼き炎のフェニックス.webp",       name: "蒼き炎のフェニックス",         description: MONSTER_TABLE["STAMINA_STUDY_STAMINA"].description },
+  "STAMINA_STUDY_LIFE":    { image: "/monsters/light/STAMINA_STUDY_LIFE_山岳救助犬ハスキー.webp",            name: "山岳救助犬ハスキー",           description: MONSTER_TABLE["STAMINA_STUDY_LIFE"].description },
+  "STAMINA_STAMINA_STUDY": { image: "/monsters/light/STAMINA_STAMINA_STUDY_真実の聖騎士・レオ.webp",         name: "真実の聖騎士・レオ",           description: MONSTER_TABLE["STAMINA_STAMINA_STUDY"].description },
+  "STAMINA_STAMINA_STAMINA": { image: "/monsters/light/STAMINA_STAMINA_STAMINA_太陽の黄金龍.webp",           name: "太陽の黄金龍",                 description: MONSTER_TABLE["STAMINA_STAMINA_STAMINA"].description },
+  "STAMINA_STAMINA_LIFE":  { image: "/monsters/light/STAMINA_STAMINA_LIFE_頼れるボクサー・カンガルー.webp",  name: "頼れるボクサー・カンガルー",   description: MONSTER_TABLE["STAMINA_STAMINA_LIFE"].description },
+  "STAMINA_LIFE_STUDY":    { image: "/monsters/light/STAMINA_LIFE_STUDY_森の案内人トナカイ.webp",            name: "森の案内人トナカイ",           description: MONSTER_TABLE["STAMINA_LIFE_STUDY"].description },
+  "STAMINA_LIFE_STAMINA":  { image: "/monsters/light/STAMINA_LIFE_STAMINA_大地の王者マンモス.webp",          name: "大地の王者マンモス",           description: MONSTER_TABLE["STAMINA_LIFE_STAMINA"].description },
+  "STAMINA_LIFE_LIFE":     { image: "/monsters/light/STAMINA_LIFE_LIFE_忠義の守護柴犬.webp",                 name: "忠義の守護柴犬",               description: MONSTER_TABLE["STAMINA_LIFE_LIFE"].description },
+  "LIFE_STUDY_STUDY":      { image: "/monsters/light/LIFE_STUDY_STUDY_薬剤師のシロクマ.webp",                name: "薬剤師のシロクマ",             description: MONSTER_TABLE["LIFE_STUDY_STUDY"].description },
+  "LIFE_STUDY_STAMINA":    { image: "/monsters/light/LIFE_STUDY_STAMINA_職人肌のモグラ.webp",                name: "職人肌のモグラ",               description: MONSTER_TABLE["LIFE_STUDY_STAMINA"].description },
+  "LIFE_STUDY_LIFE":       { image: "/monsters/light/LIFE_STUDY_LIFE_お針子のカイコさん.webp",               name: "お針子のカイコさん",           description: MONSTER_TABLE["LIFE_STUDY_LIFE"].description },
+  "LIFE_STAMINA_STUDY":    { image: "/monsters/light/LIFE_STAMINA_STUDY_海洋のナース・イルカ.webp",          name: "海洋のナース・イルカ",         description: MONSTER_TABLE["LIFE_STAMINA_STUDY"].description },
+  "LIFE_STAMINA_STAMINA":  { image: "/monsters/light/LIFE_STAMINA_STAMINA_不屈のアルパカ.webp",              name: "不屈のアルパカ",               description: MONSTER_TABLE["LIFE_STAMINA_STAMINA"].description },
+  "LIFE_STAMINA_LIFE":     { image: "/monsters/light/LIFE_STAMINA_LIFE_陽だまりのカピバラ.webp",             name: "陽だまりのカピバラ",           description: MONSTER_TABLE["LIFE_STAMINA_LIFE"].description },
+  "LIFE_LIFE_STUDY":       { image: "/monsters/light/LIFE_LIFE_STUDY_パティシエ・レッサーパンダ.webp",       name: "パティシエ・レッサーパンダ",   description: MONSTER_TABLE["LIFE_LIFE_STUDY"].description },
+  "LIFE_LIFE_STAMINA":     { image: "/monsters/light/LIFE_LIFE_STAMINA_大鍋のゾウさん.webp",                 name: "大鍋のゾウさん",               description: MONSTER_TABLE["LIFE_LIFE_STAMINA"].description },
+  "LIFE_LIFE_LIFE":        { image: "/monsters/light/LIFE_LIFE_LIFE_慈愛の聖母ラム.webp",                    name: "慈愛の聖母ラム",               description: MONSTER_TABLE["LIFE_LIFE_LIFE"].description },
+};
 
 // ─── getMonsterStage ──────────────────────────────────
 // evolutionStage=0 → 卵、1+ → MONSTER_TABLE[evolutionPath]

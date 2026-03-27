@@ -149,10 +149,23 @@ describe("MONSTER_TABLE_LIGHT", () => {
     expect(Object.keys(MONSTER_TABLE_LIGHT)).toHaveLength(39);
   });
 
-  it("現時点ではDARKと同じimage/nameを持つこと", () => {
+  it("全エントリにimage・nameが存在すること", () => {
+    for (const [, entry] of Object.entries(MONSTER_TABLE_LIGHT)) {
+      expect(entry.image.length).toBeGreaterThan(0);
+      expect(entry.name.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("DARKと異なるimage/nameを持つこと（独自の女の子画像）", () => {
     for (const key of Object.keys(MONSTER_TABLE)) {
-      expect(MONSTER_TABLE_LIGHT[key].image).toBe(MONSTER_TABLE[key].image);
-      expect(MONSTER_TABLE_LIGHT[key].name).toBe(MONSTER_TABLE[key].name);
+      expect(MONSTER_TABLE_LIGHT[key].image).not.toBe(MONSTER_TABLE[key].image);
+      expect(MONSTER_TABLE_LIGHT[key].name).not.toBe(MONSTER_TABLE[key].name);
+    }
+  });
+
+  it("画像パスが /monsters/light/ 以下であること", () => {
+    for (const [, entry] of Object.entries(MONSTER_TABLE_LIGHT)) {
+      expect(entry.image).toMatch(/^\/monsters\/light\//);
     }
   });
 });
