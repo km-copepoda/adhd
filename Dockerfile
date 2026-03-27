@@ -43,6 +43,8 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/src/generated ./src/generated
 
+RUN mkdir -p /app/.next/cache && chown nextjs:nodejs /app/.next/cache
+
 USER nextjs
 
 EXPOSE 3000
