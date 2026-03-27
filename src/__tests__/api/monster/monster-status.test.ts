@@ -36,6 +36,7 @@ describe("GET /api/monster-status", () => {
     // monster fields
     expect(json.evolutionStage).toBe(2);
     expect(json.evolutionPath).toBe("STUDY_STAMINA");
+    expect(json.side).toBeDefined();
     expect(json.studyPt).toBe(10);
     expect(json.staminaPt).toBe(5);
     expect(json.lifePt).toBe(3);

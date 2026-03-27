@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { MONSTER_TABLE, CATEGORY_LABEL } from "@/lib/constants";
+import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, CATEGORY_LABEL } from "@/lib/constants";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ZukanData = {
+  side: string | null;
   collectedPaths: string;
 };
 
@@ -25,7 +26,7 @@ export default function ZukanPage() {
   useEffect(() => {
     fetch("/api/monster")
       .then((r) => r.json())
-      .then((d: ZukanData) => setData({ collectedPaths: d.collectedPaths ?? "[]" }))
+      .then((d: ZukanData) => setData({ side: d.side ?? null, collectedPaths: d.collectedPaths ?? "[]" }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -36,13 +37,14 @@ export default function ZukanPage() {
   const collected = new Set<string>(JSON.parse(data.collectedPaths) as string[]);
   const total = collected.size;
   const max = Object.keys(MONSTER_TABLE).length;
+  const monsterTable = data.side === "LIGHT" ? MONSTER_TABLE_LIGHT : MONSTER_TABLE;
 
   const renderGroup = (label: string, keys: string[]) => (
     <div key={label} className="mb-6">
       <h2 className="text-quest-dim text-xs tracking-widest mb-3 px-1">{label}</h2>
       <div className="grid grid-cols-3 gap-3">
         {keys.map((key) => {
-          const monster = MONSTER_TABLE[key];
+          const monster = monsterTable[key];
           const isCollected = collected.has(key);
           const emojis = pathToEmojis(key);
 

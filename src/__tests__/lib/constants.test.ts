@@ -5,6 +5,7 @@ import {
   CATEGORY_COLOR,
   DIFFICULTY_LABEL,
   MONSTER_TABLE,
+  MONSTER_TABLE_LIGHT,
   EVOLUTION_THRESHOLDS,
   REBIRTH_THRESHOLD,
   DAY_LABELS,
@@ -143,6 +144,19 @@ describe("DAY_LABELS", () => {
 
 // ─── getMonsterStage ──────────────────────────────────
 
+describe("MONSTER_TABLE_LIGHT", () => {
+  it("LIGHTテーブルが39体を持つこと", () => {
+    expect(Object.keys(MONSTER_TABLE_LIGHT)).toHaveLength(39);
+  });
+
+  it("現時点ではDARKと同じimage/nameを持つこと", () => {
+    for (const key of Object.keys(MONSTER_TABLE)) {
+      expect(MONSTER_TABLE_LIGHT[key].image).toBe(MONSTER_TABLE[key].image);
+      expect(MONSTER_TABLE_LIGHT[key].name).toBe(MONSTER_TABLE[key].name);
+    }
+  });
+});
+
 describe("getMonsterStage", () => {
   it("stage0（たまご）はMONSTER_TABLEに依存せず卵を返すこと", () => {
     const stage = getMonsterStage(0, "");
@@ -171,6 +185,23 @@ describe("getMonsterStage", () => {
   it("ステージが範囲外(4+)の場合、最大ステージの設定を使うこと", () => {
     const stage = getMonsterStage(99, "STUDY_STUDY_STUDY");
     expect(stage.ptToEvolve).toBeNull();
+  });
+
+  it("side=DARKの場合DARKテーブルの画像を返すこと", () => {
+    const stage = getMonsterStage(1, "STUDY", "DARK");
+    expect(stage.image).toBe(MONSTER_TABLE["STUDY"].image);
+  });
+
+  it("side=LIGHTの場合LIGHTテーブルの画像を返すこと", () => {
+    const stage = getMonsterStage(1, "STUDY", "LIGHT");
+    expect(stage.image).toBe(MONSTER_TABLE_LIGHT["STUDY"].image);
+  });
+
+  it("side未指定はDARKと同じ結果を返すこと", () => {
+    const withoutSide = getMonsterStage(1, "STUDY");
+    const withDark = getMonsterStage(1, "STUDY", "DARK");
+    expect(withoutSide.image).toBe(withDark.image);
+    expect(withoutSide.name).toBe(withDark.name);
   });
 });
 

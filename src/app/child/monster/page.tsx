@@ -8,6 +8,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 type MonsterData = {
   name: string;
+  side: string | null;
   evolutionStage: number;
   evolutionPath: string;
   studyPt: number;
@@ -42,7 +43,7 @@ export default function MonsterPage() {
     fetchStatus()
       .then((d) => {
         setData({
-          name: d.name, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+          name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
           studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
           pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
         });
@@ -92,7 +93,7 @@ export default function MonsterPage() {
           }
           prevStageRef.current = d.evolutionStage;
           setData({
-            name: d.name, side: d.side, evolutionStage: d.evolutionStage,
+            name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
             studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
             pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
           });
@@ -116,7 +117,7 @@ export default function MonsterPage() {
 
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
   const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt);
-  const monster = getMonsterStage(data.evolutionStage, data.evolutionPath);
+  const monster = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
   const params = [
@@ -129,7 +130,7 @@ export default function MonsterPage() {
     <div className="px-4 pt-6">
       {/* Evolution cut-in overlay */}
       {showEvolution && data && (() => {
-        const m = getMonsterStage(data.evolutionStage, data.evolutionPath);
+        const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
         const desc = MONSTER_TABLE[data.evolutionPath]?.description;
         return (
           <div
@@ -163,7 +164,7 @@ export default function MonsterPage() {
 
       {/* Hatch cut-in overlay (egg → first form) */}
       {hatched && data && (() => {
-        const m = getMonsterStage(data.evolutionStage, data.evolutionPath);
+        const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
         const desc = MONSTER_TABLE[data.evolutionPath]?.description;
         return (
           <div

@@ -92,14 +92,20 @@ export const MONSTER_TABLE: Record<string, { image: string; name: string; descri
   "LIFE_LIFE_LIFE":        { image: "/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp",            name: "ゴッドセバス",   description: "生活力を極めた究極の奉仕者。存在自体がその場所を「完璧な快適空間」に変える。常に最高の笑顔で、主人の望みを先読みして叶える。" },
 };
 
+// LIGHT（女の子）用テーブル。現時点は DARK と同じ画像/名前を使用。
+// 女の子用画像が揃い次第、個別エントリを上書きして差し替える。
+export const MONSTER_TABLE_LIGHT: typeof MONSTER_TABLE = { ...MONSTER_TABLE };
+
 // ─── getMonsterStage ──────────────────────────────────
 // evolutionStage=0 → 卵、1+ → MONSTER_TABLE[evolutionPath]
-export function getMonsterStage(evolutionStage: number, evolutionPath: string) {
+// side="LIGHT" のときは MONSTER_TABLE_LIGHT を参照
+export function getMonsterStage(evolutionStage: number, evolutionPath: string, side?: string | null) {
   if (evolutionStage <= 0) return EGG_STAGE;
 
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
   const ptToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
-  const monster = MONSTER_TABLE[evolutionPath] ?? { image: "", name: "???" };
+  const table = side === "LIGHT" ? MONSTER_TABLE_LIGHT : MONSTER_TABLE;
+  const monster = table[evolutionPath] ?? { image: "", name: "???" };
 
   return { ...monster, ptToEvolve };
 }

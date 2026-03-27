@@ -30,7 +30,6 @@ describe("GET /api/monster", () => {
     const json = await res.json();
 
     expect(json.name).toBe("ドラゴン");
-    
     expect(json.evolutionStage).toBe(1);
     expect(json.studyPt).toBe(10);
     expect(json.staminaPt).toBe(5);
@@ -38,6 +37,7 @@ describe("GET /api/monster", () => {
     expect(json.pendingStudyPt).toBe(0);
     expect(json.pendingStaminaPt).toBe(0);
     expect(json.pendingLifePt).toBe(0);
+    expect(json.side).toBeDefined();
   });
 
   it("承認待ちクエストのpendingXPを正しく集計すること", async () => {

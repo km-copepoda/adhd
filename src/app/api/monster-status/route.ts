@@ -44,6 +44,7 @@ export async function GET() {
   return NextResponse.json({
     // monster fields
     name: user.monsterName || user.name || "ぼうけんしゃ",
+    side: user.side,
     evolutionStage: user.evolutionStage,
     evolutionPath: user.evolutionPath,
     collectedPaths: user.collectedPaths,
