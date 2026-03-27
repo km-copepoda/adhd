@@ -56,7 +56,6 @@ export default function MonsterPage() {
         const lastSeen = parseInt(localStorage.getItem("lastSeenEvolutionStage") ?? "-1");
         if (d.evolutionStage === 0 && lastSeen >= 3) {
           setReborn(true);
-          setTimeout(() => setReborn(false), 3000);
         } else if (d.evolutionStage > lastSeen) {
           if (d.evolutionStage === 1) {
             setHatched(true);
@@ -78,7 +77,6 @@ export default function MonsterPage() {
           if (prevStageRef.current !== null) {
             if (d.evolutionStage === 0 && prevStageRef.current >= 3) {
               setReborn(true);
-              setTimeout(() => setReborn(false), 3000);
               localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
             } else if (d.evolutionStage > prevStageRef.current) {
               if (prevStageRef.current === 0) {
