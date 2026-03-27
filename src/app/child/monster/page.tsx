@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE } from "@/lib/constants";
+import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -259,9 +259,38 @@ export default function MonsterPage() {
             </div>
           );
         })()}
-        {xpInfo.xpToEvolve === null && (
-          <p className="text-quest-gold text-xs mt-3">最終形態</p>
-        )}
+        {xpInfo.xpToEvolve === null && (() => {
+          const rebirthPct = Math.min(100, (total / REBIRTH_THRESHOLD) * 100);
+          const rebirthPending = Math.min(100 - rebirthPct, (pendingTotal / REBIRTH_THRESHOLD) * 100);
+          return (
+            <div className="w-48 mt-4">
+              <div className="flex justify-between text-[10px] text-quest-dim mb-1">
+                <span>
+                  {total} / {REBIRTH_THRESHOLD} pt
+                  {pendingTotal > 0 && <span className="ml-1">+ {pendingTotal} pt(仮)</span>}
+                </span>
+                <span>転生まで</span>
+              </div>
+              <div className="h-1.5 bg-quest-border rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-700 to-purple-400 rounded-l-full animate-shimmer"
+                  style={{ width: `${rebirthPct}%` }}
+                />
+                {rebirthPending > 0 && (
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${rebirthPending}%`,
+                      background: "rgba(139,92,246,0.25)",
+                      borderLeft: "1px dashed rgba(139,92,246,0.5)",
+                    }}
+                  />
+                )}
+              </div>
+              <p className="text-quest-gold text-[10px] mt-1 text-center">最終形態</p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Streak card */}
