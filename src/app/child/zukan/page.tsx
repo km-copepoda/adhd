@@ -73,10 +73,10 @@ export default function ZukanPage() {
               </div>
 
               {/* モンスター画像 */}
-              <div className="w-16 h-16 flex items-center justify-center">
+              <div className="w-28 h-28 flex items-center justify-center">
                 {isCollected
-                  ? <Image src={monster.image} alt={monster.name} width={64} height={64} className="w-full h-full object-contain" />
-                  : <span className="text-3xl text-quest-dim/30">？</span>}
+                  ? <Image src={monster.image} alt={monster.name} width={112} height={112} className="w-full h-full object-contain" />
+                  : <span className="text-4xl text-quest-dim/30">？</span>}
               </div>
 
               {/* 名前 */}
