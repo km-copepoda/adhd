@@ -59,10 +59,8 @@ export default function MonsterPage() {
         } else if (d.evolutionStage > lastSeen) {
           if (d.evolutionStage === 1) {
             setHatched(true);
-            setTimeout(() => setHatched(false), 3000);
           } else if (d.evolutionStage > 1) {
             setShowEvolution(true);
-            setTimeout(() => setShowEvolution(false), 3000);
           }
         }
         localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
@@ -81,10 +79,8 @@ export default function MonsterPage() {
             } else if (d.evolutionStage > prevStageRef.current) {
               if (prevStageRef.current === 0) {
                 setHatched(true);
-                setTimeout(() => setHatched(false), 3000);
               } else {
                 setShowEvolution(true);
-                setTimeout(() => setShowEvolution(false), 3000);
               }
               localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
             }
