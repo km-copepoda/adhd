@@ -22,7 +22,7 @@ describe("GET /api/monster", () => {
 
   it("モンスター情報を正しく返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ evolutionStage: 1, studyPt: 10, staminaPt: 5, lifePt: 3, side: "DARK" }) as any,
+      childUser({ evolutionStage: 1, studyPt: 10, staminaPt: 5, lifePt: 3, evolutionPath: "STUDY" }) as any,
     );
     mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
 
@@ -30,7 +30,6 @@ describe("GET /api/monster", () => {
     const json = await res.json();
 
     expect(json.name).toBe("ドラゴン");
-    expect(json.side).toBe("DARK");
     expect(json.evolutionStage).toBe(1);
     expect(json.studyPt).toBe(10);
     expect(json.staminaPt).toBe(5);
@@ -38,6 +37,7 @@ describe("GET /api/monster", () => {
     expect(json.pendingStudyPt).toBe(0);
     expect(json.pendingStaminaPt).toBe(0);
     expect(json.pendingLifePt).toBe(0);
+    expect(json.side).toBeDefined();
   });
 
   it("承認待ちクエストのpendingXPを正しく集計すること", async () => {
@@ -72,7 +72,7 @@ describe("GET /api/monster", () => {
 
   it("monsterNameもnameもnullの場合、デフォルト名を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ monsterName: null, name: null, side: null }) as any,
+      childUser({ monsterName: null, name: null }) as any,
     );
     mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
 
@@ -80,7 +80,7 @@ describe("GET /api/monster", () => {
     const json = await res.json();
 
     expect(json.name).toBe("ぼうけんしゃ");
-    expect(json.side).toBe("LIGHT"); // fallback
+    expect(json.evolutionPath).toBeDefined();
   });
 
   it("REPORTEDステータスのクエストのみ集計すること", async () => {

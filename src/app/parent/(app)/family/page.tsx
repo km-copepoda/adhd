@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { getMonsterStage } from "@/lib/constants";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -9,9 +10,10 @@ type Member = {
   id: string;
   name: string;
   role: string;
-  monsterName: string | null;
   side: string | null;
+  monsterName: string | null;
   evolutionStage: number;
+  evolutionPath: string;
   childCode: string | null;
   minTasksForStreak: number;
 };
@@ -235,15 +237,21 @@ export default function FamilyPage() {
               className="bg-quest-bg rounded-lg"
             >
             <div className="flex items-center gap-3 p-3">
-              <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg">
-                {member.role === "PARENT" ? "👑" : getMonsterStage((member.side || "LIGHT") as Side, member.evolutionStage).emoji}
+              <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg overflow-hidden">
+                {member.role === "PARENT" ? "👑" : (() => { const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? ""); return "image" in m ? <Image src={m.image} alt={m.name} width={40} height={40} className="w-full h-full object-contain" /> : <span>{m.emoji}</span>; })()}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">
                   {member.monsterName || member.name || "未設定"}
                 </p>
                 <p className="text-[10px] text-quest-dim">
-                  {member.role === "PARENT" ? "ギルドマスター" : "冒険者"}
+                  {member.role === "PARENT" ? "ギルドマスター" : (
+                    <>
+                      冒険者
+                      {member.side === "LIGHT" && <span className="ml-1 text-pink-400">🌸 ライト</span>}
+                      {member.side === "DARK" && <span className="ml-1 text-purple-400">🌑 ダーク</span>}
+                    </>
+                  )}
                 </p>
               </div>
               {member.role === "CHILD" && member.childCode && (

@@ -4,7 +4,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { XP_MAP, checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import { routeLogger } from "@/lib/logger";
-import type { Side } from "@/types";
 
 export async function POST(
   request: Request,
@@ -81,12 +80,20 @@ export async function POST(
   const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
 
   const evolution = checkEvolution(
-    (child.side || "LIGHT") as Side,
     child.evolutionStage,
+    child.evolutionPath,
     newStudy,
     newStamina,
     newLife,
   );
+
+  // collectedPaths: 進化時に新パスを追加、転生時はそのまま保持
+  let collectedPaths = JSON.parse(child.collectedPaths) as string[];
+  if (evolution.evolved) {
+    if (!collectedPaths.includes(evolution.newPath)) {
+      collectedPaths = [...collectedPaths, evolution.newPath];
+    }
+  }
 
   await prisma.questInstance.update({
     where: { id },
@@ -100,6 +107,8 @@ export async function POST(
       staminaPt: evolution.resetStamina,
       lifePt: evolution.resetLife,
       evolutionStage: evolution.newStage,
+      evolutionPath: evolution.newPath,
+      collectedPaths: JSON.stringify(collectedPaths),
     },
   });
 

@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { checkEvolution, getNewMilestoneBonus, distributeBonus } from "@/lib/constants";
 import { log } from "@/lib/logger";
-import type { Side } from "@/types";
 
 /**
  * クエスト承認時にストリークを記録・更新する。
@@ -82,8 +81,8 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
       const newLife = latestChild.lifePt + dist.life;
 
       const evolution = checkEvolution(
-        (latestChild.side || "LIGHT") as Side,
         latestChild.evolutionStage,
+        latestChild.evolutionPath,
         newStudy,
         newStamina,
         newLife,
@@ -96,6 +95,7 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
           staminaPt: evolution.resetStamina,
           lifePt: evolution.resetLife,
           evolutionStage: evolution.newStage,
+          evolutionPath: evolution.newPath,
         },
       });
       

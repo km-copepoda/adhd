@@ -31,8 +31,9 @@ const baseQuest = {
   },
   child: {
     id: "child-1",
-    side: "LIGHT" as const,
     evolutionStage: 0,
+    evolutionPath: "",
+    collectedPaths: "[]",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,
@@ -58,6 +59,7 @@ describe("approveQuestInstance", () => {
         where: { id: "child-1" },
         data: expect.objectContaining({
           evolutionStage: expect.any(Number),
+          evolutionPath: expect.any(String),
           studyPt: expect.any(Number),
         }),
       }),

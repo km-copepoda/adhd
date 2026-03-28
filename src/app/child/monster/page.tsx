@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES } from "@/lib/constants";
+import Image from "next/image";
+import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
-import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type MonsterData = {
   name: string;
-  side: Side;
+  side: string | null;
   evolutionStage: number;
+  evolutionPath: string;
+  collectedPaths: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -32,6 +34,7 @@ export default function MonsterPage() {
   const [loading, setLoading] = useState(true);
   const [showEvolution, setShowEvolution] = useState(false);
   const [hatched, setHatched] = useState(false);
+  const [reborn, setReborn] = useState(false);
   const prevStageRef = useRef<number | null>(null);
 
   const fetchStatus = () =>
@@ -41,7 +44,8 @@ export default function MonsterPage() {
     fetchStatus()
       .then((d) => {
         setData({
-          name: d.name, side: d.side, evolutionStage: d.evolutionStage,
+          name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+          collectedPaths: d.collectedPaths ?? "[]",
           studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
           pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
         });
@@ -52,13 +56,14 @@ export default function MonsterPage() {
         prevStageRef.current = d.evolutionStage;
         // 育成画面以外で進化が起きた場合: 最後に確認したステージと比較して進化演出を表示
         const lastSeen = parseInt(localStorage.getItem("lastSeenEvolutionStage") ?? "-1");
-        if (d.evolutionStage > lastSeen) {
+        const hasEverEvolved = (JSON.parse(d.collectedPaths ?? "[]") as string[]).length > 0;
+        if (d.evolutionStage === 0 && lastSeen >= 3 && hasEverEvolved) {
+          setReborn(true);
+        } else if (d.evolutionStage > lastSeen) {
           if (d.evolutionStage === 1) {
             setHatched(true);
-            setTimeout(() => setHatched(false), 3000);
           } else if (d.evolutionStage > 1) {
             setShowEvolution(true);
-            setTimeout(() => setShowEvolution(false), 3000);
           }
         }
         localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
@@ -70,19 +75,23 @@ export default function MonsterPage() {
       .channel("monster-changes")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
         fetchStatus().then((d) => {
-          if (prevStageRef.current !== null && d.evolutionStage > prevStageRef.current) {
-            if (prevStageRef.current === 0) {
-              setHatched(true);
-              setTimeout(() => setHatched(false), 3000);
-            } else {
-              setShowEvolution(true);
-              setTimeout(() => setShowEvolution(false), 3000);
+          if (prevStageRef.current !== null) {
+            if (d.evolutionStage === 0 && prevStageRef.current >= 3) {
+              setReborn(true);
+              localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
+            } else if (d.evolutionStage > prevStageRef.current) {
+              if (prevStageRef.current === 0) {
+                setHatched(true);
+              } else {
+                setShowEvolution(true);
+              }
+              localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
             }
-            localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
           }
           prevStageRef.current = d.evolutionStage;
           setData({
-            name: d.name, side: d.side, evolutionStage: d.evolutionStage,
+            name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+            collectedPaths: d.collectedPaths ?? "[]",
             studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
             pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
           });
@@ -105,8 +114,8 @@ export default function MonsterPage() {
   }
 
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
-  const xpInfo = getXpInfo(data.side, data.evolutionStage, data.studyPt, data.staminaPt, data.lifePt);
-  const monster = getMonsterStage(data.side, data.evolutionStage);
+  const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt);
+  const monster = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
   const params = [
@@ -118,50 +127,89 @@ export default function MonsterPage() {
   return (
     <div className="px-4 pt-6">
       {/* Evolution cut-in overlay */}
-      {showEvolution && data && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 animate-fade-in"
-          onClick={() => setShowEvolution(false)}
-          style={{ animation: "fadeIn 0.3s ease-out" }}
-        >
-          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {getMonsterStage(data.side, data.evolutionStage).emoji}
+      {showEvolution && data && (() => {
+        const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
+        const desc = MONSTER_TABLE[data.evolutionPath]?.description;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6"
+            onClick={() => setShowEvolution(false)}
+            style={{ animation: "fadeIn 0.3s ease-out" }}
+          >
+            <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+              <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+                {"image" in m ? <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>}
+              </div>
             </div>
+            <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
+              進化した！
+            </p>
+            <p className="text-quest-gold/70 text-lg mb-4">{m.name}</p>
+            {desc && (
+              <p className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs" style={{ animation: "evolveIn 0.7s ease-out" }}>
+                {desc}
+              </p>
+            )}
+            <p className="text-quest-dim text-xs">タップして閉じる</p>
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+              @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+            `}</style>
           </div>
-          <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
-            進化した！
-          </p>
-          <p className="text-quest-gold/70 text-lg mb-8">
-            {getMonsterStage(data.side, data.evolutionStage).name}
-          </p>
-          <p className="text-quest-dim text-xs">タップして閉じる</p>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
-          `}</style>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Hatch cut-in overlay (egg → first form) */}
-      {hatched && data && (
+      {hatched && data && (() => {
+        const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
+        const desc = MONSTER_TABLE[data.evolutionPath]?.description;
+        return (
+          <div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6"
+            onClick={() => setHatched(false)}
+            style={{ animation: "fadeIn 0.3s ease-out" }}
+          >
+            <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+              <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+                {"image" in m ? <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>}
+              </div>
+            </div>
+            <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
+              うまれた！
+            </p>
+            <p className="text-quest-gold/70 text-lg mb-4">{m.name}</p>
+            {desc && (
+              <p className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs" style={{ animation: "evolveIn 0.7s ease-out" }}>
+                {desc}
+              </p>
+            )}
+            <p className="text-quest-dim text-xs">タップして閉じる</p>
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+              @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+            `}</style>
+          </div>
+        );
+      })()}
+
+      {/* Rebirth cut-in overlay */}
+      {reborn && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 animate-fade-in"
-          onClick={() => setHatched(false)}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
+          onClick={() => setReborn(false)}
           style={{ animation: "fadeIn 0.3s ease-out" }}
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="text-9xl mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {getMonsterStage(data.side, data.evolutionStage).emoji}
+            <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(139,92,246,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
+              {data ? (() => { const egg = getMonsterStage(0, "", data.side); return "image" in egg ? <Image src={egg.image} alt="たまご" width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
             </div>
           </div>
-          <p className="font-serif text-quest-gold text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
-            うまれた！
+          <p className="font-serif text-purple-400 text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(139,92,246,0.8)" }}>
+            転生！
           </p>
-          <p className="text-quest-gold/70 text-lg mb-8">
-            {getMonsterStage(data.side, data.evolutionStage).name}
-          </p>
+          <p className="text-purple-400/70 text-lg mb-8">新たな冒険がはじまる…</p>
           <p className="text-quest-dim text-xs">タップして閉じる</p>
           <style>{`
             @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
@@ -173,8 +221,8 @@ export default function MonsterPage() {
 
       {/* Monster hero */}
       <div className="flex flex-col items-center py-8 mb-6 rounded-2xl bg-gradient-to-b from-purple-950/30 to-transparent">
-        <div className="text-7xl animate-float mb-4" style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}>
-          {monster.emoji}
+        <div className="w-56 h-56 animate-float mb-4 mx-auto" style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}>
+          {"image" in monster ? <Image src={monster.image} alt={monster.name} width={224} height={224} className="w-full h-full object-contain" /> : <span className="text-7xl">{monster.emoji}</span>}
         </div>
         <p className="font-serif text-quest-gold text-xl tracking-wider">
           {data.name}
@@ -215,9 +263,38 @@ export default function MonsterPage() {
             </div>
           );
         })()}
-        {xpInfo.xpToEvolve === null && (
-          <p className="text-quest-gold text-xs mt-3">最終形態</p>
-        )}
+        {xpInfo.xpToEvolve === null && (() => {
+          const rebirthPct = Math.min(100, (total / REBIRTH_THRESHOLD) * 100);
+          const rebirthPending = Math.min(100 - rebirthPct, (pendingTotal / REBIRTH_THRESHOLD) * 100);
+          return (
+            <div className="w-48 mt-4">
+              <div className="flex justify-between text-[10px] text-quest-dim mb-1">
+                <span>
+                  {total} / {REBIRTH_THRESHOLD} pt
+                  {pendingTotal > 0 && <span className="ml-1">+ {pendingTotal} pt(仮)</span>}
+                </span>
+                <span>転生まで</span>
+              </div>
+              <div className="h-1.5 bg-quest-border rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-700 to-purple-400 rounded-l-full animate-shimmer"
+                  style={{ width: `${rebirthPct}%` }}
+                />
+                {rebirthPending > 0 && (
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${rebirthPending}%`,
+                      background: "rgba(139,92,246,0.25)",
+                      borderLeft: "1px dashed rgba(139,92,246,0.5)",
+                    }}
+                  />
+                )}
+              </div>
+              <p className="text-quest-gold text-[10px] mt-1 text-center">最終形態</p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Streak card */}
@@ -340,16 +417,24 @@ export default function MonsterPage() {
         })}
       </div>
 
-      {/* Next evolution hint */}
-      {xpInfo.nextEvolution && (
-        <div className="mt-4 bg-quest-card/50 border border-quest-border rounded-xl p-4 text-center">
-          <p className="text-quest-dim text-xs mb-1">次の進化</p>
-          <p className="text-quest-gold">
-            <span className="text-2xl">{xpInfo.nextEvolution.emoji}</span>
-            <span className="text-sm ml-2">
-              {xpInfo.nextEvolution.name} · あと {xpInfo.nextEvolution.ptNeeded} pt
-            </span>
+      {/* Next evolution hint: probabilistic weights */}
+      {xpInfo.evolutionWeights && xpInfo.ptNeeded !== null && (
+        <div className="mt-4 bg-quest-card/50 border border-quest-border rounded-xl p-4">
+          <p className="text-quest-dim text-xs mb-2 text-center">
+            次の進化 · あと {Math.max(0, xpInfo.ptNeeded)} pt
           </p>
+          <div className="flex gap-2">
+            {(["STUDY", "STAMINA", "LIFE"] as const).map((path) => (
+              <div key={path} className="flex-1 text-center">
+                <p className="text-xs" style={{ color: CATEGORY_COLOR[path] }}>
+                  {CATEGORY_LABEL[path].emoji} {CATEGORY_LABEL[path].name}
+                </p>
+                <p className="text-quest-gold font-bold text-sm">
+                  {Math.round(xpInfo.evolutionWeights![path] * 100)}%
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
