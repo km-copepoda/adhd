@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=375, initial-scale=1">
-<title>モンスター図鑑 — 全コンプリート</title>
+<title>モンスター図鑑 — ツリーUI フルコンプリート</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,13 +20,13 @@
     width: 375px;
     min-height: 100vh;
     background: #0d0d14;
-    padding: 0 16px 80px;
+    padding: 0 16px 100px;
     position: relative;
   }
 
-  /* ── ヘッダー ─────────────────────── */
+  /* ── ヘッダー */
   .header {
-    padding: 24px 0 8px;
+    padding: 24px 0 6px;
     text-align: center;
   }
   .header h1 {
@@ -39,143 +39,183 @@
   .header .count {
     font-size: 12px;
     color: #9a8c6e;
+    margin-bottom: 16px;
   }
 
-  /* ── 全コンプリートバナー ──────────── */
+  /* ── 全コンプリートバナー */
   .complete-banner {
-    margin: 12px 0 20px;
+    margin: 0 0 20px;
     border: 1px solid rgba(251,191,36,0.5);
     border-radius: 14px;
-    background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(139,92,246,0.12));
-    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(251,191,36,0.10), rgba(139,92,246,0.10));
+    padding: 12px 16px;
     text-align: center;
-    position: relative;
-    overflow: hidden;
   }
-  .complete-banner::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 6px,
-      rgba(251,191,36,0.03) 6px,
-      rgba(251,191,36,0.03) 12px
-    );
-  }
-  .complete-banner .stars {
-    font-size: 22px;
-    letter-spacing: 6px;
-    margin-bottom: 6px;
-    position: relative;
-  }
-  .complete-banner .title {
-    font-size: 15px;
-    color: #fbbf24;
-    font-weight: bold;
-    letter-spacing: 0.1em;
-    text-shadow: 0 0 12px rgba(251,191,36,0.7);
-    margin-bottom: 4px;
-    position: relative;
-  }
-  .complete-banner .sub {
-    font-size: 11px;
-    color: #9a8c6e;
-    position: relative;
-  }
+  .complete-banner .stars { font-size: 20px; letter-spacing: 6px; margin-bottom: 4px; }
+  .complete-banner .title { font-size: 14px; color: #fbbf24; font-weight: bold; letter-spacing: 0.1em; text-shadow: 0 0 12px rgba(251,191,36,0.7); }
+  .complete-banner .sub { font-size: 11px; color: #9a8c6e; margin-top: 2px; }
 
-  /* ── セクション ───────────────────── */
-  .section {
-    margin-bottom: 24px;
-  }
-  .section-label {
-    font-size: 11px;
-    color: #6b5f45;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-    padding: 0 2px;
+  /* ── 卵（ルートノード） */
+  .egg-node {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    margin-bottom: 0;
   }
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: rgba(107,95,69,0.3);
-  }
-
-  /* ── カードグリッド ───────────────── */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-
-  .card {
+  .egg-card {
     background: #1a1829;
     border: 1px solid #2e2a42;
     border-radius: 12px;
-    padding: 10px 6px 8px;
+    padding: 12px 16px 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    transition: border-color 0.2s;
+    width: 100px;
   }
-  .card:hover {
-    border-color: rgba(251,191,36,0.4);
-  }
+  .egg-card img { width: 64px; height: 64px; object-fit: contain; }
+  .egg-card .egg-label { font-size: 12px; color: #c9bfa0; }
 
-  /* Stage3 の特別カード */
-  .card.final {
-    border-color: #3d3450;
-    background: linear-gradient(160deg, #1e1a2e, #1a1829);
+  /* ── コネクタ線 */
+  .connector-v {
+    width: 1px;
+    height: 20px;
+    background: rgba(46,42,66,0.8);
   }
-  .card.final:hover {
-    border-color: rgba(139,92,246,0.5);
-  }
-
-  /* ── パスブレッドクラム ───────────── */
-  .path {
+  .connector-v.gold { background: rgba(251,191,36,0.35); }
+  .connector-h {
     display: flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 9px;
-    min-height: 14px;
-  }
-  .path .arrow {
-    color: rgba(154,140,110,0.4);
-    font-size: 8px;
-  }
-
-  /* ── モンスター画像 ───────────────── */
-  .img-wrap {
-    width: 64px;
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  .img-wrap img {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
-    image-rendering: -webkit-optimize-contrast;
+    align-items: center;
+    margin-bottom: 0;
+  }
+  .connector-h .line {
+    flex: 1;
+    height: 1px;
+    background: rgba(46,42,66,0.6);
   }
 
-  /* ── モンスター名 ─────────────────── */
-  .name {
+  /* ── Stage 1 行 */
+  .stage1-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  /* ── モンスターカード */
+  .card {
+    background: #1a1829;
+    border: 1px solid #2e2a42;
+    border-radius: 12px;
+    padding: 8px 4px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    user-select: none;
+  }
+  .card:hover { border-color: rgba(251,191,36,0.3); }
+  .card.open {
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 1px rgba(251,191,36,0.25), 0 0 12px rgba(251,191,36,0.12);
+  }
+  .card.final {
+    background: linear-gradient(160deg, #1e1a2e, #1a1829);
+    border-color: #3d3450;
+    cursor: default;
+  }
+  .card .path-emojis {
+    font-size: 9px;
+    color: #6b5f45;
+    letter-spacing: 1px;
+    min-height: 13px;
+  }
+  .card img { width: 56px; height: 56px; object-fit: contain; }
+  .card .name { font-size: 10px; text-align: center; color: #c9bfa0; line-height: 1.3; }
+  .card .open-indicator {
+    font-size: 8px;
+    color: #fbbf24;
+    margin-top: 1px;
+  }
+
+  /* ── Stage 2 展開パネル */
+  .stage2-panel {
+    display: none;
+    margin-top: 2px;
+    border-left: 2px solid rgba(251,191,36,0.25);
+    padding-left: 10px;
+    margin-left: 2px;
+  }
+  .stage2-panel.open { display: block; }
+  .stage2-label {
     font-size: 10px;
-    text-align: center;
-    color: #c9bfa0;
-    line-height: 1.3;
+    color: #6b5f45;
+    letter-spacing: 0.12em;
+    margin: 8px 0 8px 2px;
+  }
+  .stage2-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
   }
 
-  /* ── ボトムナビ（雰囲気用） ───────── */
+  /* ── Stage 3 展開パネル */
+  .stage3-panel {
+    display: none;
+    margin-top: 2px;
+    margin-left: 8px;
+    border-left: 2px solid rgba(251,191,36,0.15);
+    padding-left: 10px;
+  }
+  .stage3-panel.open { display: block; }
+  .stage3-label {
+    font-size: 10px;
+    color: #6b5f45;
+    letter-spacing: 0.12em;
+    margin: 6px 0 8px 2px;
+  }
+  .stage3-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  /* ── ヒント */
+  .hint {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(107,95,69,0.5);
+    margin-top: 32px;
+  }
+
+  /* ── サイド切替タブ */
+  .side-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .side-tab {
+    flex: 1;
+    padding: 7px;
+    border-radius: 8px;
+    border: 1px solid #2e2a42;
+    background: #12111c;
+    color: #6b5f45;
+    font-size: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .side-tab.active {
+    border-color: rgba(251,191,36,0.5);
+    color: #fbbf24;
+    background: rgba(251,191,36,0.07);
+  }
+
+  /* ── ボトムナビ */
   .bottom-nav {
     position: fixed;
     bottom: 0;
@@ -187,26 +227,25 @@
     padding: 8px 0 14px;
   }
   .nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    font-size: 9px;
-    color: #6b5f45;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 2px; font-size: 9px; color: #6b5f45;
   }
-  .nav-item.active {
-    color: #fbbf24;
-  }
+  .nav-item.active { color: #fbbf24; }
   .nav-item .icon { font-size: 22px; }
 </style>
 </head>
 <body>
 <div class="phone">
 
-  <!-- ヘッダー -->
   <div class="header">
     <h1>📖 モンスター図鑑</h1>
-    <p class="count">39 / 39 体</p>
+    <p class="count" id="count-label">39 / 39 体</p>
+  </div>
+
+  <!-- サイド切替（DARK / LIGHT） -->
+  <div class="side-tabs">
+    <div class="side-tab active" onclick="setSide('DARK', this)">⚔️ ダーク（男の子）</div>
+    <div class="side-tab" onclick="setSide('LIGHT', this)">✨ ライト（女の子）</div>
   </div>
 
   <!-- 全コンプリートバナー -->
@@ -216,275 +255,228 @@
     <div class="sub">全 39 体のモンスターを記録した！</div>
   </div>
 
-  <!-- Stage 1 -->
-  <div class="section">
-    <div class="section-label">Stage 1</div>
-    <div class="grid">
+  <!-- ツリー本体 -->
+  <div id="tree-root"></div>
 
-      <div class="card">
-        <div class="path"><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉_ラーン.png" alt="ラーン"></div>
-        <div class="name">ラーン</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体_ストーン.png" alt="ストーン"></div>
-        <div class="name">ストーン</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生_ヘルプ.png" alt="ヘルプ"></div>
-        <div class="name">ヘルプ</div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Stage 2 -->
-  <div class="section">
-    <div class="section-label">Stage 2</div>
-    <div class="grid">
-
-      <div class="card">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉勉_ライブラ.png" alt="ライブラ"></div>
-        <div class="name">ライブラ</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉体_アーマード.png" alt="アーマード"></div>
-        <div class="name">アーマード</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉生_クリン.png" alt="クリン"></div>
-        <div class="name">クリン</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体勉_グラビド.png" alt="グラビド"></div>
-        <div class="name">グラビド</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体体_ブロック.png" alt="ブロック"></div>
-        <div class="name">ブロック</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体生_わっしょい.png" alt="わっしょい"></div>
-        <div class="name">わっしょい</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生勉_チックタック.png" alt="チックタック"></div>
-        <div class="name">チックタック</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生体_キャリア.png" alt="キャリア"></div>
-        <div class="name">キャリア</div>
-      </div>
-
-      <div class="card">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生生_マザー.png" alt="マザー"></div>
-        <div class="name">マザー</div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Stage 3 最終形態 -->
-  <div class="section">
-    <div class="section-label">Stage 3（最終形態）</div>
-    <div class="grid">
-
-      <!-- STUDY系 9体 -->
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉勉勉_ウィズダム.png" alt="ウィズダム"></div>
-        <div class="name">ウィズダム</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉勉体_タクティクス.png" alt="タクティクス"></div>
-        <div class="name">タクティクス</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉勉生_エジソン.png" alt="エジソン"></div>
-        <div class="name">エジソン</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉体勉_フォート.png" alt="フォート"></div>
-        <div class="name">フォート</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉体体_イージス.png" alt="イージス"></div>
-        <div class="name">イージス</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉体生_レスキュー.png" alt="レスキュー"></div>
-        <div class="name">レスキュー</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉生勉_マイスター.png" alt="マイスター"></div>
-        <div class="name">マイスター</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉生体_スリープ.png" alt="スリープ"></div>
-        <div class="name">スリープ</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>📚</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/勉生生_セバス.png" alt="セバス"></div>
-        <div class="name">セバス</div>
-      </div>
-
-      <!-- STAMINA系 9体 -->
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体勉勉_クリスタル.png" alt="クリスタル"></div>
-        <div class="name">クリスタル</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体勉体_マギグラビ.png" alt="マギグラビ"></div>
-        <div class="name">マギグラビ</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体勉生_クロック.png" alt="クロック"></div>
-        <div class="name">クロック</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体体勉_ガイア.png" alt="ガイア"></div>
-        <div class="name">ガイア</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体体体_ゴッドストーン.png" alt="ゴッドストーン"></div>
-        <div class="name">ゴッドストーン</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体体生_ガーディアン.png" alt="ガーディアン"></div>
-        <div class="name">ガーディアン</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体生勉_エール.png" alt="エール"></div>
-        <div class="name">エール</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体生体_グロウ.png" alt="グロウ"></div>
-        <div class="name">グロウ</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>💪</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/体生生_ミコシ.png" alt="ミコシ"></div>
-        <div class="name">ミコシ</div>
-      </div>
-
-      <!-- LIFE系 9体 -->
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生勉勉_カレンダー.png" alt="カレンダー"></div>
-        <div class="name">カレンダー</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生勉体_マイスター.png" alt="マイスター"></div>
-        <div class="name">マイスター</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>📚</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生勉生_カロリー.png" alt="カロリー"></div>
-        <div class="name">カロリー</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生体勉_マーチャント.png" alt="マーチャント"></div>
-        <div class="name">マーチャント</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生体体_ムービング.png" alt="ムービング"></div>
-        <div class="name">ムービング</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>💪</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生体生_ナース.png" alt="ナース"></div>
-        <div class="name">ナース</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>📚</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生生勉_シェフ.png" alt="シェフ"></div>
-        <div class="name">シェフ</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>💪</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生生体_サンシャイン.png" alt="サンシャイン"></div>
-        <div class="name">サンシャイン</div>
-      </div>
-
-      <div class="card final">
-        <div class="path"><span>🌿</span><span class="arrow">→</span><span>🌿</span><span class="arrow">→</span><span>🌿</span></div>
-        <div class="img-wrap"><img src="キャラクター/man/生生生_ゴッドセバス.png" alt="ゴッドセバス"></div>
-        <div class="name">ゴッドセバス</div>
-      </div>
-
-    </div>
-  </div>
+  <p class="hint">カードをタップして進化ツリーを展開</p>
 
 </div>
 
-<!-- ボトムナビ（雰囲気用） -->
+<!-- ボトムナビ -->
 <div class="bottom-nav" style="left:50%;transform:translateX(-50%);">
   <div class="nav-item"><span class="icon">⚔️</span><span>クエスト</span></div>
   <div class="nav-item active"><span class="icon">📖</span><span>図鑑</span></div>
   <div class="nav-item"><span class="icon">🥚</span><span>モンスター</span></div>
 </div>
 
+<script>
+// ─── モンスターデータ ────────────────────────────────
+const DARK = {
+  "STUDY":   { img: "../public/monsters/STUDY_ラーン.webp",   name: "ラーン" },
+  "STAMINA": { img: "../public/monsters/STAMINA_ストーン.webp", name: "ストーン" },
+  "LIFE":    { img: "../public/monsters/LIFE_ヘルプ.webp",    name: "ヘルプ" },
+  "STUDY_STUDY":     { img: "../public/monsters/STUDY_STUDY_ライブラ.webp",       name: "ライブラ" },
+  "STUDY_STAMINA":   { img: "../public/monsters/STUDY_STAMINA_アーマード.webp",   name: "アーマード" },
+  "STUDY_LIFE":      { img: "../public/monsters/STUDY_LIFE_クリン.webp",          name: "クリン" },
+  "STAMINA_STUDY":   { img: "../public/monsters/STAMINA_STUDY_グラビド.webp",     name: "グラビド" },
+  "STAMINA_STAMINA": { img: "../public/monsters/STAMINA_STAMINA_ブロック.webp",   name: "ブロック" },
+  "STAMINA_LIFE":    { img: "../public/monsters/STAMINA_LIFE_わっしょい.webp",    name: "わっしょい" },
+  "LIFE_STUDY":      { img: "../public/monsters/LIFE_STUDY_チックタック.webp",    name: "チックタック" },
+  "LIFE_STAMINA":    { img: "../public/monsters/LIFE_STAMINA_キャリア.webp",      name: "キャリア" },
+  "LIFE_LIFE":       { img: "../public/monsters/LIFE_LIFE_マザー.webp",           name: "マザー" },
+  "STUDY_STUDY_STUDY":     { img: "../public/monsters/STUDY_STUDY_STUDY_ウィズダム.webp",           name: "ウィズダム" },
+  "STUDY_STUDY_STAMINA":   { img: "../public/monsters/STUDY_STUDY_STAMINA_タクティクス.webp",       name: "タクティクス" },
+  "STUDY_STUDY_LIFE":      { img: "../public/monsters/STUDY_STUDY_LIFE_エジソン.webp",              name: "エジソン" },
+  "STUDY_STAMINA_STUDY":   { img: "../public/monsters/STUDY_STAMINA_STUDY_フォート.webp",           name: "フォート" },
+  "STUDY_STAMINA_STAMINA": { img: "../public/monsters/STUDY_STAMINA_STAMINA_イージス.webp",         name: "イージス" },
+  "STUDY_STAMINA_LIFE":    { img: "../public/monsters/STUDY_STAMINA_LIFE_レスキュー.webp",          name: "レスキュー" },
+  "STUDY_LIFE_STUDY":      { img: "../public/monsters/STUDY_LIFE_STUDY_マイスター.webp",            name: "マイスター" },
+  "STUDY_LIFE_STAMINA":    { img: "../public/monsters/STUDY_LIFE_STAMINA_スリープ.webp",            name: "スリープ" },
+  "STUDY_LIFE_LIFE":       { img: "../public/monsters/STUDY_LIFE_LIFE_セバス.webp",                 name: "セバス" },
+  "STAMINA_STUDY_STUDY":   { img: "../public/monsters/STAMINA_STUDY_STUDY_クリスタル.webp",         name: "クリスタル" },
+  "STAMINA_STUDY_STAMINA": { img: "../public/monsters/STAMINA_STUDY_STAMINA_マギグラビ.webp",       name: "マギグラビ" },
+  "STAMINA_STUDY_LIFE":    { img: "../public/monsters/STAMINA_STUDY_LIFE_クロック.webp",            name: "クロック" },
+  "STAMINA_STAMINA_STUDY": { img: "../public/monsters/STAMINA_STAMINA_STUDY_ガイア.webp",           name: "ガイア" },
+  "STAMINA_STAMINA_STAMINA": { img: "../public/monsters/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp", name: "ゴッドストーン" },
+  "STAMINA_STAMINA_LIFE":  { img: "../public/monsters/STAMINA_STAMINA_LIFE_ガーディアン.webp",      name: "ガーディアン" },
+  "STAMINA_LIFE_STUDY":    { img: "../public/monsters/STAMINA_LIFE_STUDY_エール.webp",              name: "エール" },
+  "STAMINA_LIFE_STAMINA":  { img: "../public/monsters/STAMINA_LIFE_STAMINA_グロウ.webp",            name: "グロウ" },
+  "STAMINA_LIFE_LIFE":     { img: "../public/monsters/STAMINA_LIFE_LIFE_ミコシ.webp",               name: "ミコシ" },
+  "LIFE_STUDY_STUDY":      { img: "../public/monsters/LIFE_STUDY_STUDY_カレンダー.webp",            name: "カレンダー" },
+  "LIFE_STUDY_STAMINA":    { img: "../public/monsters/LIFE_STUDY_STAMINA_マイスター.webp",          name: "マイスター" },
+  "LIFE_STUDY_LIFE":       { img: "../public/monsters/LIFE_STUDY_LIFE_カロリー.webp",               name: "カロリー" },
+  "LIFE_STAMINA_STUDY":    { img: "../public/monsters/LIFE_STAMINA_STUDY_マーチャント.webp",        name: "マーチャント" },
+  "LIFE_STAMINA_STAMINA":  { img: "../public/monsters/LIFE_STAMINA_STAMINA_ムービング.webp",        name: "ムービング" },
+  "LIFE_STAMINA_LIFE":     { img: "../public/monsters/LIFE_STAMINA_LIFE_ナース.webp",               name: "ナース" },
+  "LIFE_LIFE_STUDY":       { img: "../public/monsters/LIFE_LIFE_STUDY_シェフ.webp",                 name: "シェフ" },
+  "LIFE_LIFE_STAMINA":     { img: "../public/monsters/LIFE_LIFE_STAMINA_サンシャイン.webp",         name: "サンシャイン" },
+  "LIFE_LIFE_LIFE":        { img: "../public/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp",            name: "ゴッドセバス" },
+};
+
+const LIGHT = {
+  "STUDY":   { img: "../public/monsters/light/STUDY_ルミナ.webp",   name: "ルミナ" },
+  "STAMINA": { img: "../public/monsters/light/STAMINA_アクティ.webp", name: "アクティ" },
+  "LIFE":    { img: "../public/monsters/light/LIFE_メルル.webp",    name: "メルル" },
+  "STUDY_STUDY":     { img: "../public/monsters/light/STUDY_STUDY_インテリキャット.webp",       name: "インテリキャット" },
+  "STUDY_STAMINA":   { img: "../public/monsters/light/STUDY_STAMINA_クリスタルバード.webp",     name: "クリスタルバード" },
+  "STUDY_LIFE":      { img: "../public/monsters/light/STUDY_LIFE_インクペンギン.webp",          name: "インクペンギン" },
+  "STAMINA_STUDY":   { img: "../public/monsters/light/STAMINA_STUDY_スカウトフォックス.webp",   name: "スカウトフォックス" },
+  "STAMINA_STAMINA": { img: "../public/monsters/light/STAMINA_STAMINA_ブレイブレオ.webp",       name: "ブレイブレオ" },
+  "STAMINA_LIFE":    { img: "../public/monsters/light/STAMINA_LIFE_レスキューパピー.webp",      name: "レスキューパピー" },
+  "LIFE_STUDY":      { img: "../public/monsters/light/LIFE_STUDY_ミントアライグマ.webp",        name: "ミントアライグマ" },
+  "LIFE_STAMINA":    { img: "../public/monsters/light/LIFE_STAMINA_ポポパンダ.webp",            name: "ポポパンダ" },
+  "LIFE_LIFE":       { img: "../public/monsters/light/LIFE_LIFE_コットンラム.webp",             name: "コットンラム" },
+  "STUDY_STUDY_STUDY":     { img: "../public/monsters/light/STUDY_STUDY_STUDY_大魔導士プラチナキャット.webp",     name: "大魔導士プラチナキャット" },
+  "STUDY_STUDY_STAMINA":   { img: "../public/monsters/light/STUDY_STUDY_STAMINA_チェスナイト・スノーレオ.webp",   name: "チェスナイト・スノーレオ" },
+  "STUDY_STUDY_LIFE":      { img: "../public/monsters/light/STUDY_STUDY_LIFE_古書堂のミケネコ.webp",              name: "古書堂のミケネコ" },
+  "STUDY_STAMINA_STUDY":   { img: "../public/monsters/light/STUDY_STAMINA_STUDY_極光のペガサス.webp",             name: "極光のペガサス" },
+  "STUDY_STAMINA_STAMINA": { img: "../public/monsters/light/STUDY_STAMINA_STAMINA_空の覇者グリフォン.webp",       name: "空の覇者グリフォン" },
+  "STUDY_STAMINA_LIFE":    { img: "../public/monsters/light/STUDY_STAMINA_LIFE_幸運の青い鳥.webp",                name: "幸運の青い鳥" },
+  "STUDY_LIFE_STUDY":      { img: "../public/monsters/light/STUDY_LIFE_STUDY_時計仕掛けのラビット.webp",          name: "時計仕掛けのラビット" },
+  "STUDY_LIFE_STAMINA":    { img: "../public/monsters/light/STUDY_LIFE_STAMINA_発明家のビーバー.webp",            name: "発明家のビーバー" },
+  "STUDY_LIFE_LIFE":       { img: "../public/monsters/light/STUDY_LIFE_LIFE_調香師のリス.webp",                   name: "調香師のリス" },
+  "STAMINA_STUDY_STUDY":   { img: "../public/monsters/light/STAMINA_STUDY_STUDY_氷上のフィギュアフォックス.webp", name: "氷上のフィギュアフォックス" },
+  "STAMINA_STUDY_STAMINA": { img: "../public/monsters/light/STAMINA_STUDY_STAMINA_蒼き炎のフェニックス.webp",     name: "蒼き炎のフェニックス" },
+  "STAMINA_STUDY_LIFE":    { img: "../public/monsters/light/STAMINA_STUDY_LIFE_山岳救助犬ハスキー.webp",          name: "山岳救助犬ハスキー" },
+  "STAMINA_STAMINA_STUDY": { img: "../public/monsters/light/STAMINA_STAMINA_STUDY_真実の聖騎士・レオ.webp",       name: "真実の聖騎士・レオ" },
+  "STAMINA_STAMINA_STAMINA": { img: "../public/monsters/light/STAMINA_STAMINA_STAMINA_太陽の黄金龍.webp",         name: "太陽の黄金龍" },
+  "STAMINA_STAMINA_LIFE":  { img: "../public/monsters/light/STAMINA_STAMINA_LIFE_頼れるボクサー・カンガルー.webp", name: "頼れるボクサー・カンガルー" },
+  "STAMINA_LIFE_STUDY":    { img: "../public/monsters/light/STAMINA_LIFE_STUDY_森の案内人トナカイ.webp",          name: "森の案内人トナカイ" },
+  "STAMINA_LIFE_STAMINA":  { img: "../public/monsters/light/STAMINA_LIFE_STAMINA_大地の王者マンモス.webp",        name: "大地の王者マンモス" },
+  "STAMINA_LIFE_LIFE":     { img: "../public/monsters/light/STAMINA_LIFE_LIFE_忠義の守護柴犬.webp",               name: "忠義の守護柴犬" },
+  "LIFE_STUDY_STUDY":      { img: "../public/monsters/light/LIFE_STUDY_STUDY_薬剤師のシロクマ.webp",              name: "薬剤師のシロクマ" },
+  "LIFE_STUDY_STAMINA":    { img: "../public/monsters/light/LIFE_STUDY_STAMINA_職人肌のモグラ.webp",              name: "職人肌のモグラ" },
+  "LIFE_STUDY_LIFE":       { img: "../public/monsters/light/LIFE_STUDY_LIFE_お針子のカイコさん.webp",             name: "お針子のカイコさん" },
+  "LIFE_STAMINA_STUDY":    { img: "../public/monsters/light/LIFE_STAMINA_STUDY_海洋のナース・イルカ.webp",        name: "海洋のナース・イルカ" },
+  "LIFE_STAMINA_STAMINA":  { img: "../public/monsters/light/LIFE_STAMINA_STAMINA_不屈のアルパカ.webp",            name: "不屈のアルパカ" },
+  "LIFE_STAMINA_LIFE":     { img: "../public/monsters/light/LIFE_STAMINA_LIFE_陽だまりのカピバラ.webp",           name: "陽だまりのカピバラ" },
+  "LIFE_LIFE_STUDY":       { img: "../public/monsters/light/LIFE_LIFE_STUDY_パティシエ・レッサーパンダ.webp",     name: "パティシエ・レッサーパンダ" },
+  "LIFE_LIFE_STAMINA":     { img: "../public/monsters/light/LIFE_LIFE_STAMINA_大鍋のゾウさん.webp",               name: "大鍋のゾウさん" },
+  "LIFE_LIFE_LIFE":        { img: "../public/monsters/light/LIFE_LIFE_LIFE_慈愛の聖母ラム.webp",                  name: "慈愛の聖母ラム" },
+};
+
+const EMOJI = { STUDY: "📚", STAMINA: "💪", LIFE: "🌿" };
+const CAT_NAME = { STUDY: "学力", STAMINA: "体力", LIFE: "生活力" };
+const STAGE1 = ["STUDY", "STAMINA", "LIFE"];
+
+// ── 状態 ─────────────────────────────────────────────
+let currentSide = "DARK";
+let openS1 = null;    // 展開中のStage1パス
+let openS2 = null;    // 展開中のStage2パス
+
+// ── パスエモジ変換 ────────────────────────────────────
+function pathEmojis(path) {
+  return path.split("_").map(s => EMOJI[s] || "❓").join("›");
+}
+
+// ── 子パスを取得 ─────────────────────────────────────
+function children(parentPath) {
+  const table = currentSide === "LIGHT" ? LIGHT : DARK;
+  const allKeys = Object.keys(table);
+  if (parentPath === "") return allKeys.filter(k => k.split("_").length === 1);
+  const depth = parentPath.split("_").length;
+  return allKeys.filter(k => k.startsWith(parentPath + "_") && k.split("_").length === depth + 1);
+}
+
+// ── カードHTML ───────────────────────────────────────
+function cardHtml(path, { extraClass = "", onclick = "", showArrow = false } = {}) {
+  const table = currentSide === "LIGHT" ? LIGHT : DARK;
+  const m = table[path];
+  const emojis = pathEmojis(path);
+  const isOpen = (path === openS1 || path === openS2);
+  const openClass = isOpen ? " open" : "";
+  const arrow = (showArrow && isOpen) ? `<div class="open-indicator">▾</div>` : (showArrow ? `<div class="open-indicator" style="opacity:0.3">▸</div>` : "");
+  return `
+    <div class="card${extraClass}${openClass}" onclick="${onclick}">
+      <div class="path-emojis">${emojis}</div>
+      <img src="${m.img}" alt="${m.name}" onerror="this.style.opacity='0.2';this.src=''">
+      <div class="name">${m.name}</div>
+      ${arrow}
+    </div>`;
+}
+
+// ── ツリー描画 ───────────────────────────────────────
+function render() {
+  const table = currentSide === "LIGHT" ? LIGHT : DARK;
+  const eggSrc = currentSide === "LIGHT"
+    ? "../public/monsters/light/egg.webp"
+    : "../public/monsters/egg.webp";
+
+  let html = `
+  <div class="egg-node">
+    <div class="egg-card">
+      <img src="${eggSrc}" alt="たまご" onerror="this.style.opacity='0.2'">
+      <div class="egg-label">🥚 たまご</div>
+    </div>
+    <div class="connector-v"></div>
+    <div class="connector-h"><div class="line"></div><div class="line"></div></div>
+  </div>
+
+  <div class="stage1-row">`;
+
+  for (const s1 of STAGE1) {
+    html += cardHtml(s1, {
+      onclick: `toggleS1('${s1}')`,
+      showArrow: true,
+    });
+  }
+
+  html += `</div>`;
+
+  // Stage 2 パネル
+  if (openS1) {
+    const s2keys = children(openS1);
+    html += `
+    <div class="stage2-panel open">
+      <div class="stage2-label">▸ Stage 2 — ${CAT_NAME[openS1] || openS1} 系</div>
+      <div class="stage2-grid">`;
+    for (const s2 of s2keys) {
+      html += cardHtml(s2, {
+        onclick: `toggleS2('${s2}')`,
+        showArrow: true,
+      });
+    }
+    html += `</div>`;
+
+    // Stage 3 パネル
+    if (openS2) {
+      const s3keys = children(openS2);
+      html += `
+      <div class="stage3-panel open">
+        <div class="stage3-label">▸ Stage 3 — 最終形態</div>
+        <div class="stage3-grid">`;
+      for (const s3 of s3keys) {
+        html += cardHtml(s3, { extraClass: " final" });
+      }
+      html += `</div></div>`;
+    }
+
+    html += `</div>`;
+  }
+
+  document.getElementById("tree-root").innerHTML = html;
+}
+
+// ── イベント ─────────────────────────────────────────
+function toggleS1(path) {
+  if (openS1 === path) { openS1 = null; openS2 = null; }
+  else { openS1 = path; openS2 = null; }
+  render();
+}
+function toggleS2(path) {
+  openS2 = openS2 === path ? null : path;
+  render();
+}
+function setSide(side, el) {
+  currentSide = side;
+  openS1 = null; openS2 = null;
+  document.querySelectorAll(".side-tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  render();
+}
+
+// ── 初期描画 ─────────────────────────────────────────
+render();
+</script>
 </body>
 </html>
