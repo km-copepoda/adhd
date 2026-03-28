@@ -14,7 +14,7 @@ export async function GET() {
   const quests = await prisma.questInstance.findMany({
     where: {
       status: { in: ["APPROVED", "SKIPPED"] },
-      approvedAt: {
+      reportedAt: {
         gte: start,
         lt: end,
       },
@@ -28,7 +28,7 @@ export async function GET() {
         select: { title: true, emoji: true, category: true, difficulty: true, isTemporary: true },
       },
     },
-    orderBy: { approvedAt: "desc" },
+    orderBy: { reportedAt: "desc" },
   });
 
   return NextResponse.json(quests);
