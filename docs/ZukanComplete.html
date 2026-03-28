@@ -85,7 +85,9 @@
   .s1-feature img { width: 72px; height: 72px; object-fit: contain; flex-shrink: 0; }
   .s1-feature .info { flex: 1; }
   .s1-feature .s1-name { font-size: 15px; font-weight: bold; color: #e2d5b0; }
-  .s1-feature .s1-path { font-size: 11px; color: #9a8c6e; margin-top: 2px; }
+  .s1-feature .s1-path { margin-top: 4px; }
+  .s1-feature .s1-path .path-chips { justify-content: flex-start; }
+  .s1-feature .s1-path .chip { font-size: 15px; width: 28px; height: 28px; border-radius: 8px; }
   .s1-feature .s1-desc { font-size: 9.5px; color: #6b5f45; margin-top: 5px; line-height: 1.5; }
   .s1-feature .stage-badge {
     font-size: 9px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
@@ -102,19 +104,36 @@
   }
   .s2s3-row:last-child { border-bottom: none; }
 
+  /* ── 進化パスチップ（色付きバッジ） */
+  .path-chips {
+    display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: center;
+  }
+  .chip {
+    font-size: 13px; width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 7px; flex-shrink: 0;
+  }
+  .chip.study   { background: rgba(96,165,250,.22); box-shadow: 0 0 0 1px rgba(96,165,250,.3); }
+  .chip.stamina { background: rgba(248,113,113,.22); box-shadow: 0 0 0 1px rgba(248,113,113,.3); }
+  .chip.life    { background: rgba(74,222,128,.22);  box-shadow: 0 0 0 1px rgba(74,222,128,.3); }
+  .chip-arrow   { font-size: 9px; color: rgba(107,95,69,.45); }
+
+  /* S3用：チップを一回り小さく */
+  .path-chips.sm .chip   { font-size: 10px; width: 18px; height: 18px; border-radius: 5px; }
+  .path-chips.sm .chip-arrow { font-size: 7px; }
+
   /* S2カード */
   .s2-card {
-    flex-shrink: 0; width: 72px;
+    flex-shrink: 0; width: 76px;
     background: #1a1829; border: 1px solid #2e2a42; border-radius: 10px;
     padding: 6px 4px 5px;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
   }
-  .s2-card img { width: 52px; height: 52px; object-fit: contain; }
+  .s2-card img { width: 50px; height: 50px; object-fit: contain; }
   .s2-card .name { font-size: 9px; color: #c9bfa0; text-align: center; line-height: 1.3; }
-  .s2-card .path { font-size: 8px; color: #6b5f45; letter-spacing: .5px; }
 
   /* 矢印 */
-  .s2s3-arrow { color: rgba(107,95,69,.5); font-size: 12px; margin-top: 22px; flex-shrink: 0; }
+  .s2s3-arrow { color: rgba(107,95,69,.5); font-size: 12px; margin-top: 26px; flex-shrink: 0; }
 
   /* S3グリッド（3枚） */
   .s3-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
@@ -123,12 +142,11 @@
     background: linear-gradient(160deg, #1e1a2e, #1a1829);
     border: 1px solid #3d3450; border-radius: 9px;
     padding: 5px 3px 4px;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
     position: relative;
   }
   .s3-card img { width: 100%; aspect-ratio: 1; object-fit: contain; }
   .s3-card .name { font-size: 8px; color: #c9bfa0; text-align: center; line-height: 1.2; }
-  .s3-card .path { font-size: 7px; color: #4b4060; letter-spacing: .5px; }
 
   /* ─── 収集済みグロー */
   .collected.s2-card { border-color: rgba(251,191,36,.28); }
@@ -285,7 +303,17 @@ const STAGE1 = ["STUDY","STAMINA","LIFE"];
 
 let side = "DARK";
 
-function pe(path){ return path.split("_").map(s=>EMOJI[s]||"?").join("›"); }
+// 色付きチップHTML（size: "" | "sm"）
+function chips(path, size=""){
+  const parts = path.split("_");
+  const cls = size ? `path-chips ${size}` : "path-chips";
+  const inner = parts.map((s,i)=>{
+    const cat = s.toLowerCase();
+    return (i>0?`<span class="chip-arrow">›</span>`:"") +
+           `<span class="chip ${cat}">${EMOJI[s]||"?"}</span>`;
+  }).join("");
+  return `<div class="${cls}">${inner}</div>`;
+}
 function ch(parent){
   const keys=Object.keys(DATA[side].monsters);
   if(!parent) return keys.filter(k=>k.split("_").length===1);
@@ -312,7 +340,7 @@ function render(){
         <img src="${m1.img}" alt="${m1.name}" onerror="this.style.opacity='.15'">
         <div class="info">
           <div class="s1-name">${m1.name}</div>
-          <div class="s1-path">${pe(s1)}</div>
+          <div class="s1-path">${chips(s1)}</div>
           <div class="s1-desc">${m1.desc||""}</div>
           <div class="stage-badge">Stage 1</div>
         </div>
@@ -325,7 +353,7 @@ function render(){
       html+=`
         <div class="s2s3-row">
           <div class="s2-card collected">
-            <div class="path">${pe(s2)}</div>
+            ${chips(s2)}
             <img src="${m2.img}" alt="${m2.name}" onerror="this.style.opacity='.15'">
             <div class="name">${m2.name}</div>
           </div>
@@ -336,7 +364,7 @@ function render(){
         const m3=d.monsters[s3];
         html+=`
             <div class="s3-card collected">
-              <div class="path">${pe(s3)}</div>
+              ${chips(s3,"sm")}
               <img src="${m3.img}" alt="${m3.name}" onerror="this.style.opacity='.15'">
               <div class="name">${m3.name}</div>
             </div>`;
