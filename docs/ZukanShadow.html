@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=375, initial-scale=1">
+<title>図鑑 — 未収集モンスター影パターン比較</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0d14;
+    color: #e2d5b0;
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 12px 60px;
+  }
+  .phone { width: 375px; }
+
+  h1 { font-size: 16px; color: #fbbf24; text-align: center; margin-bottom: 4px; letter-spacing: .1em; }
+  .sub { font-size: 10px; color: #9a8c6e; text-align: center; margin-bottom: 20px; }
+
+  /* ── セクション見出し ── */
+  .section-title {
+    font-size: 11px; font-weight: bold; letter-spacing: .1em;
+    color: #9a8c6e; margin: 20px 0 10px;
+    padding-left: 6px; border-left: 2px solid #9a8c6e;
+  }
+
+  /* ── パターン比較タイル ── */
+  .variants { display: flex; gap: 10px; flex-wrap: wrap; }
+  .variant {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; width: 80px;
+  }
+  .variant-label { font-size: 9px; color: #9a8c6e; text-align: center; line-height: 1.3; }
+
+  /* カード共通 */
+  .card {
+    width: 76px; background: #1a1829; border: 1px solid #2e2a42;
+    border-radius: 10px; padding: 6px 4px 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .card img { width: 50px; height: 50px; object-fit: contain; }
+  .card .name { font-size: 9px; color: #c9bfa0; text-align: center; }
+  .card.collected { border-color: rgba(251,191,36,.28); }
+
+  /* ── 未収集バリアント ── */
+
+  /* A: 現状（低透明度 + ???） */
+  .var-a img   { opacity: .2; }
+  .var-a .name { color: rgba(201,191,160,.3); }
+
+  /* B: シルエット（純黒） */
+  .var-b img   { filter: brightness(0); }
+  .var-b .name { color: rgba(201,191,160,.3); }
+
+  /* C: シルエット + 薄い紫ティント */
+  .var-c img   { filter: brightness(0) sepia(1) hue-rotate(220deg) saturate(3) brightness(.4); }
+  .var-c .name { color: rgba(201,191,160,.3); }
+
+  /* D: シルエット（暗い灰、輪郭だけ見える） */
+  .var-d img   { filter: brightness(0) invert(.12); }
+  .var-d .name { color: rgba(201,191,160,.3); }
+
+  /* E: ぼかし */
+  .var-e img   { filter: blur(3px) brightness(.3); }
+  .var-e .name { color: rgba(201,191,160,.3); }
+
+  /* ── 学力系ブランチサンプル（混在表示） ── */
+  .branch {
+    margin-top: 24px; border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(96,165,250,.2);
+  }
+  .branch-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; font-size: 12px; font-weight: bold; letter-spacing: .08em;
+    background: rgba(96,165,250,.12); color: #93c5fd;
+    border-bottom: 1px solid rgba(96,165,250,.2);
+  }
+  .branch-hdr .prog { font-size: 10px; opacity: .7; font-weight: normal; }
+
+  /* S1 feature */
+  .s1-feature {
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px 10px;
+    background: #1a1829; border-bottom: 1px solid #1e1c2e;
+  }
+  .s1-left { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+  .s1-feature img { width: 88px; height: 88px; object-fit: contain; }
+  .s1-name { font-size: 11px; color: #c9bfa0; text-align: center; }
+  .s2-preview { flex: 1; display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+
+  /* path chips */
+  .path-chips { display: flex; align-items: center; gap: 1px; flex-wrap: nowrap; overflow: hidden; }
+  .chip {
+    font-size: 11px; width: 18px; height: 18px; display: flex;
+    align-items: center; justify-content: center; border-radius: 5px; flex-shrink: 0;
+  }
+  .chip.study   { background: rgba(96,165,250,.22); box-shadow: 0 0 0 1px rgba(96,165,250,.3); }
+  .chip.stamina { background: rgba(248,113,113,.22); box-shadow: 0 0 0 1px rgba(248,113,113,.3); }
+  .chip.life    { background: rgba(74,222,128,.22);  box-shadow: 0 0 0 1px rgba(74,222,128,.3); }
+  .chip-arrow   { font-size: 9px; color: rgba(154,140,110,.75); }
+  .path-chips.sm .chip { font-size: 9px; width: 15px; height: 15px; border-radius: 4px; }
+  .path-chips.sm .chip-arrow { font-size: 7px; }
+
+  /* S2 + S3 */
+  .s2s3-rows { background: #14131f; }
+  .s2s3-row {
+    display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px;
+    border-bottom: 1px solid rgba(30,28,46,.8);
+  }
+  .s2s3-row:last-child { border-bottom: none; }
+  .s2-card {
+    flex-shrink: 0; width: 76px; background: #1a1829; border: 1px solid #2e2a42;
+    border-radius: 10px; padding: 6px 4px 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .s2-card.collected { border-color: rgba(251,191,36,.28); }
+  .s2-card img { width: 50px; height: 50px; object-fit: contain; }
+  .s2-card .name { font-size: 9px; color: #c9bfa0; text-align: center; line-height: 1.3; }
+  .s2s3-arrow { color: rgba(107,95,69,.5); font-size: 12px; margin-top: 26px; flex-shrink: 0; }
+  .s3-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .s3-card {
+    background: linear-gradient(160deg, #1e1a2e, #1a1829);
+    border: 1px solid #3d3450; border-radius: 9px;
+    padding: 5px 3px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .s3-card.collected { border-color: rgba(139,92,246,.35); }
+  .s3-card img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+  .s3-card .name { font-size: 8px; color: #c9bfa0; text-align: center; line-height: 1.2; }
+
+  /* 未収集スタイル（Cパターン採用想定） */
+  .uncollected img { filter: brightness(0) sepia(1) hue-rotate(220deg) saturate(3) brightness(.4); }
+  .uncollected .name { color: rgba(201,191,160,.3) !important; }
+  .uncollected .name::before { content: "？"; }
+
+  /* 凡例 */
+  .legend { font-size: 10px; color: #9a8c6e; margin-top: 16px; padding: 8px 10px; background: #1a1829; border-radius: 8px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <h1>🔍 未収集モンスター — 影パターン比較</h1>
+  <p class="sub">同じモンスター画像で各スタイルを確認</p>
+
+  <div class="section-title">パターン比較（S2カードサイズ）</div>
+  <div class="variants">
+    <div class="variant">
+      <div class="card collected">
+        <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="">
+        <div class="name">ライブラ</div>
+      </div>
+      <div class="variant-label">✅ 収集済み<br>（基準）</div>
+    </div>
+    <div class="variant">
+      <div class="card var-a">
+        <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="">
+        <div class="name">？？？</div>
+      </div>
+      <div class="variant-label">A: 低透明度<br>（現状）</div>
+    </div>
+    <div class="variant">
+      <div class="card var-b">
+        <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="">
+        <div class="name">？？？</div>
+      </div>
+      <div class="variant-label">B: 純黒<br>シルエット</div>
+    </div>
+    <div class="variant">
+      <div class="card var-c">
+        <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="">
+        <div class="name">？？？</div>
+      </div>
+      <div class="variant-label">C: 紫ティント<br>シルエット</div>
+    </div>
+  </div>
+
+  <div class="variants" style="margin-top: 10px">
+    <div class="variant">
+      <div class="card var-d">
+        <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="">
+        <div class="name">？？？</div>
+      </div>
+      <div class="variant-label">D: 暗灰色<br>（輪郭薄見え）</div>
+    </div>
+    <div class="variant">
+      <div class="card var-e">
+        <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="">
+        <div class="name">？？？</div>
+      </div>
+      <div class="variant-label">E: ぼかし<br>＋暗</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    A 現状: opacity 0.2 のみ → 色が透けて見えてしまう<br>
+    B 純黒: <code>brightness(0)</code> → くっきり影、正体不明感強い<br>
+    C 紫ティント: 黒シルエット＋紫に染色 → ゲームっぽい神秘感<br>
+    D 暗灰: シルエットが薄く輪郭だけ見える → ほんのり正体がわかる<br>
+    E ぼかし: ぼんやり → 正体が全然わからない
+  </div>
+
+  <!-- ── 実際のブランチ内での見え方（Cパターン想定） ── -->
+  <div class="section-title">実際のレイアウト内での見え方（Cパターン採用案）</div>
+
+  <div class="branch">
+    <div class="branch-hdr">
+      <span>📚 学力系</span>
+      <span class="prog">5 / 13 体</span>
+    </div>
+
+    <!-- S1 収集済み -->
+    <div class="s1-feature">
+      <div class="s1-left">
+        <img src="../public/monsters/STUDY_ラーン.webp" alt="ラーン"
+          style="filter: drop-shadow(0 0 14px rgba(96,165,250,.5))"
+          onerror="this.style.opacity='.15'">
+        <div class="s1-name">ラーン</div>
+      </div>
+      <div class="s2-preview">
+        <div class="path-chips"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip study">📚</span></div>
+        <div class="path-chips"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span></div>
+        <div class="path-chips"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip life">🌿</span></div>
+      </div>
+    </div>
+
+    <div class="s2s3-rows">
+      <!-- 行1: S2収集済み、S3は2体収集・1体未収集 -->
+      <div class="s2s3-row">
+        <div class="s2-card collected">
+          <div class="path-chips"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip study">📚</span></div>
+          <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="" onerror="this.style.opacity='.15'">
+          <div class="name">ライブラ</div>
+        </div>
+        <div class="s2s3-arrow">›</div>
+        <div class="s3-grid">
+          <div class="s3-card collected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip study">📚</span></div>
+            <img src="../public/monsters/STUDY_STUDY_STUDY_ウィズダム.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name">ウィズダム</div>
+          </div>
+          <div class="s3-card collected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span></div>
+            <img src="../public/monsters/STUDY_STUDY_STAMINA_タクティクス.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name">タクティクス</div>
+          </div>
+          <!-- 未収集 -->
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip life">🌿</span></div>
+            <img src="../public/monsters/STUDY_STUDY_LIFE_エジソン.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行2: S2未収集、S3全員未収集 -->
+      <div class="s2s3-row">
+        <div class="s2-card uncollected">
+          <div class="path-chips"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span></div>
+          <img src="../public/monsters/STUDY_STAMINA_アーマード.webp" alt="" onerror="this.style.opacity='.15'">
+          <div class="name"></div>
+        </div>
+        <div class="s2s3-arrow">›</div>
+        <div class="s3-grid">
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span><span class="chip-arrow">→</span><span class="chip study">📚</span></div>
+            <img src="../public/monsters/STUDY_STAMINA_STUDY_フォート.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span></div>
+            <img src="../public/monsters/STUDY_STAMINA_STAMINA_イージス.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span><span class="chip-arrow">→</span><span class="chip life">🌿</span></div>
+            <img src="../public/monsters/STUDY_STAMINA_LIFE_レスキュー.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 行3: S2収集済み、S3全員未収集 -->
+      <div class="s2s3-row">
+        <div class="s2-card collected">
+          <div class="path-chips"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip life">🌿</span></div>
+          <img src="../public/monsters/STUDY_LIFE_クリン.webp" alt="" onerror="this.style.opacity='.15'">
+          <div class="name">クリン</div>
+        </div>
+        <div class="s2s3-arrow">›</div>
+        <div class="s3-grid">
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip life">🌿</span><span class="chip-arrow">→</span><span class="chip study">📚</span></div>
+            <img src="../public/monsters/STUDY_LIFE_STUDY_マイスター.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip life">🌿</span><span class="chip-arrow">→</span><span class="chip stamina">💪</span></div>
+            <img src="../public/monsters/STUDY_LIFE_STAMINA_スリープ.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+          <div class="s3-card uncollected">
+            <div class="path-chips sm"><span class="chip study">📚</span><span class="chip-arrow">→</span><span class="chip life">🌿</span><span class="chip-arrow">→</span><span class="chip life">🌿</span></div>
+            <img src="../public/monsters/STUDY_LIFE_LIFE_セバス.webp" alt="" onerror="this.style.opacity='.15'">
+            <div class="name"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -392,6 +392,21 @@ export const REJECTION_REASONS: Record<Category, string[]> = {
   ],
 };
 
+// ─── 進化ツリー ───────────────────────────────────────
+/** 指定パスの直接の進化先（子ノード）を返す。
+ *  parentPath="" → Stage1の3体, "STUDY" → Stage2の3体, "STUDY_STAMINA" → Stage3の3体, Stage3 → []
+ */
+export function getEvolutionChildren(parentPath: string): string[] {
+  const allKeys = Object.keys(MONSTER_TABLE);
+  if (parentPath === "") {
+    return allKeys.filter((k) => k.split("_").length === 1);
+  }
+  const depth = parentPath.split("_").length;
+  return allKeys.filter(
+    (k) => k.startsWith(parentPath + "_") && k.split("_").length === depth + 1
+  );
+}
+
 // Generate 4-digit child code (ユーザーコード)
 export function generateChildCode(): string {
   const digits = "0123456789";
