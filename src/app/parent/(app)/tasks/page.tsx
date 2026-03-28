@@ -285,8 +285,8 @@ export default function TasksPage() {
         {/* Photo bonus toggle */}
         <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
           <div className="flex-1 min-w-0">
-            <p className="text-quest-text text-sm">📷 写真ボーナスを設定</p>
-            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると、写真を添付した報告に +1pt ボーナス</p>
+            <p className="text-quest-text text-sm">📷 写真添付を有効にする</p>
+            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると報告時に写真を添付できる（添付すると +1pt）</p>
           </div>
           <button
             onClick={() => setForm((f) => ({ ...f, photoBonus: !f.photoBonus }))}

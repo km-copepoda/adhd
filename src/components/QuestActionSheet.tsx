@@ -182,42 +182,40 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                 </div>
               </div>
 
-              {/* Photo upload section */}
-              <div className="mb-3">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`w-full rounded-xl border-2 border-dashed transition-colors py-3 flex flex-col items-center gap-1 ${
-                    photoPreview
-                      ? "border-blue-400/50 bg-blue-400/5"
-                      : photoBonus
-                      ? "border-blue-400/40 bg-blue-400/5"
-                      : "border-quest-border/50 hover:border-quest-border"
-                  }`}
-                >
-                  {photoPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photoPreview} alt="プレビュー" className="max-h-40 rounded-lg object-contain" />
-                  ) : (
-                    <>
-                      <span className="text-2xl">📷</span>
-                      <span className="text-xs text-quest-dim">
-                        {photoBonus ? "写真を追加（+1pt）" : "写真を追加（任意）"}
-                      </span>
-                    </>
+              {/* Photo upload section — only shown when photoBonus is enabled */}
+              {photoBonus && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`w-full rounded-xl border-2 border-dashed transition-colors py-3 flex flex-col items-center gap-1 ${
+                      photoPreview
+                        ? "border-blue-400/50 bg-blue-400/5"
+                        : "border-blue-400/40 bg-blue-400/5"
+                    }`}
+                  >
+                    {photoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreview} alt="プレビュー" className="max-h-40 rounded-lg object-contain" />
+                    ) : (
+                      <>
+                        <span className="text-2xl">📷</span>
+                        <span className="text-xs text-quest-dim">写真を追加（+1pt）</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handlePhotoSelect}
+                  />
+                  {uploadError && (
+                    <p className="text-xs text-red-400 mt-1 text-center">{uploadError}</p>
                   )}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handlePhotoSelect}
-                />
-                {uploadError && (
-                  <p className="text-xs text-red-400 mt-1 text-center">{uploadError}</p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Complete button */}
               <button

@@ -160,17 +160,21 @@ describe("DELETE /api/tasks/[id]", () => {
     mockPrisma.taskTemplate.findUnique.mockResolvedValue({
       id: "t1",
       createdBy: "CHILD",
-      difficulty: "NORMAL", // XP=3
+      photoBonus: false,
       category: "STUDY",
       quests: [
         {
           id: "q1",
           status: "REPORTED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
           child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
         },
         {
           id: "q2",
           status: "APPROVED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
           child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
         },
       ],
@@ -184,12 +188,12 @@ describe("DELETE /api/tasks/[id]", () => {
     const json = await res.json();
 
     expect(json.ok).toBe(true);
-    // XP差し引き: STUDY -3 (NORMAL difficulty)
+    // XP差し引き: base 1pt のみ（deadlineBonusEarned=false, photoBonus=false）
     expect(mockPrisma.user.update).toHaveBeenCalledTimes(2);
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: "child-1" },
       data: {
-        studyPt: 7, // 10 - 3
+        studyPt: 9, // 10 - 1
         staminaPt: 5,
         lifePt: 3,
       },
