@@ -203,7 +203,7 @@ export default function MonsterPage() {
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
             <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(139,92,246,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>
+              {data ? (() => { const egg = getMonsterStage(0, "", data.side); return "image" in egg ? <Image src={egg.image} alt="たまご" width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
             </div>
           </div>
           <p className="font-serif text-purple-400 text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(139,92,246,0.8)" }}>

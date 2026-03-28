@@ -39,7 +39,8 @@ export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, null];
 export const REBIRTH_THRESHOLD = 20;
 
 // ─── たまご ───────────────────────────────────────────
-export const EGG_STAGE = { emoji: "🥚", name: "たまご", ptToEvolve: 1 };
+export const EGG_STAGE = { image: "/monsters/egg.webp", name: "たまご", ptToEvolve: 1 };
+export const EGG_STAGE_LIGHT = { image: "/monsters/light/egg.webp", name: "たまご", ptToEvolve: 1 };
 
 // ─── モンスターテーブル ───────────────────────────────
 // キー = 進化パス履歴（"STUDY" = stage1、"STUDY_LIFE" = stage2、等）
@@ -142,7 +143,7 @@ export const MONSTER_TABLE_LIGHT: typeof MONSTER_TABLE = {
 // evolutionStage=0 → 卵、1+ → MONSTER_TABLE[evolutionPath]
 // side="LIGHT" のときは MONSTER_TABLE_LIGHT を参照
 export function getMonsterStage(evolutionStage: number, evolutionPath: string, side?: string | null) {
-  if (evolutionStage <= 0) return EGG_STAGE;
+  if (evolutionStage <= 0) return side === "LIGHT" ? EGG_STAGE_LIGHT : EGG_STAGE;
 
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
   const ptToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
