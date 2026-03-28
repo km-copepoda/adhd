@@ -114,7 +114,8 @@ export default function MonsterPage() {
   }
 
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
-  const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt);
+  const isReborn = (JSON.parse(data.collectedPaths) as string[]).length > 0;
+  const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt, isReborn);
   const monster = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
