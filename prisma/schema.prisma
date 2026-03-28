@@ -39,12 +39,13 @@ enum QuestStatus {
 }
 
 model Family {
-  id               String         @id @default(cuid())
-  code             String         @unique
-  createdAt        DateTime       @default(now())
-  autoApproveTime  String         @default("24:00")
-  users            User[]
-  tasks            TaskTemplate[]
+  id                 String         @id @default(cuid())
+  code               String         @unique
+  createdAt          DateTime       @default(now())
+  autoApproveTime    String         @default("24:00")
+  reportDeadlineTime String?
+  users              User[]
+  tasks              TaskTemplate[]
 }
 
 model User {
@@ -89,7 +90,7 @@ model TaskTemplate {
   requestedDate    DateTime?       @db.Date
   familyId         String
   family           Family          @relation(fields: [familyId], references: [id])
-  requirePhoto     Boolean         @default(false)
+  photoBonus       Boolean         @default(false)
   assignedChildId  String?
   assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests           QuestInstance[]
@@ -105,8 +106,9 @@ model QuestInstance {
   date             DateTime     @db.Date
   status           QuestStatus  @default(PENDING)
   comment          String?
-  photoUrl         String?
-  rejectionReason  String?
+  photoUrl            String?
+  deadlineBonusEarned Boolean   @default(false)
+  rejectionReason     String?
   templateId       String
   template   TaskTemplate @relation(fields: [templateId], references: [id])
   childId    String

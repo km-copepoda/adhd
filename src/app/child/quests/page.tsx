@@ -21,7 +21,7 @@ type Quest = {
     difficulty: Difficulty;
     isTemporary: boolean;
     createdBy: string;
-    requirePhoto: boolean;
+    photoBonus: boolean;
     taskStreaks: { currentStreak: number; bestStreak: number }[];
   };
 };

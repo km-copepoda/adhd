@@ -142,7 +142,7 @@ describe("POST /api/tasks", () => {
         isTemporary: false,
         targetDate: null,
         requestedDate: null,
-        requirePhoto: false,
+        photoBonus: false,
         createdBy: "PARENT",
         familyId: "fam-1",
         assignedChildId: "child-1",
@@ -150,7 +150,7 @@ describe("POST /api/tasks", () => {
     });
   });
 
-  it("requirePhoto=true を指定してタスクを作成できること", async () => {
+  it("photoBonus=true を指定してタスクを作成できること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-photo" } as any);
 
@@ -162,12 +162,12 @@ describe("POST /api/tasks", () => {
         difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
         assignedChildId: "child-1",
-        requirePhoto: true,
+        photoBonus: true,
       })
     );
 
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ requirePhoto: true }),
+      data: expect.objectContaining({ photoBonus: true }),
     });
   });
 

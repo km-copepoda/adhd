@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { XP_MAP } from "@/lib/constants";
+import { isBeforeDeadline } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 
@@ -18,26 +18,53 @@ export async function POST(
   const { id } = await params;
   const { comment, photoUrl } = await request.json();
 
-  // クエストとテンプレート情報を取得
-  const quest = await prisma.questInstance.findUnique({
-    where: { id, childId: user.id },
-    include: { template: true },
-  });
+  const [quest, family] = await Promise.all([
+    prisma.questInstance.findUnique({
+      where: { id, childId: user.id },
+      include: { template: true },
+    }),
+    user.familyId
+      ? prisma.family.findUnique({
+          where: { id: user.familyId },
+          select: { reportDeadlineTime: true },
+        })
+      : null,
+  ]);
+
   if (!quest) {
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
-  if (quest.template.requirePhoto && !photoUrl) {
-    return NextResponse.json({ error: "このタスクには写真が必要です" }, { status: 400 });
+  const now = new Date();
+
+  // 期限ボーナス: 初回報告（PENDING→REPORTED）時のみ判定・設定
+  let deadlineBonusEarned: boolean | undefined;
+  if (quest.status === "PENDING") {
+    const deadlineTime = family?.reportDeadlineTime ?? null;
+    deadlineBonusEarned = deadlineTime
+      ? isBeforeDeadline(now, quest.date, deadlineTime)
+      : false;
   }
+  // 差し戻し後の再報告（REJECTED→REPORTED）では deadlineBonusEarned を変更しない
 
-  const xp = XP_MAP[quest.template.difficulty];
+  // プレビューXP計算（承認時に確定するが、報告時に暫定表示用）
+  const effectiveDeadlineBonus = deadlineBonusEarned ?? quest.deadlineBonusEarned;
   const category = quest.template.category;
+  let xp = 1;
+  if (effectiveDeadlineBonus) xp++;
+  if (quest.template.photoBonus && photoUrl) xp++;
 
-  // ステータスのみ更新（ポイント付与は承認時に行う）。再報告時は差し戻し理由をクリア
+  // ステータス更新。再報告時は差し戻し理由をクリア。deadlineBonusEarned は初回のみ設定
   await prisma.questInstance.update({
     where: { id },
-    data: { status: "REPORTED", comment, photoUrl: photoUrl ?? null, reportedAt: new Date(), rejectionReason: null },
+    data: {
+      status: "REPORTED",
+      comment,
+      photoUrl: photoUrl ?? null,
+      reportedAt: now,
+      rejectionReason: null,
+      ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
+    },
   });
 
   // 親に通知

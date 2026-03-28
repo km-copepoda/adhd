@@ -15,6 +15,15 @@ beforeEach(() => {
 describe("POST /api/quests/[id]/report", () => {
   const baseUser = childUser({ studyPt: 5, staminaPt: 3, lifePt: 1 });
 
+  const baseQuest = {
+    id: "q1",
+    childId: "child-1",
+    status: "PENDING",
+    date: new Date("2026-03-28T00:00:00.000Z"), // 2026-03-28 JST
+    deadlineBonusEarned: false,
+    template: { difficulty: "NORMAL", category: "STUDY", photoBonus: false },
+  };
+
   it("未認証の場合、401を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
     const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
@@ -34,11 +43,8 @@ describe("POST /api/quests/[id]/report", () => {
 
   it("クエスト報告でステータスがREPORTEDに更新されること", async () => {
     mockGetCurrentUser.mockResolvedValue({ ...baseUser } as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      template: { difficulty: "NORMAL", category: "STUDY" },
-    } as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+    mockPrisma.family.findUnique.mockResolvedValue(null); // 期限なし
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -48,7 +54,6 @@ describe("POST /api/quests/[id]/report", () => {
     const json = await res.json();
 
     expect(json.ok).toBe(true);
-    expect(json.xpAdded).toBe(3);
     expect(json.category).toBe("STUDY");
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
@@ -63,53 +68,170 @@ describe("POST /api/quests/[id]/report", () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
-  it("EASY難易度で1ptが返ること", async () => {
-    const user = childUser({ studyPt: 0, staminaPt: 0, lifePt: 0 });
-    mockGetCurrentUser.mockResolvedValue(user as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q2",
-      childId: "child-1",
-      template: { difficulty: "EASY", category: "STAMINA" },
-    } as any);
+  it("期限なしの場合、xpAdded=1（基本のみ）を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: null } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
-      makeRequest("/api/quests/q2/report", { comment: "" }),
-      makeParams("q2"),
+      makeRequest("/api/quests/q1/report", { comment: "" }),
+      makeParams("q1"),
     );
     const json = await res.json();
 
     expect(json.xpAdded).toBe(1);
-    expect(json.category).toBe("STAMINA");
   });
 
-  it("HARD難易度で5ptが返ること", async () => {
-    const user = childUser({ studyPt: 0, staminaPt: 0, lifePt: 0 });
-    mockGetCurrentUser.mockResolvedValue(user as any);
+  it("期限前に報告した場合、xpAdded=2でdeadlineBonusEarned=trueが保存されること", async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q4",
-      childId: "child-1",
-      template: { difficulty: "HARD", category: "LIFE" },
+      ...baseQuest,
+      status: "PENDING",
+      date: new Date("2026-03-28T00:00:00.000Z"),
     } as any);
+    // 現在時刻: 2026-03-28T09:30:00Z = 18:30 JST < 20:00 JST (期限前)
+    vi.setSystemTime(new Date("2026-03-28T09:30:00Z"));
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
-      makeRequest("/api/quests/q4/report", { comment: "" }),
-      makeParams("q4"),
+      makeRequest("/api/quests/q1/report", { comment: "" }),
+      makeParams("q1"),
     );
     const json = await res.json();
 
-    expect(json.xpAdded).toBe(5);
-    expect(json.category).toBe("LIFE");
+    expect(json.xpAdded).toBe(2);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: expect.objectContaining({
+        deadlineBonusEarned: true,
+      }),
+    });
+    vi.useRealTimers();
+  });
+
+  it("期限後に報告した場合、deadlineBonusEarned=falseが保存されること", async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      ...baseQuest,
+      status: "PENDING",
+      date: new Date("2026-03-28T00:00:00.000Z"),
+    } as any);
+    // 現在時刻: 2026-03-28T12:30:00Z = 21:30 JST > 20:00 JST (期限後)
+    vi.setSystemTime(new Date("2026-03-28T12:30:00Z"));
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const res = await POST(
+      makeRequest("/api/quests/q1/report", { comment: "" }),
+      makeParams("q1"),
+    );
+    const json = await res.json();
+
+    expect(json.xpAdded).toBe(1);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: expect.objectContaining({
+        deadlineBonusEarned: false,
+      }),
+    });
+    vi.useRealTimers();
+  });
+
+  it("差し戻し後の再報告ではdeadlineBonusEarnedを変更しないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      ...baseQuest,
+      status: "REJECTED",
+      deadlineBonusEarned: true, // 初回報告時に設定済み
+    } as any);
+    // 現在時刻は期限後
+    vi.setSystemTime(new Date("2026-03-28T12:30:00Z"));
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const res = await POST(
+      makeRequest("/api/quests/q1/report", { comment: "やり直した" }),
+      makeParams("q1"),
+    );
+    const json = await res.json();
+
+    // 差し戻し後なのでdeadlineBonusEarned=trueが維持される
+    expect(json.xpAdded).toBe(2); // 1基本 + 1期限(初回)
+    // updateにdeadlineBonusEarnedが含まれないこと（変更しない）
+    const updateCall = mockPrisma.questInstance.update.mock.calls[0][0];
+    expect(updateCall.data).not.toHaveProperty("deadlineBonusEarned");
+    vi.useRealTimers();
+  });
+
+  it("photoBonus=true かつ写真あり、xpAdded=2", async () => {
+    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      ...baseQuest,
+      template: { ...baseQuest.template, photoBonus: true },
+    } as any);
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: null } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
+    const res = await POST(
+      makeRequest("/api/quests/q1/report", { comment: "", photoUrl }),
+      makeParams("q1"),
+    );
+    const json = await res.json();
+
+    expect(json.xpAdded).toBe(2);
+  });
+
+  it("期限ボーナス+写真ボーナスで xpAdded=3", async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      ...baseQuest,
+      status: "PENDING",
+      date: new Date("2026-03-28T00:00:00.000Z"),
+      template: { ...baseQuest.template, photoBonus: true },
+    } as any);
+    vi.setSystemTime(new Date("2026-03-28T09:30:00Z")); // 18:30 JST (期限前)
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
+    const res = await POST(
+      makeRequest("/api/quests/q1/report", { comment: "", photoUrl }),
+      makeParams("q1"),
+    );
+    const json = await res.json();
+
+    expect(json.xpAdded).toBe(3);
+    vi.useRealTimers();
+  });
+
+  it("photoBonus=false の場合、写真があってもボーナスなし", async () => {
+    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      ...baseQuest,
+      template: { ...baseQuest.template, photoBonus: false },
+    } as any);
+    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: null } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const res = await POST(
+      makeRequest("/api/quests/q1/report", { comment: "", photoUrl: "https://example.com/photo.jpg" }),
+      makeParams("q1"),
+    );
+    const json = await res.json();
+
+    expect(json.xpAdded).toBe(1);
   });
 
   it("コメントなし（空文字）でも報告できること", async () => {
     mockGetCurrentUser.mockResolvedValue(baseUser as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q5",
-      childId: "child-1",
-      template: { difficulty: "NORMAL", category: "STUDY", requirePhoto: false },
+      ...baseQuest,
+      template: { ...baseQuest.template, photoBonus: false },
     } as any);
+    mockPrisma.family.findUnique.mockResolvedValue(null);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -128,64 +250,22 @@ describe("POST /api/quests/[id]/report", () => {
     });
   });
 
-  it("requirePhoto=true かつ photoUrl がない場合、400を返すこと", async () => {
+  it("写真なしでも報告できること（photoBonus=trueでも必須ではない）", async () => {
     mockGetCurrentUser.mockResolvedValue(baseUser as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q6",
-      childId: "child-1",
-      template: { difficulty: "NORMAL", category: "STUDY", requirePhoto: true },
+      ...baseQuest,
+      template: { ...baseQuest.template, photoBonus: true },
     } as any);
+    mockPrisma.family.findUnique.mockResolvedValue(null);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
-      makeRequest("/api/quests/q6/report", { comment: "" }),
+      makeRequest("/api/quests/q6/report", { comment: "やった" }),
       makeParams("q6"),
-    );
-    expect(res.status).toBe(400);
-    const json = await res.json();
-    expect(json.error).toBeTruthy();
-  });
-
-  it("requirePhoto=true かつ photoUrl が提供された場合、報告成功し photoUrl が保存されること", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q7",
-      childId: "child-1",
-      template: { difficulty: "NORMAL", category: "STUDY", requirePhoto: true },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-
-    const photoUrl = "https://example.com/storage/quest-photos/q7.jpg";
-    const res = await POST(
-      makeRequest("/api/quests/q7/report", { comment: "やった", photoUrl }),
-      makeParams("q7"),
-    );
-    const json = await res.json();
-
-    expect(json.ok).toBe(true);
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q7" },
-      data: expect.objectContaining({
-        status: "REPORTED",
-        photoUrl,
-      }),
-    });
-  });
-
-  it("requirePhoto=false かつ photoUrl がなくても報告できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q8",
-      childId: "child-1",
-      template: { difficulty: "EASY", category: "LIFE", requirePhoto: false },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-
-    const res = await POST(
-      makeRequest("/api/quests/q8/report", { comment: null }),
-      makeParams("q8"),
     );
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
+    expect(json.xpAdded).toBe(1); // 写真なしなのでボーナスなし
   });
 });

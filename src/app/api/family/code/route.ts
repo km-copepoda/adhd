@@ -29,6 +29,7 @@ export async function GET() {
 
     return NextResponse.json({
       code: family?.code,
+      reportDeadlineTime: family?.reportDeadlineTime ?? null,
       members,
     });
   } catch (e) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DIFFICULTY_LABEL, XP_MAP, DAY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABEL, DIFFICULTY_LABEL, DAY_LABELS } from "@/lib/constants";
 import type { Category, Difficulty } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
@@ -18,7 +18,7 @@ type Task = {
   requestedDate: string | null;
   isActive: boolean;
   createdBy: string;
-  requirePhoto: boolean;
+  photoBonus: boolean;
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
@@ -39,7 +39,7 @@ const defaultForm = (childId: string) => ({
   difficulty: "NORMAL" as Difficulty,
   repeatDays: [1, 2, 3, 4, 5] as number[],
   targetDate: "",
-  requirePhoto: false,
+  photoBonus: false,
   assignedChildId: childId,
 });
 
@@ -101,7 +101,7 @@ export default function TasksPage() {
           difficulty: form.difficulty,
           isTemporary: true,
           targetDate: form.targetDate || null,
-          requirePhoto: form.requirePhoto,
+          photoBonus: form.photoBonus,
           assignedChildId: form.assignedChildId,
         }
       : {
@@ -111,7 +111,7 @@ export default function TasksPage() {
           difficulty: form.difficulty,
           repeatDays: form.repeatDays,
           isTemporary: false,
-          requirePhoto: form.requirePhoto,
+          photoBonus: form.photoBonus,
           assignedChildId: form.assignedChildId,
         };
 
@@ -161,7 +161,7 @@ export default function TasksPage() {
       difficulty: task.difficulty,
       repeatDays: task.repeatDays,
       targetDate: task.targetDate ? task.targetDate.slice(0, 10) : "",
-      requirePhoto: task.requirePhoto,
+      photoBonus: task.photoBonus,
       assignedChildId: task.assignedChildId || "",
     });
     setFormMode(task.isTemporary ? "temporary" : "regular");
@@ -277,27 +277,26 @@ export default function TasksPage() {
                 }
               >
                 {label.name}
-                <span className="text-[10px] ml-1">+{XP_MAP[diff]}XP</span>
               </button>
             );
           })}
         </div>
 
-        {/* Photo required toggle */}
+        {/* Photo bonus toggle */}
         <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
           <div className="flex-1 min-w-0">
-            <p className="text-quest-text text-sm">📷 写真報告を必須にする</p>
-            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると、子供は写真なしで報告できません</p>
+            <p className="text-quest-text text-sm">📷 写真ボーナスを設定</p>
+            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると、写真を添付した報告に +1pt ボーナス</p>
           </div>
           <button
-            onClick={() => setForm((f) => ({ ...f, requirePhoto: !f.requirePhoto }))}
+            onClick={() => setForm((f) => ({ ...f, photoBonus: !f.photoBonus }))}
             className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 overflow-hidden ${
-              form.requirePhoto ? "bg-quest-gold" : "bg-quest-border"
+              form.photoBonus ? "bg-quest-gold" : "bg-quest-border"
             }`}
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                form.requirePhoto ? "translate-x-4" : "translate-x-0"
+                form.photoBonus ? "translate-x-4" : "translate-x-0"
               }`}
             />
           </button>

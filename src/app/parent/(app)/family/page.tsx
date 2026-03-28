@@ -20,6 +20,7 @@ type Member = {
 
 type FamilyData = {
   code: string;
+  reportDeadlineTime: string | null;
   members: Member[];
 };
 
@@ -32,6 +33,8 @@ export default function FamilyPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
+  const [deadlineTime, setDeadlineTime] = useState<string>("");
+  const [savingDeadline, setSavingDeadline] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -45,7 +48,12 @@ export default function FamilyPage() {
         }
         return data;
       })
-      .then((data) => { if (data) setFamily(data); })
+      .then((data) => {
+        if (data) {
+          setFamily(data);
+          setDeadlineTime(data.reportDeadlineTime ?? "");
+        }
+      })
       .catch((e) => console.error("Failed to fetch family:", e))
       .finally(() => setLoading(false));
   }
@@ -97,6 +105,19 @@ export default function FamilyPage() {
       }
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleSaveDeadline() {
+    setSavingDeadline(true);
+    try {
+      await fetch("/api/family/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportDeadlineTime: deadlineTime.trim() || null }),
+      });
+    } finally {
+      setSavingDeadline(false);
     }
   }
 
@@ -162,6 +183,35 @@ export default function FamilyPage() {
         <p className="text-quest-dim text-xs mt-3">
           子どものデバイスで「ファミリーコード」＋「ユーザーコード」を入力するとログインできます
         </p>
+      </div>
+
+      {/* Report deadline settings */}
+      <div className="bg-quest-card border border-quest-border rounded-xl p-6 mb-8">
+        <p className="text-quest-dim text-xs tracking-wider mb-1">報告期限（JST）</p>
+        <p className="text-quest-dim text-[11px] mb-3">期限内に報告すると +1pt ボーナス。空欄にすると期限なし。</p>
+        <div className="flex items-center gap-3">
+          <input
+            type="time"
+            value={deadlineTime}
+            onChange={(e) => setDeadlineTime(e.target.value)}
+            className="bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text focus:outline-none focus:border-quest-gold/30"
+          />
+          <button
+            onClick={handleSaveDeadline}
+            disabled={savingDeadline}
+            className="btn-gold text-sm px-4 py-2 disabled:opacity-50"
+          >
+            {savingDeadline ? "保存中..." : "保存"}
+          </button>
+          {deadlineTime && (
+            <button
+              onClick={() => { setDeadlineTime(""); }}
+              className="text-xs text-quest-dim hover:text-quest-text"
+            >
+              クリア
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Members */}

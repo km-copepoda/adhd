@@ -55,6 +55,20 @@ export function todayStringJST(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
+/**
+ * reportedAt が questDate の deadlineTime（JST）より前かどうかを判定する。
+ * questDate は todayJST() 形式（JST日付を UTC 0時として保存）。
+ * deadlineTime は "HH:mm" 形式（JST）。
+ * 期限ちょうど（===）は false（期限切れ）。
+ */
+export function isBeforeDeadline(reportedAt: Date, questDate: Date, deadlineTime: string): boolean {
+  const [hh, mm] = deadlineTime.split(":").map(Number);
+  // questDate は JST 日付の UTC 0時表現。実際の JST 0時は UTC -9h。
+  const startOfJstDayUTC = questDate.getTime() - JST_OFFSET_MS;
+  const deadlineUTC = startOfJstDayUTC + hh * 3600000 + mm * 60000;
+  return reportedAt.getTime() < deadlineUTC;
+}
+
 /** 期限切れでない表示可能な一時タスクかどうか */
 export function isVisibleTemporaryTask(
   task: { isTemporary: boolean; createdBy: string; completedToday: boolean; targetDate: string | null },
