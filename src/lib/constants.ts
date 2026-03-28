@@ -38,6 +38,10 @@ export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, null];
 // 最終形態（stage 3）でこのptを貯めると卵（stage 0）に転生する
 export const REBIRTH_THRESHOLD = 20;
 
+// ─── 転生後の孵化閾値 ────────────────────────────────
+// 転生後の卵（collectedPaths.length > 0）はこのptで孵化する（初回の1ptより長い）
+export const REBIRTH_EGG_THRESHOLD = 5;
+
 // ─── たまご ───────────────────────────────────────────
 export const EGG_STAGE = { image: "/monsters/egg.webp", name: "たまご", ptToEvolve: 1 };
 export const EGG_STAGE_LIGHT = { image: "/monsters/light/egg.webp", name: "たまご", ptToEvolve: 1 };
@@ -226,6 +230,7 @@ export function checkEvolution(
   studyPt: number,
   staminaPt: number,
   lifePt: number,
+  isReborn = false,
 ): {
   evolved: boolean;
   reborn: boolean;
@@ -236,7 +241,8 @@ export function checkEvolution(
   resetLife: number;
 } {
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
-  const threshold = EVOLUTION_THRESHOLDS[stageIdx];
+  const baseThreshold = EVOLUTION_THRESHOLDS[stageIdx];
+  const threshold = evolutionStage === 0 && isReborn ? REBIRTH_EGG_THRESHOLD : baseThreshold;
   const total = studyPt + staminaPt + lifePt;
 
   // 最終形態（stage 3）: 転生判定
@@ -297,10 +303,12 @@ export function getXpInfo(
   studyPt: number,
   staminaPt: number,
   lifePt: number,
+  isReborn = false,
 ) {
   const total = studyPt + staminaPt + lifePt;
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
-  const xpToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
+  const baseXp = EVOLUTION_THRESHOLDS[stageIdx];
+  const xpToEvolve = evolutionStage === 0 && isReborn ? REBIRTH_EGG_THRESHOLD : baseXp;
 
   return {
     totalPt: total,
