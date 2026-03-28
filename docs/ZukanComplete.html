@@ -77,16 +77,15 @@
 
   /* ── Stage1 フィーチャーカード */
   .s1-feature {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 12px 10px;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 14px 12px 12px;
     background: #1a1829;
     border-bottom: 1px solid #1e1c2e;
+    gap: 6px;
   }
-  .s1-feature img { width: 72px; height: 72px; object-fit: contain; flex-shrink: 0; }
-  .s1-feature .info { flex: 1; }
+  .s1-feature img { width: 80px; height: 80px; object-fit: contain; }
   .s1-feature .s1-name { font-size: 15px; font-weight: bold; color: #e2d5b0; }
-  .s1-feature .s1-path { margin-top: 4px; }
-  .s1-feature .s1-path .path-chips { justify-content: flex-start; }
+  .s1-feature .s1-path .path-chips { justify-content: center; }
   .s1-feature .s1-path .chip { font-size: 15px; width: 28px; height: 28px; border-radius: 8px; }
 
   /* ── Stage2 + Stage3 行 */
@@ -329,15 +328,13 @@ function render(){
     html+=`
     <div class="branch ${BRANCHCSS[s1]}">
       <div class="branch-hdr">
-        <span>${EMOJI[s1]} ${CATNAME[s1]}系 — Stage 1</span>
+        <span>${EMOJI[s1]} ${CATNAME[s1]}系</span>
         <span class="prog">13 / 13 体</span>
       </div>
       <div class="s1-feature collected">
         <img src="${m1.img}" alt="${m1.name}" onerror="this.style.opacity='.15'">
-        <div class="info">
-          <div class="s1-name">${m1.name}</div>
-          <div class="s1-path">${chips(s1)}</div>
-        </div>
+        <div class="s1-name">${m1.name}</div>
+        <div class="s1-path">${chips(s1)}</div>
       </div>
       <div class="s2s3-rows">`;
 
