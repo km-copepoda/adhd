@@ -77,16 +77,20 @@
 
   /* ── Stage1 フィーチャーカード */
   .s1-feature {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 14px 12px 12px;
+    display: flex; align-items: center;
+    padding: 12px 14px 10px;
     background: #1a1829;
     border-bottom: 1px solid #1e1c2e;
-    gap: 6px;
+    gap: 14px;
   }
-  .s1-feature img { width: 80px; height: 80px; object-fit: contain; }
-  .s1-feature .s1-name { font-size: 15px; font-weight: bold; color: #e2d5b0; }
-  .s1-feature .s1-path .path-chips { justify-content: center; }
-  .s1-feature .s1-path .chip { font-size: 15px; width: 28px; height: 28px; border-radius: 8px; }
+  .s1-feature img { width: 88px; height: 88px; object-fit: contain; flex-shrink: 0; }
+  .branch.study   .s1-feature img { filter: drop-shadow(0 0 14px rgba(96,165,250,.5)); }
+  .branch.stamina .s1-feature img { filter: drop-shadow(0 0 14px rgba(248,113,113,.5)); }
+  .branch.life    .s1-feature img { filter: drop-shadow(0 0 14px rgba(74,222,128,.5)); }
+  .s1-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .s1-name { font-size: 17px; font-weight: bold; color: #e2d5b0; }
+  .s1-evo  { font-size: 10px; color: #9a8c6e; margin-top: 1px; }
+  .s2-preview { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 
   /* ── Stage2 + Stage3 行 */
   .s2s3-rows { background: #14131f; }
@@ -333,8 +337,13 @@ function render(){
       </div>
       <div class="s1-feature collected">
         <img src="${m1.img}" alt="${m1.name}" onerror="this.style.opacity='.15'">
-        <div class="s1-name">${m1.name}</div>
-        <div class="s1-path">${chips(s1)}</div>
+        <div class="s1-info">
+          <div class="s1-name">${m1.name}</div>
+          <div class="s1-evo">⟶ 9 体に進化</div>
+          <div class="s2-preview">
+            ${s2keys.map(s2=>chips(s2)).join("")}
+          </div>
+        </div>
       </div>
       <div class="s2s3-rows">`;
 
