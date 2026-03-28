@@ -111,11 +111,11 @@
   .chip.study   { background: rgba(96,165,250,.22); box-shadow: 0 0 0 1px rgba(96,165,250,.3); }
   .chip.stamina { background: rgba(248,113,113,.22); box-shadow: 0 0 0 1px rgba(248,113,113,.3); }
   .chip.life    { background: rgba(74,222,128,.22);  box-shadow: 0 0 0 1px rgba(74,222,128,.3); }
-  .chip-arrow   { font-size: 9px; color: rgba(107,95,69,.45); }
+  .chip-arrow   { font-size: 12px; color: rgba(154,140,110,.75); line-height: 1; }
 
   /* S3用：チップを一回り小さく */
   .path-chips.sm .chip   { font-size: 10px; width: 18px; height: 18px; border-radius: 5px; }
-  .path-chips.sm .chip-arrow { font-size: 7px; }
+  .path-chips.sm .chip-arrow { font-size: 9px; }
 
   /* S2カード */
   .s2-card {
@@ -304,7 +304,7 @@ function chips(path, size=""){
   const cls = size ? `path-chips ${size}` : "path-chips";
   const inner = parts.map((s,i)=>{
     const cat = s.toLowerCase();
-    return (i>0?`<span class="chip-arrow">›</span>`:"") +
+    return (i>0?`<span class="chip-arrow">→</span>`:"") +
            `<span class="chip ${cat}">${EMOJI[s]||"?"}</span>`;
   }).join("");
   return `<div class="${cls}">${inner}</div>`;
