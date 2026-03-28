@@ -138,7 +138,7 @@ export default function MonsterPage() {
           >
             <div style={{ animation: "evolveIn 0.5s ease-out" }}>
               <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-                {"image" in m ? <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>}
+                <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" />
               </div>
             </div>
             <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
@@ -172,7 +172,7 @@ export default function MonsterPage() {
           >
             <div style={{ animation: "evolveIn 0.5s ease-out" }}>
               <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-                {"image" in m ? <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl">{m.emoji}</span>}
+                <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" />
               </div>
             </div>
             <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
@@ -222,7 +222,7 @@ export default function MonsterPage() {
       {/* Monster hero */}
       <div className="flex flex-col items-center py-8 mb-6 rounded-2xl bg-gradient-to-b from-purple-950/30 to-transparent">
         <div className="w-56 h-56 animate-float mb-4 mx-auto" style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}>
-          {"image" in monster ? <Image src={monster.image} alt={monster.name} width={224} height={224} className="w-full h-full object-contain" /> : <span className="text-7xl">{monster.emoji}</span>}
+          <Image src={monster.image} alt={monster.name} width={224} height={224} className="w-full h-full object-contain" />
         </div>
         <p className="font-serif text-quest-gold text-xl tracking-wider">
           {data.name}
