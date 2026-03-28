@@ -27,7 +27,21 @@ type QuestWithRelations = {
 export async function approveQuestInstance(quest: QuestWithRelations): Promise<void> {
   const xp = XP_MAP[quest.template.difficulty];
   const category = quest.template.category;
-  const child = quest.child;
+
+  // 最新のchildデータをDBから取得（stale dataによるポイント上書きを防ぐ）
+  const child = await prisma.user.findUnique({
+    where: { id: quest.childId },
+    select: {
+      id: true,
+      evolutionStage: true,
+      evolutionPath: true,
+      collectedPaths: true,
+      studyPt: true,
+      staminaPt: true,
+      lifePt: true,
+    },
+  });
+  if (!child) throw new Error(`Child ${quest.childId} not found`);
 
   const newStudy = child.studyPt + (category === "STUDY" ? xp : 0);
   const newStamina = child.staminaPt + (category === "STAMINA" ? xp : 0);

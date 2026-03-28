@@ -14,6 +14,8 @@ const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // デフォルト: DBからの最新childデータをbaseQuestと同じ値で返す
+  mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
 });
 
 const baseQuest = {
@@ -41,7 +43,42 @@ const baseQuest = {
 };
 
 describe("approveQuestInstance", () => {
+  it("quest.child が古いデータでも最新のDBデータを使用してポイントを計算すること", async () => {
+    // 古い（stale）quest.child データ: studyPt = 0
+    const staleQuest = {
+      ...baseQuest,
+      child: { ...baseQuest.child, studyPt: 0 },
+    };
+    // DB上の最新データ: studyPt = 5（別クエスト承認済み）
+    // evolutionStage = 1 にして進化閾値10ptを超えないようにする（5+3=8 < 10 → 進化なし）
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "child-1",
+      evolutionStage: 1,
+      evolutionPath: "STUDY",
+      collectedPaths: "[]",
+      studyPt: 5,
+      staminaPt: 0,
+      lifePt: 0,
+    } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    // baseQuest は NORMAL STUDY → xp = 3
+    await approveQuestInstance(staleQuest as any);
+
+    // stale data (0+3=3) ではなく fresh data (5+3=8) で更新されること
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "child-1" },
+        data: expect.objectContaining({ studyPt: 8 }),
+      }),
+    );
+  });
+
   it("APPROVED に更新しXPを付与すること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseQuest.child,
+    } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
 
