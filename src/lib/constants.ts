@@ -36,7 +36,7 @@ export const EVOLUTION_THRESHOLDS: (number | null)[] = [1, 10, 30, null];
 
 // ─── 転生閾値 ─────────────────────────────────────────
 // 最終形態（stage 3）でこのptを貯めると卵（stage 0）に転生する
-export const REBIRTH_THRESHOLD = 70;
+export const REBIRTH_THRESHOLD = 19;
 
 // ─── たまご ───────────────────────────────────────────
 export const EGG_STAGE = { emoji: "🥚", name: "たまご", ptToEvolve: 1 };
