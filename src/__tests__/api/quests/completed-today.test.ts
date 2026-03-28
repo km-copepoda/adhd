@@ -36,14 +36,15 @@ describe("GET /api/quests/completed-today", () => {
     expect(await res.json()).toEqual([]);
   });
 
-  it("今日承認済みのクエストを返すこと", async () => {
+  it("今日報告済みのクエストを返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
 
     const quests = [
       {
         id: "q1",
         status: "APPROVED",
-        approvedAt: new Date("2026-03-12T10:00:00"),
+        reportedAt: new Date("2026-03-12T10:00:00"),
+        approvedAt: new Date("2026-03-13T08:00:00"), // 翌日承認でも今日報告なら表示
         child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
         template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL" },
       },
@@ -65,7 +66,8 @@ describe("GET /api/quests/completed-today", () => {
         id: "q1",
         templateId: "tpl-1",
         status: "SKIPPED",
-        approvedAt: new Date("2026-03-12T10:00:00"),
+        reportedAt: new Date("2026-03-12T10:00:00"),
+        approvedAt: new Date("2026-03-12T11:00:00"),
         child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
         template: { title: "英語", emoji: "📖", category: "STUDY", difficulty: "EASY", isTemporary: true },
       },
@@ -79,7 +81,7 @@ describe("GET /api/quests/completed-today", () => {
     expect(json[0].templateId).toBe("tpl-1");
   });
 
-  it("今日の日付範囲（00:00〜翌日00:00）でフィルタすること", async () => {
+  it("今日の日付範囲（00:00〜翌日00:00）でreportedAtをフィルタすること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
 
@@ -92,13 +94,13 @@ describe("GET /api/quests/completed-today", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           status: { in: ["APPROVED", "SKIPPED"] },
-          approvedAt: {
+          reportedAt: {
             gte: today,
             lt: tomorrow,
           },
           template: { familyId: "fam-1" },
         }),
-        orderBy: { approvedAt: "desc" },
+        orderBy: { reportedAt: "desc" },
       })
     );
   });
