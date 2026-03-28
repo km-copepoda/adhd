@@ -10,6 +10,7 @@ type Member = {
   id: string;
   name: string;
   role: string;
+  side: string | null;
   monsterName: string | null;
   evolutionStage: number;
   evolutionPath: string;
@@ -244,7 +245,13 @@ export default function FamilyPage() {
                   {member.monsterName || member.name || "未設定"}
                 </p>
                 <p className="text-[10px] text-quest-dim">
-                  {member.role === "PARENT" ? "ギルドマスター" : "冒険者"}
+                  {member.role === "PARENT" ? "ギルドマスター" : (
+                    <>
+                      冒険者
+                      {member.side === "LIGHT" && <span className="ml-1 text-pink-400">🌸 ライト</span>}
+                      {member.side === "DARK" && <span className="ml-1 text-purple-400">🌑 ダーク</span>}
+                    </>
+                  )}
                 </p>
               </div>
               {member.role === "CHILD" && member.childCode && (
