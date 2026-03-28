@@ -11,6 +11,7 @@ type MonsterData = {
   side: string | null;
   evolutionStage: number;
   evolutionPath: string;
+  collectedPaths: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -44,6 +45,7 @@ export default function MonsterPage() {
       .then((d) => {
         setData({
           name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+          collectedPaths: d.collectedPaths ?? "[]",
           studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
           pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
         });
@@ -54,7 +56,8 @@ export default function MonsterPage() {
         prevStageRef.current = d.evolutionStage;
         // 育成画面以外で進化が起きた場合: 最後に確認したステージと比較して進化演出を表示
         const lastSeen = parseInt(localStorage.getItem("lastSeenEvolutionStage") ?? "-1");
-        if (d.evolutionStage === 0 && lastSeen >= 3) {
+        const hasEverEvolved = (JSON.parse(d.collectedPaths ?? "[]") as string[]).length > 0;
+        if (d.evolutionStage === 0 && lastSeen >= 3 && hasEverEvolved) {
           setReborn(true);
         } else if (d.evolutionStage > lastSeen) {
           if (d.evolutionStage === 1) {
@@ -88,6 +91,7 @@ export default function MonsterPage() {
           prevStageRef.current = d.evolutionStage;
           setData({
             name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+            collectedPaths: d.collectedPaths ?? "[]",
             studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
             pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
           });
