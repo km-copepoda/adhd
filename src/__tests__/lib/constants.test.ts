@@ -20,6 +20,7 @@ import {
   distributeBonus,
   generateFamilyCode,
   generateChildCode,
+  getEvolutionChildren,
 } from "@/lib/constants";
 
 // ─── 定数マップのテスト ───────────────────────────────
@@ -601,6 +602,42 @@ describe("generateFamilyCode", () => {
     for (let i = 0; i < 50; i++) {
       expect(generateFamilyCode()).toMatch(/^[A-Z2-9]{6}$/);
     }
+  });
+});
+
+// ─── getEvolutionChildren ────────────────────────────
+
+describe("getEvolutionChildren", () => {
+  it("卵（空文字列）の子はStage1の3体であること", () => {
+    expect(getEvolutionChildren("").sort()).toEqual(["LIFE", "STAMINA", "STUDY"]);
+  });
+
+  it("Stage1パスの子はStage2の3体であること", () => {
+    expect(getEvolutionChildren("STUDY").sort()).toEqual(
+      ["STUDY_LIFE", "STUDY_STAMINA", "STUDY_STUDY"]
+    );
+  });
+
+  it("STAMINAのStage2子も正しく返すこと", () => {
+    expect(getEvolutionChildren("STAMINA").sort()).toEqual(
+      ["STAMINA_LIFE", "STAMINA_STAMINA", "STAMINA_STUDY"]
+    );
+  });
+
+  it("Stage2パスの子はStage3の3体であること", () => {
+    expect(getEvolutionChildren("STUDY_STAMINA").sort()).toEqual(
+      ["STUDY_STAMINA_LIFE", "STUDY_STAMINA_STAMINA", "STUDY_STAMINA_STUDY"]
+    );
+  });
+
+  it("Stage3パスの子は空配列（最終形態）であること", () => {
+    expect(getEvolutionChildren("STUDY_STAMINA_LIFE")).toEqual([]);
+  });
+
+  it("Stage1パスが誤って含まれないこと（STAMINAがSTUDYの子にならない）", () => {
+    const children = getEvolutionChildren("STUDY");
+    expect(children).not.toContain("STAMINA");
+    expect(children).not.toContain("LIFE");
   });
 });
 
