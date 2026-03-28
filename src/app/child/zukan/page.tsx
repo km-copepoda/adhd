@@ -18,6 +18,10 @@ type ZukanData = {
   collectedPaths: string;
 };
 
+function shadowPath(imagePath: string): string {
+  return imagePath.replace("/monsters/", "/monsters/shadow/");
+}
+
 const CATEGORY_COLORS: Record<string, { r: number; g: number; b: number }> = {
   STUDY:   { r: 96,  g: 165, b: 250 },
   STAMINA: { r: 248, g: 113, b: 113 },
@@ -151,13 +155,12 @@ export default function ZukanPage() {
             >
               <div className="flex flex-col items-center gap-1 flex-shrink-0">
                 <Image
-                  src={m1.image}
+                  src={isS1Collected ? m1.image : shadowPath(m1.image)}
                   alt={m1.name}
                   width={88}
                   height={88}
                   className="object-contain"
                   style={{
-                    opacity: isS1Collected ? 1 : 0.15,
                     filter: isS1Collected
                       ? `drop-shadow(0 0 14px rgba(${s1Color.r},${s1Color.g},${s1Color.b},0.5))`
                       : "none",
@@ -201,12 +204,11 @@ export default function ZukanPage() {
                     >
                       <PathChips path={s2} />
                       <Image
-                        src={m2.image}
+                        src={isS2Collected ? m2.image : shadowPath(m2.image)}
                         alt={m2.name}
                         width={50}
                         height={50}
                         className="object-contain"
-                        style={{ opacity: isS2Collected ? 1 : 0.2 }}
                       />
                       <p className="text-[9px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
                         {isS2Collected ? m2.name : "？？？"}
@@ -232,12 +234,11 @@ export default function ZukanPage() {
                           >
                             <PathChips path={s3} size="sm" />
                             <Image
-                              src={m3.image}
+                              src={isS3Collected ? m3.image : shadowPath(m3.image)}
                               alt={m3.name}
                               width={40}
                               height={40}
                               className="w-full aspect-square object-contain"
-                              style={{ opacity: isS3Collected ? 1 : 0.2 }}
                             />
                             <p className="text-[8px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
                               {isS3Collected ? m3.name : "？？？"}
