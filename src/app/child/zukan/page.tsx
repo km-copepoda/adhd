@@ -18,18 +18,55 @@ type ZukanData = {
   collectedPaths: string;
 };
 
-function pathEmojis(path: string): string {
-  return path
-    .split("_")
-    .map((s) => CATEGORY_LABEL[s as Category]?.emoji ?? "❓")
-    .join("›");
+const CATEGORY_COLORS: Record<string, { r: number; g: number; b: number }> = {
+  STUDY:   { r: 96,  g: 165, b: 250 },
+  STAMINA: { r: 248, g: 113, b: 113 },
+  LIFE:    { r: 74,  g: 222, b: 128 },
+};
+
+function PathChips({ path, size = "md" }: { path: string; size?: "sm" | "md" }) {
+  const parts = path.split("_");
+  const chipPx = size === "sm" ? 15 : 18;
+  const chipFontPx = size === "sm" ? 9 : 11;
+  const arrowFontPx = size === "sm" ? 7 : 9;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "nowrap", overflow: "hidden" }}>
+      {parts.map((part, i) => {
+        const color = CATEGORY_COLORS[part] ?? { r: 154, g: 140, b: 110 };
+        return (
+          <span key={i} style={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {i > 0 && (
+              <span style={{ fontSize: arrowFontPx, color: "rgba(154,140,110,0.75)", lineHeight: 1 }}>
+                →
+              </span>
+            )}
+            <span
+              style={{
+                width: chipPx,
+                height: chipPx,
+                fontSize: chipFontPx,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: size === "sm" ? 4 : 5,
+                flexShrink: 0,
+                background: `rgba(${color.r},${color.g},${color.b},0.22)`,
+                boxShadow: `0 0 0 1px rgba(${color.r},${color.g},${color.b},0.3)`,
+              }}
+            >
+              {CATEGORY_LABEL[part as Category]?.emoji ?? "❓"}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function ZukanPage() {
   const [data, setData] = useState<ZukanData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedS1, setExpandedS1] = useState<string | null>(null);
-  const [expandedS2, setExpandedS2] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/monster")
@@ -48,157 +85,174 @@ export default function ZukanPage() {
   const total = collected.size;
   const max = Object.keys(MONSTER_TABLE).length;
 
-  const handleS1Click = (key: string) => {
-    if (expandedS1 === key) {
-      setExpandedS1(null);
-      setExpandedS2(null);
-    } else {
-      setExpandedS1(key);
-      setExpandedS2(null);
-    }
-  };
-
-  const handleS2Click = (key: string) => {
-    setExpandedS2(expandedS2 === key ? null : key);
-  };
-
-  const renderCard = (path: string) => {
-    const isCollected = collected.has(path);
-    const monster = monsterTable[path];
-    const emojis = pathEmojis(path);
-
-    return (
-      <div
-        className={`bg-quest-card border rounded-xl p-2 flex flex-col items-center gap-1 ${
-          isCollected ? "border-quest-border" : "border-quest-border/30 opacity-50"
-        }`}
-      >
-        <div className="text-[9px] text-quest-dim tracking-tight">{emojis}</div>
-        <div className="w-16 h-16 flex items-center justify-center">
-          {isCollected ? (
-            <Image
-              src={monster.image}
-              alt={monster.name}
-              width={64}
-              height={64}
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <span className="text-3xl text-quest-dim/30">？</span>
-          )}
-        </div>
-        <p
-          className={`text-[10px] text-center leading-tight ${
-            isCollected ? "text-quest-text" : "text-quest-dim/30"
-          }`}
-        >
-          {isCollected ? monster.name : "？？？"}
-        </p>
-      </div>
-    );
-  };
-
   const stage1Keys = getEvolutionChildren("");
 
   return (
-    <div className="px-4 pt-6 pb-8">
+    <div className="px-4 pt-6 pb-24">
+      {/* ── ヘッダー ── */}
       <h1 className="font-serif text-quest-gold text-xl tracking-widest mb-1 text-center">
         📖 モンスター図鑑
       </h1>
-      <p className="text-quest-dim text-xs text-center mb-6">
+      <p className="text-quest-dim text-xs text-center mb-4">
         {total} / {max} 体
       </p>
 
-      {/* ── 卵（ルートノード） ── */}
-      <div className="flex flex-col items-center">
+      {/* ── 卵 ── */}
+      <div className="flex flex-col items-center mb-4">
         <div className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28">
           <Image
             src={eggData.image}
             alt="たまご"
-            width={72}
-            height={72}
-            className="w-18 h-18 object-contain"
+            width={56}
+            height={56}
+            className="object-contain"
           />
           <p className="text-xs text-quest-text">🥚 たまご</p>
         </div>
-
-        {/* 卵→Stage1 コネクタ */}
-        <div className="w-px h-5 bg-quest-border/40" />
-        <div className="w-full flex justify-center gap-px mb-1">
-          <div className="flex-1 border-t border-quest-border/30" />
-          <div className="flex-1 border-t border-quest-border/30" />
-        </div>
-
-        {/* ── Stage 1（3体、横並び） ── */}
-        <div className="grid grid-cols-3 gap-2 w-full">
-          {stage1Keys.map((key) => {
-            const isOpen = expandedS1 === key;
-            return (
-              <button
-                key={key}
-                onClick={() => handleS1Click(key)}
-                className={`rounded-xl transition-all ${
-                  isOpen ? "ring-2 ring-quest-gold ring-offset-1 ring-offset-quest-bg" : ""
-                }`}
-              >
-                {renderCard(key)}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── Stage 2（選択中のS1の子） ── */}
-        {expandedS1 && (
-          <div className="w-full mt-1">
-            {/* コネクタ線 */}
-            <div className="flex justify-center">
-              <div className="w-px h-4 bg-quest-gold/40" />
-            </div>
-            <div className="border-l-2 border-quest-gold/30 pl-3 ml-1">
-              <p className="text-quest-dim text-[10px] tracking-widest mb-2 mt-1">
-                ▸ Stage 2 — {CATEGORY_LABEL[expandedS1 as Category]?.name ?? expandedS1} 系
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {getEvolutionChildren(expandedS1).map((key) => {
-                  const isOpen = expandedS2 === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => handleS2Click(key)}
-                      className={`rounded-xl transition-all ${
-                        isOpen ? "ring-2 ring-quest-gold ring-offset-1 ring-offset-quest-bg" : ""
-                      }`}
-                    >
-                      {renderCard(key)}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* ── Stage 3（選択中のS2の子） ── */}
-              {expandedS2 && (
-                <div className="mt-1 ml-2">
-                  <div className="flex">
-                    <div className="w-px h-4 bg-quest-gold/40 ml-2" />
-                  </div>
-                  <div className="border-l-2 border-quest-gold/20 pl-3">
-                    <p className="text-quest-dim text-[10px] tracking-widest mb-2 mt-1">
-                      ▸ Stage 3 — 最終形態
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {getEvolutionChildren(expandedS2).map((key) => renderCard(key))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="text-quest-dim/50 text-[11px] mt-2">▾ 孵化</div>
       </div>
 
-      <p className="text-quest-dim/50 text-[10px] text-center mt-8">
-        タップで進化ツリーを展開
-      </p>
+      {/* ── 3系統ブランチ ── */}
+      {stage1Keys.map((s1) => {
+        const s1Color = CATEGORY_COLORS[s1] ?? { r: 154, g: 140, b: 110 };
+        const s1Cat = CATEGORY_LABEL[s1 as Category];
+        const s2Keys = getEvolutionChildren(s1);
+        const m1 = monsterTable[s1];
+        const isS1Collected = collected.has(s1);
+
+        const branchPaths = [s1, ...s2Keys, ...s2Keys.flatMap((s2) => getEvolutionChildren(s2))];
+        const branchCollected = branchPaths.filter((p) => collected.has(p)).length;
+
+        return (
+          <div
+            key={s1}
+            className="mb-5 rounded-2xl overflow-hidden"
+            style={{ border: `1px solid rgba(${s1Color.r},${s1Color.g},${s1Color.b},0.2)` }}
+          >
+            {/* Branch header */}
+            <div
+              className="flex items-center justify-between px-3 py-2 text-xs font-bold tracking-widest"
+              style={{
+                background: `rgba(${s1Color.r},${s1Color.g},${s1Color.b},0.12)`,
+                color: `rgba(${s1Color.r},${s1Color.g},${s1Color.b},1)`,
+                borderBottom: `1px solid rgba(${s1Color.r},${s1Color.g},${s1Color.b},0.2)`,
+              }}
+            >
+              <span>{s1Cat?.emoji} {s1Cat?.name}系</span>
+              <span className="font-normal opacity-70 text-[10px]">
+                {branchCollected} / {branchPaths.length} 体
+              </span>
+            </div>
+
+            {/* S1 feature card */}
+            <div
+              className="flex items-center gap-3 px-3 py-3"
+              style={{ background: "#1a1829", borderBottom: "1px solid #1e1c2e" }}
+            >
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <Image
+                  src={m1.image}
+                  alt={m1.name}
+                  width={88}
+                  height={88}
+                  className="object-contain"
+                  style={{
+                    opacity: isS1Collected ? 1 : 0.15,
+                    filter: isS1Collected
+                      ? `drop-shadow(0 0 14px rgba(${s1Color.r},${s1Color.g},${s1Color.b},0.5))`
+                      : "none",
+                  }}
+                />
+                <p className="text-[11px] text-center" style={{ color: "#c9bfa0" }}>
+                  {isS1Collected ? m1.name : "？？？"}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1 flex-1 justify-center">
+                {s2Keys.map((s2) => (
+                  <PathChips key={s2} path={s2} />
+                ))}
+              </div>
+            </div>
+
+            {/* S2 + S3 rows */}
+            <div style={{ background: "#14131f" }}>
+              {s2Keys.map((s2, rowIdx) => {
+                const m2 = monsterTable[s2];
+                const isS2Collected = collected.has(s2);
+                const s3Keys = getEvolutionChildren(s2);
+
+                return (
+                  <div
+                    key={s2}
+                    className="flex items-start gap-2 px-2 py-2"
+                    style={{
+                      borderBottom:
+                        rowIdx < s2Keys.length - 1 ? "1px solid rgba(30,28,46,0.8)" : "none",
+                    }}
+                  >
+                    {/* S2 card */}
+                    <div
+                      className="flex flex-col items-center gap-1 flex-shrink-0 rounded-xl p-1"
+                      style={{
+                        width: 76,
+                        background: "#1a1829",
+                        border: `1px solid ${isS2Collected ? "rgba(251,191,36,0.28)" : "#2e2a42"}`,
+                      }}
+                    >
+                      <PathChips path={s2} />
+                      <Image
+                        src={m2.image}
+                        alt={m2.name}
+                        width={50}
+                        height={50}
+                        className="object-contain"
+                        style={{ opacity: isS2Collected ? 1 : 0.2 }}
+                      />
+                      <p className="text-[9px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
+                        {isS2Collected ? m2.name : "？？？"}
+                      </p>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="text-quest-dim/50 text-xs mt-6 flex-shrink-0">›</div>
+
+                    {/* S3 grid */}
+                    <div className="flex-1 grid grid-cols-3 gap-1">
+                      {s3Keys.map((s3) => {
+                        const m3 = monsterTable[s3];
+                        const isS3Collected = collected.has(s3);
+                        return (
+                          <div
+                            key={s3}
+                            className="flex flex-col items-center gap-1 rounded-lg p-1"
+                            style={{
+                              background: "linear-gradient(160deg, #1e1a2e, #1a1829)",
+                              border: `1px solid ${isS3Collected ? "rgba(139,92,246,0.35)" : "#3d3450"}`,
+                            }}
+                          >
+                            <PathChips path={s3} size="sm" />
+                            <Image
+                              src={m3.image}
+                              alt={m3.name}
+                              width={40}
+                              height={40}
+                              className="w-full aspect-square object-contain"
+                              style={{ opacity: isS3Collected ? 1 : 0.2 }}
+                            />
+                            <p className="text-[8px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
+                              {isS3Collected ? m3.name : "？？？"}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
