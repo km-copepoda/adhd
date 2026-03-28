@@ -8,6 +8,7 @@ import {
   MONSTER_TABLE_LIGHT,
   EVOLUTION_THRESHOLDS,
   REBIRTH_THRESHOLD,
+  REBIRTH_EGG_THRESHOLD,
   DAY_LABELS,
   STREAK_MILESTONES,
   getMonsterStage,
@@ -68,6 +69,16 @@ describe("REBIRTH_THRESHOLD", () => {
   it("正の整数であること", () => {
     expect(REBIRTH_THRESHOLD).toBeGreaterThan(0);
     expect(Number.isInteger(REBIRTH_THRESHOLD)).toBe(true);
+  });
+});
+
+describe("REBIRTH_EGG_THRESHOLD", () => {
+  it("5であること", () => {
+    expect(REBIRTH_EGG_THRESHOLD).toBe(5);
+  });
+
+  it("EVOLUTION_THRESHOLDS[0]（初回孵化）より大きいこと", () => {
+    expect(REBIRTH_EGG_THRESHOLD).toBeGreaterThan(EVOLUTION_THRESHOLDS[0]!);
   });
 });
 
@@ -401,6 +412,42 @@ describe("checkEvolution", () => {
     });
   });
 
+  describe("転生後の卵（isReborn=true）", () => {
+    it("isReborn=true かつ stage0 で 1pt では孵化しないこと", () => {
+      const result = checkEvolution(0, "", 1, 0, 0, true);
+      expect(result.evolved).toBe(false);
+      expect(result.newStage).toBe(0);
+    });
+
+    it("isReborn=true かつ stage0 で REBIRTH_EGG_THRESHOLD pt で孵化すること", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const result = checkEvolution(0, "", REBIRTH_EGG_THRESHOLD, 0, 0, true);
+      expect(result.evolved).toBe(true);
+      expect(result.newStage).toBe(1);
+      vi.restoreAllMocks();
+    });
+
+    it("isReborn=false（初回）は REBIRTH_EGG_THRESHOLD pt 未満でも 1pt で孵化すること", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const result = checkEvolution(0, "", 1, 0, 0, false);
+      expect(result.evolved).toBe(true);
+      expect(result.newStage).toBe(1);
+      vi.restoreAllMocks();
+    });
+
+    it("isReborn 未指定（デフォルト）は初回扱いで 1pt で孵化すること", () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const result = checkEvolution(0, "", 1, 0, 0);
+      expect(result.evolved).toBe(true);
+      vi.restoreAllMocks();
+    });
+
+    it("isReborn=true でも stage1 以降の進化閾値は変わらないこと", () => {
+      const result = checkEvolution(1, "STUDY", 9, 0, 0, true);
+      expect(result.evolved).toBe(false); // 9pt < 10pt
+    });
+  });
+
   describe("evolved/reborn フラグが常に含まれること", () => {
     it("通常時 reborn=false が返ること", () => {
       vi.spyOn(Math, "random").mockReturnValue(0);
@@ -499,6 +546,30 @@ describe("getXpInfo", () => {
   it("ptNeededが負になるケース（閾値超過）", () => {
     const info = getXpInfo(1, "", 5, 3, 3);
     expect(info.ptNeeded).toBe(-1); // 10-11 = -1
+  });
+
+  describe("転生後の卵（isReborn=true）", () => {
+    it("isReborn=true かつ stage0 は xpToEvolve=REBIRTH_EGG_THRESHOLD を返すこと", () => {
+      const info = getXpInfo(0, "", 0, 0, 0, true);
+      expect(info.xpToEvolve).toBe(REBIRTH_EGG_THRESHOLD);
+      expect(info.ptNeeded).toBe(REBIRTH_EGG_THRESHOLD);
+    });
+
+    it("isReborn=false（初回）は xpToEvolve=1 を返すこと", () => {
+      const info = getXpInfo(0, "", 0, 0, 0, false);
+      expect(info.xpToEvolve).toBe(1);
+      expect(info.ptNeeded).toBe(1);
+    });
+
+    it("isReborn 未指定はデフォルト false で xpToEvolve=1 を返すこと", () => {
+      const info = getXpInfo(0, "", 0, 0, 0);
+      expect(info.xpToEvolve).toBe(1);
+    });
+
+    it("isReborn=true でも stage1 以降の xpToEvolve は変わらないこと", () => {
+      const info = getXpInfo(1, "STUDY", 0, 0, 0, true);
+      expect(info.xpToEvolve).toBe(10);
+    });
   });
 });
 

@@ -33,12 +33,14 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
   const newStamina = child.staminaPt + (category === "STAMINA" ? xp : 0);
   const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
 
+  const isReborn = (JSON.parse(child.collectedPaths) as string[]).length > 0;
   const evolution = checkEvolution(
     child.evolutionStage,
     child.evolutionPath,
     newStudy,
     newStamina,
     newLife,
+    isReborn,
   );
 
   await prisma.questInstance.update({
