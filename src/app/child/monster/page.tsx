@@ -231,20 +231,37 @@ export default function MonsterPage() {
           {monster.name}
         </p>
 
-        {/* XP bar (progress toward next evolution) */}
-        {xpInfo.xpToEvolve !== null && (() => {
+      </div>
+
+      {/* Evolution / Rebirth progress card */}
+      {(() => {
+        const stageLabel =
+          data.evolutionStage === 0 ? "たまご" :
+          data.evolutionStage >= 3 ? "最終形態" :
+          `stage ${data.evolutionStage} / 3`;
+        const nextLabel =
+          data.evolutionStage === 0 ? "孵化" :
+          xpInfo.xpToEvolve !== null ? "進化" : "転生";
+
+        if (xpInfo.xpToEvolve !== null) {
           const approvedPct = Math.min(100, (total / xpInfo.xpToEvolve) * 100);
           const pendingPct = Math.min(100 - approvedPct, (pendingTotal / xpInfo.xpToEvolve) * 100);
           return (
-            <div className="w-48 mt-4">
-              <div className="flex justify-between text-[10px] text-quest-dim mb-1">
-                <span>
-                  {total} / {xpInfo.xpToEvolve} pt
-                  {pendingTotal > 0 && <span className="ml-1">+ {pendingTotal} pt(仮)</span>}
-                </span>
-                <span>進化まで</span>
+            <div className="bg-quest-card border border-quest-border rounded-xl p-4 mb-4">
+              {/* Stage dots + label */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((s) => (
+                    <div
+                      key={s}
+                      className={`w-3 h-3 rounded-full ${data.evolutionStage >= s ? "bg-quest-gold" : "bg-quest-border"}`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-quest-dim">{stageLabel}</span>
               </div>
-              <div className="h-1.5 bg-quest-border rounded-full overflow-hidden flex">
+              {/* Progress bar */}
+              <div className="h-4 bg-quest-border rounded-full overflow-hidden flex mb-2">
                 <div
                   className="h-full bg-gradient-to-r from-quest-gold-dark to-quest-gold rounded-l-full animate-shimmer"
                   style={{ width: `${approvedPct}%` }}
@@ -260,22 +277,49 @@ export default function MonsterPage() {
                   />
                 )}
               </div>
+              {/* Pt info */}
+              <div className="flex justify-between items-baseline">
+                <p className="text-quest-gold font-bold text-sm">
+                  あと {Math.max(0, xpInfo.ptNeeded!)} pt で{nextLabel}！
+                </p>
+                <span className="text-[11px] text-quest-dim">
+                  {total} / {xpInfo.xpToEvolve} pt
+                  {pendingTotal > 0 && <span className="ml-1">+ {pendingTotal}(仮)</span>}
+                </span>
+              </div>
+              {/* Evolution path weights */}
+              {xpInfo.evolutionWeights && (
+                <div className="mt-3 flex gap-2 pt-3 border-t border-quest-border/50">
+                  {(["STUDY", "STAMINA", "LIFE"] as const).map((path) => (
+                    <div key={path} className="flex-1 text-center">
+                      <p className="text-xs" style={{ color: CATEGORY_COLOR[path] }}>
+                        {CATEGORY_LABEL[path].emoji} {CATEGORY_LABEL[path].name}
+                      </p>
+                      <p className="text-quest-gold font-bold text-sm">
+                        {Math.round(xpInfo.evolutionWeights![path] * 100)}%
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
-        })()}
-        {xpInfo.xpToEvolve === null && (() => {
+        } else {
           const rebirthPct = Math.min(100, (total / REBIRTH_THRESHOLD) * 100);
           const rebirthPending = Math.min(100 - rebirthPct, (pendingTotal / REBIRTH_THRESHOLD) * 100);
           return (
-            <div className="w-48 mt-4">
-              <div className="flex justify-between text-[10px] text-quest-dim mb-1">
-                <span>
-                  {total} / {REBIRTH_THRESHOLD} pt
-                  {pendingTotal > 0 && <span className="ml-1">+ {pendingTotal} pt(仮)</span>}
-                </span>
-                <span>転生まで</span>
+            <div className="bg-quest-card border border-quest-border rounded-xl p-4 mb-4">
+              {/* Stage dots + label */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((s) => (
+                    <div key={s} className="w-3 h-3 rounded-full bg-quest-gold" />
+                  ))}
+                </div>
+                <span className="text-xs text-quest-dim">{stageLabel}</span>
               </div>
-              <div className="h-1.5 bg-quest-border rounded-full overflow-hidden flex">
+              {/* Progress bar */}
+              <div className="h-4 bg-quest-border rounded-full overflow-hidden flex mb-2">
                 <div
                   className="h-full bg-gradient-to-r from-purple-700 to-purple-400 rounded-l-full animate-shimmer"
                   style={{ width: `${rebirthPct}%` }}
@@ -291,11 +335,20 @@ export default function MonsterPage() {
                   />
                 )}
               </div>
-              <p className="text-quest-gold text-[10px] mt-1 text-center">最終形態</p>
+              {/* Pt info */}
+              <div className="flex justify-between items-baseline">
+                <p className="text-purple-400 font-bold text-sm">
+                  あと {Math.max(0, REBIRTH_THRESHOLD - total)} pt で転生！
+                </p>
+                <span className="text-[11px] text-quest-dim">
+                  {total} / {REBIRTH_THRESHOLD} pt
+                  {pendingTotal > 0 && <span className="ml-1">+ {pendingTotal}(仮)</span>}
+                </span>
+              </div>
             </div>
           );
-        })()}
-      </div>
+        }
+      })()}
 
       {/* Streak card */}
       {streak && (
@@ -417,26 +470,6 @@ export default function MonsterPage() {
         })}
       </div>
 
-      {/* Next evolution hint: probabilistic weights */}
-      {xpInfo.evolutionWeights && xpInfo.ptNeeded !== null && (
-        <div className="mt-4 bg-quest-card/50 border border-quest-border rounded-xl p-4">
-          <p className="text-quest-dim text-xs mb-2 text-center">
-            次の進化 · あと {Math.max(0, xpInfo.ptNeeded)} pt
-          </p>
-          <div className="flex gap-2">
-            {(["STUDY", "STAMINA", "LIFE"] as const).map((path) => (
-              <div key={path} className="flex-1 text-center">
-                <p className="text-xs" style={{ color: CATEGORY_COLOR[path] }}>
-                  {CATEGORY_LABEL[path].emoji} {CATEGORY_LABEL[path].name}
-                </p>
-                <p className="text-quest-gold font-bold text-sm">
-                  {Math.round(xpInfo.evolutionWeights![path] * 100)}%
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
