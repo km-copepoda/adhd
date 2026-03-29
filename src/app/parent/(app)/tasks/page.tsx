@@ -5,6 +5,7 @@ import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/constants";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
+import { xpRangeLabel } from "@/lib/xpRange";
 
 type Task = {
   id: string;
@@ -27,6 +28,7 @@ type Task = {
 type Child = {
   id: string;
   monsterName: string | null;
+  reportDeadlineTime: string | null;
 };
 
 
@@ -386,6 +388,7 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {pending.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
+                    const assignedChild = children.find(c => c.id === task.assignedChildId);
                     return (
                       <div
                         key={task.id}
@@ -399,7 +402,7 @@ export default function TasksPage() {
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
-                            <span>+1〜3pt</span>
+                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
                             {task.isTemporary ? (
                               <span className="text-amber-400/70">一時</span>
                             ) : (
@@ -450,6 +453,7 @@ export default function TasksPage() {
                     const cat = CATEGORY_LABEL[task.category];
                     const streak = (task.taskStreaks ?? []).find((s) => s.childId === child.id)?.currentStreak ?? 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);
+                    const assignedChild = children.find(c => c.id === task.assignedChildId);
                     return (
                       <div
                         key={task.id}
@@ -476,7 +480,7 @@ export default function TasksPage() {
                           </div>
                           <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             <span>{cat.emoji} {cat.name}</span>
-                            <span>+1〜3pt</span>
+                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
                           </div>
                           <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             {DAY_LABELS.map((label, i) => (
@@ -528,6 +532,7 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {temporary.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
+                    const assignedChild = children.find(c => c.id === task.assignedChildId);
                     const dateStr = task.targetDate
                       ? new Date(task.targetDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })
                       : "今日";
@@ -541,7 +546,7 @@ export default function TasksPage() {
                           <p className="text-sm font-medium truncate">{task.title}</p>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
-                            <span>+1〜3pt</span>
+                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
                             <span className="text-amber-400/70">📅 {dateStr}</span>
                           </div>
                         </div>
