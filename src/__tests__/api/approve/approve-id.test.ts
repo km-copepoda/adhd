@@ -61,6 +61,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "STUDY", createdBy: "PARENT", photoBonus: false },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -102,6 +103,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "STUDY", createdBy: "PARENT", photoBonus: false },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -126,6 +128,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "STAMINA", createdBy: "PARENT", photoBonus: true },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -150,6 +153,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "LIFE", createdBy: "PARENT", photoBonus: true },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -174,6 +178,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "STUDY", createdBy: "PARENT", photoBonus: false },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -205,6 +210,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "LIFE", createdBy: "CHILD", photoBonus: false },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
       mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
@@ -234,6 +240,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "LIFE", createdBy: "PARENT", photoBonus: false, isTemporary: true },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -259,6 +266,7 @@ describe("POST /api/approve/[id]", () => {
         template: { category: "STAMINA", createdBy: "PARENT", photoBonus: false },
         child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -287,6 +295,15 @@ describe("POST /api/approve/[id]", () => {
           lifePt: 0,
           collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
         },
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: "child-1",
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        evolutionStage: 3,
+        studyPt: 19,
+        staminaPt: 0,
+        lifePt: 0,
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);

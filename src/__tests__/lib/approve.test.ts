@@ -65,11 +65,11 @@ describe("approveQuestInstance", () => {
     // baseQuest は NORMAL STUDY → xp = 3
     await approveQuestInstance(staleQuest as any);
 
-    // stale data (0+3=3) ではなく fresh data (5+3=8) で更新されること
+    // stale data (0+1=1) ではなく fresh data (5+1=6) で更新されること（フラット1pt）
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "child-1" },
-        data: expect.objectContaining({ studyPt: 8 }),
+        data: expect.objectContaining({ studyPt: 6 }),
       }),
     );
   });
