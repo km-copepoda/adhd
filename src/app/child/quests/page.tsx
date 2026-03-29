@@ -15,6 +15,7 @@ type Quest = {
   rejectionReason: string | null;
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
+  hasDeadline: boolean;
   template: {
     id: string;
     title: string;
@@ -435,6 +436,7 @@ export default function QuestsPage() {
       {activeQuest && (
         <QuestActionSheet
           quest={activeQuest as SheetQuest}
+          hasDeadline={activeQuest.hasDeadline}
           questsCompleted={completedCount}
           questsTotal={quests.length}
           onReport={handleReport}

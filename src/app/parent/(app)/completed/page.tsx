@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/constants";
+import { calcActualXP } from "@/lib/xpRange";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -12,12 +13,15 @@ type CompletedQuest = {
   date: string;
   approvedAt: string;
   comment: string | null;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
   child: { name: string; monsterName: string; side: string };
   template: {
     title: string;
     emoji: string;
     category: Category;
     isTemporary: boolean;
+    photoBonus: boolean;
   };
 };
 
@@ -103,7 +107,7 @@ export default function CompletedTodayPage() {
                   </p>
                   <p className="text-base font-medium mt-1">{quest.template.title}</p>
                   <p className="text-xs text-quest-dim mt-1">
-                    {cat.emoji} {cat.name}{isSkipped ? "" : " · +1〜3XP"}
+                    {cat.emoji} {cat.name}{isSkipped ? "" : ` · +${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl)}pt`}
                   </p>
                   {quest.comment && (
                     <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">

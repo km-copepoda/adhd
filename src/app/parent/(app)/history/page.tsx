@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/constants";
+import { calcActualXP } from "@/lib/xpRange";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -13,8 +14,10 @@ type HistoryItem = {
   date: string;
   approvedAt: string | null;
   comment: string | null;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
   child: { id: string; name: string; monsterName: string | null; side: string | null } | null;
-  template: { title: string; emoji: string; category: Category };
+  template: { title: string; emoji: string; category: Category; photoBonus?: boolean };
 };
 
 function formatDate(d: Date): string {
@@ -171,7 +174,7 @@ export default function HistoryPage() {
                     </p>
                     <p className="text-xs text-quest-dim mt-1">
                       {cat.emoji} {cat.name}
-                      {isApproved ? " · +1〜3XP" : ""}
+                      {isApproved ? ` · +${calcActualXP(item.deadlineBonusEarned, !!item.template.photoBonus, !!item.photoUrl)}pt` : ""}
                     </p>
                     {item.comment && (
                       <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">

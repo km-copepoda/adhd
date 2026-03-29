@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
+import { xpRangeLabel } from "@/lib/xpRange";
 import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
@@ -20,6 +21,7 @@ export type SheetQuest = {
 
 type Props = {
   quest: SheetQuest;
+  hasDeadline: boolean;
   questsCompleted: number;
   questsTotal: number;
   onReport: (questId: string, comment: string | null, photoUrl: string | null) => Promise<void>;
@@ -29,7 +31,7 @@ type Props = {
 
 type SheetState = "idle" | "submitting" | "success-complete" | "success-skip";
 
-export default function QuestActionSheet({ quest, questsCompleted, questsTotal, onReport, onSkip, onClose }: Props) {
+export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, questsTotal, onReport, onSkip, onClose }: Props) {
   const [comment, setComment] = useState("");
   const [showComment, setShowComment] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
@@ -169,8 +171,7 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className="text-2xl font-black text-quest-gold leading-none">+1〜3</p>
-                  <p className="text-[10px] text-quest-dim mt-0.5">pt</p>
+                  <p className="text-2xl font-black text-quest-gold leading-none">{xpRangeLabel(hasDeadline, photoBonus)}</p>
                 </div>
               </div>
 

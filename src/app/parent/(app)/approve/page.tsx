@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { xpRangeLabel, calcActualXP } from "@/lib/xpRange";
 
 type PendingQuest = {
   id: string;
@@ -14,13 +15,15 @@ type PendingQuest = {
   status: QuestStatus;
   comment: string | null;
   photoUrl: string | null;
+  deadlineBonusEarned: boolean;
   reportedAt: string;
-  child: { name: string; monsterName: string; side: string };
+  child: { name: string; monsterName: string; side: string; reportDeadlineTime: string | null };
   template: {
     title: string;
     emoji: string;
     category: Category;
     isTemporary: boolean;
+    photoBonus: boolean;
   };
 };
 
@@ -162,7 +165,7 @@ export default function ApprovePage() {
                   </p>
                   <p className="text-base font-medium mt-1">{quest.template.title}</p>
                   <p className="text-xs text-quest-dim mt-1">
-                    {cat.emoji} {cat.name}{!isSkipRequest && <> · +1〜3XP</>}
+                    {cat.emoji} {cat.name}{!isSkipRequest && <> · {xpRangeLabel(!!quest.child.reportDeadlineTime, quest.template.photoBonus)}</>}
                   </p>
                 </div>
               </div>
@@ -217,7 +220,7 @@ export default function ApprovePage() {
                     ? "bg-red-400/10 text-red-400 border border-red-400/30"
                     : "btn-gold"
                 }`}>
-                  {isSkipRequest ? "✓ スキップを承認" : "✓ 承認 (+1〜3XP)"}
+                  {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl)}pt)`}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); openRejectModal(quest); }}

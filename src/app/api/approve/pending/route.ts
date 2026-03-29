@@ -15,10 +15,10 @@ export async function GET() {
     },
     include: {
       child: {
-        select: { name: true, monsterName: true, side: true },
+        select: { name: true, monsterName: true, side: true, reportDeadlineTime: true },
       },
       template: {
-        select: { title: true, emoji: true, category: true, isTemporary: true },
+        select: { title: true, emoji: true, category: true, isTemporary: true, photoBonus: true },
       },
     },
     orderBy: { reportedAt: "desc" },
