@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Streak" ADD COLUMN "loginCurrentStreak" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "Streak" ADD COLUMN "loginBestStreak" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "Streak" ADD COLUMN "lastLoginDate" DATE;
