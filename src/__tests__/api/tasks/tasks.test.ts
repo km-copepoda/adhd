@@ -124,7 +124,6 @@ describe("POST /api/tasks", () => {
         title: "漢字練習",
         emoji: "✏️",
         category: "STUDY",
-        difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
         assignedChildId: "child-1",
       })
@@ -137,12 +136,11 @@ describe("POST /api/tasks", () => {
         title: "漢字練習",
         emoji: "✏️",
         category: "STUDY",
-        difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
         isTemporary: false,
         targetDate: null,
         requestedDate: null,
-        requirePhoto: false,
+        photoBonus: false,
         createdBy: "PARENT",
         familyId: "fam-1",
         assignedChildId: "child-1",
@@ -150,7 +148,7 @@ describe("POST /api/tasks", () => {
     });
   });
 
-  it("requirePhoto=true を指定してタスクを作成できること", async () => {
+  it("photoBonus=true を指定してタスクを作成できること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-photo" } as any);
 
@@ -159,15 +157,14 @@ describe("POST /api/tasks", () => {
         title: "宿題写真",
         emoji: "📷",
         category: "STUDY",
-        difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
         assignedChildId: "child-1",
-        requirePhoto: true,
+        photoBonus: true,
       })
     );
 
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ requirePhoto: true }),
+      data: expect.objectContaining({ photoBonus: true }),
     });
   });
 
@@ -179,7 +176,6 @@ describe("POST /api/tasks", () => {
       makeRequest("/api/tasks", {
         title: "特別掃除",
         category: "LIFE",
-        difficulty: "HARD",
         isTemporary: true,
         targetDate: "2026-03-12",
       })
@@ -204,7 +200,6 @@ describe("POST /api/tasks", () => {
       makeRequest("/api/tasks", {
         title: "今日のタスク",
         category: "STAMINA",
-        difficulty: "EASY",
         isTemporary: true,
       })
     );
@@ -223,7 +218,7 @@ describe("POST /api/tasks", () => {
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-def" } as any);
 
     await POST(
-      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", difficulty: "EASY", assignedChildId: "child-1" })
+      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", assignedChildId: "child-1" })
     );
 
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({
@@ -236,7 +231,7 @@ describe("POST /api/tasks", () => {
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-norep" } as any);
 
     await POST(
-      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", difficulty: "EASY", assignedChildId: "child-1" })
+      makeRequest("/api/tasks", { title: "テスト", category: "STUDY", assignedChildId: "child-1" })
     );
 
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalledWith({

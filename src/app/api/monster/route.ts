@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { XP_MAP } from "@/lib/constants";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -17,7 +16,9 @@ export async function GET() {
 
   let pendingStudyPt = 0, pendingStaminaPt = 0, pendingLifePt = 0;
   for (const q of pendingQuests) {
-    const xp = XP_MAP[q.template.difficulty];
+    let xp = 1;
+    if (q.deadlineBonusEarned) xp++;
+    if (q.template.photoBonus && q.photoUrl) xp++;
     if (q.template.category === "STUDY") pendingStudyPt += xp;
     else if (q.template.category === "STAMINA") pendingStaminaPt += xp;
     else if (q.template.category === "LIFE") pendingLifePt += xp;

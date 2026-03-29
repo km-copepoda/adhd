@@ -1,11 +1,4 @@
-import type { Difficulty, Category, MonsterPath } from "@/types";
-
-// XP per difficulty
-export const XP_MAP: Record<Difficulty, number> = {
-  EASY: 1,
-  NORMAL: 3,
-  HARD: 5,
-};
+import type { Category, MonsterPath } from "@/types";
 
 // Category labels
 export const CATEGORY_LABEL: Record<Category, { emoji: string; name: string }> = {
@@ -19,13 +12,6 @@ export const CATEGORY_COLOR: Record<Category, string> = {
   STUDY: "#60a5fa",
   STAMINA: "#f87171",
   LIFE: "#4ade80",
-};
-
-// Difficulty labels
-export const DIFFICULTY_LABEL: Record<Difficulty, { name: string; color: string }> = {
-  EASY: { name: "かんたん", color: "#5cb85c" },
-  NORMAL: { name: "ふつう", color: "#4ecdc4" },
-  HARD: { name: "むずかしい", color: "#e05c5c" },
 };
 
 // ─── 進化閾値 ─────────────────────────────────────────

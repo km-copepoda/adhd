@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  XP_MAP,
   CATEGORY_LABEL,
   CATEGORY_COLOR,
-  DIFFICULTY_LABEL,
   MONSTER_TABLE,
   MONSTER_TABLE_LIGHT,
   EVOLUTION_THRESHOLDS,
@@ -26,18 +24,6 @@ import {
 
 // ─── 定数マップのテスト ───────────────────────────────
 
-describe("XP_MAP", () => {
-  it("EASY=1, NORMAL=3, HARD=5 であること", () => {
-    expect(XP_MAP.EASY).toBe(1);
-    expect(XP_MAP.NORMAL).toBe(3);
-    expect(XP_MAP.HARD).toBe(5);
-  });
-
-  it("全ての難易度を網羅していること", () => {
-    expect(Object.keys(XP_MAP).sort()).toEqual(["EASY", "HARD", "NORMAL"]);
-  });
-});
-
 describe("CATEGORY_LABEL", () => {
   it("全カテゴリにemoji・nameを持つこと", () => {
     for (const key of ["STUDY", "STAMINA", "LIFE"] as const) {
@@ -53,15 +39,6 @@ describe("CATEGORY_COLOR", () => {
   it("全カテゴリに16進カラーが定義されていること", () => {
     for (const key of ["STUDY", "STAMINA", "LIFE"] as const) {
       expect(CATEGORY_COLOR[key]).toMatch(/^#[0-9a-f]{6}$/i);
-    }
-  });
-});
-
-describe("DIFFICULTY_LABEL", () => {
-  it("全難易度にname・colorを持つこと", () => {
-    for (const key of ["EASY", "NORMAL", "HARD"] as const) {
-      expect(DIFFICULTY_LABEL[key]).toHaveProperty("name");
-      expect(DIFFICULTY_LABEL[key]).toHaveProperty("color");
     }
   });
 });

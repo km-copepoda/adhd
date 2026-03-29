@@ -44,7 +44,6 @@ export async function POST(
       title: original.title,
       emoji: original.emoji,
       category: original.category,
-      difficulty: original.difficulty,
       repeatDays: [],
       isTemporary: true,
       targetDate,

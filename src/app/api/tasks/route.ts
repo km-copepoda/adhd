@@ -75,7 +75,6 @@ export async function POST(request: Request) {
       title: body.title,
       emoji: body.emoji || "⚔️",
       category: body.category,
-      difficulty: body.difficulty,
       repeatDays: isTemporary ? [] : (body.repeatDays ?? []),
       isTemporary,
       targetDate: isTemporary
@@ -85,7 +84,7 @@ export async function POST(request: Request) {
         : null,
       // 子供が作成した通常タスクは申請日を記録（日付をまたいでも当日のみ表示するため）
       requestedDate: !isTemporary && user.role === "CHILD" ? todayDate : null,
-      requirePhoto: body.requirePhoto === true,
+      photoBonus: body.photoBonus === true,
       createdBy: user.role,
       familyId: user.familyId,
       assignedChildId,

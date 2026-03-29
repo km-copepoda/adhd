@@ -1,15 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { XP_MAP, checkEvolution } from "@/lib/constants";
+import { checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
+
 type QuestWithRelations = {
   id: string;
   date: Date;
   childId: string;
   templateId: string;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
   template: {
     id: string;
-    difficulty: "EASY" | "NORMAL" | "HARD";
     category: "STUDY" | "STAMINA" | "LIFE";
+    photoBonus: boolean;
     createdBy: "PARENT" | "CHILD";
     isTemporary: boolean;
   };
@@ -24,8 +27,16 @@ type QuestWithRelations = {
   };
 };
 
+/** ボーナスベースのXP計算: 基本1 + 期限ボーナス + 写真ボーナス (最大3) */
+function calculateXP(quest: QuestWithRelations): number {
+  let xp = 1;
+  if (quest.deadlineBonusEarned) xp++;
+  if (quest.template.photoBonus && quest.photoUrl) xp++;
+  return xp;
+}
+
 export async function approveQuestInstance(quest: QuestWithRelations): Promise<void> {
-  const xp = XP_MAP[quest.template.difficulty];
+  const xp = calculateXP(quest);
   const category = quest.template.category;
 
   // 最新のchildデータをDBから取得（stale dataによるポイント上書きを防ぐ）

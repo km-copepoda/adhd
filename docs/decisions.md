@@ -151,16 +151,6 @@
 - ADHD 特性上、具体的なタスク名を通知する方が行動に移しやすい（「画面見て」より「宿題をやろう！」の方が効果的）
 - 親が状況に応じて送るタイミングを選べる手動方式をまず導入し、自動トリガーはフェーズB以降に検討
 
-=======
-## 2026-03-17: 一日休み券（restPassUsedAt）廃止
-
-### 決定内容
-- `Streak.restPassUsedAt` カラムを削除し、`POST /api/streak/rest-pass` エンドポイントを廃止
-- 子供画面の休息券UIも削除
-
-### 理由
-- スキップ承認フロー（`SKIP_REPORTED → SKIPPED`）が既に親承認でストリーク算入される仕組みを持つため、「一日休み」は全タスクのスキップ申請で代替可能。独立した休み券機構は重複
-
 ## 2026-03-15: 親画面「今日の完了タスク」にSKIPPEDも表示
 
 ### 決定内容
@@ -272,3 +262,47 @@
 ### 理由
 - 最終形態到達後もゲームを続ける動機を与える（繰り返しプレイのループ設計）
 - コレクション要素により「全種類集めたい」という長期モチベーションを追加
+
+## 2026-03-29: 写真オプショナル化とフラットXP制への移行
+
+### 決定内容
+- `TaskTemplate.requirePhoto` → `photoBonus`（写真必須フラグ → 写真ボーナスフラグ）。写真添付は常にオプションになった
+- XPをフラット制に変更: タスク完了 +1（常時） / 期限内報告 +1 / 写真ボーナス付きタスクに写真添付 +1（最大3pt）
+- `Family` に `reportDeadlineTime String?`（例: `"20:00"`）を追加。ファミリー単位で報告期限を設定可能（null=期限なし）
+- `QuestInstance` に `deadlineBonusEarned Boolean @default(false)` を追加
+  - PENDING → REPORTED（初回報告）時のみ判定・設定
+  - REJECTED → REPORTED（差し戻し後再報告）では変更しない（子供が遅く却下されても期限ボーナスを保護）
+- XP付与は承認時に `deadlineBonusEarned` + `photoUrl` 有無で確定（既存の承認時付与アーキテクチャを維持）
+- XP_MAP（難易度別: EASY=1, NORMAL=3, HARD=5）を廃止。`difficulty` フィールドはUI表示用として残存（後に完全廃止）
+
+### 理由
+- 写真撮影は子供にとって心理的・物理的負荷が高く、タスク報告の障壁になっていた。インセンティブ設計（ボーナス）に変えることで、写真がないタスクも気軽に報告できるようにする
+- 期限ボーナスをファミリー単位にしたことで、親がタスクごとに時刻を設定する負荷を排除
+- `deadlineBonusEarned` フラグにより、親の承認/却下タイミングの影響を受けない公平な期限評価を実現
+
+## 2026-03-29: difficulty フィールドの完全廃止
+
+### 決定内容
+- `TaskTemplate.difficulty`（EASY/NORMAL/HARD）と `enum Difficulty` を DB・スキーマ・コードから完全削除
+- `XP_MAP`・`DIFFICULTY_LABEL` 定数を削除
+- 難易度選択UIを親・子供両画面から削除
+- `migration: DROP COLUMN difficulty / DROP TYPE Difficulty`
+
+### 理由
+- XP_MAP（難易度別 1/3/5pt）廃止後、`difficulty` はUI表示以外に用途がなくなった
+- フラットXP制（+1/+1/+1）では難易度はプレイヤー体験に寄与しないと判断
+- 不要なフィールドを残すと、親タスク作成フォームに「かんたん/ふつう/むずかしい」という意味のない選択肢が残り、UXが悪化する
+
+## 2026-03-29: 報告期限をファミリー単位から子供単位に変更
+
+### 決定内容
+- `Family.reportDeadlineTime` を廃止し、`User.reportDeadlineTime String?` に移動
+- 親は「メンバー管理」画面で子供ごとに報告期限時刻を設定する
+- `PATCH /api/family/settings` は `{ childId, reportDeadlineTime }` を受け取り、指定の子供の `reportDeadlineTime` を更新
+- `GET /api/family/code` のレスポンスで各メンバーに `reportDeadlineTime` を含める（トップレベルの `reportDeadlineTime` は削除）
+- `POST /api/quests/[id]/report` は Family を別途クエリせず、`user.reportDeadlineTime` を直接参照
+
+### 理由
+- 同じファミリーに複数の子供がいる場合、年齢や生活リズムが異なるため一律の報告期限は不合理
+- 子供Aは学校から帰る20時、子供Bは習い事で22時が妥当、といったケースを想定
+- Family への JOIN が不要になり `report/route.ts` の実装がシンプルになった

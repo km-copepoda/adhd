@@ -46,18 +46,18 @@ describe("GET /api/monster", () => {
     );
 
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { template: { difficulty: "NORMAL", category: "STUDY" } },    // +3
-      { template: { difficulty: "HARD", category: "STUDY" } },      // +5
-      { template: { difficulty: "EASY", category: "STAMINA" } },    // +1
-      { template: { difficulty: "NORMAL", category: "LIFE" } },     // +3
+      { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },    // +1
+      { deadlineBonusEarned: true, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },     // +2
+      { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STAMINA" } },  // +1
+      { deadlineBonusEarned: false, photoUrl: "url", template: { photoBonus: true, category: "LIFE" } },     // +2
     ] as any);
 
     const res = await GET();
     const json = await res.json();
 
-    expect(json.pendingStudyPt).toBe(8);   // 3+5
-    expect(json.pendingStaminaPt).toBe(1);  // 1
-    expect(json.pendingLifePt).toBe(3);     // 3
+    expect(json.pendingStudyPt).toBe(3);   // 1+2
+    expect(json.pendingStaminaPt).toBe(1); // 1
+    expect(json.pendingLifePt).toBe(2);    // 2
   });
 
   it("monsterNameがnullの場合、nameにフォールバックすること", async () => {

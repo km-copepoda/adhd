@@ -37,7 +37,6 @@ describe("PUT /api/tasks/[id]", () => {
         title: "更新後",
         emoji: "📝",
         category: "STUDY",
-        difficulty: "HARD",
         repeatDays: [0, 6],
       }),
       makeParams("t1")
@@ -51,34 +50,32 @@ describe("PUT /api/tasks/[id]", () => {
         title: "更新後",
         emoji: "📝",
         category: "STUDY",
-        difficulty: "HARD",
         repeatDays: [0, 6],
-        requirePhoto: undefined,
+        photoBonus: undefined,
       },
     });
   });
 
-  it("requirePhoto=true を指定してタスクを更新できること", async () => {
+  it("photoBonus=true を指定してタスクを更新できること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", requirePhoto: true } as any);
+    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", photoBonus: true } as any);
 
     const res = await PUT(
       makeRequest("/api/tasks/t1", {
         title: "宿題",
         emoji: "📝",
         category: "STUDY",
-        difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
-        requirePhoto: true,
+        photoBonus: true,
       }),
       makeParams("t1")
     );
     const json = await res.json();
 
-    expect(json.requirePhoto).toBe(true);
+    expect(json.photoBonus).toBe(true);
     expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith({
       where: { id: "t1", familyId: "fam-1" },
-      data: expect.objectContaining({ requirePhoto: true }),
+      data: expect.objectContaining({ photoBonus: true }),
     });
   });
 
@@ -160,17 +157,21 @@ describe("DELETE /api/tasks/[id]", () => {
     mockPrisma.taskTemplate.findUnique.mockResolvedValue({
       id: "t1",
       createdBy: "CHILD",
-      difficulty: "NORMAL", // XP=3
+      photoBonus: false,
       category: "STUDY",
       quests: [
         {
           id: "q1",
           status: "REPORTED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
           child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
         },
         {
           id: "q2",
           status: "APPROVED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
           child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
         },
       ],
@@ -184,12 +185,12 @@ describe("DELETE /api/tasks/[id]", () => {
     const json = await res.json();
 
     expect(json.ok).toBe(true);
-    // XP差し引き: STUDY -3 (NORMAL difficulty)
+    // XP差し引き: base 1pt のみ（deadlineBonusEarned=false, photoBonus=false）
     expect(mockPrisma.user.update).toHaveBeenCalledTimes(2);
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: "child-1" },
       data: {
-        studyPt: 7, // 10 - 3
+        studyPt: 9, // 10 - 1
         staminaPt: 5,
         lifePt: 3,
       },
@@ -225,12 +226,14 @@ describe("DELETE /api/tasks/[id]", () => {
     mockPrisma.taskTemplate.findUnique.mockResolvedValue({
       id: "t3",
       createdBy: "CHILD",
-      difficulty: "HARD", // XP=5
+      photoBonus: false,
       category: "STAMINA",
       quests: [
         {
           id: "q3",
           status: "REPORTED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
           child: { id: "child-2", studyPt: 2, staminaPt: 1, lifePt: 0 },
         },
       ],
@@ -246,7 +249,7 @@ describe("DELETE /api/tasks/[id]", () => {
       where: { id: "child-2" },
       data: {
         studyPt: 2,
-        staminaPt: 0, // Math.max(0, 1-5) = 0
+        staminaPt: 0, // Math.max(0, 1-1) = 0
         lifePt: 0,
       },
     });

@@ -65,10 +65,9 @@ export async function GET() {
           title: true,
           emoji: true,
           category: true,
-          difficulty: true,
           isTemporary: true,
           createdBy: true,
-          requirePhoto: true,
+          photoBonus: true,
           taskStreaks: {
             where: { childId: user.id },
             select: { currentStreak: true, bestStreak: true },

@@ -16,6 +16,7 @@ type Member = {
   evolutionPath: string;
   childCode: string | null;
   minTasksForStreak: number;
+  reportDeadlineTime: string | null;
 };
 
 type FamilyData = {
@@ -32,6 +33,8 @@ export default function FamilyPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
+  const [deadlineTimes, setDeadlineTimes] = useState<Record<string, string>>({});
+  const [savingDeadlineId, setSavingDeadlineId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -45,7 +48,16 @@ export default function FamilyPage() {
         }
         return data;
       })
-      .then((data) => { if (data) setFamily(data); })
+      .then((data) => {
+        if (data) {
+          setFamily(data);
+          const times: Record<string, string> = {};
+          for (const m of data.members ?? []) {
+            if (m.role === "CHILD") times[m.id] = m.reportDeadlineTime ?? "";
+          }
+          setDeadlineTimes(times);
+        }
+      })
       .catch((e) => console.error("Failed to fetch family:", e))
       .finally(() => setLoading(false));
   }
@@ -97,6 +109,19 @@ export default function FamilyPage() {
       }
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleSaveDeadline(childId: string) {
+    setSavingDeadlineId(childId);
+    try {
+      await fetch("/api/family/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId, reportDeadlineTime: deadlineTimes[childId]?.trim() || null }),
+      });
+    } finally {
+      setSavingDeadlineId(null);
     }
   }
 
@@ -262,30 +287,31 @@ export default function FamilyPage() {
               )}
             </div>
             {member.role === "CHILD" && (
-              <div className="flex items-center justify-between gap-2 mt-2 px-3 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-quest-dim">🔥 ストリーク最低タスク数</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak - 1)}
-                      disabled={member.minTasksForStreak <= 1 || savingStreakId === member.id}
-                      className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
-                    >
-                      −
-                    </button>
-                    <span className="text-sm text-quest-gold font-bold w-6 text-center">
-                      {member.minTasksForStreak}
-                    </span>
-                    <button
-                      onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak + 1)}
-                      disabled={savingStreakId === member.id}
-                      className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
-                    >
-                      +
-                    </button>
+              <div className="flex flex-col gap-2 mt-2 px-3 pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-quest-dim">🔥 ストリーク最低タスク数</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak - 1)}
+                        disabled={member.minTasksForStreak <= 1 || savingStreakId === member.id}
+                        className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
+                      >
+                        −
+                      </button>
+                      <span className="text-sm text-quest-gold font-bold w-6 text-center">
+                        {member.minTasksForStreak}
+                      </span>
+                      <button
+                        onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak + 1)}
+                        disabled={savingStreakId === member.id}
+                        className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {deleteConfirmId === member.id ? (
+                  {deleteConfirmId === member.id ? (
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-red-400">本当に削除？</span>
                     <button
@@ -310,6 +336,31 @@ export default function FamilyPage() {
                     削除
                   </button>
                 )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-quest-dim">⏰ 報告期限（JST）</span>
+                  <input
+                    type="time"
+                    value={deadlineTimes[member.id] ?? ""}
+                    onChange={(e) => setDeadlineTimes((prev) => ({ ...prev, [member.id]: e.target.value }))}
+                    className="bg-quest-card border border-quest-border rounded px-2 py-1 text-xs text-quest-text focus:outline-none focus:border-quest-gold/30"
+                  />
+                  <button
+                    onClick={() => handleSaveDeadline(member.id)}
+                    disabled={savingDeadlineId === member.id}
+                    className="text-[10px] px-2 py-1 rounded bg-quest-gold/20 text-quest-gold border border-quest-gold/30 hover:bg-quest-gold/30 disabled:opacity-50"
+                  >
+                    {savingDeadlineId === member.id ? "保存中..." : "保存"}
+                  </button>
+                  {deadlineTimes[member.id] && (
+                    <button
+                      onClick={() => { setDeadlineTimes((prev) => ({ ...prev, [member.id]: "" })); }}
+                      className="text-[10px] text-quest-dim hover:text-quest-text"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             </div>

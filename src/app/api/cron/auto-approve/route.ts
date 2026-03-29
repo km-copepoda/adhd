@@ -22,10 +22,10 @@ export async function GET(request: Request) {
       template: {
         select: {
           id: true,
-          difficulty: true,
           category: true,
           createdBy: true,
           isTemporary: true,
+          photoBonus: true,
         },
       },
       child: {

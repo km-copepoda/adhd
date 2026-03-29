@@ -1,24 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DIFFICULTY_LABEL, XP_MAP, DAY_LABELS } from "@/lib/constants";
-import type { Category, Difficulty } from "@/types";
+import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/constants";
+import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
+import { xpRangeLabel } from "@/lib/xpRange";
 
 type Task = {
   id: string;
   title: string;
   emoji: string;
   category: Category;
-  difficulty: Difficulty;
   repeatDays: number[];
   isTemporary: boolean;
   targetDate: string | null;
   requestedDate: string | null;
   isActive: boolean;
   createdBy: string;
-  requirePhoto: boolean;
+  photoBonus: boolean;
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
@@ -28,6 +28,7 @@ type Task = {
 type Child = {
   id: string;
   monsterName: string | null;
+  reportDeadlineTime: string | null;
 };
 
 
@@ -36,10 +37,9 @@ type FormMode = "regular" | "temporary";
 const defaultForm = (childId: string) => ({
   title: "",
   category: "STUDY" as Category,
-  difficulty: "NORMAL" as Difficulty,
   repeatDays: [1, 2, 3, 4, 5] as number[],
   targetDate: "",
-  requirePhoto: false,
+  photoBonus: false,
   assignedChildId: childId,
 });
 
@@ -98,20 +98,18 @@ export default function TasksPage() {
           title: form.title,
           emoji,
           category: form.category,
-          difficulty: form.difficulty,
           isTemporary: true,
           targetDate: form.targetDate || null,
-          requirePhoto: form.requirePhoto,
+          photoBonus: form.photoBonus,
           assignedChildId: form.assignedChildId,
         }
       : {
           title: form.title,
           emoji,
           category: form.category,
-          difficulty: form.difficulty,
           repeatDays: form.repeatDays,
           isTemporary: false,
-          requirePhoto: form.requirePhoto,
+          photoBonus: form.photoBonus,
           assignedChildId: form.assignedChildId,
         };
 
@@ -158,10 +156,9 @@ export default function TasksPage() {
     setForm({
       title: task.title,
       category: task.category,
-      difficulty: task.difficulty,
       repeatDays: task.repeatDays,
       targetDate: task.targetDate ? task.targetDate.slice(0, 10) : "",
-      requirePhoto: task.requirePhoto,
+      photoBonus: task.photoBonus,
       assignedChildId: task.assignedChildId || "",
     });
     setFormMode(task.isTemporary ? "temporary" : "regular");
@@ -258,46 +255,21 @@ export default function TasksPage() {
           })}
         </div>
 
-        {/* Difficulty */}
-        <label className="block text-quest-dim text-xs mb-1 tracking-wider">難易度</label>
-        <div className="flex gap-2 mb-4">
-          {(["EASY", "NORMAL", "HARD"] as Difficulty[]).map((diff) => {
-            const label = DIFFICULTY_LABEL[diff];
-            return (
-              <button
-                key={diff}
-                onClick={() => setForm((f) => ({ ...f, difficulty: diff }))}
-                className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
-                  form.difficulty !== diff ? "border-quest-border text-quest-dim" : ""
-                }`}
-                style={
-                  form.difficulty === diff
-                    ? { borderColor: label.color, backgroundColor: `${label.color}20`, color: label.color }
-                    : undefined
-                }
-              >
-                {label.name}
-                <span className="text-[10px] ml-1">+{XP_MAP[diff]}XP</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Photo required toggle */}
+        {/* Photo bonus toggle */}
         <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
           <div className="flex-1 min-w-0">
-            <p className="text-quest-text text-sm">📷 写真報告を必須にする</p>
-            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると、子供は写真なしで報告できません</p>
+            <p className="text-quest-text text-sm">📷 写真添付を有効にする</p>
+            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると報告時に写真を添付できる（添付すると +1pt）</p>
           </div>
           <button
-            onClick={() => setForm((f) => ({ ...f, requirePhoto: !f.requirePhoto }))}
+            onClick={() => setForm((f) => ({ ...f, photoBonus: !f.photoBonus }))}
             className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 overflow-hidden ${
-              form.requirePhoto ? "bg-quest-gold" : "bg-quest-border"
+              form.photoBonus ? "bg-quest-gold" : "bg-quest-border"
             }`}
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                form.requirePhoto ? "translate-x-4" : "translate-x-0"
+                form.photoBonus ? "translate-x-4" : "translate-x-0"
               }`}
             />
           </button>
@@ -416,7 +388,7 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {pending.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const diff = DIFFICULTY_LABEL[task.difficulty];
+                    const assignedChild = children.find(c => c.id === task.assignedChildId);
                     return (
                       <div
                         key={task.id}
@@ -430,8 +402,7 @@ export default function TasksPage() {
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
-                            <span style={{ color: diff.color }}>{diff.name}</span>
-                            <span>+{XP_MAP[task.difficulty]}XP</span>
+                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
                             {task.isTemporary ? (
                               <span className="text-amber-400/70">一時</span>
                             ) : (
@@ -480,9 +451,9 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {regular.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const diff = DIFFICULTY_LABEL[task.difficulty];
                     const streak = (task.taskStreaks ?? []).find((s) => s.childId === child.id)?.currentStreak ?? 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);
+                    const assignedChild = children.find(c => c.id === task.assignedChildId);
                     return (
                       <div
                         key={task.id}
@@ -509,8 +480,7 @@ export default function TasksPage() {
                           </div>
                           <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             <span>{cat.emoji} {cat.name}</span>
-                            <span style={{ color: diff.color }}>{diff.name}</span>
-                            <span>+{XP_MAP[task.difficulty]}XP</span>
+                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
                           </div>
                           <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             {DAY_LABELS.map((label, i) => (
@@ -562,7 +532,7 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {temporary.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const diff = DIFFICULTY_LABEL[task.difficulty];
+                    const assignedChild = children.find(c => c.id === task.assignedChildId);
                     const dateStr = task.targetDate
                       ? new Date(task.targetDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })
                       : "今日";
@@ -576,8 +546,7 @@ export default function TasksPage() {
                           <p className="text-sm font-medium truncate">{task.title}</p>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
-                            <span style={{ color: diff.color }}>{diff.name}</span>
-                            <span>+{XP_MAP[task.difficulty]}XP</span>
+                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
                             <span className="text-amber-400/70">📅 {dateStr}</span>
                           </div>
                         </div>

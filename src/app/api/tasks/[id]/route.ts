@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { XP_MAP } from "@/lib/constants";
 import { routeLogger } from "@/lib/logger";
 
 export async function PUT(
@@ -25,9 +24,8 @@ export async function PUT(
       title: body.title,
       emoji: body.emoji,
       category: body.category,
-      difficulty: body.difficulty,
       repeatDays: body.repeatDays,
-      requirePhoto: body.requirePhoto,
+      photoBonus: body.photoBonus,
     },
   });
 
@@ -90,10 +88,14 @@ export async function DELETE(
     });
 
     if (task?.createdBy === "CHILD" && task.quests.length > 0) {
-      const xp = XP_MAP[task.difficulty];
       const category = task.category;
 
       for (const quest of task.quests) {
+        // ボーナスベースのXP計算（approve.ts と同じロジック）
+        let xp = 1;
+        if (quest.deadlineBonusEarned) xp++;
+        if (task.photoBonus && quest.photoUrl) xp++;
+
         const child = quest.child;
         await prisma.user.update({
           where: { id: child.id },
@@ -110,7 +112,6 @@ export async function DELETE(
       }
       rlog.warn("XP clawback on task rejection", {
         taskId: id,
-        xp,
         category,
         questCount: task.quests.length,
         userId: user.id,

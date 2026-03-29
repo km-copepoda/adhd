@@ -17,12 +17,6 @@ enum Side {
   LIGHT
 }
 
-enum Difficulty {
-  EASY
-  NORMAL
-  HARD
-}
-
 enum Category {
   STUDY
   STAMINA
@@ -39,12 +33,12 @@ enum QuestStatus {
 }
 
 model Family {
-  id               String         @id @default(cuid())
-  code             String         @unique
-  createdAt        DateTime       @default(now())
-  autoApproveTime  String         @default("24:00")
-  users            User[]
-  tasks            TaskTemplate[]
+  id                 String         @id @default(cuid())
+  code               String         @unique
+  createdAt          DateTime       @default(now())
+  autoApproveTime    String         @default("24:00")
+  users              User[]
+  tasks              TaskTemplate[]
 }
 
 model User {
@@ -61,7 +55,8 @@ model User {
   studyPt        Int             @default(0)
   staminaPt      Int             @default(0)
   lifePt         Int             @default(0)
-  minTasksForStreak Int          @default(1)
+  minTasksForStreak   Int             @default(1)
+  reportDeadlineTime  String?
   familyId    String?
   family      Family?         @relation(fields: [familyId], references: [id])
   quests              QuestInstance[]
@@ -80,7 +75,6 @@ model TaskTemplate {
   title            String
   emoji            String          @default("⚔️")
   category         Category
-  difficulty       Difficulty
   repeatDays       Int[]
   isTemporary      Boolean         @default(false)
   targetDate       DateTime?       @db.Date
@@ -89,7 +83,7 @@ model TaskTemplate {
   requestedDate    DateTime?       @db.Date
   familyId         String
   family           Family          @relation(fields: [familyId], references: [id])
-  requirePhoto     Boolean         @default(false)
+  photoBonus       Boolean         @default(false)
   assignedChildId  String?
   assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests           QuestInstance[]
@@ -105,8 +99,9 @@ model QuestInstance {
   date             DateTime     @db.Date
   status           QuestStatus  @default(PENDING)
   comment          String?
-  photoUrl         String?
-  rejectionReason  String?
+  photoUrl            String?
+  deadlineBonusEarned Boolean   @default(false)
+  rejectionReason     String?
   templateId       String
   template   TaskTemplate @relation(fields: [templateId], references: [id])
   childId    String

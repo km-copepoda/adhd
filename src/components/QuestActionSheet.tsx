@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
-import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR, XP_MAP } from "@/lib/constants";
-import type { Category, Difficulty, QuestStatus } from "@/types";
+import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
+import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
   id: string;
@@ -13,8 +13,7 @@ export type SheetQuest = {
     title: string;
     emoji: string;
     category: Category;
-    difficulty: Difficulty;
-    requirePhoto: boolean;
+    photoBonus: boolean;
     taskStreaks: { currentStreak: number; bestStreak: number }[];
   };
 };
@@ -42,10 +41,8 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cat = CATEGORY_LABEL[quest.template.category];
-  const diff = DIFFICULTY_LABEL[quest.template.difficulty];
-  const xp = XP_MAP[quest.template.difficulty];
   const streak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
-  const requirePhoto = quest.template.requirePhoto;
+  const photoBonus = quest.template.photoBonus;
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -73,10 +70,6 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
   }
 
   async function handleReport() {
-    if (requirePhoto && !photoFile) {
-      setUploadError("写真を選んでください");
-      return;
-    }
     setSheetState("submitting");
     let photoUrl: string | null = null;
     if (photoFile) {
@@ -101,7 +94,6 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
 
   const isSubmitting = sheetState === "submitting";
   const isSuccess = sheetState === "success-complete" || sheetState === "success-skip";
-  const canReport = !requirePhoto || !!photoFile;
 
   return (
     <div
@@ -122,7 +114,7 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
             {sheetState === "success-complete" ? (
               <>
                 <p className="text-5xl mb-3">🎉</p>
-                <p className="text-2xl font-black text-quest-gold mb-1">+{xp}pt ゲット！</p>
+                <p className="text-2xl font-black text-quest-gold mb-1">クエスト報告完了！</p>
                 <p className="text-xs text-quest-dim mb-4">親の確認でポイント確定</p>
                 {/* Quest progress */}
                 {questsTotal > 0 && (() => {
@@ -167,68 +159,60 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-bold text-quest-text truncate">{quest.template.title}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span
-                      className="text-[11px] px-1.5 py-0.5 rounded"
-                      style={{ backgroundColor: `${diff.color}20`, color: diff.color }}
-                    >
-                      {diff.name}
-                    </span>
                     <span className="text-[11px] text-quest-dim">{cat.emoji} {cat.name}</span>
                     {streak >= 1 && (
                       <span className="text-[11px] text-orange-400">🔥{streak}日</span>
                     )}
-                    {requirePhoto && (
-                      <span className="text-[11px] text-blue-400 border border-blue-400/30 rounded px-1">📷 写真必須</span>
+                    {photoBonus && (
+                      <span className="text-[11px] text-blue-400 border border-blue-400/30 rounded px-1">📷 写真+1pt</span>
                     )}
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className="text-2xl font-black text-quest-gold leading-none">+{xp}</p>
-                  <p className="text-[10px] text-quest-dim mt-0.5">XP</p>
+                  <p className="text-2xl font-black text-quest-gold leading-none">+1〜3</p>
+                  <p className="text-[10px] text-quest-dim mt-0.5">pt</p>
                 </div>
               </div>
 
-              {/* Photo upload section */}
-              <div className="mb-3">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`w-full rounded-xl border-2 border-dashed transition-colors py-3 flex flex-col items-center gap-1 ${
-                    photoPreview
-                      ? "border-blue-400/50 bg-blue-400/5"
-                      : requirePhoto
-                      ? "border-blue-400/40 bg-blue-400/5"
-                      : "border-quest-border/50 hover:border-quest-border"
-                  }`}
-                >
-                  {photoPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photoPreview} alt="プレビュー" className="max-h-40 rounded-lg object-contain" />
-                  ) : (
-                    <>
-                      <span className="text-2xl">📷</span>
-                      <span className="text-xs text-quest-dim">
-                        {requirePhoto ? "写真を撮る（必須）" : "写真を追加（任意）"}
-                      </span>
-                    </>
+              {/* Photo upload section — only shown when photoBonus is enabled */}
+              {photoBonus && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`w-full rounded-xl border-2 border-dashed transition-colors py-3 flex flex-col items-center gap-1 ${
+                      photoPreview
+                        ? "border-blue-400/50 bg-blue-400/5"
+                        : "border-blue-400/40 bg-blue-400/5"
+                    }`}
+                  >
+                    {photoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreview} alt="プレビュー" className="max-h-40 rounded-lg object-contain" />
+                    ) : (
+                      <>
+                        <span className="text-2xl">📷</span>
+                        <span className="text-xs text-quest-dim">写真を追加（+1pt）</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handlePhotoSelect}
+                  />
+                  {uploadError && (
+                    <p className="text-xs text-red-400 mt-1 text-center">{uploadError}</p>
                   )}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handlePhotoSelect}
-                />
-                {uploadError && (
-                  <p className="text-xs text-red-400 mt-1 text-center">{uploadError}</p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Complete button */}
               <button
                 onClick={handleReport}
-                disabled={isSubmitting || !canReport}
+                disabled={isSubmitting}
                 className="btn-gold w-full py-4 text-base font-bold rounded-xl mb-2 disabled:opacity-50"
               >
                 {isSubmitting ? "送信中..." : "⚔ クエスト完了！"}
