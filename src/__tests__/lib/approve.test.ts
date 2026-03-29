@@ -62,14 +62,14 @@ describe("approveQuestInstance", () => {
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
 
-    // baseQuest は NORMAL STUDY → xp = 3
+    // baseQuest は STUDY 基本1pt（フラットXP制）
     await approveQuestInstance(staleQuest as any);
 
-    // stale data (0+3=3) ではなく fresh data (5+3=8) で更新されること
+    // stale data (0+1=1) ではなく fresh data (5+1=6) で更新されること
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "child-1" },
-        data: expect.objectContaining({ studyPt: 8 }),
+        data: expect.objectContaining({ studyPt: 6 }),
       }),
     );
   });

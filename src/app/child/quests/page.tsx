@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
+import MonsterMiniCard from "@/components/MonsterMiniCard";
+import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 
 type Quest = {
   id: string;
@@ -32,6 +34,8 @@ type FormMode = "regular" | "temporary";
 export default function QuestsPage() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [monsterMini, setMonsterMini] = useState<MonsterMiniData | null>(null);
+  const [childName, setChildName] = useState<string>("");
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>("temporary");
@@ -44,6 +48,7 @@ export default function QuestsPage() {
 
   useEffect(() => {
     fetchQuests();
+    fetchMonster();
 
     const supabase = createClient();
     const channel = supabase
@@ -55,6 +60,24 @@ export default function QuestsPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  async function fetchMonster() {
+    const res = await fetch("/api/monster-status");
+    if (!res.ok) return;
+    const d = await res.json();
+    setChildName(d.name ?? "");
+    setMonsterMini(
+      getMonsterMiniData({
+        evolutionStage: d.evolutionStage,
+        evolutionPath: d.evolutionPath ?? "",
+        side: d.side ?? null,
+        studyPt: d.studyPt,
+        staminaPt: d.staminaPt,
+        lifePt: d.lifePt,
+        collectedPaths: d.collectedPaths ?? "[]",
+      }),
+    );
+  }
 
   async function refreshQuests() {
     const res = await fetch("/api/quests/today");
@@ -155,6 +178,11 @@ export default function QuestsPage() {
   return (
     <>
       <div className="px-4 pt-6">
+        {/* Monster mini card */}
+        {monsterMini && (
+          <MonsterMiniCard data={monsterMini} childName={childName} />
+        )}
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex justify-between items-start">
