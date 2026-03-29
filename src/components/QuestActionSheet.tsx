@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
+import { computeQuestSuccessDisplay } from "@/lib/questProgress";
 import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
@@ -118,14 +119,14 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                 <p className="text-xs text-quest-dim mb-4">親の確認でポイント確定</p>
                 {/* Quest progress */}
                 {questsTotal > 0 && (() => {
-                  const newCompleted = questsCompleted + 1;
-                  const remaining = questsTotal - newCompleted;
-                  const allDone = remaining <= 0;
+                  // questsCompleted は onReport 内の refreshQuests() 完了後に
+                  // 既に更新された値が渡されるため +1 不要
+                  const { completed, remaining, allDone } = computeQuestSuccessDisplay(questsCompleted, questsTotal);
                   return (
                     <div className="bg-quest-bg rounded-xl px-4 py-3 text-sm">
                       <p className="text-quest-dim text-xs mb-1">今日のクエスト</p>
                       <p className="font-bold text-quest-text">
-                        {newCompleted} / {questsTotal} 完了
+                        {completed} / {questsTotal} 完了
                       </p>
                       {allDone ? (
                         <p className="text-quest-gold font-bold mt-1">🏆 全部クリア！すごい！</p>
