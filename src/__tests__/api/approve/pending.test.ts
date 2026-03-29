@@ -63,8 +63,8 @@ describe("GET /api/approve/pending", () => {
         template: { familyId: "fam-1" },
       },
       include: {
-        child: { select: { name: true, monsterName: true, side: true } },
-        template: { select: { title: true, emoji: true, category: true, isTemporary: true } },
+        child: { select: { name: true, monsterName: true, side: true, reportDeadlineTime: true } },
+        template: { select: { title: true, emoji: true, category: true, isTemporary: true, photoBonus: true } },
       },
       orderBy: { reportedAt: "desc" },
     });
