@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
+import { getDeadlineDisplay } from "@/lib/date";
 import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
@@ -42,6 +43,21 @@ export default function QuestsPage() {
     repeatDays: [1, 2, 3, 4, 5] as number[],
   });
   const [submitting, setSubmitting] = useState(false);
+  const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    fetch("/api/users/me")
+      .then((r) => r.json())
+      .then((d) => setReportDeadlineTime(d.reportDeadlineTime ?? null))
+      .catch(() => {});
+  }, []);
+
+  // 1分ごとに残り時間を更新
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     fetchQuests();
@@ -188,6 +204,34 @@ export default function QuestsPage() {
               + タスクを追加
             </button>
           </div>
+          {/* Deadline banner */}
+          {reportDeadlineTime && (() => {
+            const { minutesLeft, urgency } = getDeadlineDisplay(reportDeadlineTime, now);
+            if (urgency === "expired") return null;
+            const remainingText =
+              minutesLeft >= 60
+                ? `あと${Math.floor(minutesLeft / 60)}時間${minutesLeft % 60 > 0 ? `${minutesLeft % 60}分` : ""}`
+                : `あと${minutesLeft}分`;
+            const styles = {
+              normal: "bg-green-900/20 border-green-500/30 text-green-400",
+              warning: "bg-yellow-900/20 border-yellow-500/30 text-yellow-400",
+              danger: "bg-red-900/30 border-red-500/40 text-red-400",
+              expired: "",
+            }[urgency];
+            const icon = urgency === "danger" ? "🚨" : urgency === "warning" ? "⚡" : "⏰";
+            const hasPending = quests.some((q) => q.status === "PENDING" || q.status === "REJECTED");
+            if (!hasPending) return null;
+            return (
+              <div className={`mt-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${styles}`}>
+                <span>{icon}</span>
+                <span className="flex-1">
+                  <span className="font-bold">{reportDeadlineTime}まで</span>に報告すると
+                  <span className="font-bold"> +1XP</span>ボーナス！
+                </span>
+                <span className="font-bold shrink-0">{remainingText}</span>
+              </div>
+            );
+          })()}
           {/* Progress bar */}
           <div className="mt-2 h-1.5 bg-quest-border rounded-full overflow-hidden">
             <div
