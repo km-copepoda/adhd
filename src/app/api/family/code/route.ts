@@ -25,11 +25,11 @@ export async function GET() {
       evolutionStage: u.evolutionStage ?? 0,
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
+      reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
     }));
 
     return NextResponse.json({
       code: family?.code,
-      reportDeadlineTime: family?.reportDeadlineTime ?? null,
       members,
     });
   } catch (e) {

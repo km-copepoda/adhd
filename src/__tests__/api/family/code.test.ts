@@ -52,6 +52,7 @@ describe("GET /api/family/code", () => {
       evolutionStage: 0,
       childCode: null,
       minTasksForStreak: 1,
+      reportDeadlineTime: null,
     });
     expect(json.members[1].childCode).toBe("1234");
   });

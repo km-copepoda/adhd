@@ -42,9 +42,8 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("クエスト報告でステータスがREPORTEDに更新されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser } as any); // reportDeadlineTime なし
     mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-    mockPrisma.family.findUnique.mockResolvedValue(null); // 期限なし
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -69,9 +68,8 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限なしの場合、xpAdded=1（基本のみ）を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: null } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -84,7 +82,7 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限前に報告した場合、xpAdded=2でdeadlineBonusEarned=trueが保存されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "PENDING",
@@ -92,7 +90,6 @@ describe("POST /api/quests/[id]/report", () => {
     } as any);
     // 現在時刻: 2026-03-28T09:30:00Z = 18:30 JST < 20:00 JST (期限前)
     vi.setSystemTime(new Date("2026-03-28T09:30:00Z"));
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -112,7 +109,7 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限後に報告した場合、deadlineBonusEarned=falseが保存されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "PENDING",
@@ -120,7 +117,6 @@ describe("POST /api/quests/[id]/report", () => {
     } as any);
     // 現在時刻: 2026-03-28T12:30:00Z = 21:30 JST > 20:00 JST (期限後)
     vi.setSystemTime(new Date("2026-03-28T12:30:00Z"));
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -140,7 +136,7 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("差し戻し後の再報告ではdeadlineBonusEarnedを変更しないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "REJECTED",
@@ -148,7 +144,6 @@ describe("POST /api/quests/[id]/report", () => {
     } as any);
     // 現在時刻は期限後
     vi.setSystemTime(new Date("2026-03-28T12:30:00Z"));
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -166,12 +161,11 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("photoBonus=true かつ写真あり、xpAdded=2", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       template: { ...baseQuest.template, photoBonus: true },
     } as any);
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: null } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
@@ -185,7 +179,7 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限ボーナス+写真ボーナスで xpAdded=3", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "PENDING",
@@ -193,7 +187,6 @@ describe("POST /api/quests/[id]/report", () => {
       template: { ...baseQuest.template, photoBonus: true },
     } as any);
     vi.setSystemTime(new Date("2026-03-28T09:30:00Z")); // 18:30 JST (期限前)
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: "20:00" } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
@@ -208,12 +201,11 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("photoBonus=false の場合、写真があってもボーナスなし", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       template: { ...baseQuest.template, photoBonus: false },
     } as any);
-    mockPrisma.family.findUnique.mockResolvedValue({ reportDeadlineTime: null } as any);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(
@@ -226,12 +218,11 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("コメントなし（空文字）でも報告できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       template: { ...baseQuest.template, photoBonus: false },
     } as any);
-    mockPrisma.family.findUnique.mockResolvedValue(null);
     mockPrisma.questInstance.update.mockResolvedValue({} as any);
 
     const res = await POST(

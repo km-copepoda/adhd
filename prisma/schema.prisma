@@ -37,7 +37,6 @@ model Family {
   code               String         @unique
   createdAt          DateTime       @default(now())
   autoApproveTime    String         @default("24:00")
-  reportDeadlineTime String?
   users              User[]
   tasks              TaskTemplate[]
 }
@@ -56,7 +55,8 @@ model User {
   studyPt        Int             @default(0)
   staminaPt      Int             @default(0)
   lifePt         Int             @default(0)
-  minTasksForStreak Int          @default(1)
+  minTasksForStreak   Int             @default(1)
+  reportDeadlineTime  String?
   familyId    String?
   family      Family?         @relation(fields: [familyId], references: [id])
   quests              QuestInstance[]

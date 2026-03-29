@@ -280,3 +280,17 @@
 - XP_MAP（難易度別 1/3/5pt）廃止後、`difficulty` はUI表示以外に用途がなくなった
 - フラットXP制（+1/+1/+1）では難易度はプレイヤー体験に寄与しないと判断
 - 不要なフィールドを残すと、親タスク作成フォームに「かんたん/ふつう/むずかしい」という意味のない選択肢が残り、UXが悪化する
+
+## 2026-03-29: 報告期限をファミリー単位から子供単位に変更
+
+### 決定内容
+- `Family.reportDeadlineTime` を廃止し、`User.reportDeadlineTime String?` に移動
+- 親は「メンバー管理」画面で子供ごとに報告期限時刻を設定する
+- `PATCH /api/family/settings` は `{ childId, reportDeadlineTime }` を受け取り、指定の子供の `reportDeadlineTime` を更新
+- `GET /api/family/code` のレスポンスで各メンバーに `reportDeadlineTime` を含める（トップレベルの `reportDeadlineTime` は削除）
+- `POST /api/quests/[id]/report` は Family を別途クエリせず、`user.reportDeadlineTime` を直接参照
+
+### 理由
+- 同じファミリーに複数の子供がいる場合、年齢や生活リズムが異なるため一律の報告期限は不合理
+- 子供Aは学校から帰る20時、子供Bは習い事で22時が妥当、といったケースを想定
+- Family への JOIN が不要になり `report/route.ts` の実装がシンプルになった

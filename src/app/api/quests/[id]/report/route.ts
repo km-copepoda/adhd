@@ -18,18 +18,10 @@ export async function POST(
   const { id } = await params;
   const { comment, photoUrl } = await request.json();
 
-  const [quest, family] = await Promise.all([
-    prisma.questInstance.findUnique({
-      where: { id, childId: user.id },
-      include: { template: true },
-    }),
-    user.familyId
-      ? prisma.family.findUnique({
-          where: { id: user.familyId },
-          select: { reportDeadlineTime: true },
-        })
-      : null,
-  ]);
+  const quest = await prisma.questInstance.findUnique({
+    where: { id, childId: user.id },
+    include: { template: true },
+  });
 
   if (!quest) {
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
@@ -37,10 +29,10 @@ export async function POST(
 
   const now = new Date();
 
-  // 期限ボーナス: 初回報告（PENDING→REPORTED）時のみ判定・設定
+  // 期限ボーナス: 初回報告（PENDING→REPORTED）時のみ判定・設定（子供単位の期限を参照）
   let deadlineBonusEarned: boolean | undefined;
   if (quest.status === "PENDING") {
-    const deadlineTime = family?.reportDeadlineTime ?? null;
+    const deadlineTime = user.reportDeadlineTime ?? null;
     deadlineBonusEarned = deadlineTime
       ? isBeforeDeadline(now, quest.date, deadlineTime)
       : false;
