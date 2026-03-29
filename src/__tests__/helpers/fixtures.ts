@@ -75,7 +75,6 @@ interface TaskTemplateFixture {
   title: string;
   emoji: string;
   category: "STUDY" | "STAMINA" | "LIFE";
-  difficulty: "EASY" | "NORMAL" | "HARD";
   repeatDays: number[];
   isTemporary: boolean;
   targetDate: Date | null;
@@ -91,7 +90,6 @@ export function taskTemplate(overrides?: Partial<TaskTemplateFixture>): TaskTemp
     title: "宿題",
     emoji: "📚",
     category: "STUDY",
-    difficulty: "NORMAL",
     repeatDays: [1, 2, 3, 4, 5],
     isTemporary: false,
     targetDate: null,

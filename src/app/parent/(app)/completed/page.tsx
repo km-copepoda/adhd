@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, XP_MAP } from "@/lib/constants";
-import type { Category, Difficulty } from "@/types";
+import { CATEGORY_LABEL } from "@/lib/constants";
+import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type CompletedQuest = {
@@ -17,7 +17,6 @@ type CompletedQuest = {
     title: string;
     emoji: string;
     category: Category;
-    difficulty: Difficulty;
     isTemporary: boolean;
   };
 };
@@ -44,7 +43,7 @@ export default function CompletedTodayPage() {
 
   const approvedQuests = quests.filter((q) => q.status === "APPROVED");
   const skippedQuests = quests.filter((q) => q.status === "SKIPPED");
-  const totalXp = approvedQuests.reduce((sum, q) => sum + XP_MAP[q.template.difficulty], 0);
+  const totalXp = approvedQuests.length;
 
   async function handleCopy(quest: CompletedQuest) {
     const targetDate = copyDates[quest.id] ?? getTomorrowStr();
@@ -86,7 +85,6 @@ export default function CompletedTodayPage() {
         {quests.map((quest) => {
           const isSkipped = quest.status === "SKIPPED";
           const cat = CATEGORY_LABEL[quest.template.category];
-          const xp = XP_MAP[quest.template.difficulty];
           const approvedTime = new Date(quest.approvedAt).toLocaleTimeString("ja-JP", {
             hour: "2-digit",
             minute: "2-digit",
@@ -105,7 +103,7 @@ export default function CompletedTodayPage() {
                   </p>
                   <p className="text-base font-medium mt-1">{quest.template.title}</p>
                   <p className="text-xs text-quest-dim mt-1">
-                    {cat.emoji} {cat.name}{isSkipped ? "" : ` · +${xp}XP`}
+                    {cat.emoji} {cat.name}{isSkipped ? "" : " · +1〜3XP"}
                   </p>
                   {quest.comment && (
                     <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">

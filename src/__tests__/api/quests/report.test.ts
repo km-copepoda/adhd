@@ -21,7 +21,7 @@ describe("POST /api/quests/[id]/report", () => {
     status: "PENDING",
     date: new Date("2026-03-28T00:00:00.000Z"), // 2026-03-28 JST
     deadlineBonusEarned: false,
-    template: { difficulty: "NORMAL", category: "STUDY", photoBonus: false },
+    template: { category: "STUDY", photoBonus: false },
   };
 
   it("未認証の場合、401を返すこと", async () => {

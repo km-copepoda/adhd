@@ -86,7 +86,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-1",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL", isActive: true },
+        template: { title: "宿題", emoji: "📚", category: "STUDY", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -111,7 +111,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-2",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "運動", emoji: "🏃", category: "STAMINA", difficulty: "EASY", isActive: true },
+        template: { title: "運動", emoji: "🏃", category: "STAMINA", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -136,7 +136,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-3",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "読書", emoji: "📖", category: "STUDY", difficulty: "EASY", isActive: true },
+        template: { title: "読書", emoji: "📖", category: "STUDY", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -161,7 +161,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-4",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "片付け", emoji: "🧹", category: "LIFE", difficulty: "EASY", isActive: true },
+        template: { title: "片付け", emoji: "🧹", category: "LIFE", isActive: true },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -182,7 +182,6 @@ describe("GET /api/quests/history", () => {
         title: "お手伝い",
         emoji: "🧹",
         category: "LIFE",
-        difficulty: "EASY",
         assignedChildId: "child-1",
         assignedChild: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
       },
@@ -210,7 +209,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-6",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL", isActive: true },
+        template: { title: "宿題", emoji: "📚", category: "STUDY", isActive: true },
       },
     ] as any);
     // Same template also returned by taskTemplate query
@@ -220,7 +219,6 @@ describe("GET /api/quests/history", () => {
         title: "宿題",
         emoji: "📚",
         category: "STUDY",
-        difficulty: "NORMAL",
         assignedChildId: "child-1",
         assignedChild: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
       },
@@ -305,7 +303,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-del",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", difficulty: "EASY", isActive: false },
+        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -329,7 +327,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-del",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", difficulty: "EASY", isActive: false },
+        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
@@ -352,7 +350,7 @@ describe("GET /api/quests/history", () => {
         templateId: "tpl-del",
         childId: "child-1",
         child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", difficulty: "EASY", isActive: false },
+        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false },
       },
     ] as any);
     mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);

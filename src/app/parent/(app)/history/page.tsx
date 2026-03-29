@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, XP_MAP } from "@/lib/constants";
-import type { Category, Difficulty } from "@/types";
+import { CATEGORY_LABEL } from "@/lib/constants";
+import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type HistoryStatus = "APPROVED" | "SKIPPED" | "NO_ACTION";
@@ -14,7 +14,7 @@ type HistoryItem = {
   approvedAt: string | null;
   comment: string | null;
   child: { id: string; name: string; monsterName: string | null; side: string | null } | null;
-  template: { title: string; emoji: string; category: Category; difficulty: Difficulty };
+  template: { title: string; emoji: string; category: Category };
 };
 
 function formatDate(d: Date): string {
@@ -147,7 +147,6 @@ export default function HistoryPage() {
             const isApproved = item.status === "APPROVED";
             const isSkipped = item.status === "SKIPPED";
             const cat = CATEGORY_LABEL[item.template.category];
-            const xp = XP_MAP[item.template.difficulty];
             const childName =
               item.child?.monsterName || item.child?.name || "不明";
 
@@ -172,7 +171,7 @@ export default function HistoryPage() {
                     </p>
                     <p className="text-xs text-quest-dim mt-1">
                       {cat.emoji} {cat.name}
-                      {isApproved ? ` · +${xp}XP` : ""}
+                      {isApproved ? " · +1〜3XP" : ""}
                     </p>
                     {item.comment && (
                       <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">

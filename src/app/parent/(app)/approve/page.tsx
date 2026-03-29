@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, REJECTION_REASONS, XP_MAP } from "@/lib/constants";
+import { CATEGORY_LABEL, REJECTION_REASONS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
-import type { Category, Difficulty, QuestStatus } from "@/types";
+import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -20,7 +20,6 @@ type PendingQuest = {
     title: string;
     emoji: string;
     category: Category;
-    difficulty: Difficulty;
     isTemporary: boolean;
   };
 };
@@ -142,7 +141,6 @@ export default function ApprovePage() {
         )}
         {quests.map((quest) => {
           const cat = CATEGORY_LABEL[quest.template.category];
-          const xp = XP_MAP[quest.template.difficulty];
           const isSkipRequest = quest.status === "SKIP_REPORTED";
           const showCopyOption = isSkipRequest && quest.template.isTemporary;
           return (
@@ -164,7 +162,7 @@ export default function ApprovePage() {
                   </p>
                   <p className="text-base font-medium mt-1">{quest.template.title}</p>
                   <p className="text-xs text-quest-dim mt-1">
-                    {cat.emoji} {cat.name}{!isSkipRequest && <> · +{xp}XP</>}
+                    {cat.emoji} {cat.name}{!isSkipRequest && <> · +1〜3XP</>}
                   </p>
                 </div>
               </div>
@@ -219,7 +217,7 @@ export default function ApprovePage() {
                     ? "bg-red-400/10 text-red-400 border border-red-400/30"
                     : "btn-gold"
                 }`}>
-                  {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${xp}XP)`}
+                  {isSkipRequest ? "✓ スキップを承認" : "✓ 承認 (+1〜3XP)"}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); openRejectModal(quest); }}

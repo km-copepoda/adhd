@@ -46,7 +46,7 @@ describe("GET /api/quests/completed-today", () => {
         reportedAt: new Date("2026-03-12T10:00:00"),
         approvedAt: new Date("2026-03-13T08:00:00"), // 翌日承認でも今日報告なら表示
         child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", difficulty: "NORMAL" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY" },
       },
     ];
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
@@ -69,7 +69,7 @@ describe("GET /api/quests/completed-today", () => {
         reportedAt: new Date("2026-03-12T10:00:00"),
         approvedAt: new Date("2026-03-12T11:00:00"),
         child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
-        template: { title: "英語", emoji: "📖", category: "STUDY", difficulty: "EASY", isTemporary: true },
+        template: { title: "英語", emoji: "📖", category: "STUDY", isTemporary: true },
       },
     ];
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);

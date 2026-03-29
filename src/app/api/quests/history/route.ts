@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       child: { select: { id: true, name: true, monsterName: true, side: true } },
-      template: { select: { title: true, emoji: true, category: true, difficulty: true, isActive: true } },
+      template: { select: { title: true, emoji: true, category: true, isActive: true } },
     },
     orderBy: { approvedAt: "desc" },
   });
@@ -94,7 +94,6 @@ export async function GET(request: NextRequest) {
         title: t.title,
         emoji: t.emoji,
         category: t.category,
-        difficulty: t.difficulty,
       },
     })),
   ];

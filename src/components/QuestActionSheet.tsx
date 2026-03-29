@@ -3,8 +3,8 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
-import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
-import type { Category, Difficulty, QuestStatus } from "@/types";
+import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
+import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
   id: string;
@@ -13,7 +13,6 @@ export type SheetQuest = {
     title: string;
     emoji: string;
     category: Category;
-    difficulty: Difficulty;
     photoBonus: boolean;
     taskStreaks: { currentStreak: number; bestStreak: number }[];
   };
@@ -42,7 +41,6 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cat = CATEGORY_LABEL[quest.template.category];
-  const diff = DIFFICULTY_LABEL[quest.template.difficulty];
   const streak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
   const photoBonus = quest.template.photoBonus;
 
@@ -161,12 +159,6 @@ export default function QuestActionSheet({ quest, questsCompleted, questsTotal, 
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-bold text-quest-text truncate">{quest.template.title}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span
-                      className="text-[11px] px-1.5 py-0.5 rounded"
-                      style={{ backgroundColor: `${diff.color}20`, color: diff.color }}
-                    >
-                      {diff.name}
-                    </span>
                     <span className="text-[11px] text-quest-dim">{cat.emoji} {cat.name}</span>
                     {streak >= 1 && (
                       <span className="text-[11px] text-orange-400">🔥{streak}日</span>

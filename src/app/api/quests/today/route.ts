@@ -65,7 +65,6 @@ export async function GET() {
           title: true,
           emoji: true,
           category: true,
-          difficulty: true,
           isTemporary: true,
           createdBy: true,
           photoBonus: true,

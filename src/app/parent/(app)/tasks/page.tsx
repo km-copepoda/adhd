@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DIFFICULTY_LABEL, DAY_LABELS } from "@/lib/constants";
-import type { Category, Difficulty } from "@/types";
+import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/constants";
+import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
 
@@ -11,7 +11,6 @@ type Task = {
   title: string;
   emoji: string;
   category: Category;
-  difficulty: Difficulty;
   repeatDays: number[];
   isTemporary: boolean;
   targetDate: string | null;
@@ -36,7 +35,6 @@ type FormMode = "regular" | "temporary";
 const defaultForm = (childId: string) => ({
   title: "",
   category: "STUDY" as Category,
-  difficulty: "NORMAL" as Difficulty,
   repeatDays: [1, 2, 3, 4, 5] as number[],
   targetDate: "",
   photoBonus: false,
@@ -98,7 +96,6 @@ export default function TasksPage() {
           title: form.title,
           emoji,
           category: form.category,
-          difficulty: form.difficulty,
           isTemporary: true,
           targetDate: form.targetDate || null,
           photoBonus: form.photoBonus,
@@ -108,7 +105,6 @@ export default function TasksPage() {
           title: form.title,
           emoji,
           category: form.category,
-          difficulty: form.difficulty,
           repeatDays: form.repeatDays,
           isTemporary: false,
           photoBonus: form.photoBonus,
@@ -158,7 +154,6 @@ export default function TasksPage() {
     setForm({
       title: task.title,
       category: task.category,
-      difficulty: task.difficulty,
       repeatDays: task.repeatDays,
       targetDate: task.targetDate ? task.targetDate.slice(0, 10) : "",
       photoBonus: task.photoBonus,
@@ -253,30 +248,6 @@ export default function TasksPage() {
                 }`}
               >
                 {label.emoji} {label.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Difficulty */}
-        <label className="block text-quest-dim text-xs mb-1 tracking-wider">難易度</label>
-        <div className="flex gap-2 mb-4">
-          {(["EASY", "NORMAL", "HARD"] as Difficulty[]).map((diff) => {
-            const label = DIFFICULTY_LABEL[diff];
-            return (
-              <button
-                key={diff}
-                onClick={() => setForm((f) => ({ ...f, difficulty: diff }))}
-                className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
-                  form.difficulty !== diff ? "border-quest-border text-quest-dim" : ""
-                }`}
-                style={
-                  form.difficulty === diff
-                    ? { borderColor: label.color, backgroundColor: `${label.color}20`, color: label.color }
-                    : undefined
-                }
-              >
-                {label.name}
               </button>
             );
           })}
@@ -415,7 +386,6 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {pending.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const diff = DIFFICULTY_LABEL[task.difficulty];
                     return (
                       <div
                         key={task.id}
@@ -429,7 +399,6 @@ export default function TasksPage() {
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
-                            <span style={{ color: diff.color }}>{diff.name}</span>
                             <span>+1〜3pt</span>
                             {task.isTemporary ? (
                               <span className="text-amber-400/70">一時</span>
@@ -479,7 +448,6 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {regular.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const diff = DIFFICULTY_LABEL[task.difficulty];
                     const streak = (task.taskStreaks ?? []).find((s) => s.childId === child.id)?.currentStreak ?? 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);
                     return (
@@ -508,7 +476,6 @@ export default function TasksPage() {
                           </div>
                           <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             <span>{cat.emoji} {cat.name}</span>
-                            <span style={{ color: diff.color }}>{diff.name}</span>
                             <span>+1〜3pt</span>
                           </div>
                           <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
@@ -561,7 +528,6 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {temporary.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const diff = DIFFICULTY_LABEL[task.difficulty];
                     const dateStr = task.targetDate
                       ? new Date(task.targetDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })
                       : "今日";
@@ -575,7 +541,6 @@ export default function TasksPage() {
                           <p className="text-sm font-medium truncate">{task.title}</p>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
-                            <span style={{ color: diff.color }}>{diff.name}</span>
                             <span>+1〜3pt</span>
                             <span className="text-amber-400/70">📅 {dateStr}</span>
                           </div>

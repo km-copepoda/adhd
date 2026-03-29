@@ -24,7 +24,6 @@ const baseQuest = {
   status: "REPORTED" as const,
   template: {
     id: "tpl-1",
-    difficulty: "NORMAL" as const,
     category: "STUDY" as const,
     createdBy: "PARENT" as const,
     isTemporary: false,

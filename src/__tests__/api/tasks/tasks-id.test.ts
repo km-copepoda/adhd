@@ -37,7 +37,6 @@ describe("PUT /api/tasks/[id]", () => {
         title: "更新後",
         emoji: "📝",
         category: "STUDY",
-        difficulty: "HARD",
         repeatDays: [0, 6],
       }),
       makeParams("t1")
@@ -51,7 +50,6 @@ describe("PUT /api/tasks/[id]", () => {
         title: "更新後",
         emoji: "📝",
         category: "STUDY",
-        difficulty: "HARD",
         repeatDays: [0, 6],
         photoBonus: undefined,
       },
@@ -67,7 +65,6 @@ describe("PUT /api/tasks/[id]", () => {
         title: "宿題",
         emoji: "📝",
         category: "STUDY",
-        difficulty: "NORMAL",
         repeatDays: [1, 2, 3, 4, 5],
         photoBonus: true,
       }),
@@ -229,12 +226,14 @@ describe("DELETE /api/tasks/[id]", () => {
     mockPrisma.taskTemplate.findUnique.mockResolvedValue({
       id: "t3",
       createdBy: "CHILD",
-      difficulty: "HARD", // XP=5
+      photoBonus: false,
       category: "STAMINA",
       quests: [
         {
           id: "q3",
           status: "REPORTED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
           child: { id: "child-2", studyPt: 2, staminaPt: 1, lifePt: 0 },
         },
       ],
@@ -250,7 +249,7 @@ describe("DELETE /api/tasks/[id]", () => {
       where: { id: "child-2" },
       data: {
         studyPt: 2,
-        staminaPt: 0, // Math.max(0, 1-5) = 0
+        staminaPt: 0, // Math.max(0, 1-1) = 0
         lifePt: 0,
       },
     });

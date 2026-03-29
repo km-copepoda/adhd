@@ -75,7 +75,6 @@ export async function POST(request: Request) {
       title: body.title,
       emoji: body.emoji || "⚔️",
       category: body.category,
-      difficulty: body.difficulty,
       repeatDays: isTemporary ? [] : (body.repeatDays ?? []),
       isTemporary,
       targetDate: isTemporary

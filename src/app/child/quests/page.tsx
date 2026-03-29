@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DIFFICULTY_LABEL, CATEGORY_LABEL, CATEGORY_COLOR, XP_MAP, DAY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
-import type { Category, Difficulty, QuestStatus } from "@/types";
+import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 
@@ -13,12 +13,13 @@ type Quest = {
   status: QuestStatus;
   comment: string | null;
   rejectionReason: string | null;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
   template: {
     id: string;
     title: string;
     emoji: string;
     category: Category;
-    difficulty: Difficulty;
     isTemporary: boolean;
     createdBy: string;
     photoBonus: boolean;
@@ -37,7 +38,6 @@ export default function QuestsPage() {
   const [form, setForm] = useState({
     title: "",
     category: "STUDY" as Category,
-    difficulty: "NORMAL" as Difficulty,
     repeatDays: [1, 2, 3, 4, 5] as number[],
   });
   const [submitting, setSubmitting] = useState(false);
@@ -94,14 +94,12 @@ export default function QuestsPage() {
           title: form.title,
           emoji,
           category: form.category,
-          difficulty: form.difficulty,
           isTemporary: true,
         }
       : {
           title: form.title,
           emoji,
           category: form.category,
-          difficulty: form.difficulty,
           isTemporary: false,
           repeatDays: form.repeatDays,
         };
@@ -114,7 +112,7 @@ export default function QuestsPage() {
     setSubmitting(false);
     if (res.ok) {
       setShowAddForm(false);
-      setForm({ title: "", category: "STUDY", difficulty: "NORMAL", repeatDays: [1, 2, 3, 4, 5] });
+      setForm({ title: "", category: "STUDY", repeatDays: [1, 2, 3, 4, 5] });
       fetchQuests();
     }
   }
@@ -134,11 +132,21 @@ export default function QuestsPage() {
 
   const provisionalPt = quests
     .filter((q) => q.status === "REPORTED")
-    .reduce((sum, q) => sum + XP_MAP[q.template.difficulty], 0);
+    .reduce((sum, q) => {
+      let xp = 1;
+      if (q.deadlineBonusEarned) xp++;
+      if (q.template.photoBonus && q.photoUrl) xp++;
+      return sum + xp;
+    }, 0);
 
   const confirmedPt = quests
     .filter((q) => q.status === "APPROVED")
-    .reduce((sum, q) => sum + XP_MAP[q.template.difficulty], 0);
+    .reduce((sum, q) => {
+      let xp = 1;
+      if (q.deadlineBonusEarned) xp++;
+      if (q.template.photoBonus && q.photoUrl) xp++;
+      return sum + xp;
+    }, 0);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -252,29 +260,6 @@ export default function QuestsPage() {
               })}
             </div>
 
-            {/* Difficulty */}
-            <div className="flex gap-1.5 mb-3">
-              {(["EASY", "NORMAL", "HARD"] as Difficulty[]).map((diff) => {
-                const label = DIFFICULTY_LABEL[diff];
-                return (
-                  <button
-                    key={diff}
-                    onClick={() => setForm((f) => ({ ...f, difficulty: diff }))}
-                    className={`flex-1 py-1.5 rounded-lg text-xs border transition-colors ${
-                      form.difficulty !== diff ? "border-quest-border text-quest-dim" : ""
-                    }`}
-                    style={
-                      form.difficulty === diff
-                        ? { borderColor: label.color, backgroundColor: `${label.color}20`, color: label.color }
-                        : undefined
-                    }
-                  >
-                    {label.name}
-                  </button>
-                );
-              })}
-            </div>
-
             {/* Repeat days (regular only) */}
             {formMode === "regular" && (
               <div className="flex gap-1 mb-3">
@@ -323,8 +308,9 @@ export default function QuestsPage() {
           )}
           {quests.map((quest) => {
             const cat = CATEGORY_LABEL[quest.template.category];
-            const diff = DIFFICULTY_LABEL[quest.template.difficulty];
-            const xp = XP_MAP[quest.template.difficulty];
+            let xp = 1;
+            if (quest.deadlineBonusEarned) xp++;
+            if (quest.template.photoBonus && quest.photoUrl) xp++;
             const isTemporary = quest.template.isTemporary;
             const taskStreak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
             const isApproved = quest.status === "APPROVED";
@@ -346,13 +332,7 @@ export default function QuestsPage() {
                       : "border-quest-border cursor-pointer hover:border-quest-gold/30 active:scale-[0.99]"
                   }`}
                 >
-                  {/* Difficulty stripe */}
-                  <div
-                    className="absolute left-0 top-0 bottom-0 w-1"
-                    style={{ backgroundColor: diff.color }}
-                  />
-
-                  <div className="flex items-center gap-3 p-4 pl-5">
+                  <div className="flex items-center gap-3 p-4">
                     {/* Icon */}
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
@@ -382,12 +362,6 @@ export default function QuestsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: `${diff.color}20`, color: diff.color }}
-                        >
-                          {diff.name}
-                        </span>
                         <span className="text-[10px] text-quest-dim">
                           {cat.emoji} {cat.name}
                         </span>

@@ -17,12 +17,6 @@ enum Side {
   LIGHT
 }
 
-enum Difficulty {
-  EASY
-  NORMAL
-  HARD
-}
-
 enum Category {
   STUDY
   STAMINA
@@ -81,7 +75,6 @@ model TaskTemplate {
   title            String
   emoji            String          @default("⚔️")
   category         Category
-  difficulty       Difficulty
   repeatDays       Int[]
   isTemporary      Boolean         @default(false)
   targetDate       DateTime?       @db.Date

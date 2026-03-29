@@ -57,10 +57,10 @@ describe("GET /api/monster-status", () => {
     );
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([
-        { template: { difficulty: "NORMAL", category: "STUDY" } },   // +3
-        { template: { difficulty: "HARD", category: "STUDY" } },     // +5
-        { template: { difficulty: "EASY", category: "STAMINA" } },   // +1
-        { template: { difficulty: "NORMAL", category: "LIFE" } },    // +3
+        { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },    // +1
+        { deadlineBonusEarned: true, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },     // +2
+        { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STAMINA" } },  // +1
+        { deadlineBonusEarned: false, photoUrl: "url", template: { photoBonus: true, category: "LIFE" } },     // +2
       ] as any)
       .mockResolvedValueOnce([] as any); // monthlyQuests
     mockPrisma.streak.findUnique.mockResolvedValue(null);
@@ -68,9 +68,9 @@ describe("GET /api/monster-status", () => {
     const res = await GET();
     const json = await res.json();
 
-    expect(json.pendingStudyPt).toBe(8);
-    expect(json.pendingStaminaPt).toBe(1);
-    expect(json.pendingLifePt).toBe(3);
+    expect(json.pendingStudyPt).toBe(3);   // 1+2
+    expect(json.pendingStaminaPt).toBe(1); // 1
+    expect(json.pendingLifePt).toBe(2);    // 2
   });
 
   it("今月の達成日数を正しく返すこと", async () => {

@@ -24,7 +24,6 @@ export async function PUT(
       title: body.title,
       emoji: body.emoji,
       category: body.category,
-      difficulty: body.difficulty,
       repeatDays: body.repeatDays,
       photoBonus: body.photoBonus,
     },

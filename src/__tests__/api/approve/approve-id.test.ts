@@ -382,7 +382,7 @@ describe("POST /api/approve/[id]", () => {
         status: "REPORTED",
         childId: "child-1",
         templateId: "tpl-1",
-        template: { difficulty: "NORMAL", category: "STUDY" },
+        template: { category: "STUDY" },
         child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
       } as any);
 
@@ -401,7 +401,7 @@ describe("POST /api/approve/[id]", () => {
         status: "REPORTED",
         childId: "child-1",
         templateId: "tpl-1",
-        template: { difficulty: "NORMAL", category: "STUDY" },
+        template: { category: "STUDY" },
         child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
@@ -428,7 +428,7 @@ describe("POST /api/approve/[id]", () => {
         status: "REPORTED",
         childId: "child-1",
         templateId: "tpl-1",
-        template: { difficulty: "NORMAL", category: "STUDY" },
+        template: { category: "STUDY" },
         child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
       } as any);
 
@@ -446,7 +446,7 @@ describe("POST /api/approve/[id]", () => {
         status: "REPORTED",
         childId: "child-1",
         templateId: "tpl-1",
-        template: { difficulty: "NORMAL", category: "STUDY" },
+        template: { category: "STUDY" },
         child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
