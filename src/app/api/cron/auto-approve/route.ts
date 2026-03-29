@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { todayJST } from "@/lib/date";
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {

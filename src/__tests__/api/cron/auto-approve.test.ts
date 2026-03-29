@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "@/app/api/cron/auto-approve/route";
+import { GET } from "@/app/api/cron/auto-approve/route";
 import { prisma } from "@/lib/prisma";
 
 vi.mock("@/lib/approve", () => ({
@@ -19,7 +19,7 @@ function makeRequest(secret?: string) {
     headers["authorization"] = `Bearer ${secret}`;
   }
   return new Request("http://localhost/api/cron/auto-approve", {
-    method: "POST",
+    method: "GET",
     headers,
   });
 }
@@ -29,14 +29,14 @@ beforeEach(() => {
   vi.stubEnv("CRON_SECRET", "test-secret");
 });
 
-describe("POST /api/cron/auto-approve", () => {
+describe("GET /api/cron/auto-approve", () => {
   it("CRON_SECRETが一致しない場合、401を返すこと", async () => {
-    const res = await POST(makeRequest("wrong-secret"));
+    const res = await GET(makeRequest("wrong-secret"));
     expect(res.status).toBe(401);
   });
 
   it("Authorizationヘッダーがない場合、401を返すこと", async () => {
-    const res = await POST(makeRequest());
+    const res = await GET(makeRequest());
     expect(res.status).toBe(401);
   });
 
@@ -49,7 +49,7 @@ describe("POST /api/cron/auto-approve", () => {
 
     mockPrisma.questInstance.findMany.mockResolvedValue(reportedQuests as any);
 
-    const res = await POST(makeRequest("test-secret"));
+    const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -67,7 +67,7 @@ describe("POST /api/cron/auto-approve", () => {
 
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
 
-    const res = await POST(makeRequest("test-secret"));
+    const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -85,7 +85,7 @@ describe("POST /api/cron/auto-approve", () => {
 
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
 
-    const res = await POST(makeRequest("test-secret"));
+    const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
 
     expect(mockApproveQuest).toHaveBeenCalledTimes(1);
@@ -97,7 +97,7 @@ describe("POST /api/cron/auto-approve", () => {
   it("対象クエストがない場合、0件で200を返すこと", async () => {
     mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
-    const res = await POST(makeRequest("test-secret"));
+    const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
