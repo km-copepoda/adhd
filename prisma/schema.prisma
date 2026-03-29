@@ -123,6 +123,9 @@ model Streak {
   currentStreak    Int       @default(0)
   bestStreak       Int       @default(0)
   lastAchievedDate DateTime? @db.Date
+  loginCurrentStreak Int     @default(0)
+  loginBestStreak    Int     @default(0)
+  lastLoginDate      DateTime? @db.Date
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }

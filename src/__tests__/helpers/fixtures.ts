@@ -153,6 +153,9 @@ interface StreakFixture {
   currentStreak: number;
   bestStreak: number;
   lastAchievedDate: Date | null;
+  loginCurrentStreak: number;
+  loginBestStreak: number;
+  lastLoginDate: Date | null;
 }
 
 export function streak(overrides?: Partial<StreakFixture>): StreakFixture {
@@ -162,6 +165,9 @@ export function streak(overrides?: Partial<StreakFixture>): StreakFixture {
     currentStreak: 0,
     bestStreak: 0,
     lastAchievedDate: null,
+    loginCurrentStreak: 0,
+    loginBestStreak: 0,
+    lastLoginDate: null,
     ...overrides,
   };
 }
