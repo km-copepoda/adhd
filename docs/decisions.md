@@ -261,9 +261,22 @@
   - PENDING → REPORTED（初回報告）時のみ判定・設定
   - REJECTED → REPORTED（差し戻し後再報告）では変更しない（子供が遅く却下されても期限ボーナスを保護）
 - XP付与は承認時に `deadlineBonusEarned` + `photoUrl` 有無で確定（既存の承認時付与アーキテクチャを維持）
-- XP_MAP（難易度別: EASY=1, NORMAL=3, HARD=5）を廃止。`difficulty` フィールドはUI表示用として残存
+- XP_MAP（難易度別: EASY=1, NORMAL=3, HARD=5）を廃止。`difficulty` フィールドはUI表示用として残存（後に完全廃止）
 
 ### 理由
 - 写真撮影は子供にとって心理的・物理的負荷が高く、タスク報告の障壁になっていた。インセンティブ設計（ボーナス）に変えることで、写真がないタスクも気軽に報告できるようにする
 - 期限ボーナスをファミリー単位にしたことで、親がタスクごとに時刻を設定する負荷を排除
 - `deadlineBonusEarned` フラグにより、親の承認/却下タイミングの影響を受けない公平な期限評価を実現
+
+## 2026-03-29: difficulty フィールドの完全廃止
+
+### 決定内容
+- `TaskTemplate.difficulty`（EASY/NORMAL/HARD）と `enum Difficulty` を DB・スキーマ・コードから完全削除
+- `XP_MAP`・`DIFFICULTY_LABEL` 定数を削除
+- 難易度選択UIを親・子供両画面から削除
+- `migration: DROP COLUMN difficulty / DROP TYPE Difficulty`
+
+### 理由
+- XP_MAP（難易度別 1/3/5pt）廃止後、`difficulty` はUI表示以外に用途がなくなった
+- フラットXP制（+1/+1/+1）では難易度はプレイヤー体験に寄与しないと判断
+- 不要なフィールドを残すと、親タスク作成フォームに「かんたん/ふつう/むずかしい」という意味のない選択肢が残り、UXが悪化する
