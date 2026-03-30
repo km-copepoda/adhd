@@ -51,6 +51,7 @@ describe("POST /api/approve/[id]", () => {
     it("クエストをAPPROVEDに更新しXP（基本1pt）を付与すること", async () => {
       vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1",
         date: new Date("2026-03-13"),
@@ -59,8 +60,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: false,
         photoUrl: null,
         template: { category: "STUDY", createdBy: "PARENT", photoBonus: false },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -92,6 +94,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("deadlineBonusEarned=trueで+1、合計2ptが付与されること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1-dl",
         date: new Date("2026-03-13"),
@@ -100,8 +103,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: true,
         photoUrl: null,
         template: { category: "STUDY", createdBy: "PARENT", photoBonus: false },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -116,6 +120,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("photoBonus=trueかつphotoUrlありで+1、合計2ptが付与されること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1-ph",
         date: new Date("2026-03-13"),
@@ -124,8 +129,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: false,
         photoUrl: "https://example.com/photo.jpg",
         template: { category: "STAMINA", createdBy: "PARENT", photoBonus: true },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -140,6 +146,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("全ボーナスありで3ptが付与されること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1-all",
         date: new Date("2026-03-13"),
@@ -148,8 +155,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: true,
         photoUrl: "https://example.com/photo.jpg",
         template: { category: "LIFE", createdBy: "PARENT", photoBonus: true },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -164,6 +172,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("進化閾値未満ならステージ変更なしでポイント更新すること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1b",
         date: new Date("2026-03-13"),
@@ -172,8 +181,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: false,
         photoUrl: null,
         template: { category: "STUDY", createdBy: "PARENT", photoBonus: false },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -195,6 +205,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("仮タスク（createdBy=CHILD）承認時にテンプレートも同時承認すること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q2",
         date: new Date("2026-03-13"),
@@ -203,8 +214,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: false,
         photoUrl: null,
         template: { category: "LIFE", createdBy: "CHILD", photoBonus: false },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
       mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
@@ -224,6 +236,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("一時タスク承認時にrecordTaskStreakを呼ばないこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q-tmp",
         date: new Date("2026-03-19"),
@@ -232,8 +245,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: false,
         photoUrl: null,
         template: { category: "LIFE", createdBy: "PARENT", photoBonus: false, isTemporary: true },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -249,6 +263,7 @@ describe("POST /api/approve/[id]", () => {
 
     it("PARENT作成テンプレートの場合、テンプレート承認をスキップすること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q3",
         date: new Date("2026-03-13"),
@@ -257,8 +272,9 @@ describe("POST /api/approve/[id]", () => {
         deadlineBonusEarned: false,
         photoUrl: null,
         template: { category: "STAMINA", createdBy: "PARENT", photoBonus: false },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" },
+        child: childData,
       } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -287,6 +303,15 @@ describe("POST /api/approve/[id]", () => {
           lifePt: 0,
           collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
         },
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: "child-1",
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        evolutionStage: 3,
+        studyPt: 19,
+        staminaPt: 0,
+        lifePt: 0,
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
