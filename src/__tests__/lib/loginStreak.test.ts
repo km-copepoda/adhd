@@ -84,10 +84,10 @@ describe("recordLoginActivity", () => {
     expect(result.loginStreak).toBe(1);
   });
 
-  it("30日連続ログインで +1pt ボーナスが付与される", async () => {
+  it("10日連続ログインで +1pt ボーナスが付与される", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
     );
     mockPrisma.streak.update.mockResolvedValue({} as any);
     mockPrisma.user.findUnique.mockResolvedValue(
@@ -97,15 +97,15 @@ describe("recordLoginActivity", () => {
 
     const result = await recordLoginActivity("child-1", today);
 
-    expect(result.loginStreak).toBe(30);
+    expect(result.loginStreak).toBe(10);
     expect(result.bonusGranted).toBe(1);
     expect(mockPrisma.user.update).toHaveBeenCalled();
   });
 
-  it("60日連続で再度 +1pt ボーナスが付与される（反復マイルストーン）", async () => {
+  it("20日連続で再度 +1pt ボーナスが付与される（反復マイルストーン）", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 59, loginBestStreak: 59, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 19, loginBestStreak: 19, lastLoginDate: yesterday }) as any,
     );
     mockPrisma.streak.update.mockResolvedValue({} as any);
     mockPrisma.user.findUnique.mockResolvedValue(
@@ -115,15 +115,15 @@ describe("recordLoginActivity", () => {
 
     const result = await recordLoginActivity("child-1", today);
 
-    expect(result.loginStreak).toBe(60);
+    expect(result.loginStreak).toBe(20);
     expect(result.bonusGranted).toBe(1);
     expect(mockPrisma.user.update).toHaveBeenCalled();
   });
 
-  it("29日連続ではボーナスなし", async () => {
+  it("9日連続ではボーナスなし", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 28, loginBestStreak: 28, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 8, loginBestStreak: 8, lastLoginDate: yesterday }) as any,
     );
     mockPrisma.streak.update.mockResolvedValue({} as any);
 

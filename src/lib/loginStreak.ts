@@ -65,10 +65,10 @@ export async function recordLoginActivity(
   return { loginStreak: newLoginStreak, loginBestStreak: newBest, bonusGranted };
 }
 
-/** oldStreak→newStreak で新たに到達した30日倍数の回数（通常は0か1） */
+/** oldStreak→newStreak で新たに到達した10日倍数の回数（通常は0か1） */
 function getLoginMilestoneBonus(oldStreak: number, newStreak: number): number {
-  const oldMilestone = Math.floor(oldStreak / 30);
-  const newMilestone = Math.floor(newStreak / 30);
+  const oldMilestone = Math.floor(oldStreak / 10);
+  const newMilestone = Math.floor(newStreak / 10);
   return Math.max(0, newMilestone - oldMilestone);
 }
 
