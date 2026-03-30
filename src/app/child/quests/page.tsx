@@ -195,11 +195,6 @@ export default function QuestsPage() {
   return (
     <>
       <div className="px-4 pt-6">
-        {/* Monster mini card */}
-        {monsterMini && (
-          <MonsterMiniCard data={monsterMini} childName={childName} />
-        )}
-
         {/* Header */}
         <div className="mb-6">
           <div className="flex justify-between items-start">
@@ -270,6 +265,11 @@ export default function QuestsPage() {
             />
           </div>
         </div>
+
+        {/* Monster mini card */}
+        {monsterMini && (
+          <MonsterMiniCard data={monsterMini} childName={childName} />
+        )}
 
         {/* Add task form */}
         {showAddForm && (
