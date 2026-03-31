@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/constants";
+import Image from "next/image";
+import { CATEGORY_LABEL, DAY_LABELS, getMonsterStage } from "@/lib/constants";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
@@ -28,6 +29,9 @@ type Task = {
 type Child = {
   id: string;
   monsterName: string | null;
+  side: string | null;
+  evolutionStage: number;
+  evolutionPath: string;
   reportDeadlineTime: string | null;
 };
 
@@ -354,6 +358,9 @@ export default function TasksPage() {
             {/* Child section header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-quest-border flex items-center justify-center overflow-hidden shrink-0">
+                  {(() => { const m = getMonsterStage(child.evolutionStage, child.evolutionPath ?? "", child.side); return <Image src={m.image} alt={m.name} width={32} height={32} className="w-full h-full object-contain" />; })()}
+                </div>
                 <h2 className="text-quest-text font-bold text-base">{name}</h2>
                 <span className="text-quest-dim text-xs">
                   {totalCount > 0 ? `${totalCount}件` : "タスクなし"}

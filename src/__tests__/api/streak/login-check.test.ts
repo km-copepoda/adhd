@@ -43,7 +43,10 @@ describe("POST /api/streak/login-check", () => {
 
   it("30日目にボーナスが付与されること", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    const yesterday = new Date();
+    // recordLoginActivity と同じ JST ベースで yesterday を計算（タイムゾーン境界バグ防止）
+    const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayNorm = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate()));
+    const yesterday = new Date(todayNorm);
     yesterday.setDate(yesterday.getDate() - 1);
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }) as any,
