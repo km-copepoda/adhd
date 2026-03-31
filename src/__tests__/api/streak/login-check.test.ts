@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { POST } from "@/app/api/streak/login-check/route";
 import { childUser, streak, parentUser } from "../../helpers/fixtures";
 
+// todayJST を固定日付に差し替えてタイムゾーン依存を排除
+vi.mock("@/lib/date", () => ({
+  todayJST: () => new Date("2026-03-29"),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
@@ -41,16 +46,17 @@ describe("POST /api/streak/login-check", () => {
     expect(json.bonusGranted).toBe(0);
   });
 
-  it("30日目にボーナスが付与されること", async () => {
+  it("10日目にボーナスが付与されること", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    // todayJST = 2026-03-29 なので yesterday = 2026-03-28
+    const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
     );
     mockPrisma.streak.update.mockResolvedValue({} as any);
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ studyPt: 0, staminaPt: 0, lifePt: 0 }) as any,
+      // stage 1 を使い進化が発動しない範囲に設定
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 }) as any,
     );
     mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -58,7 +64,7 @@ describe("POST /api/streak/login-check", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.loginStreak).toBe(30);
+    expect(json.loginStreak).toBe(10);
     expect(json.bonusGranted).toBe(1);
   });
 });

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { checkEvolution, distributeBonus } from "@/lib/constants";
+import { checkEvolution } from "@/lib/constants";
 import { log } from "@/lib/logger";
 
 export interface LoginActivityResult {
@@ -76,10 +76,12 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
   const child = await prisma.user.findUnique({ where: { id: childId } });
   if (!child) return;
 
-  const dist = distributeBonus(bonus);
-  const newStudy = child.studyPt + dist.study;
-  const newStamina = child.staminaPt + dist.stamina;
-  const newLife = child.lifePt + dist.life;
+  const { newStudy, newStamina, newLife } = addBonusToMinCategory(
+    child.studyPt,
+    child.staminaPt,
+    child.lifePt,
+    bonus,
+  );
 
   const evolution = checkEvolution(
     child.evolutionStage,
@@ -101,6 +103,19 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
   });
 
   log.info("Login streak bonus applied", { childId, bonus, evolved: evolution.evolved });
+}
+
+/** ボーナスを最少ポイントのカテゴリに加算する（同値の場合 STUDY > STAMINA > LIFE） */
+function addBonusToMinCategory(
+  study: number,
+  stamina: number,
+  life: number,
+  bonus: number,
+): { newStudy: number; newStamina: number; newLife: number } {
+  const min = Math.min(study, stamina, life);
+  if (study === min) return { newStudy: study + bonus, newStamina: stamina, newLife: life };
+  if (stamina === min) return { newStudy: study, newStamina: stamina + bonus, newLife: life };
+  return { newStudy: study, newStamina: stamina, newLife: life + bonus };
 }
 
 function normalizeDate(d: Date): Date {
