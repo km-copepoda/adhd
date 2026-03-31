@@ -107,7 +107,12 @@ export default function ApprovePage() {
   }
 
   async function handleBulkApprove() {
-    await Promise.all(quests.map((q) => handleAction(q, "approve")));
+    const ids = quests.map((q) => q.id);
+    await fetch("/api/approve/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
     fetchPending();
   }
 
