@@ -4,11 +4,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { POST } from "@/app/api/streak/login-check/route";
 import { childUser, streak, parentUser } from "../../helpers/fixtures";
 
-// todayJST を固定日付に差し替えてタイムゾーン依存を排除
-vi.mock("@/lib/date", () => ({
-  todayJST: () => new Date("2026-03-29"),
-}));
-
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
@@ -48,8 +43,11 @@ describe("POST /api/streak/login-check", () => {
 
   it("10日目にボーナスが付与されること", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    // todayJST = 2026-03-29 なので yesterday = 2026-03-28
-    const yesterday = new Date("2026-03-28");
+    // recordLoginActivity と同じ JST ベースで yesterday を計算（タイムゾーン境界バグ防止）
+    const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayNorm = new Date(Date.UTC(jstNow.getUTCFullYear(), jstNow.getUTCMonth(), jstNow.getUTCDate()));
+    const yesterday = new Date(todayNorm);
+    yesterday.setDate(yesterday.getDate() - 1);
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
     );

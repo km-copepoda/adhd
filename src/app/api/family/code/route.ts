@@ -23,6 +23,7 @@ export async function GET() {
       monsterName: u.monsterName,
       side: u.side,
       evolutionStage: u.evolutionStage ?? 0,
+      evolutionPath: (u.evolutionPath as string) ?? "",
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,

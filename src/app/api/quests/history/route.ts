@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       child: { select: { id: true, name: true, monsterName: true, side: true } },
-      template: { select: { title: true, emoji: true, category: true, isActive: true } },
+      template: { select: { title: true, emoji: true, category: true, isActive: true, photoBonus: true } },
     },
     orderBy: { approvedAt: "desc" },
   });
@@ -80,6 +80,8 @@ export async function GET(request: NextRequest) {
         date: i.date,
         approvedAt: i.approvedAt,
         comment: i.comment,
+        deadlineBonusEarned: i.deadlineBonusEarned,
+        photoUrl: i.photoUrl,
         child: i.child,
         template: i.template,
       })),

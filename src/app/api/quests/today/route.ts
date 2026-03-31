@@ -78,5 +78,6 @@ export async function GET() {
     orderBy: { template: { createdAt: "asc" } },
   });
 
-  return NextResponse.json(quests);
+  const hasDeadline = !!user.reportDeadlineTime;
+  return NextResponse.json(quests.map((q) => ({ ...q, hasDeadline })));
 }

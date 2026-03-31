@@ -50,6 +50,7 @@ describe("GET /api/family/code", () => {
       monsterName: null,
       side: null,
       evolutionStage: 0,
+      evolutionPath: "",
       childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,

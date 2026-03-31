@@ -220,8 +220,8 @@
 ### 決定内容
 - `Side` フィールド（DARK/LIGHT）を、モンスターのビジュアルセット（男の子/女の子）の選択に使用する
 - DARK = 男の子用画像（現行の `public/monsters/*.webp`）
-- LIGHT = 女の子用画像（未作成のため暫定的に DARK と同じ画像を使用）
-- `MONSTER_TABLE_LIGHT` を `constants.ts` に追加。現時点は `MONSTER_TABLE` と同じ内容。女の子用画像が揃い次第、個別エントリを差し替える
+- LIGHT = 女の子用画像（`public/monsters/light/` に39体分のユニーク画像を作成済み）
+- `MONSTER_TABLE_LIGHT` を `constants.ts` に追加。全エントリが `light/` の実画像を参照済み
 - `getMonsterStage(stage, path, side?)` に `side` 引数を追加し、LIGHT のとき `MONSTER_TABLE_LIGHT` を参照
 
 ### 理由

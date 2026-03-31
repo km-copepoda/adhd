@@ -69,6 +69,37 @@ export function isBeforeDeadline(reportedAt: Date, questDate: Date, deadlineTime
   return reportedAt.getTime() < deadlineUTC;
 }
 
+export type DeadlineUrgency = "normal" | "warning" | "danger" | "expired";
+
+/**
+ * 今日の期限（JST "HH:mm"）までの残り時間と緊急度を返す（クライアント用）。
+ * - normal: 60分以上
+ * - warning: 30〜59分
+ * - danger: 0〜29分（0分を含む）
+ * - expired: 過ぎた（minutesLeft < 0 または 0）
+ */
+export function getDeadlineDisplay(
+  deadlineTime: string,
+  now?: Date,
+): { minutesLeft: number; urgency: DeadlineUrgency } {
+  const ref = now ?? new Date();
+  const [hh, mm] = deadlineTime.split(":").map(Number);
+  // now の JST 日付（UTC年月日）を求め、その日の deadline UTC を計算
+  const refJST = new Date(ref.getTime() + JST_OFFSET_MS);
+  const startOfJstDayUTC =
+    Date.UTC(refJST.getUTCFullYear(), refJST.getUTCMonth(), refJST.getUTCDate()) - JST_OFFSET_MS;
+  const deadlineUTC = startOfJstDayUTC + hh * 3600000 + mm * 60000;
+  const minutesLeft = Math.floor((deadlineUTC - ref.getTime()) / 60000);
+
+  let urgency: DeadlineUrgency;
+  if (minutesLeft <= 0) urgency = "expired";
+  else if (minutesLeft <= 30) urgency = "danger";
+  else if (minutesLeft <= 60) urgency = "warning";
+  else urgency = "normal";
+
+  return { minutesLeft, urgency };
+}
+
 /** 期限切れでない表示可能な一時タスクかどうか */
 export function isVisibleTemporaryTask(
   task: { isTemporary: boolean; createdBy: string; completedToday: boolean; targetDate: string | null },
