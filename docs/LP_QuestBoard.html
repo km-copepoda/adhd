@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuestBoard — クエストをクリアして、モンスターを育てよう</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== CSS VARIABLES ===== */
+  :root {
+    --bg:        #07080f;
+    --bg2:       #0b0d1a;
+    --panel:     #0e1020;
+    --card:      #131828;
+    --card2:     #181e30;
+    --border:    #1e2540;
+    --border2:   #252d50;
+    --gold:      #f0c040;
+    --gold2:     #c9973a;
+    --gold-glow: rgba(240,192,64,0.25);
+    --gold-faint:rgba(240,192,64,0.08);
+    --text:      #e8e4d8;
+    --dim:       #555a72;
+    --dim2:      #3a3f58;
+    --study:     #60a5fa;
+    --stamina:   #f87171;
+    --life:      #4ade80;
+    --purple:    #a78bfa;
+  }
+
+  /* ===== RESET ===== */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ===== COMMON ===== */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  section { padding: 100px 0; }
+
+  h2.section-heading {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(22px, 4vw, 36px);
+    color: var(--gold);
+    text-align: center;
+    letter-spacing: 4px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 40px var(--gold-glow);
+  }
+
+  .section-sub {
+    text-align: center;
+    color: var(--dim);
+    font-size: 14px;
+    letter-spacing: 2px;
+    margin-bottom: 60px;
+  }
+
+  .divider {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 20px auto 60px;
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn-gold {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    color: #07080f;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 16px 40px;
+    border-radius: 14px;
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: box-shadow 0.2s, transform 0.1s;
+    cursor: pointer;
+    border: none;
+  }
+  .btn-gold:hover {
+    box-shadow: 0 8px 30px var(--gold-glow), 0 0 60px var(--gold-glow);
+    transform: translateY(-1px);
+  }
+
+  .btn-outline {
+    display: inline-block;
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+    padding: 12px 32px;
+    border-radius: 12px;
+    text-decoration: none;
+    border: 1px solid var(--border2);
+    transition: border-color 0.2s, color 0.2s;
+    cursor: pointer;
+  }
+  .btn-outline:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* ===== BG ORBS ===== */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ===== HERO ===== */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 80px 24px;
+    overflow: hidden;
+  }
+
+  .hero .orb-1 {
+    width: 600px; height: 600px;
+    background: rgba(167,139,250,0.07);
+    top: -200px; left: -200px;
+  }
+  .hero .orb-2 {
+    width: 500px; height: 500px;
+    background: rgba(240,192,64,0.05);
+    bottom: -150px; right: -100px;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    border: 1px solid rgba(167,139,250,0.4);
+    color: var(--purple);
+    font-size: 12px;
+    letter-spacing: 3px;
+    padding: 6px 18px;
+    border-radius: 100px;
+    margin-bottom: 32px;
+    background: rgba(167,139,250,0.05);
+    position: relative; z-index: 1;
+  }
+
+  .hero-egg {
+    font-size: 80px;
+    margin-bottom: 24px;
+    position: relative; z-index: 1;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 30px rgba(167,139,250,0.4));
+  }
+
+  .hero-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(42px, 8vw, 80px);
+    color: var(--gold);
+    letter-spacing: 8px;
+    text-shadow: 0 0 60px var(--gold-glow);
+    margin-bottom: 12px;
+    position: relative; z-index: 1;
+  }
+
+  .hero-catchcopy {
+    font-size: clamp(16px, 3vw, 22px);
+    color: var(--text);
+    font-weight: 300;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    position: relative; z-index: 1;
+  }
+
+  .hero-sub {
+    font-size: 14px;
+    color: var(--dim);
+    max-width: 480px;
+    line-height: 2;
+    margin-bottom: 48px;
+    position: relative; z-index: 1;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    position: relative; z-index: 1;
+  }
+
+  .hero-scroll {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--dim);
+    font-size: 12px;
+    letter-spacing: 2px;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hero-scroll::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 40px;
+    background: linear-gradient(to bottom, var(--dim), transparent);
+    animation: scroll-hint 2s ease-in-out infinite;
+  }
+
+  /* ===== PHONE MOCKUP ===== */
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .phone-label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .phone {
+    width: 240px;
+    background: var(--card);
+    border-radius: 36px;
+    border: 2px solid var(--border2);
+    box-shadow:
+      0 0 0 6px #05060c,
+      0 0 0 7px #12182a,
+      0 30px 80px rgba(0,0,0,0.8),
+      0 0 60px rgba(240,192,64,0.06);
+    overflow: hidden;
+    position: relative;
+    min-height: 480px;
+    flex-shrink: 0;
+  }
+
+  .phone.large {
+    width: 300px;
+    min-height: 620px;
+  }
+
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 70px; height: 20px;
+    background: #05060c;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
+  }
+
+  .screen {
+    padding: 32px 16px 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .screen.large { padding: 40px 20px 20px; }
+
+  /* ===== SCREEN COMPONENTS ===== */
+  .s-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .s-title {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .s-xp {
+    font-size: 10px;
+    color: var(--gold);
+    background: var(--gold-faint);
+    border: 1px solid rgba(240,192,64,0.2);
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+
+  .s-monster-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+  }
+
+  .s-monster-img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 4px 20px rgba(167,139,250,0.3));
+  }
+
+  .s-monster-name {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .s-xp-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .s-xp-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+  }
+
+  .s-xp-label {
+    color: var(--dim);
+    width: 28px;
+    flex-shrink: 0;
+  }
+
+  .s-xp-bar-bg {
+    flex: 1;
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .s-xp-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  .fill-study  { background: linear-gradient(90deg, #3b82f6, var(--study)); width: 60%; }
+  .fill-stamina{ background: linear-gradient(90deg, #dc2626, var(--stamina)); width: 40%; }
+  .fill-life   { background: linear-gradient(90deg, #16a34a, var(--life)); width: 75%; }
+  .fill-evolve { background: linear-gradient(90deg, var(--gold2), var(--gold)); }
+
+  .s-quest-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .s-quest-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+  }
+
+  .s-quest-item.done {
+    opacity: 0.5;
+    text-decoration: line-through;
+  }
+
+  .s-quest-icon {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .icon-study   { background: rgba(96,165,250,0.15); }
+  .icon-stamina { background: rgba(248,113,113,0.15); }
+  .icon-life    { background: rgba(74,222,128,0.15); }
+
+  .s-quest-text { flex: 1; color: var(--text); }
+  .s-quest-xp   { font-size: 9px; color: var(--gold); }
+
+  .s-check {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+  }
+
+  .s-check.checked {
+    background: var(--life);
+    border-color: var(--life);
+    color: #07080f;
+  }
+
+  .s-section-label {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 0 2px;
+  }
+
+  .s-approve-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--gold);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .s-approve-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .s-approve-name { color: var(--text); font-weight: 500; }
+  .s-approve-task { color: var(--dim); font-size: 9px; }
+
+  .s-approve-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .s-btn-ok {
+    background: rgba(74,222,128,0.15);
+    border: 1px solid rgba(74,222,128,0.4);
+    color: var(--life);
+    font-size: 9px;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+
+  .s-btn-ng {
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    color: var(--stamina);
+    font-size: 9px;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+
+  .s-streak {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--card2);
+    border: 1px solid rgba(240,192,64,0.2);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .s-streak-icon { font-size: 18px; }
+  .s-streak-num { font-family: 'Cinzel', serif; font-size: 20px; color: var(--gold); line-height: 1; }
+  .s-streak-label { color: var(--dim); font-size: 9px; }
+
+  /* ===== SECTION: HOW IT WORKS ===== */
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+  }
+
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 24px;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .step-card:hover {
+    border-color: rgba(240,192,64,0.3);
+    box-shadow: 0 8px 40px rgba(240,192,64,0.06);
+  }
+
+  .step-number {
+    font-family: 'Cinzel', serif;
+    font-size: 48px;
+    color: var(--border2);
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  .step-icon { font-size: 36px; margin-bottom: 12px; }
+
+  .step-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .step-desc {
+    font-size: 13px;
+    color: var(--dim);
+    line-height: 1.8;
+  }
+
+  .step-arrow {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .steps-grid { grid-template-columns: repeat(4, 1fr); }
+    .step-arrow {
+      display: flex;
+      align-items: center;
+      color: var(--border2);
+      font-size: 24px;
+      padding-top: 60px;
+    }
+  }
+
+  /* ===== SECTION: FEATURES ===== */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    transition: border-color 0.3s, transform 0.2s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .feature-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 60px rgba(0,0,0,0.4);
+  }
+
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-card.f-gold::before { background: linear-gradient(90deg, var(--gold2), var(--gold)); }
+  .feature-card.f-study::before { background: linear-gradient(90deg, #3b82f6, var(--study)); }
+  .feature-card.f-stamina::before { background: linear-gradient(90deg, #dc2626, var(--stamina)); }
+  .feature-card.f-life::before { background: linear-gradient(90deg, #16a34a, var(--life)); }
+  .feature-card.f-purple::before { background: linear-gradient(90deg, #7c3aed, var(--purple)); }
+  .feature-card.f-pink::before { background: linear-gradient(90deg, #db2777, #f472b6); }
+
+  .feature-icon { font-size: 40px; margin-bottom: 16px; }
+
+  .feature-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .feature-desc {
+    font-size: 14px;
+    color: var(--dim);
+    line-height: 1.9;
+  }
+
+  .feature-tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-top: 16px;
+  }
+
+  .tag-gold    { background: rgba(240,192,64,0.1); color: var(--gold); border: 1px solid rgba(240,192,64,0.2); }
+  .tag-study   { background: rgba(96,165,250,0.1); color: var(--study); border: 1px solid rgba(96,165,250,0.2); }
+  .tag-stamina { background: rgba(248,113,113,0.1); color: var(--stamina); border: 1px solid rgba(248,113,113,0.2); }
+  .tag-life    { background: rgba(74,222,128,0.1); color: var(--life); border: 1px solid rgba(74,222,128,0.2); }
+  .tag-purple  { background: rgba(167,139,250,0.1); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+
+  /* ===== SECTION: MONSTER SHOWCASE ===== */
+  .monster-section {
+    background: var(--bg2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .monster-section .orb-m1 {
+    width: 500px; height: 500px;
+    background: rgba(96,165,250,0.04);
+    top: -100px; left: -200px;
+  }
+
+  .monster-section .orb-m2 {
+    width: 400px; height: 400px;
+    background: rgba(74,222,128,0.04);
+    bottom: -100px; right: -100px;
+  }
+
+  .monster-paths {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 60px;
+    position: relative; z-index: 1;
+  }
+
+  .monster-path {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .path-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .path-label.study   { color: var(--study); }
+  .path-label.stamina { color: var(--stamina); }
+  .path-label.life    { color: var(--life); }
+
+  .path-monsters {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .monster-stage {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .monster-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .monster-img-wrap {
+    width: 60px; height: 60px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .monster-img-wrap:hover {
+    border-color: var(--gold);
+    box-shadow: 0 4px 20px var(--gold-glow);
+  }
+
+  .monster-img-wrap img {
+    width: 52px; height: 52px;
+    object-fit: contain;
+  }
+
+  .monster-item-name {
+    font-size: 9px;
+    color: var(--dim);
+    text-align: center;
+    max-width: 60px;
+  }
+
+  .path-arrow {
+    color: var(--border2);
+    font-size: 18px;
+    margin: 4px 0;
+  }
+
+  .monster-count-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 10px 24px;
+    font-size: 14px;
+    color: var(--dim);
+    position: relative; z-index: 1;
+    margin: 0 auto;
+  }
+
+  .monster-count-badge strong {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    color: var(--gold);
+  }
+
+  .monster-count-badge span { margin: 0 4px; }
+
+  /* ===== SECTION: FOR ADHD ===== */
+  .adhd-section { position: relative; overflow: hidden; }
+
+  .adhd-section .orb-a1 {
+    width: 400px; height: 400px;
+    background: rgba(248,113,113,0.04);
+    top: -50px; right: -150px;
+  }
+
+  .adhd-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 640px) { .adhd-grid { grid-template-columns: 1fr; } }
+
+  .adhd-point {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: border-color 0.3s;
+  }
+
+  .adhd-point:hover { border-color: var(--border2); }
+
+  .adhd-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .adhd-icon.gold    { background: rgba(240,192,64,0.1); }
+  .adhd-icon.study   { background: rgba(96,165,250,0.1); }
+  .adhd-icon.stamina { background: rgba(248,113,113,0.1); }
+  .adhd-icon.life    { background: rgba(74,222,128,0.1); }
+  .adhd-icon.purple  { background: rgba(167,139,250,0.1); }
+  .adhd-icon.pink    { background: rgba(244,114,182,0.1); }
+
+  .adhd-content h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .adhd-content p {
+    font-size: 13px;
+    color: var(--dim);
+    line-height: 1.8;
+  }
+
+  /* ===== SECTION: SCREENS ===== */
+  .screens-section { background: var(--bg2); }
+
+  .screens-showcase {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    position: relative; z-index: 1;
+  }
+
+  /* ===== SECTION: CTA ===== */
+  .cta-section {
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-section .orb-c1 {
+    width: 600px; height: 600px;
+    background: rgba(240,192,64,0.04);
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .cta-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(26px, 5vw, 48px);
+    color: var(--gold);
+    letter-spacing: 4px;
+    text-shadow: 0 0 60px var(--gold-glow);
+    margin-bottom: 16px;
+    position: relative; z-index: 1;
+  }
+
+  .cta-desc {
+    font-size: 16px;
+    color: var(--dim);
+    max-width: 500px;
+    margin: 0 auto 48px;
+    line-height: 2;
+    position: relative; z-index: 1;
+  }
+
+  .cta-btns {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    position: relative; z-index: 1;
+  }
+
+  .cta-note {
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--dim2);
+    position: relative; z-index: 1;
+  }
+
+  /* ===== NAV ===== */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(7, 8, 15, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(30,37,64,0.5);
+  }
+
+  .nav-logo {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    color: var(--gold);
+    letter-spacing: 3px;
+    text-decoration: none;
+    text-shadow: 0 0 20px rgba(240,192,64,0.3);
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-size: 13px;
+    color: var(--dim);
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--text); }
+
+  @media (max-width: 640px) {
+    .nav-links { display: none; }
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--dim2);
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  footer .footer-logo {
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    color: rgba(240,192,64,0.4);
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+  }
+
+  /* ===== TESTIMONIALS ===== */
+  .testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+  }
+
+  .testimonial-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    position: relative;
+  }
+
+  .testimonial-quote {
+    font-size: 40px;
+    color: var(--border2);
+    font-family: 'Cinzel', serif;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .testimonial-text {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.9;
+    margin-bottom: 20px;
+  }
+
+  .testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .testimonial-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+  }
+
+  .testimonial-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .testimonial-role { font-size: 11px; color: var(--dim); }
+
+  .stars {
+    color: var(--gold);
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes scroll-hint {
+    0% { opacity: 1; transform: scaleY(1); }
+    100% { opacity: 0; transform: scaleY(0.3); transform-origin: top; }
+  }
+
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 0 var(--gold-glow); }
+    50% { box-shadow: 0 0 0 12px transparent; }
+  }
+
+  /* ===== INLINE PHONE SCREENS ===== */
+  .p-evo-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  .p-evo-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+  }
+
+  .p-evo-label { width: 40px; color: var(--dim); }
+  .p-evo-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .p-evo-fill { height: 100%; border-radius: 2px; }
+  .p-evo-val { color: var(--dim); width: 20px; text-align: right; }
+
+  /* ===== NOTIFICATION BADGE ===== */
+  .notify-bubble {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .notify-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--stamina);
+    box-shadow: 0 0 8px var(--stamina);
+    flex-shrink: 0;
+  }
+
+  .notify-text { color: var(--text); }
+  .notify-time { color: var(--dim); margin-left: auto; }
+
+  /* ===== SCROLL FADE IN (CSS only) ===== */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav>
+  <a href="#" class="nav-logo">QuestBoard</a>
+  <ul class="nav-links">
+    <li><a href="#features">機能</a></li>
+    <li><a href="#monsters">モンスター</a></li>
+    <li><a href="#adhd">ADHD サポート</a></li>
+    <li><a href="#screens">画面紹介</a></li>
+    <li><a href="#cta" class="btn-outline" style="padding:8px 20px;font-size:12px;">はじめる</a></li>
+  </ul>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="hero-badge">✦ ADHD 支援 × ゲーミフィケーション</div>
+  <div class="hero-egg">🥚</div>
+  <h1 class="hero-title">QuestBoard</h1>
+  <p class="hero-catchcopy">クエストをクリアして、モンスターを育てよう</p>
+  <p class="hero-sub">
+    子どものタスクをクエストに変える。<br>
+    毎日のルーティンがゲームになれば、<br>
+    やる気は自然と続いていく。
+  </p>
+  <div class="hero-cta">
+    <a href="#" class="btn-gold">⚔ 冒険をはじめる</a>
+    <a href="#features" class="btn-outline">👀 もっと見る</a>
+  </div>
+
+  <div class="hero-scroll">SCROLL</div>
+</section>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section id="how">
+  <div class="container">
+    <h2 class="section-heading fade-in">HOW IT WORKS</h2>
+    <p class="section-sub fade-in">たった4ステップで、習慣化が楽しくなる</p>
+    <div class="divider fade-in"></div>
+
+    <div class="steps-grid">
+      <div class="step-card fade-in">
+        <div class="step-number">01</div>
+        <div class="step-icon">📋</div>
+        <div class="step-title">親がクエストを設定</div>
+        <p class="step-desc">「宿題をする」「歯磨きをする」といった日常タスクをクエストとして登録。曜日ごとの繰り返しや一時クエストも設定できる。</p>
+      </div>
+
+      <div class="step-card fade-in">
+        <div class="step-number">02</div>
+        <div class="step-icon">⚔</div>
+        <div class="step-title">子どもがクリア＆報告</div>
+        <p class="step-desc">子ども用画面でクエストをタップしてクリア報告。写真を添付するとボーナス XP ゲット！期限内報告でもボーナス。</p>
+      </div>
+
+      <div class="step-card fade-in">
+        <div class="step-number">03</div>
+        <div class="step-icon">✅</div>
+        <div class="step-title">親が承認・プッシュ通知</div>
+        <p class="step-desc">報告が届くとプッシュ通知。ワンタップで承認するとXPが確定。未承認のまま翌日を迎えると自動承認される。</p>
+      </div>
+
+      <div class="step-card fade-in">
+        <div class="step-number">04</div>
+        <div class="step-icon">🐉</div>
+        <div class="step-title">XP でモンスターが進化</div>
+        <p class="step-desc">XP が貯まるとモンスターが成長・進化。勉強・体力・生活力の3系統39種。転生してコレクションを広げよう！</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section id="features">
+  <div class="container">
+    <h2 class="section-heading fade-in">FEATURES</h2>
+    <p class="section-sub fade-in">続けるための仕組みが詰まっている</p>
+    <div class="divider fade-in"></div>
+
+    <div class="features-grid">
+      <div class="feature-card f-gold fade-in">
+        <div class="feature-icon">🥚</div>
+        <div class="feature-title">卵から育てるモンスター</div>
+        <p class="feature-desc">最初は卵から。タスクを1つクリアして孵化させると、初めて自分だけのモンスターに出会える。愛着形成から始まるゲーム体験。</p>
+        <span class="feature-tag tag-gold">MONSTER EVOLUTION</span>
+      </div>
+
+      <div class="feature-card f-study fade-in">
+        <div class="feature-icon">📚💪🌿</div>
+        <div class="feature-title">3系統パラメータ連動進化</div>
+        <p class="feature-desc">学力（STUDY）・体力（STAMINA）・生活力（LIFE）の3カテゴリ。こなしたタスクの傾向に応じて進化先が確率的に分岐。</p>
+        <span class="feature-tag tag-study">STUDY / STAMINA / LIFE</span>
+      </div>
+
+      <div class="feature-card f-life fade-in">
+        <div class="feature-icon">🔄</div>
+        <div class="feature-title">転生とコレクション</div>
+        <p class="feature-desc">最終形態に到達したら転生して再び卵に。過去のモンスターは図鑑に記録。全39種コンプリートを目指す長期モチベーション。</p>
+        <span class="feature-tag tag-life">REBIRTH SYSTEM</span>
+      </div>
+
+      <div class="feature-card f-stamina fade-in">
+        <div class="feature-icon">🔥</div>
+        <div class="feature-title">ストリーク継続ボーナス</div>
+        <p class="feature-desc">タスクをこなした日が連続するほどストリーク加算。マイルストーンで追加 XP ボーナス。スキップも親が承認すればストリーク継続。</p>
+        <span class="feature-tag tag-stamina">STREAK SYSTEM</span>
+      </div>
+
+      <div class="feature-card f-purple fade-in">
+        <div class="feature-icon">🔔</div>
+        <div class="feature-title">双方向プッシュ通知</div>
+        <p class="feature-desc">子どもの報告→親へ通知。親から子どもへリマインド送信も可。アプリを閉じていても OS 通知でリアルタイム連携。</p>
+        <span class="feature-tag tag-purple">PUSH NOTIFICATION</span>
+      </div>
+
+      <div class="feature-card f-pink fade-in">
+        <div class="feature-icon">📸</div>
+        <div class="feature-title">写真添付でボーナス XP</div>
+        <p class="feature-desc">タスク完了の証拠写真を添付すると追加 XP。完了・期限内・写真の3要素で最大3pt 獲得。写真は親の承認画面でサムネイル表示。</p>
+        <span class="feature-tag tag-gold">PHOTO BONUS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MONSTER SHOWCASE ===== -->
+<section id="monsters" class="monster-section">
+  <div class="orb orb-m1"></div>
+  <div class="orb orb-m2"></div>
+  <div class="container" style="position:relative;z-index:1;">
+    <h2 class="section-heading fade-in">MONSTER COLLECTION</h2>
+    <p class="section-sub fade-in">3系統 × ステージ3 = 39種類のモンスターたち</p>
+    <div class="divider fade-in"></div>
+
+    <!-- 3系統の進化ライン -->
+    <div class="monster-paths fade-in">
+
+      <!-- STUDY系 -->
+      <div class="monster-path">
+        <div class="path-label study">📚 学力系</div>
+        <div class="path-monsters">
+          <!-- stage1 -->
+          <div class="monster-stage">
+            <div class="monster-item">
+              <div class="monster-img-wrap">
+                <img src="../public/monsters/STUDY_ラーン.webp" alt="ラーン" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:28px&quot;>📚</span>'">
+              </div>
+              <div class="monster-item-name">ラーン</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <!-- stage2 -->
+          <div class="monster-stage" style="gap:6px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="ライブラ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>📚</span>'">
+              </div>
+              <div class="monster-item-name">ライブラ</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/STUDY_STAMINA_アーマード.webp" alt="アーマード" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>⚔️</span>'">
+              </div>
+              <div class="monster-item-name">アーマード</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/STUDY_LIFE_クリン.webp" alt="クリン" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>✨</span>'">
+              </div>
+              <div class="monster-item-name">クリン</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <!-- stage3 (3体のみ代表) -->
+          <div class="monster-stage" style="gap:4px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/STUDY_STUDY_STUDY_ウィズダム.webp" alt="ウィズダム" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🧙</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">ウィズダム</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/STUDY_STAMINA_STAMINA_イージス.webp" alt="イージス" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🛡️</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">イージス</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/STUDY_LIFE_LIFE_セバス.webp" alt="セバス" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🤖</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">セバス ...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAMINA系 -->
+      <div class="monster-path">
+        <div class="path-label stamina">💪 体力系</div>
+        <div class="path-monsters">
+          <div class="monster-stage">
+            <div class="monster-item">
+              <div class="monster-img-wrap">
+                <img src="../public/monsters/STAMINA_ストーン.webp" alt="ストーン" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:28px&quot;>💪</span>'">
+              </div>
+              <div class="monster-item-name">ストーン</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:6px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/STAMINA_STAMINA_ブロック.webp" alt="ブロック" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🪨</span>'">
+              </div>
+              <div class="monster-item-name">ブロック</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/STAMINA_STUDY_グラビド.webp" alt="グラビド" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🌀</span>'">
+              </div>
+              <div class="monster-item-name">グラビド</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/STAMINA_LIFE_わっしょい.webp" alt="わっしょい" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🎉</span>'">
+              </div>
+              <div class="monster-item-name">わっしょい</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:4px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp" alt="ゴッドストーン" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>⛰️</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">ゴッドストーン</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/STAMINA_STAMINA_STUDY_ガイア.webp" alt="ガイア" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🌍</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">ガイア</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/STAMINA_LIFE_LIFE_ミコシ.webp" alt="ミコシ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🏮</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">ミコシ ...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIFE系 -->
+      <div class="monster-path">
+        <div class="path-label life">🌿 生活力系</div>
+        <div class="path-monsters">
+          <div class="monster-stage">
+            <div class="monster-item">
+              <div class="monster-img-wrap">
+                <img src="../public/monsters/LIFE_ヘルプ.webp" alt="ヘルプ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:28px&quot;>🌿</span>'">
+              </div>
+              <div class="monster-item-name">ヘルプ</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:6px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/LIFE_LIFE_マザー.webp" alt="マザー" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🌿</span>'">
+              </div>
+              <div class="monster-item-name">マザー</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/LIFE_STUDY_チックタック.webp" alt="チックタック" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>⏰</span>'">
+              </div>
+              <div class="monster-item-name">チックタック</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/LIFE_STAMINA_キャリア.webp" alt="キャリア" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>📦</span>'">
+              </div>
+              <div class="monster-item-name">キャリア</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:4px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp" alt="ゴッドセバス" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>👑</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">ゴッドセバス</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/LIFE_STUDY_STUDY_カレンダー.webp" alt="カレンダー" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>📅</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">カレンダー</div>
+            </div>
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/LIFE_STAMINA_LIFE_ナース.webp" alt="ナース" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🏥</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">ナース ...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="text-align:center; position:relative; z-index:1;">
+      <div class="monster-count-badge fade-in" style="display:inline-flex;">
+        <span>🥚</span>
+        <span>卵 1 → stage1 </span><strong>3</strong>
+        <span>→ stage2 </span><strong>9</strong>
+        <span>→ stage3 </span><strong>27</strong>
+        <span>= 合計</span><strong>39</strong><span>種</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===== ADHD SUPPORT ===== -->
+<section id="adhd" class="adhd-section">
+  <div class="orb orb-a1"></div>
+  <div class="container">
+    <h2 class="section-heading fade-in">ADHD SUPPORT</h2>
+    <p class="section-sub fade-in">ADHD 特性に寄り添う設計</p>
+    <div class="divider fade-in"></div>
+
+    <div class="adhd-grid">
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon gold">⚡</div>
+        <div class="adhd-content">
+          <h3>即時フィードバック</h3>
+          <p>タスク完了→承認→XP 確定のフローを最短化。自動承認機能で翌日0時に未承認分を一括処理するため、フィードバック遅延によるモチベーション低下を防ぐ。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon study">📋</div>
+        <div class="adhd-content">
+          <h3>シンプルな今日のタスク</h3>
+          <p>子ども画面に表示されるのは「今日のクエスト」のみ。先のタスクで圧倒されず、今日やることだけに集中できる。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon stamina">🔔</div>
+        <div class="adhd-content">
+          <h3>具体的なリマインド通知</h3>
+          <p>「アプリを見て」ではなく「宿題がまだ終わってないよ！」と具体的なタスク名で通知。ADHD 特性上、抽象的な指示より具体的な行動指示が効果的。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon life">🔄</div>
+        <div class="adhd-content">
+          <h3>短いフィードバックループ</h3>
+          <p>転生サイクルを約8〜10日に設定。ADHD 特性上、長期目標よりも短期の達成感が続けるモチベーションになる。卵→孵化→進化×3→転生のスプリント設計。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon purple">🤝</div>
+        <div class="adhd-content">
+          <h3>子どもの自発性を尊重</h3>
+          <p>子どもが自分でタスクを追加し、親が承認する仕組み。自己管理の練習になりながら、親の監督権限も維持する適切なバランス。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon pink">⏭</div>
+        <div class="adhd-content">
+          <h3>スキップにも親承認フロー</h3>
+          <p>「今日はできない」と正直に申告してスキップを申請。親が承認すればストリーク継続。子どものコンディションに寄り添いつつ、安易なスキップを防ぐ。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SCREENS ===== -->
+<section id="screens" class="screens-section">
+  <div class="container">
+    <h2 class="section-heading fade-in">APP SCREENS</h2>
+    <p class="section-sub fade-in">子ども画面と親画面の2ロール構成</p>
+    <div class="divider fade-in"></div>
+
+    <div class="screens-showcase">
+
+      <!-- 子ども: 今日のクエスト -->
+      <div class="phone-wrap fade-in">
+        <div class="phone-label">⚔ 子ども — 今日のクエスト</div>
+        <div class="phone large">
+          <div class="screen large">
+            <div class="s-header">
+              <div class="s-title">TODAY'S QUEST</div>
+              <div class="s-xp">🔥 3日連続</div>
+            </div>
+
+            <div class="s-monster-area">
+              <img class="s-monster-img" src="../public/monsters/STUDY_ラーン.webp" alt="ラーン"
+                onerror="this.style.fontSize='48px';this.style.width='auto';this.outerHTML='<span style=\'font-size:48px;animation:float 3s ease-in-out infinite;display:block\'>📚</span>'">
+              <div class="s-monster-name">ラーン Lv.2</div>
+              <!-- 進化XPバー -->
+              <div style="width:100%; display:flex; flex-direction:column; gap:3px;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);">
+                  <span>次の進化まで</span><span style="color:var(--gold);">6/10 pt</span>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                  <div class="fill-evolve" style="width:60%;height:100%;border-radius:3px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-evo-bar">
+              <div class="p-evo-bar-row">
+                <div class="p-evo-label">📚学力</div>
+                <div class="p-evo-bg"><div class="p-evo-fill fill-study" style="width:70%;"></div></div>
+                <div class="p-evo-val">7</div>
+              </div>
+              <div class="p-evo-bar-row">
+                <div class="p-evo-label">💪体力</div>
+                <div class="p-evo-bg"><div class="p-evo-fill fill-stamina" style="width:30%;"></div></div>
+                <div class="p-evo-val">3</div>
+              </div>
+              <div class="p-evo-bar-row">
+                <div class="p-evo-label">🌿生活</div>
+                <div class="p-evo-bg"><div class="p-evo-fill fill-life" style="width:50%;"></div></div>
+                <div class="p-evo-val">5</div>
+              </div>
+            </div>
+
+            <div class="s-section-label">今日のクエスト</div>
+            <div class="s-quest-list">
+              <div class="s-quest-item done">
+                <div class="s-check checked">✓</div>
+                <div class="s-quest-icon icon-life">🌿</div>
+                <div class="s-quest-text">歯磨きをする</div>
+                <div class="s-quest-xp">+1</div>
+              </div>
+              <div class="s-quest-item">
+                <div class="s-check"></div>
+                <div class="s-quest-icon icon-study">📚</div>
+                <div class="s-quest-text">宿題をする</div>
+                <div class="s-quest-xp">+2</div>
+              </div>
+              <div class="s-quest-item">
+                <div class="s-check"></div>
+                <div class="s-quest-icon icon-stamina">💪</div>
+                <div class="s-quest-text">公園で遊ぶ</div>
+                <div class="s-quest-xp">+1</div>
+              </div>
+              <div class="s-quest-item">
+                <div class="s-check"></div>
+                <div class="s-quest-icon icon-life">🌿</div>
+                <div class="s-quest-text">お風呂に入る</div>
+                <div class="s-quest-xp">+1</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 親: 承認センター -->
+      <div class="phone-wrap fade-in">
+        <div class="phone-label">👨‍👩‍👧 親 — 承認センター</div>
+        <div class="phone large">
+          <div class="screen large">
+            <div class="s-header">
+              <div class="s-title">APPROVE</div>
+              <div style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);color:var(--stamina);font-size:9px;padding:3px 8px;border-radius:20px;">
+                3件待ち
+              </div>
+            </div>
+
+            <div class="notify-bubble">
+              <div class="notify-dot"></div>
+              <div class="notify-text">もも が「宿題をする」を報告</div>
+              <div class="notify-time">今</div>
+            </div>
+
+            <div class="s-section-label">承認待ち</div>
+
+            <div class="s-approve-item">
+              <div class="s-approve-row">
+                <div>
+                  <div class="s-approve-name">📚 宿題をする</div>
+                  <div class="s-approve-task">もも • 写真あり 📸</div>
+                </div>
+                <div class="s-approve-btns">
+                  <button class="s-btn-ok">承認 ✓</button>
+                  <button class="s-btn-ng">差戻</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="s-approve-item">
+              <div class="s-approve-row">
+                <div>
+                  <div class="s-approve-name">💪 公園で遊ぶ</div>
+                  <div class="s-approve-task">はな • 完了報告</div>
+                </div>
+                <div class="s-approve-btns">
+                  <button class="s-btn-ok">承認 ✓</button>
+                  <button class="s-btn-ng">差戻</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="s-approve-item" style="border-left-color:var(--stamina);">
+              <div class="s-approve-row">
+                <div>
+                  <div class="s-approve-name" style="color:var(--stamina);">⏭ 習い事をスキップ申請</div>
+                  <div class="s-approve-task">もも • 体調不良</div>
+                </div>
+                <div class="s-approve-btns">
+                  <button class="s-btn-ok">承認 ✓</button>
+                  <button class="s-btn-ng">却下</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="s-section-label">今日の完了</div>
+            <div style="font-size:10px;color:var(--dim);background:var(--card2);border-radius:10px;padding:10px;text-align:center;">
+              <span style="color:var(--life);">✓ 2件承認済み</span>
+              &nbsp;/&nbsp;
+              <span style="color:var(--dim);">⏭ 1件スキップ</span>
+            </div>
+
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <button style="flex:1;background:rgba(240,192,64,0.1);border:1px solid rgba(240,192,64,0.25);color:var(--gold);font-size:9px;padding:6px;border-radius:8px;">
+                🔔 リマインドを送る
+              </button>
+              <button style="flex:1;background:var(--card2);border:1px solid var(--border);color:var(--dim);font-size:9px;padding:6px;border-radius:8px;">
+                📋 タスク管理
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 子ども: モンスター育成 -->
+      <div class="phone-wrap fade-in">
+        <div class="phone-label">🐉 子ども — モンスター育成</div>
+        <div class="phone large">
+          <div class="screen large">
+            <div class="s-header">
+              <div class="s-title">MONSTER</div>
+              <div class="s-xp">Total 15pt</div>
+            </div>
+
+            <div class="s-monster-area" style="padding:20px 0;">
+              <img class="s-monster-img" style="width:100px;height:100px;" src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="ライブラ"
+                onerror="this.style.fontSize='60px';this.outerHTML='<span style=\'font-size:60px;animation:float 3s ease-in-out infinite;display:block\'>📚</span>'">
+              <div class="s-monster-name" style="font-size:15px;">ライブラ</div>
+              <div style="font-size:10px;color:var(--dim);">stage 2 / 学力系</div>
+
+              <div style="width:100%;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-bottom:4px;">
+                  <span>進化まで</span><span style="color:var(--gold);">8/30 pt</span>
+                </div>
+                <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
+                  <div class="fill-evolve" style="width:27%;height:100%;border-radius:4px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-evo-bar">
+              <div class="p-evo-bar-row">
+                <div class="p-evo-label">📚学力</div>
+                <div class="p-evo-bg"><div class="p-evo-fill fill-study" style="width:80%;"></div></div>
+                <div class="p-evo-val">12</div>
+              </div>
+              <div class="p-evo-bar-row">
+                <div class="p-evo-label">💪体力</div>
+                <div class="p-evo-bg"><div class="p-evo-fill fill-stamina" style="width:20%;"></div></div>
+                <div class="p-evo-val">3</div>
+              </div>
+              <div class="p-evo-bar-row">
+                <div class="p-evo-label">🌿生活</div>
+                <div class="p-evo-bg"><div class="p-evo-fill fill-life" style="width:40%;"></div></div>
+                <div class="p-evo-val">6</div>
+              </div>
+            </div>
+
+            <div class="s-streak">
+              <div class="s-streak-icon">🔥</div>
+              <div style="display:flex;flex-direction:column;">
+                <div class="s-streak-num">7</div>
+                <div class="s-streak-label">日連続クリア中</div>
+              </div>
+              <div style="margin-left:auto;text-align:right;">
+                <div style="font-size:10px;color:var(--gold);">ベスト 12日</div>
+                <div style="font-size:9px;color:var(--dim);">今月 18/30日</div>
+              </div>
+            </div>
+
+            <!-- コレクション mini -->
+            <div class="s-section-label">コレクション</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:6px;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <img style="width:32px;height:32px;object-fit:contain;" src="../public/monsters/STUDY_ラーン.webp" alt="ラーン"
+                  onerror="this.outerHTML='<span style=\'font-size:22px\'>📚</span>'">
+                <div style="font-size:8px;color:var(--dim);">ラーン</div>
+              </div>
+              <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:6px;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <img style="width:32px;height:32px;object-fit:contain;" src="../public/monsters/STUDY_STUDY_ライブラ.webp" alt="ライブラ"
+                  onerror="this.outerHTML='<span style=\'font-size:22px\'>📖</span>'">
+                <div style="font-size:8px;color:var(--gold);">ライブラ ★</div>
+              </div>
+              <div style="background:var(--border);border-radius:8px;padding:6px;width:48px;height:52px;display:flex;align-items:center;justify-content:center;opacity:0.3;">
+                <span style="font-size:18px;">?</span>
+              </div>
+              <div style="background:var(--border);border-radius:8px;padding:6px;width:48px;height:52px;display:flex;align-items:center;justify-content:center;opacity:0.3;">
+                <span style="font-size:18px;">?</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== TESTIMONIALS ===== -->
+<section>
+  <div class="container">
+    <h2 class="section-heading fade-in">VOICES</h2>
+    <p class="section-sub fade-in">使ってみた保護者の声（想定）</p>
+    <div class="divider fade-in"></div>
+
+    <div class="testimonials-grid">
+      <div class="testimonial-card fade-in">
+        <div class="testimonial-quote">"</div>
+        <div class="stars">★★★★★</div>
+        <p class="testimonial-text">毎日「宿題やった？」と言い続けていたのが嘘のように、子どもが自分から動くようになりました。モンスターを進化させたいという気持ちが強くて。</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">👩</div>
+          <div>
+            <div class="testimonial-name">Aさん</div>
+            <div class="testimonial-role">8歳の子を持つ保護者</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="testimonial-card fade-in">
+        <div class="testimonial-quote">"</div>
+        <div class="stars">★★★★★</div>
+        <p class="testimonial-text">子どもが ADHD 傾向があり、タスク管理に悩んでいました。「今日のクエスト」だけが見えるシンプルな設計が、うちの子にはぴったりでした。</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">👨</div>
+          <div>
+            <div class="testimonial-name">Bさん</div>
+            <div class="testimonial-role">10歳の子を持つ保護者</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="testimonial-card fade-in">
+        <div class="testimonial-quote">"</div>
+        <div class="stars">★★★★☆</div>
+        <p class="testimonial-text">スキップ申請で子どもが「今日は体調が悪い」と自分で伝えてくれるようになったのが嬉しい。自分のコンディションを言語化する練習にもなっています。</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">👩</div>
+          <div>
+            <div class="testimonial-name">Cさん</div>
+            <div class="testimonial-role">7歳・9歳の子を持つ保護者</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section id="cta" class="cta-section">
+  <div class="orb orb-c1"></div>
+  <div class="container">
+    <div class="hero-egg" style="margin-bottom:16px;">🥚</div>
+    <h2 class="cta-title">さあ、冒険をはじめよう</h2>
+    <p class="cta-desc">
+      子どもの習慣化をゲームに変える。<br>
+      今日の小さなクエストが、明日の大きな力になる。
+    </p>
+    <div class="cta-btns">
+      <a href="#" class="btn-gold">⚔ 無料ではじめる</a>
+      <a href="#" class="btn-outline">👨‍👩‍👧 保護者登録</a>
+    </div>
+    <p class="cta-note">ファミリーコードで子どもアカウントと連携。セットアップは5分。</p>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="footer-logo">QuestBoard</div>
+  <p>© 2026 QuestBoard. All rights reserved.</p>
+  <p style="margin-top:8px;">クエストをクリアして、モンスターを育てよう</p>
+</footer>
+
+<!-- ===== SCROLL FADE JS ===== -->
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
