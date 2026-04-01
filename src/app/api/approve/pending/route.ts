@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { routeLogger } from "@/lib/logger";
 
 export async function GET() {
+  const rlog = routeLogger("GET", "/api/approve/pending");
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT" || !user.familyId) {
     return NextResponse.json([]);
@@ -24,5 +26,6 @@ export async function GET() {
     orderBy: { reportedAt: "desc" },
   });
 
+  rlog.info("Pending approvals fetched", { userId: user.id, familyId: user.familyId, count: quests.length });
   return NextResponse.json(quests);
 }
