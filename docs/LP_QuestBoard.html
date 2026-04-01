@@ -746,6 +746,69 @@
 
   .monster-count-badge span { margin: 0 4px; }
 
+  /* ===== MONSTER SHADOW (未解放モンスター) ===== */
+  .monster-shadow .monster-img-wrap img {
+    filter: brightness(0) opacity(0.35);
+  }
+  .monster-shadow .monster-item-name {
+    color: var(--dim2);
+    font-style: italic;
+  }
+  .monster-shadow .monster-img-wrap {
+    border-color: var(--dim2);
+    background: var(--card);
+  }
+  .monster-shadow .monster-img-wrap:hover {
+    border-color: var(--border2);
+    box-shadow: none;
+  }
+
+  /* ===== STYLE TOGGLE (カッコいい/かわいい) ===== */
+  .style-toggle-wrap {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 40px;
+    position: relative; z-index: 1;
+  }
+  .style-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--dim);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .style-toggle-btn:hover {
+    border-color: var(--border2);
+    color: var(--text);
+  }
+  .style-toggle-btn.active-dark {
+    border-color: var(--stamina);
+    color: var(--stamina);
+    background: rgba(248,113,113,0.08);
+    box-shadow: 0 0 20px rgba(248,113,113,0.15);
+  }
+  .style-toggle-btn.active-light {
+    border-color: #f9a8d4;
+    color: #f9a8d4;
+    background: rgba(249,168,212,0.08);
+    box-shadow: 0 0 20px rgba(249,168,212,0.15);
+  }
+  /* 表示切り替え */
+  .monsters-dark { display: flex; }
+  .monsters-light { display: none; }
+  body.show-light .monsters-dark { display: none; }
+  body.show-light .monsters-light { display: flex; }
+
   /* ===== SECTION: FOR ADHD ===== */
   .adhd-section { position: relative; overflow: hidden; }
 
@@ -1128,7 +1191,7 @@
         <div class="step-number">04</div>
         <div class="step-icon">🐉</div>
         <div class="step-title">XP でモンスターが進化</div>
-        <p class="step-desc">XP が貯まるとモンスターが成長・進化。勉強・体力・生活力の3系統39種。転生してコレクションを広げよう！</p>
+        <p class="step-desc">XP が貯まるとモンスターが成長・進化。勉強・体力・生活力の3系統、カッコいい系＆かわいい系の2スタイルで全77種。転生してコレクションを広げよう！</p>
       </div>
     </div>
   </div>
@@ -1159,7 +1222,7 @@
       <div class="feature-card f-life fade-in">
         <div class="feature-icon">🔄</div>
         <div class="feature-title">転生とコレクション</div>
-        <p class="feature-desc">最終形態に到達したら転生して再び卵に。過去のモンスターは図鑑に記録。全39種コンプリートを目指す長期モチベーション。</p>
+        <p class="feature-desc">最終形態に到達したら転生して再び卵に。過去のモンスターは図鑑に記録。全77種コンプリートを目指す長期モチベーション。</p>
         <span class="feature-tag tag-life">REBIRTH SYSTEM</span>
       </div>
 
@@ -1183,6 +1246,13 @@
         <p class="feature-desc">タスク完了の証拠写真を添付すると追加 XP。完了・期限内・写真の3要素で最大3pt 獲得。写真は親の承認画面でサムネイル表示。</p>
         <span class="feature-tag tag-gold">PHOTO BONUS</span>
       </div>
+
+      <div class="feature-card f-purple fade-in">
+        <div class="feature-icon">⚡🐾</div>
+        <div class="feature-title">カッコいい系 or かわいい系を選べる</div>
+        <p class="feature-desc">モンスターのビジュアルスタイルをふたつから選択。勇者・戦士系のカッコいい「ヒーロー系」か、動物・ファンタジー系のかわいい「どうぶつ系」か。好みのスタイルで38種×2 + 卵1 = 全77種のコレクション。</p>
+        <span class="feature-tag tag-purple">CHARACTER STYLE</span>
+      </div>
     </div>
   </div>
 </section>
@@ -1193,11 +1263,21 @@
   <div class="orb orb-m2"></div>
   <div class="container" style="position:relative;z-index:1;">
     <h2 class="section-heading fade-in">MONSTER COLLECTION</h2>
-    <p class="section-sub fade-in">3系統 × ステージ3 = 39種類のモンスターたち</p>
+    <p class="section-sub fade-in">3系統 × 2スタイル × ステージ3 = 全77種類のモンスターたち</p>
     <div class="divider fade-in"></div>
 
-    <!-- 3系統の進化ライン -->
-    <div class="monster-paths fade-in">
+    <!-- スタイル切り替えトグル -->
+    <div class="style-toggle-wrap fade-in">
+      <button class="style-toggle-btn active-dark" id="btn-dark" onclick="switchStyle('dark')">
+        ⚡ カッコいい系（ヒーロー）
+      </button>
+      <button class="style-toggle-btn" id="btn-light" onclick="switchStyle('light')">
+        🐾 かわいい系（どうぶつ）
+      </button>
+    </div>
+
+    <!-- ===== カッコいい系（DARK） ===== -->
+    <div class="monster-paths fade-in monsters-dark">
 
       <!-- STUDY系 -->
       <div class="monster-path">
@@ -1213,7 +1293,7 @@
             </div>
           </div>
           <div class="path-arrow">↓</div>
-          <!-- stage2 -->
+          <!-- stage2: 1体だけ公開、残りはシルエット -->
           <div class="monster-stage" style="gap:6px;">
             <div class="monster-item">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
@@ -1221,39 +1301,39 @@
               </div>
               <div class="monster-item-name">ライブラ</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
-                <img src="../public/monsters/STUDY_STAMINA_アーマード.webp" alt="アーマード" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>⚔️</span>'">
+                <img src="../public/monsters/STUDY_STAMINA_アーマード.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>⚔️</span>'">
               </div>
-              <div class="monster-item-name">アーマード</div>
+              <div class="monster-item-name">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
-                <img src="../public/monsters/STUDY_LIFE_クリン.webp" alt="クリン" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>✨</span>'">
+                <img src="../public/monsters/STUDY_LIFE_クリン.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>✨</span>'">
               </div>
-              <div class="monster-item-name">クリン</div>
+              <div class="monster-item-name">？？？</div>
             </div>
           </div>
           <div class="path-arrow">↓</div>
-          <!-- stage3 (3体のみ代表) -->
+          <!-- stage3: 全てシルエット -->
           <div class="monster-stage" style="gap:4px;">
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/STUDY_STUDY_STUDY_ウィズダム.webp" alt="ウィズダム" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🧙</span>'">
+                <img src="../public/monsters/STUDY_STUDY_STUDY_ウィズダム.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🧙</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">ウィズダム</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/STUDY_STAMINA_STAMINA_イージス.webp" alt="イージス" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🛡️</span>'">
+                <img src="../public/monsters/STUDY_STAMINA_STAMINA_イージス.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🛡️</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">イージス</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/STUDY_LIFE_LIFE_セバス.webp" alt="セバス" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🤖</span>'">
+                <img src="../public/monsters/STUDY_LIFE_LIFE_セバス.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🤖</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">セバス ...</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？ ...</div>
             </div>
           </div>
         </div>
@@ -1279,38 +1359,38 @@
               </div>
               <div class="monster-item-name">ブロック</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
-                <img src="../public/monsters/STAMINA_STUDY_グラビド.webp" alt="グラビド" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🌀</span>'">
+                <img src="../public/monsters/STAMINA_STUDY_グラビド.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🌀</span>'">
               </div>
-              <div class="monster-item-name">グラビド</div>
+              <div class="monster-item-name">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
-                <img src="../public/monsters/STAMINA_LIFE_わっしょい.webp" alt="わっしょい" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🎉</span>'">
+                <img src="../public/monsters/STAMINA_LIFE_わっしょい.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🎉</span>'">
               </div>
-              <div class="monster-item-name">わっしょい</div>
+              <div class="monster-item-name">？？？</div>
             </div>
           </div>
           <div class="path-arrow">↓</div>
           <div class="monster-stage" style="gap:4px;">
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp" alt="ゴッドストーン" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>⛰️</span>'">
+                <img src="../public/monsters/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>⛰️</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">ゴッドストーン</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/STAMINA_STAMINA_STUDY_ガイア.webp" alt="ガイア" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🌍</span>'">
+                <img src="../public/monsters/STAMINA_STAMINA_STUDY_ガイア.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🌍</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">ガイア</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/STAMINA_LIFE_LIFE_ミコシ.webp" alt="ミコシ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🏮</span>'">
+                <img src="../public/monsters/STAMINA_LIFE_LIFE_ミコシ.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🏮</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">ミコシ ...</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？ ...</div>
             </div>
           </div>
         </div>
@@ -1336,38 +1416,214 @@
               </div>
               <div class="monster-item-name">マザー</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
-                <img src="../public/monsters/LIFE_STUDY_チックタック.webp" alt="チックタック" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>⏰</span>'">
+                <img src="../public/monsters/LIFE_STUDY_チックタック.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>⏰</span>'">
               </div>
-              <div class="monster-item-name">チックタック</div>
+              <div class="monster-item-name">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:52px;height:52px;">
-                <img src="../public/monsters/LIFE_STAMINA_キャリア.webp" alt="キャリア" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>📦</span>'">
+                <img src="../public/monsters/LIFE_STAMINA_キャリア.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>📦</span>'">
               </div>
-              <div class="monster-item-name">キャリア</div>
+              <div class="monster-item-name">？？？</div>
             </div>
           </div>
           <div class="path-arrow">↓</div>
           <div class="monster-stage" style="gap:4px;">
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp" alt="ゴッドセバス" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>👑</span>'">
+                <img src="../public/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>👑</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">ゴッドセバス</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/LIFE_STUDY_STUDY_カレンダー.webp" alt="カレンダー" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>📅</span>'">
+                <img src="../public/monsters/LIFE_STUDY_STUDY_カレンダー.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>📅</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">カレンダー</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
             </div>
-            <div class="monster-item">
+            <div class="monster-item monster-shadow">
               <div class="monster-img-wrap" style="width:46px;height:46px;">
-                <img src="../public/monsters/LIFE_STAMINA_LIFE_ナース.webp" alt="ナース" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px&quot;>🏥</span>'">
+                <img src="../public/monsters/LIFE_STAMINA_LIFE_ナース.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🏥</span>'">
               </div>
-              <div class="monster-item-name" style="font-size:8px;">ナース ...</div>
+              <div class="monster-item-name" style="font-size:8px;">？？？ ...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== かわいい系（LIGHT） ===== -->
+    <div class="monster-paths fade-in monsters-light">
+
+      <!-- STUDY系 -->
+      <div class="monster-path">
+        <div class="path-label study">📚 学力系</div>
+        <div class="path-monsters">
+          <div class="monster-stage">
+            <div class="monster-item">
+              <div class="monster-img-wrap">
+                <img src="../public/monsters/light/STUDY_ルミナ.webp" alt="ルミナ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:28px&quot;>📚</span>'">
+              </div>
+              <div class="monster-item-name">ルミナ</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:6px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/STUDY_STUDY_インテリキャット.webp" alt="インテリキャット" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🐱</span>'">
+              </div>
+              <div class="monster-item-name">インテリキャット</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/STUDY_STAMINA_クリスタルバード.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🐦</span>'">
+              </div>
+              <div class="monster-item-name">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/STUDY_LIFE_インクペンギン.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🐧</span>'">
+              </div>
+              <div class="monster-item-name">？？？</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:4px;">
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/STUDY_STUDY_STUDY_大魔導士プラチナキャット.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐱</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/STUDY_STAMINA_STAMINA_空の覇者グリフォン.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🦅</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/STUDY_LIFE_LIFE_調香師のリス.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐿️</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？ ...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAMINA系 -->
+      <div class="monster-path">
+        <div class="path-label stamina">💪 体力系</div>
+        <div class="path-monsters">
+          <div class="monster-stage">
+            <div class="monster-item">
+              <div class="monster-img-wrap">
+                <img src="../public/monsters/light/STAMINA_アクティ.webp" alt="アクティ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:28px&quot;>💪</span>'">
+              </div>
+              <div class="monster-item-name">アクティ</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:6px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/STAMINA_STAMINA_ブレイブレオ.webp" alt="ブレイブレオ" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🦁</span>'">
+              </div>
+              <div class="monster-item-name">ブレイブレオ</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/STAMINA_STUDY_スカウトフォックス.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🦊</span>'">
+              </div>
+              <div class="monster-item-name">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/STAMINA_LIFE_レスキューパピー.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🐶</span>'">
+              </div>
+              <div class="monster-item-name">？？？</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:4px;">
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/STAMINA_STAMINA_STAMINA_太陽の黄金龍.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐉</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/STAMINA_STAMINA_STUDY_真実の聖騎士・レオ.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🦁</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/STAMINA_LIFE_LIFE_忠義の守護柴犬.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐕</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？ ...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIFE系 -->
+      <div class="monster-path">
+        <div class="path-label life">🌿 生活力系</div>
+        <div class="path-monsters">
+          <div class="monster-stage">
+            <div class="monster-item">
+              <div class="monster-img-wrap">
+                <img src="../public/monsters/light/LIFE_メルル.webp" alt="メルル" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:28px&quot;>🌿</span>'">
+              </div>
+              <div class="monster-item-name">メルル</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:6px;">
+            <div class="monster-item">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/LIFE_LIFE_コットンラム.webp" alt="コットンラム" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px&quot;>🐑</span>'">
+              </div>
+              <div class="monster-item-name">コットンラム</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/LIFE_STUDY_ミントアライグマ.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🦝</span>'">
+              </div>
+              <div class="monster-item-name">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:52px;height:52px;">
+                <img src="../public/monsters/light/LIFE_STAMINA_ポポパンダ.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:24px;filter:brightness(0) opacity(0.35)&quot;>🐼</span>'">
+              </div>
+              <div class="monster-item-name">？？？</div>
+            </div>
+          </div>
+          <div class="path-arrow">↓</div>
+          <div class="monster-stage" style="gap:4px;">
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/LIFE_LIFE_LIFE_慈愛の聖母ラム.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐑</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/LIFE_STUDY_STUDY_薬剤師のシロクマ.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐻‍❄️</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？</div>
+            </div>
+            <div class="monster-item monster-shadow">
+              <div class="monster-img-wrap" style="width:46px;height:46px;">
+                <img src="../public/monsters/light/LIFE_STAMINA_LIFE_陽だまりのカピバラ.webp" alt="？？？" onerror="this.parentNode.innerHTML='<span style=&quot;font-size:20px;filter:brightness(0) opacity(0.35)&quot;>🐾</span>'">
+              </div>
+              <div class="monster-item-name" style="font-size:8px;">？？？ ...</div>
             </div>
           </div>
         </div>
@@ -1378,10 +1634,10 @@
     <div style="text-align:center; position:relative; z-index:1;">
       <div class="monster-count-badge fade-in" style="display:inline-flex;">
         <span>🥚</span>
-        <span>卵 1 → stage1 </span><strong>3</strong>
-        <span>→ stage2 </span><strong>9</strong>
-        <span>→ stage3 </span><strong>27</strong>
-        <span>= 合計</span><strong>39</strong><span>種</span>
+        <span>卵 1 + (stage1 </span><strong>3</strong>
+        <span>+ stage2 </span><strong>9</strong>
+        <span>+ stage3 </span><strong>27</strong>
+        <span>) × 2スタイル = 合計</span><strong>77</strong><span>種</span>
       </div>
     </div>
 
@@ -1442,6 +1698,46 @@
         <div class="adhd-content">
           <h3>スキップにも親承認フロー</h3>
           <p>「今日はできない」と正直に申告してスキップを申請。親が承認すればストリーク継続。子どものコンディションに寄り添いつつ、安易なスキップを防ぐ。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon gold">⏱</div>
+        <div class="adhd-content">
+          <h3>時間の見える化（タイムブラインドネス対策）</h3>
+          <p>ADHD に多い「時間感覚の歪み」に対処するため、報告期限を子どもごとに設定可能。期限内に報告するとボーナス XP が得られるため、「今日の締め切り」を意識するきっかけになる。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon study">🎯</div>
+        <div class="adhd-content">
+          <h3>ドーパミン多段報酬設計</h3>
+          <p>タスク完了（+1pt）、期限内報告（+1pt）、写真ボーナス（+1pt）と報酬トリガーを複数設定。毎日のログインストリーク達成でも追加 XP。1日の中で何度も「小さな成功体験」が得られる設計。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon life">⚔</div>
+        <div class="adhd-content">
+          <h3>「クエスト」形式でタスク開始のハードルを下げる</h3>
+          <p>「宿題をやりなさい」より「クエストをクリアしよう！」の方が ADHD の子どもは動きやすい。ゲームとしてのフレーミングが、先延ばし（procrastination）を抑制し、タスク開始（task initiation）を促す。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon purple">🧠</div>
+        <div class="adhd-content">
+          <h3>ワーキングメモリを補う構造</h3>
+          <p>「何をするべきか」を毎日アプリが提示するため、子ども自身が覚えておく必要がない。タスクを忘れやすい・優先順位がつけられないという ADHD の困りごとを、アプリの構造でカバーする。</p>
+        </div>
+      </div>
+
+      <div class="adhd-point fade-in">
+        <div class="adhd-icon stamina">💬</div>
+        <div class="adhd-content">
+          <h3>親子のポジティブな関わりを増やす</h3>
+          <p>叱る・指示する場面を減らし、「クエスト承認」という形で親が子どもを認める機会を作る。ADHD の子どもは否定的なフィードバックを受けやすいため、承認・XP付与という肯定的な体験の積み重ねが自己肯定感を育てる。</p>
         </div>
       </div>
     </div>
@@ -1779,6 +2075,23 @@
   }, { threshold: 0.1 });
 
   document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+</script>
+
+<!-- ===== スタイル切り替え JS ===== -->
+<script>
+  function switchStyle(style) {
+    const btnDark = document.getElementById('btn-dark');
+    const btnLight = document.getElementById('btn-light');
+    if (style === 'light') {
+      document.body.classList.add('show-light');
+      btnDark.classList.remove('active-dark');
+      btnLight.classList.add('active-light');
+    } else {
+      document.body.classList.remove('show-light');
+      btnDark.classList.add('active-dark');
+      btnLight.classList.remove('active-light');
+    }
+  }
 </script>
 
 </body>
