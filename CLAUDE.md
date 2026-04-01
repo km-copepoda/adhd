@@ -41,6 +41,7 @@ export const config = { matcher: [...] };
 - テストファイルは `src/__tests__/` 以下
 - `@/lib/push` はグローバルモック済み（`setup.ts`）。`push.test.ts` のみ `vi.unmock("@/lib/push")` で解除して実装テスト
 - **開発はテスト駆動（TDD）で行う**
+- テストは必ず書く。境界値テストも含めること
 
 ---
 
