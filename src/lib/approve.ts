@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
+import { log } from "@/lib/logger";
 
 type QuestWithRelations = {
   id: string;
@@ -68,6 +69,8 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
     isReborn,
   );
 
+  log.info("Quest approved", { questId: quest.id, childId: quest.childId, xp, category });
+
   await prisma.questInstance.update({
     where: { id: quest.id },
     data: { status: "APPROVED", approvedAt: new Date() },
@@ -79,6 +82,12 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
     if (!collectedPaths.includes(evolution.newPath)) {
       collectedPaths = [...collectedPaths, evolution.newPath];
     }
+    log.info("Monster evolved", {
+      childId: quest.childId,
+      stage: evolution.newStage,
+      path: evolution.newPath,
+      reborn: evolution.reborn,
+    });
   }
 
   await prisma.user.update({
