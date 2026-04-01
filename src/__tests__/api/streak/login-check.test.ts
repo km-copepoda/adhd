@@ -41,7 +41,7 @@ describe("POST /api/streak/login-check", () => {
     expect(json.bonusGranted).toBe(0);
   });
 
-  it("30日目にボーナスが付与されること", async () => {
+  it("10日目にボーナスが付与されること", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     // recordLoginActivity と同じ JST ベースで yesterday を計算（タイムゾーン境界バグ防止）
     const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -49,11 +49,12 @@ describe("POST /api/streak/login-check", () => {
     const yesterday = new Date(todayNorm);
     yesterday.setDate(yesterday.getDate() - 1);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
     );
     mockPrisma.streak.update.mockResolvedValue({} as any);
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ studyPt: 0, staminaPt: 0, lifePt: 0 }) as any,
+      // stage 1 を使い進化が発動しない範囲に設定
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 }) as any,
     );
     mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -61,7 +62,7 @@ describe("POST /api/streak/login-check", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.loginStreak).toBe(30);
+    expect(json.loginStreak).toBe(10);
     expect(json.bonusGranted).toBe(1);
   });
 });
