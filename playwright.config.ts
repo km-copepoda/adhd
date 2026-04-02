@@ -1,0 +1,60 @@
+import { defineConfig, devices } from "@playwright/test";
+import { config } from "dotenv";
+
+// .env.test から E2E 専用の環境変数を読み込む
+config({ path: ".env.test" });
+
+// Vercel プレビューデプロイ保護のバイパス設定
+// Vercel プロジェクト設定 > Deployment Protection > Automation Bypass Secret で発行
+const vercelBypassHeaders = process.env.VERCEL_BYPASS_SECRET
+  ? { "x-vercel-protection-bypass": process.env.VERCEL_BYPASS_SECRET }
+  : {};
+
+export default defineConfig({
+  testDir: "./e2e",
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  reporter: "html",
+  use: {
+    baseURL: "https://adhd-git-develop-km-copepodas-projects.vercel.app",
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "on-first-retry",
+    extraHTTPHeaders: vercelBypassHeaders,
+  },
+  projects: [
+    // 認証セットアップ（他プロジェクトより先に実行）
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
+    // 未認証テスト（ランディング・ログインフォーム検証）
+    {
+      name: "no-auth",
+      testMatch: /\/(s1|s2|s3)-.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // 親アカウントで実行するテスト
+    {
+      name: "as-parent",
+      testMatch: /\/(s4|s6)-.*\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/parent.json",
+      },
+      dependencies: ["setup"],
+    },
+    // 子供アカウント（ライトモード / userCode: 0321）で実行するテスト
+    {
+      name: "as-child",
+      testMatch: /\/(s5|s7|s8)-.*\.spec\.ts/,
+      use: {
+        ...devices["Pixel 5"],
+        storageState: "playwright/.auth/child-light.json",
+      },
+      dependencies: ["setup"],
+    },
+  ],
+});
