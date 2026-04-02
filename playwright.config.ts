@@ -4,12 +4,6 @@ import { config } from "dotenv";
 // .env.test から E2E 専用の環境変数を読み込む
 config({ path: ".env.test" });
 
-// Vercel プレビューデプロイ保護のバイパス設定
-// Vercel プロジェクト設定 > Deployment Protection > Automation Bypass Secret で発行
-const vercelBypassHeaders = process.env.VERCEL_BYPASS_SECRET
-  ? { "x-vercel-protection-bypass": process.env.VERCEL_BYPASS_SECRET }
-  : {};
-
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -22,7 +16,8 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "on-first-retry",
-    extraHTTPHeaders: vercelBypassHeaders,
+    // Vercel bypass ヘッダーは fixtures.ts の route 注入で Vercel ドメイン限定に付与
+    // extraHTTPHeaders は使わない（Supabase 等の外部 API の CORS に影響するため）
   },
   projects: [
     // 認証セットアップ（他プロジェクトより先に実行）

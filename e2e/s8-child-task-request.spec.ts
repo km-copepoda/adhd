@@ -8,7 +8,7 @@
  * - 申請後クエストリストに「仮」バッジ付きで表示される
  * - 境界値: タイトル未入力では「追加する」ボタンが無効
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S8: 子供タスク申請", () => {
   test.beforeEach(async ({ page }) => {

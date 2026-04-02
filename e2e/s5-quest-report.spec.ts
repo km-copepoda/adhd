@@ -7,7 +7,7 @@
  * - 「⚔ クエスト完了！」を押すと成功画面が表示される
  * - 報告後クエストのステータスが「確認中...」になる
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S5: 子供クエスト完了報告", () => {
   test.beforeEach(async ({ page }) => {

@@ -7,7 +7,7 @@
  * - 境界値: 理由未入力では「スキップを申請する」ボタンが無効
  * - 「戻る」で通常状態に戻れる
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S7: クエストスキップ申請", () => {
   test.beforeEach(async ({ page }) => {

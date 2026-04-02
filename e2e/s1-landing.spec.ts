@@ -4,7 +4,7 @@
  * - 子供ボタン → /child/login に遷移
  * - 親ボタン → /parent/login に遷移
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S1: ランディングページ", () => {
   test.beforeEach(async ({ page }) => {

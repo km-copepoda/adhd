@@ -7,7 +7,7 @@
  * - 一時タスクを作成できる
  * - 境界値: タイトル未入力では作成ボタンが無効
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S4: 親タスク管理", () => {
   test.beforeEach(async ({ page }) => {
