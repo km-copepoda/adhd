@@ -23,10 +23,11 @@ export async function DELETE(
     return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
   }
 
-  // RESTRICT FK のため手動削除順: QuestInstance → Streak → TaskTemplate(null化) → User
+  // RESTRICT FK のため手動削除順: QuestInstance → Streak → TaskStreak → TaskTemplate(null化) → User
   await prisma.$transaction([
     prisma.questInstance.deleteMany({ where: { childId: id } }),
     prisma.streak.deleteMany({ where: { childId: id } }),
+    prisma.taskStreak.deleteMany({ where: { childId: id } }),
     prisma.taskTemplate.updateMany({ where: { assignedChildId: id }, data: { assignedChildId: null } }),
     prisma.user.delete({ where: { id } }),
   ]);

@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       upsert: vi.fn(),
       updateMany: vi.fn(),
+      delete: vi.fn(),
     },
     family: {
       findUnique: vi.fn(),
@@ -40,11 +41,13 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       upsert: vi.fn(),
       update: vi.fn(),
+      deleteMany: vi.fn(),
     },
     taskStreak: {
       findUnique: vi.fn(),
       upsert: vi.fn(),
       update: vi.fn(),
+      deleteMany: vi.fn(),
     },
     pushSubscription: {
       findUnique: vi.fn(),
