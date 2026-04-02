@@ -28,6 +28,8 @@ test.describe("S1: ランディングページ", () => {
   });
 
   test("/ にアクセスすると /child/login や /parent/login にリダイレクトされない", async ({ page }) => {
-    await expect(page).toHaveURL(/^\/?$/);
+    // baseURL 含む絶対 URL で検証（/child/login・/parent/login に遷移していないことを確認）
+    await expect(page).not.toHaveURL(/\/child\/login|\/parent\/login/);
+    await expect(page).toHaveURL(/\/$/);
   });
 });
