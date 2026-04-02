@@ -1,8 +1,8 @@
 /**
  * S1: ランディングページ → ロール選択
  * - トップが正しく表示される
- * - 子供ボタン → /child/login に遷移
- * - 親ボタン → /parent/login に遷移
+ * - 子供ボタン → /app/child/login に遷移
+ * - 親ボタン → /app/parent/login に遷移
  */
 import { test, expect } from "./fixtures";
 
@@ -17,18 +17,18 @@ test.describe("S1: ランディングページ", () => {
     await expect(page.getByRole("link", { name: /ギルドマスター/ })).toBeVisible();
   });
 
-  test("子供ボタンから /child/login に遷移する", async ({ page }) => {
+  test("子供ボタンから /app/child/login に遷移する", async ({ page }) => {
     await page.click('a:has-text("ぼうけんをはじめる")');
     await expect(page).toHaveURL(/\/child\/login/);
   });
 
-  test("親ボタンから /parent/login に遷移する", async ({ page }) => {
+  test("親ボタンから /app/parent/login に遷移する", async ({ page }) => {
     await page.click('a:has-text("ギルドマスター")');
     await expect(page).toHaveURL(/\/parent\/login/);
   });
 
-  test("/ にアクセスすると /child/login や /parent/login にリダイレクトされない", async ({ page }) => {
-    // baseURL 含む絶対 URL で検証（/child/login・/parent/login に遷移していないことを確認）
+  test("/ にアクセスすると /app/child/login や /app/parent/login にリダイレクトされない", async ({ page }) => {
+    // baseURL 含む絶対 URL で検証（/app/child/login・/app/parent/login に遷移していないことを確認）
     await expect(page).not.toHaveURL(/\/child\/login|\/parent\/login/);
     await expect(page).toHaveURL(/\/$/);
   });

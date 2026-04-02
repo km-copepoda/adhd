@@ -2,7 +2,7 @@
  * S6: 親クエスト承認フロー
  * 前提: as-parent プロジェクト（storageState: parent.json）で実行
  *
- * - /parent/approve が表示される
+ * - /app/parent/approve が表示される
  * - 承認待ちのクエストカードが表示される
  * - クエストカードクリック（= 承認）でリストから消える
  * - 「まとめて承認」ボタンが動作する
@@ -13,7 +13,7 @@ import { test, expect } from "./fixtures";
 
 test.describe("S6: 親クエスト承認", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/parent/approve");
+    await page.goto("/app/parent/approve");
     await expect(page.getByRole("heading", { name: /承認センター/ })).toBeVisible({
       timeout: 15000,
     });

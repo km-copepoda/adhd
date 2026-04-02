@@ -22,28 +22,28 @@ const CHILD_CODE_LIGHT = "0321"; // ライトモード（Side: LIGHT）
 const CHILD_CODE_DARK = "5334";  // ダークモード（Side: DARK）
 
 setup("authenticate as parent", async ({ page }) => {
-  await page.goto("/parent/login");
+  await page.goto("/app/parent/login");
   await page.fill('input[placeholder="メールアドレス"]', PARENT_EMAIL);
   await page.fill('input[placeholder="パスワード"]', PARENT_PASSWORD);
   await page.click('button:has-text("ログイン")');
-  await page.waitForURL("**/parent/tasks", { timeout: 15000 });
+  await page.waitForURL("**/app/parent/tasks", { timeout: 15000 });
   await page.context().storageState({ path: path.join(AUTH_DIR, "parent.json") });
 });
 
 setup("authenticate as child (light)", async ({ page }) => {
-  await page.goto("/child/login");
+  await page.goto("/app/child/login");
   await page.fill('input[placeholder="ABC123"]', FAMILY_CODE);
   await page.fill('input[placeholder="1234"]', CHILD_CODE_LIGHT);
   await page.click('button:has-text("ログイン")');
-  await page.waitForURL("**/child/quests", { timeout: 15000 });
+  await page.waitForURL("**/app/child/quests", { timeout: 15000 });
   await page.context().storageState({ path: path.join(AUTH_DIR, "child-light.json") });
 });
 
 setup("authenticate as child (dark)", async ({ page }) => {
-  await page.goto("/child/login");
+  await page.goto("/app/child/login");
   await page.fill('input[placeholder="ABC123"]', FAMILY_CODE);
   await page.fill('input[placeholder="1234"]', CHILD_CODE_DARK);
   await page.click('button:has-text("ログイン")');
-  await page.waitForURL("**/child/quests", { timeout: 15000 });
+  await page.waitForURL("**/app/child/quests", { timeout: 15000 });
   await page.context().storageState({ path: path.join(AUTH_DIR, "child-dark.json") });
 });

@@ -15,7 +15,7 @@ const VERCEL_HOSTNAME = "adhd-git-develop-km-copepodas-projects.vercel.app";
 
 test.describe("S9: 子供ユーザー管理", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/parent/family");
+    await page.goto("/app/parent/family");
     await expect(page.getByRole("heading", { name: /ファミリー管理/ })).toBeVisible({
       timeout: 15000,
     });
@@ -76,7 +76,7 @@ test.describe("S9: 子供ユーザー管理", () => {
     expect(childCode!.trim()).toMatch(/^\d{4}$/);
 
     // --- 4. 新しいコンテキストで子供ログインをテスト ---
-    // 親セッションのまま /child/login に遷移するとミドルウェアが /parent/tasks にリダイレクトするため、
+    // 親セッションのまま /app/child/login に遷移するとミドルウェアが /app/parent/tasks にリダイレクトするため、
     // 認証なしの新コンテキストを作成してテストする
     const childContext = await browser.newContext({
       baseURL: `https://${VERCEL_HOSTNAME}`,
@@ -97,7 +97,7 @@ test.describe("S9: 子供ユーザー管理", () => {
     }
 
     try {
-      await childPage.goto(`https://${VERCEL_HOSTNAME}/child/login`);
+      await childPage.goto(`https://${VERCEL_HOSTNAME}/app/child/login`);
       await expect(childPage.locator('input[placeholder="ABC123"]')).toBeVisible({
         timeout: 15000,
       });

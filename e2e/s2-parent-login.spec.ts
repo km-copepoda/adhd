@@ -1,14 +1,14 @@
 /**
  * S2: 親ログインフロー
  * - フォーム要素の表示確認
- * - 正常ログイン → /parent/tasks に遷移
+ * - 正常ログイン → /app/parent/tasks に遷移
  * - 境界値: 未入力・誤パスワードでエラー表示
  */
 import { test, expect } from "./fixtures";
 
 test.describe("S2: 親ログイン", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/parent/login");
+    await page.goto("/app/parent/login");
   });
 
   test("ログインフォームが表示される", async ({ page }) => {
@@ -19,7 +19,7 @@ test.describe("S2: 親ログイン", () => {
     await expect(page.getByRole("button", { name: /ログイン/ })).toBeVisible();
   });
 
-  test("正常ログイン → /parent/tasks に遷移する", async ({ page }) => {
+  test("正常ログイン → /app/parent/tasks に遷移する", async ({ page }) => {
     await page.fill('input[placeholder="メールアドレス"]', "qb@example.com");
     await page.fill('input[placeholder="パスワード"]', "password");
     await page.click('button:has-text("ログイン")');
@@ -29,7 +29,7 @@ test.describe("S2: 親ログイン", () => {
   test("境界値: メールアドレス未入力でもsubmitは実行されない（HTML5バリデーション）", async ({ page }) => {
     await page.fill('input[placeholder="パスワード"]', "password");
     await page.click('button:has-text("ログイン")');
-    // ページは /parent/tasks に遷移しない
+    // ページは /app/parent/tasks に遷移しない
     await expect(page).not.toHaveURL(/\/parent\/tasks/);
   });
 

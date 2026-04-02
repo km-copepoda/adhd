@@ -11,7 +11,7 @@ import { test, expect } from "./fixtures";
 
 test.describe("S7: クエストスキップ申請", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/child/quests");
+    await page.goto("/app/child/quests");
     await expect(page.getByRole("heading", { name: /今日のクエスト/ })).toBeVisible({
       timeout: 15000,
     });
