@@ -4,7 +4,7 @@
  * - 正常ログイン → /parent/tasks に遷移
  * - 境界値: 未入力・誤パスワードでエラー表示
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S2: 親ログイン", () => {
   test.beforeEach(async ({ page }) => {

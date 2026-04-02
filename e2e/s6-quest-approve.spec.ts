@@ -9,7 +9,7 @@
  * - 差し戻しモーダルが開く
  * - 境界値: 理由未選択では「差し戻す」ボタンが無効
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("S6: 親クエスト承認", () => {
   test.beforeEach(async ({ page }) => {

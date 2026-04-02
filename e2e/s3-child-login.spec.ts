@@ -5,7 +5,7 @@
  * - ダークモード（5334）でログイン → /child/quests に遷移
  * - 境界値: 無効コードでエラー
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 const FAMILY_CODE = "VJZQSH";
 
