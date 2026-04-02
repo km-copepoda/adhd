@@ -20,10 +20,11 @@ export default defineConfig({
     // extraHTTPHeaders は使わない（Supabase 等の外部 API の CORS に影響するため）
   },
   projects: [
-    // 認証セットアップ（他プロジェクトより先に実行）
+    // 認証セットアップ（no-auth の後に実行：S3 が child-rejoin で supabaseId を上書きするため）
     {
       name: "setup",
       testMatch: /auth\.setup\.ts/,
+      dependencies: ["no-auth"],
     },
     // 未認証テスト（ランディング・ログインフォーム検証）
     {

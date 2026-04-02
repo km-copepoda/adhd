@@ -10,6 +10,21 @@
  */
 import { test, expect } from "./fixtures";
 
+/** /api/tasks POST を送信し、レスポンス OK かどうかを確認する */
+async function submitTaskAndGetResponse(page: Parameters<typeof test>[1]["page"]) {
+  const responsePromise = page.waitForResponse(
+    (r) => r.url().includes("/api/tasks") && r.request().method() === "POST",
+    { timeout: 15000 }
+  );
+  await page.getByRole("button", { name: /^追加する$/ }).click();
+  const response = await responsePromise;
+  if (!response.ok()) {
+    const body = await response.text().catch(() => "(body read failed)");
+    throw new Error(`/api/tasks POST failed: ${response.status()} ${body}`);
+  }
+  return response;
+}
+
 test.describe("S8: 子供タスク申請", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/child/quests");
@@ -29,7 +44,7 @@ test.describe("S8: 子供タスク申請", () => {
     await expect(page.locator('input[placeholder="タスク名を入力..."]')).toBeVisible();
     await expect(page.getByRole("button", { name: /一時タスク/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /通常タスク/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /追加する/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^追加する$/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /キャンセル/ })).toBeVisible();
   });
 
@@ -38,13 +53,13 @@ test.describe("S8: 子供タスク申請", () => {
     await expect(page.locator('input[placeholder="タスク名を入力..."]')).toBeVisible();
 
     // タイトル空の状態では無効
-    await expect(page.getByRole("button", { name: /追加する/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^追加する$/ })).toBeDisabled();
   });
 
   test("境界値: タイトルが空白のみでは「追加する」ボタンが無効", async ({ page }) => {
     await page.getByRole("button", { name: /タスクを追加/ }).click();
     await page.fill('input[placeholder="タスク名を入力..."]', "   ");
-    await expect(page.getByRole("button", { name: /追加する/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^追加する$/ })).toBeDisabled();
   });
 
   test("一時タスクを申請するとクエストリストに「仮」バッジで表示される", async ({ page }) => {
@@ -56,13 +71,14 @@ test.describe("S8: 子供タスク申請", () => {
     await page.getByRole("button", { name: /一時タスク/ }).click();
 
     await page.fill('input[placeholder="タスク名を入力..."]', title);
-    await expect(page.getByRole("button", { name: /追加する/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^追加する$/ })).toBeEnabled();
 
-    await page.getByRole("button", { name: /追加する/ }).click();
+    // API レスポンスを確認しながら送信（失敗時は詳細なエラーメッセージを出力）
+    await submitTaskAndGetResponse(page);
 
     // フォームが閉じてリストに追加される
     await expect(page.locator('input[placeholder="タスク名を入力..."]')).not.toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
     await expect(page.getByText(title)).toBeVisible({ timeout: 10000 });
 
@@ -81,12 +97,13 @@ test.describe("S8: 子供タスク申請", () => {
     await expect(page.getByText("毎週繰り返す自分のタスクを追加します")).toBeVisible();
 
     await page.fill('input[placeholder="タスク名を入力..."]', title);
-    await expect(page.getByRole("button", { name: /追加する/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^追加する$/ })).toBeEnabled();
 
-    await page.getByRole("button", { name: /追加する/ }).click();
+    // API レスポンスを確認しながら送信（失敗時は詳細なエラーメッセージを出力）
+    await submitTaskAndGetResponse(page);
 
     await expect(page.locator('input[placeholder="タスク名を入力..."]')).not.toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
     await expect(page.getByText(title)).toBeVisible({ timeout: 10000 });
 
