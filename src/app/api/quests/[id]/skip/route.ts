@@ -51,7 +51,7 @@ export async function POST(
       await sendPushToParent(parent.id, {
         title: "😴 スキップ申請",
         body: `${childName}が「${quest.template.title}」のスキップを申請しました`,
-        url: "/parent/approve",
+        url: "/app/parent/approve",
       });
     }
   }

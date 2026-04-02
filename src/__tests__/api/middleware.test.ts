@@ -44,7 +44,7 @@ describe("updateSession (middleware)", () => {
   });
 
   describe("Public routes (unauthenticated)", () => {
-    it.each(["/", "/parent/login", "/register", "/child/login"])(
+    it.each(["/", "/login", "/app/parent/login", "/app/register", "/app/child/login"])(
       "%s は未認証でもアクセス可能であること",
       async (route) => {
         mockSupabaseAuth(null);
@@ -55,100 +55,119 @@ describe("updateSession (middleware)", () => {
 
     it("末尾スラッシュ付きでもパブリックルートとして扱うこと", async () => {
       mockSupabaseAuth(null);
-      const res = await updateSession(makeRequest("/parent/login/"));
+      const res = await updateSession(makeRequest("/app/parent/login/"));
       expect(res.status).not.toBe(307);
     });
   });
 
   describe("Protected routes (unauthenticated)", () => {
-    it("/parent/* に未認証でアクセスすると /parent/login にリダイレクトすること", async () => {
+    it("/app/parent/* に未認証でアクセスすると /app/parent/login にリダイレクトすること", async () => {
       mockSupabaseAuth(null);
-      const res = await updateSession(makeRequest("/parent/tasks"));
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/parent/login");
+      expect(res.headers.get("location")).toContain("/app/parent/login");
     });
 
-    it("/child/* に未認証でアクセスすると / にリダイレクトすること", async () => {
+    it("/app/child/* に未認証でアクセスすると /login にリダイレクトすること", async () => {
       mockSupabaseAuth(null);
-      const res = await updateSession(makeRequest("/child/quests"));
+      const res = await updateSession(makeRequest("/app/child/quests"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toMatch(/\/$/);
-      expect(res.headers.get("location")).not.toContain("/login");
+      expect(res.headers.get("location")).toContain("/login");
     });
   });
 
-  describe("TOP page (/) role-based redirect", () => {
-    it("子アカウントでログイン済みの場合 /child/quests にリダイレクトすること", async () => {
+  describe("/login page role-based redirect", () => {
+    it("子アカウントでログイン済みの場合 /app/child/quests にリダイレクトすること", async () => {
+      mockSupabaseAuth(childUser);
+      const res = await updateSession(makeRequest("/login"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/app/child/quests");
+    });
+
+    it("親アカウントでログイン済みの場合 /app/parent/tasks にリダイレクトすること", async () => {
+      mockSupabaseAuth(parentUser);
+      const res = await updateSession(makeRequest("/login"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/app/parent/tasks");
+    });
+
+    it("未認証の場合 /login をそのまま表示すること", async () => {
+      mockSupabaseAuth(null);
+      const res = await updateSession(makeRequest("/login"));
+      expect(res.status).not.toBe(307);
+    });
+  });
+
+  describe("LP page (/) - always accessible", () => {
+    it("未認証でも / にアクセスできること", async () => {
+      mockSupabaseAuth(null);
+      const res = await updateSession(makeRequest("/"));
+      expect(res.status).not.toBe(307);
+    });
+
+    it("子アカウントでログイン済みでも / をそのまま表示すること", async () => {
       mockSupabaseAuth(childUser);
       const res = await updateSession(makeRequest("/"));
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/child/quests");
+      expect(res.status).not.toBe(307);
     });
 
-    it("親アカウントでログイン済みの場合 /parent/tasks にリダイレクトすること", async () => {
+    it("親アカウントでログイン済みでも / をそのまま表示すること", async () => {
       mockSupabaseAuth(parentUser);
-      const res = await updateSession(makeRequest("/"));
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/parent/tasks");
-    });
-
-    it("未認証の場合 / をそのまま表示すること", async () => {
-      mockSupabaseAuth(null);
       const res = await updateSession(makeRequest("/"));
       expect(res.status).not.toBe(307);
     });
   });
 
   describe("Role protection (authenticated)", () => {
-    it("子アカウントが /parent/* にアクセスすると /child/quests にリダイレクトすること", async () => {
+    it("子アカウントが /app/parent/* にアクセスすると /app/child/quests にリダイレクトすること", async () => {
       mockSupabaseAuth(childUser);
-      const res = await updateSession(makeRequest("/parent/tasks"));
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/child/quests");
+      expect(res.headers.get("location")).toContain("/app/child/quests");
     });
 
-    it("子アカウントが /parent/approve にアクセスしても /child/quests にリダイレクトすること", async () => {
+    it("子アカウントが /app/parent/approve にアクセスしても /app/child/quests にリダイレクトすること", async () => {
       mockSupabaseAuth(childUser);
-      const res = await updateSession(makeRequest("/parent/approve"));
+      const res = await updateSession(makeRequest("/app/parent/approve"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/child/quests");
+      expect(res.headers.get("location")).toContain("/app/child/quests");
     });
 
-    it("親アカウントが /child/* にアクセスすると /parent/tasks にリダイレクトすること", async () => {
+    it("親アカウントが /app/child/* にアクセスすると /app/parent/tasks にリダイレクトすること", async () => {
       mockSupabaseAuth(parentUser);
-      const res = await updateSession(makeRequest("/child/quests"));
+      const res = await updateSession(makeRequest("/app/child/quests"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/parent/tasks");
+      expect(res.headers.get("location")).toContain("/app/parent/tasks");
     });
 
-    it("親アカウントが /child/monster にアクセスしても /parent/tasks にリダイレクトすること", async () => {
+    it("親アカウントが /app/child/monster にアクセスしても /app/parent/tasks にリダイレクトすること", async () => {
       mockSupabaseAuth(parentUser);
-      const res = await updateSession(makeRequest("/child/monster"));
+      const res = await updateSession(makeRequest("/app/child/monster"));
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/parent/tasks");
+      expect(res.headers.get("location")).toContain("/app/parent/tasks");
     });
 
-    it("親アカウントが /parent/tasks に正常にアクセスできること", async () => {
+    it("親アカウントが /app/parent/tasks に正常にアクセスできること", async () => {
       mockSupabaseAuth(parentUser);
-      const res = await updateSession(makeRequest("/parent/tasks"));
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
       expect(res.status).not.toBe(307);
     });
 
-    it("子アカウントが /child/quests に正常にアクセスできること", async () => {
+    it("子アカウントが /app/child/quests に正常にアクセスできること", async () => {
       mockSupabaseAuth(childUser);
-      const res = await updateSession(makeRequest("/child/quests"));
+      const res = await updateSession(makeRequest("/app/child/quests"));
       expect(res.status).not.toBe(307);
     });
 
-    it("認証済みユーザーが /parent/login にアクセスしてもリダイレクトしないこと", async () => {
+    it("認証済みユーザーが /app/parent/login にアクセスしてもリダイレクトしないこと", async () => {
       mockSupabaseAuth(parentUser);
-      const res = await updateSession(makeRequest("/parent/login"));
+      const res = await updateSession(makeRequest("/app/parent/login"));
       expect(res.status).not.toBe(307);
     });
 
-    it("認証済みユーザーが /register にアクセスしてもリダイレクトしないこと", async () => {
+    it("認証済みユーザーが /app/register にアクセスしてもリダイレクトしないこと", async () => {
       mockSupabaseAuth(parentUser);
-      const res = await updateSession(makeRequest("/register"));
+      const res = await updateSession(makeRequest("/app/register"));
       expect(res.status).not.toBe(307);
     });
   });

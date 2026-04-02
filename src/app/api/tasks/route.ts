@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       await sendPushToParent(parent.id, {
         title: "📋 タスク申請",
         body: `${childName}が「${task.title}」を申請しました`,
-        url: "/parent/tasks",
+        url: "/app/parent/tasks",
       });
     }
   }

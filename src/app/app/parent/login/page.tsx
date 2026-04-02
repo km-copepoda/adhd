@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-export default function RegisterPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,7 +16,8 @@ export default function RegisterPage() {
     setError("");
 
     const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({ email, password });
+    await supabase.auth.signOut({ scope: "local" });
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
       setError(authError.message);
@@ -24,23 +25,14 @@ export default function RegisterPage() {
       return;
     }
 
-    // Create family + parent user in DB
-    // signUp直後はセッションcookieが次のリクエストに反映されないことがあるため
-    // supabaseIdを直接渡す
-    const res = await fetch("/api/auth/register", {
+    // DB ユーザーが存在しない場合（DB リセット後など）に再作成する
+    await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, supabaseId: data.user?.id }),
     });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "登録に失敗しました");
-      setLoading(false);
-      return;
-    }
-
-    window.location.href = "/parent/tasks";
+    window.location.href = "/app/parent/tasks";
   }
 
   return (
@@ -48,7 +40,7 @@ export default function RegisterPage() {
       <h1 className="font-serif text-quest-gold text-2xl tracking-wider mb-2">
         ⚔ QuestBoard
       </h1>
-      <p className="text-quest-dim text-sm mb-8">ギルドマスター アカウント作成</p>
+      <p className="text-quest-dim text-sm mb-8">ギルドマスター ログイン</p>
 
       <form onSubmit={handleSubmit} className="w-full max-w-xs flex flex-col gap-3">
         <input
@@ -63,19 +55,18 @@ export default function RegisterPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="パスワード（6文字以上）"
+          placeholder="パスワード"
           required
-          minLength={6}
           className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/50"
         />
         {error && <p className="text-red-400 text-xs">{error}</p>}
         <button type="submit" disabled={loading} className="btn-gold disabled:opacity-50">
-          {loading ? "作成中..." : "アカウントを作成"}
+          {loading ? "ログイン中..." : "ログイン"}
         </button>
       </form>
 
-      <Link href="/parent/login" className="text-quest-dim text-xs mt-6 hover:text-quest-gold">
-        すでにアカウントをお持ちの方 →
+      <Link href="/app/register" className="text-quest-dim text-xs mt-6 hover:text-quest-gold">
+        アカウントを作成する →
       </Link>
     </div>
   );

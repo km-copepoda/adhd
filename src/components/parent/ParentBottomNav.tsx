@@ -6,11 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import PushSubscriber from "@/components/parent/PushSubscriber";
 
 const tabs = [
-  { href: "/parent/tasks", emoji: "📋", label: "タスク" },
-  { href: "/parent/approve", emoji: "✅", label: "承認" },
-  { href: "/parent/completed", emoji: "🏆", label: "完了" },
-  { href: "/parent/history", emoji: "📅", label: "履歴" },
-  { href: "/parent/family", emoji: "👨‍👩‍👧‍👦", label: "家族" },
+  { href: "/app/parent/tasks", emoji: "📋", label: "タスク" },
+  { href: "/app/parent/approve", emoji: "✅", label: "承認" },
+  { href: "/app/parent/completed", emoji: "🏆", label: "完了" },
+  { href: "/app/parent/history", emoji: "📅", label: "履歴" },
+  { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "家族" },
 ] as const;
 
 export default function ParentBottomNav() {
@@ -19,7 +19,7 @@ export default function ParentBottomNav() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/parent/login";
+    window.location.href = "/app/parent/login";
   }
 
   return (

@@ -72,7 +72,7 @@ describe("POST /api/push/notify-child", () => {
       expect.objectContaining({
         title: expect.stringContaining("リマインド"),
         body: expect.stringContaining("宿題"),
-        url: "/child/quests",
+        url: "/app/child/quests",
       })
     );
   });
@@ -101,7 +101,7 @@ describe("POST /api/push/notify-child", () => {
       "child-1",
       expect.objectContaining({
         body: expect.stringContaining("漢字練習"),
-        url: "/child/quests",
+        url: "/app/child/quests",
       })
     );
   });

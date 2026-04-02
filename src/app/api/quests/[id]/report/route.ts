@@ -69,7 +69,7 @@ export async function POST(
       await sendPushToParent(parent.id, {
         title: "✅ クエスト報告",
         body: `${childName}が「${quest.template.title}」を完了しました`,
-        url: "/parent/approve",
+        url: "/app/parent/approve",
       });
     }
   }

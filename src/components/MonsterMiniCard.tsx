@@ -25,7 +25,7 @@ export default function MonsterMiniCard({ data, childName }: Props) {
     : "linear-gradient(90deg, #b45309, #fbbf24)";
 
   return (
-    <Link href="/child/monster" className="block">
+    <Link href="/app/child/monster" className="block">
       <div className="bg-quest-card border border-quest-border rounded-xl p-3 mb-5 flex items-center gap-3 hover:border-quest-gold/30 active:scale-[0.99] transition-all">
         {/* Monster image */}
         <div

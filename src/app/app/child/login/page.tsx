@@ -42,7 +42,7 @@ export default function OnboardingPage() {
         return;
       }
       // ログイン成功 → フルリロードでミドルウェアがセッションを処理
-      window.location.href = "/child/quests";
+      window.location.href = "/app/child/quests";
     } finally {
       setLoading(false);
     }
