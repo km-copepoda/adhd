@@ -37,6 +37,7 @@ export default function CompletedTodayPage() {
   const [copyDates, setCopyDates] = useState<Record<string, string>>({});
   const [copyLoading, setCopyLoading] = useState<Record<string, boolean>>({});
   const [copyDone, setCopyDone] = useState<Record<string, boolean>>({});
+  const [photoModal, setPhotoModal] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/quests/completed-today")
@@ -109,6 +110,14 @@ export default function CompletedTodayPage() {
                   <p className="text-xs text-quest-dim mt-1">
                     {cat.emoji} {cat.name}{isSkipped ? "" : ` · +${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl)}pt`}
                   </p>
+                  {quest.photoUrl && (
+                    <button
+                      onClick={() => setPhotoModal(quest.photoUrl)}
+                      className="flex items-center gap-2 text-sm text-quest-dim border border-quest-border rounded-xl px-4 py-2.5 mt-2 w-full justify-center hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
+                    >
+                      📷 写真を見る
+                    </button>
+                  )}
                   {quest.comment && (
                     <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">
                       💬 {quest.comment}
@@ -155,6 +164,21 @@ export default function CompletedTodayPage() {
           );
         })}
       </div>
+
+      {/* 写真モーダル */}
+      {photoModal && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setPhotoModal(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoModal}
+            alt="報告写真"
+            className="max-w-full max-h-full object-contain rounded-xl cursor-pointer"
+          />
+        </div>
+      )}
     </div>
   );
 }

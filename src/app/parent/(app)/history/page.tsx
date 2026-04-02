@@ -36,6 +36,7 @@ export default function HistoryPage() {
   );
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [photoModal, setPhotoModal] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -176,6 +177,14 @@ export default function HistoryPage() {
                       {cat.emoji} {cat.name}
                       {isApproved ? ` · +${calcActualXP(item.deadlineBonusEarned, !!item.template.photoBonus, !!item.photoUrl)}pt` : ""}
                     </p>
+                    {item.photoUrl && (
+                      <button
+                        onClick={() => setPhotoModal(item.photoUrl)}
+                        className="flex items-center gap-2 text-sm text-quest-dim border border-quest-border rounded-xl px-4 py-2.5 mt-2 w-full justify-center hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
+                      >
+                        📷 写真を見る
+                      </button>
+                    )}
                     {item.comment && (
                       <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">
                         💬 {item.comment}
@@ -204,6 +213,21 @@ export default function HistoryPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* 写真モーダル */}
+      {photoModal && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setPhotoModal(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoModal}
+            alt="報告写真"
+            className="max-w-full max-h-full object-contain rounded-xl cursor-pointer"
+          />
         </div>
       )}
     </div>
