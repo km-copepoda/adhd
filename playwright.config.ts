@@ -35,7 +35,7 @@ export default defineConfig({
     // 親アカウントで実行するテスト
     {
       name: "as-parent",
-      testMatch: /\/(s4|s6)-.*\.spec\.ts/,
+      testMatch: /\/(s4|s6|s9)-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/parent.json",
