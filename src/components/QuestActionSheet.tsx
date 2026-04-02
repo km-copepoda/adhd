@@ -201,7 +201,6 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     className="hidden"
                     onChange={handlePhotoSelect}
                   />
