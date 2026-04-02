@@ -62,10 +62,9 @@ describe("POST /api/tasks/[id]/copy", () => {
       createdBy: "PARENT",
       familyId: "fam-1",
     });
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      ...original,
-      assignedChildId: "child-1",
-    } as any);
+    mockPrisma.taskTemplate.findFirst
+      .mockResolvedValueOnce({ ...original, assignedChildId: "child-1" } as any)
+      .mockResolvedValueOnce(null); // 重複なし
     const newTask = { id: "tpl-2", title: "英語の宿題", isTemporary: true };
     mockPrisma.taskTemplate.create.mockResolvedValue(newTask as any);
 
@@ -95,10 +94,9 @@ describe("POST /api/tasks/[id]/copy", () => {
       targetDate: new Date("2026-03-19"),
       repeatDays: [],
     });
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      ...original,
-      assignedChildId: "child-1",
-    } as any);
+    mockPrisma.taskTemplate.findFirst
+      .mockResolvedValueOnce({ ...original, assignedChildId: "child-1" } as any)
+      .mockResolvedValueOnce(null); // 重複なし
     mockPrisma.taskTemplate.create.mockResolvedValue({ id: "tpl-new" } as any);
 
     const res = await POST(
@@ -114,11 +112,38 @@ describe("POST /api/tasks/[id]/copy", () => {
     });
   });
 
+  it("同じtargetDateに同タイトル・同担当の一時タスクが既に存在する場合、新規作成せず既存タスクを返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const original = taskTemplate({
+      id: "tpl-1",
+      title: "英語の宿題",
+      isTemporary: true,
+      targetDate: new Date("2026-03-19"),
+      repeatDays: [],
+      familyId: "fam-1",
+    });
+    const existingCopy = { id: "tpl-existing", title: "英語の宿題", isTemporary: true, targetDate: new Date("2026-03-20") };
+
+    // 1回目: 元タスク取得、2回目: 重複チェック
+    mockPrisma.taskTemplate.findFirst
+      .mockResolvedValueOnce({ ...original, assignedChildId: "child-1" } as any)
+      .mockResolvedValueOnce(existingCopy as any);
+
+    const res = await POST(
+      makeRequest("/api/tasks/tpl-1/copy", { targetDate: "2026-03-20" }),
+      makeParams("tpl-1")
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.id).toBe("tpl-existing");
+    expect(mockPrisma.taskTemplate.create).not.toHaveBeenCalled();
+  });
+
   it("コピーされた新タスクを返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue(
-      taskTemplate({ isTemporary: true, targetDate: new Date("2026-03-19"), repeatDays: [] }) as any
-    );
+    mockPrisma.taskTemplate.findFirst
+      .mockResolvedValueOnce(taskTemplate({ isTemporary: true, targetDate: new Date("2026-03-19"), repeatDays: [] }) as any)
+      .mockResolvedValueOnce(null); // 重複なし
     const newTask = { id: "tpl-new", title: "宿題", isTemporary: true, targetDate: new Date("2026-03-20") };
     mockPrisma.taskTemplate.create.mockResolvedValue(newTask as any);
 
