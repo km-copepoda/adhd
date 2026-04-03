@@ -1,5 +1,5 @@
 /**
- * docs/キャラクター/man/*.png → public/monsters/*.webp (256px)
+ * docs/キャラクター/man/*.png → public/monsters/dark/*.webp (256px)
  * ファイル名 "勉体_アーマード.png" → "STUDY_STAMINA_アーマード.webp"
  */
 import sharp from "sharp";
@@ -10,7 +10,7 @@ import { dirname } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dirname, "../docs/キャラクター/man");
-const DST = join(__dirname, "../public/monsters");
+const DST = join(__dirname, "../public/monsters/dark");
 
 const KANJI_MAP = { "勉": "STUDY", "体": "STAMINA", "生": "LIFE" };
 
@@ -39,7 +39,7 @@ async function main() {
       .webp({ quality: 85 })
       .toFile(join(DST, outName));
 
-    mapping.push({ pathKey, charName, file: `/monsters/${outName}` });
+    mapping.push({ pathKey, charName, file: `/monsters/dark/${outName}` });
     console.log(`${file} → ${outName}`);
   }
 
