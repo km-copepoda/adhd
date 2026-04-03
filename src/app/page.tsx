@@ -47,7 +47,7 @@ export default function LpPage() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add("visible");
+            entry.target.classList.add(styles.visible);
           }
         });
       },
