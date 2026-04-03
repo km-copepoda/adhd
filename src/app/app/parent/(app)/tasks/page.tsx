@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABEL, DAY_LABELS, TEMP_TASK_TEMPLATES } from "@/lib/constants";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
@@ -223,6 +223,32 @@ export default function TasksPage() {
             ? `${childName} に一時タスクを追加`
             : `${childName} にタスクを追加`}
         </h3>
+
+        {/* Template picker - temporary mode only */}
+        {formMode === "temporary" && !editingId && (
+          <div className="mb-4">
+            <label className="block text-quest-dim text-xs mb-2 tracking-wider">テンプレートから選択</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {TEMP_TASK_TEMPLATES.map((tpl) => {
+                const cat = CATEGORY_LABEL[tpl.category];
+                const isSelected = form.title === tpl.title && form.category === tpl.category;
+                return (
+                  <button
+                    key={`${tpl.category}-${tpl.title}`}
+                    onClick={() => setForm((f) => ({ ...f, title: tpl.title, category: tpl.category }))}
+                    className={`text-left px-3 py-2 rounded-lg text-xs border transition-colors ${
+                      isSelected
+                        ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
+                        : "border-quest-border text-quest-dim hover:border-quest-gold/20 hover:text-quest-text"
+                    }`}
+                  >
+                    {cat.emoji} {tpl.title}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Title */}
         <label className="block text-quest-dim text-xs mb-1 tracking-wider">タスク名</label>
