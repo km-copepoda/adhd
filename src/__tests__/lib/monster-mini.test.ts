@@ -16,7 +16,7 @@ describe("getMonsterMiniData", () => {
   it("stage1 のモンスター名・画像を返す", () => {
     const result = getMonsterMiniData(base);
     expect(result.monsterName).toBe("ラーン");
-    expect(result.image).toBe("/monsters/STUDY_ラーン.webp");
+    expect(result.image).toBe("/monsters/dark/STUDY_ラーン.webp");
   });
 
   it("stage0（卵）は stageLabel が 'たまご' になる", () => {

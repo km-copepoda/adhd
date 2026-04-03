@@ -215,48 +215,48 @@ export default function LpPage() {
               <MonsterPath
                 label={{ text: "📚 学力系", colorClass: styles.pathLabelStudy }}
                 s={styles}
-                stage1={{ src: "/monsters/STUDY_ラーン.webp", name: "ラーン", fallback: "📚" }}
+                stage1={{ src: "/monsters/dark/STUDY_ラーン.webp", name: "ラーン", fallback: "📚" }}
                 stage2={[
-                  { src: "/monsters/STUDY_STUDY_ライブラ.webp", name: "ライブラ", fallback: "📚", revealed: true },
-                  { src: "/monsters/STUDY_STAMINA_アーマード.webp", name: "？？？", fallback: "⚔️", revealed: false },
-                  { src: "/monsters/STUDY_LIFE_クリン.webp", name: "？？？", fallback: "✨", revealed: false },
+                  { src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", name: "ライブラ", fallback: "📚", revealed: true },
+                  { src: "/monsters/dark/STUDY_STAMINA_アーマード.webp", name: "？？？", fallback: "⚔️", revealed: false },
+                  { src: "/monsters/dark/STUDY_LIFE_クリン.webp", name: "？？？", fallback: "✨", revealed: false },
                 ]}
                 stage3={[
-                  { src: "/monsters/STUDY_STUDY_STUDY_ウィズダム.webp", name: "？？？", fallback: "🧙", revealed: false },
-                  { src: "/monsters/STUDY_STAMINA_STAMINA_イージス.webp", name: "？？？", fallback: "🛡️", revealed: false },
-                  { src: "/monsters/STUDY_LIFE_LIFE_セバス.webp", name: "？？？ ...", fallback: "🤖", revealed: false },
+                  { src: "/monsters/dark/STUDY_STUDY_STUDY_ウィズダム.webp", name: "？？？", fallback: "🧙", revealed: false },
+                  { src: "/monsters/dark/STUDY_STAMINA_STAMINA_イージス.webp", name: "？？？", fallback: "🛡️", revealed: false },
+                  { src: "/monsters/dark/STUDY_LIFE_LIFE_セバス.webp", name: "？？？ ...", fallback: "🤖", revealed: false },
                 ]}
               />
               {/* STAMINA系 */}
               <MonsterPath
                 label={{ text: "💪 体力系", colorClass: styles.pathLabelStamina }}
                 s={styles}
-                stage1={{ src: "/monsters/STAMINA_ストーン.webp", name: "ストーン", fallback: "💪" }}
+                stage1={{ src: "/monsters/dark/STAMINA_ストーン.webp", name: "ストーン", fallback: "💪" }}
                 stage2={[
-                  { src: "/monsters/STAMINA_STAMINA_ブロック.webp", name: "ブロック", fallback: "🪨", revealed: true },
-                  { src: "/monsters/STAMINA_STUDY_グラビド.webp", name: "？？？", fallback: "🌀", revealed: false },
-                  { src: "/monsters/STAMINA_LIFE_わっしょい.webp", name: "？？？", fallback: "🎉", revealed: false },
+                  { src: "/monsters/dark/STAMINA_STAMINA_ブロック.webp", name: "ブロック", fallback: "🪨", revealed: true },
+                  { src: "/monsters/dark/STAMINA_STUDY_グラビド.webp", name: "？？？", fallback: "🌀", revealed: false },
+                  { src: "/monsters/dark/STAMINA_LIFE_わっしょい.webp", name: "？？？", fallback: "🎉", revealed: false },
                 ]}
                 stage3={[
-                  { src: "/monsters/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp", name: "？？？", fallback: "⛰️", revealed: false },
-                  { src: "/monsters/STAMINA_STAMINA_STUDY_ガイア.webp", name: "？？？", fallback: "🌍", revealed: false },
-                  { src: "/monsters/STAMINA_LIFE_LIFE_ミコシ.webp", name: "？？？ ...", fallback: "🏮", revealed: false },
+                  { src: "/monsters/dark/STAMINA_STAMINA_STAMINA_ゴッドストーン.webp", name: "？？？", fallback: "⛰️", revealed: false },
+                  { src: "/monsters/dark/STAMINA_STAMINA_STUDY_ガイア.webp", name: "？？？", fallback: "🌍", revealed: false },
+                  { src: "/monsters/dark/STAMINA_LIFE_LIFE_ミコシ.webp", name: "？？？ ...", fallback: "🏮", revealed: false },
                 ]}
               />
               {/* LIFE系 */}
               <MonsterPath
                 label={{ text: "🌿 生活力系", colorClass: styles.pathLabelLife }}
                 s={styles}
-                stage1={{ src: "/monsters/LIFE_ヘルプ.webp", name: "ヘルプ", fallback: "🌿" }}
+                stage1={{ src: "/monsters/dark/LIFE_ヘルプ.webp", name: "ヘルプ", fallback: "🌿" }}
                 stage2={[
-                  { src: "/monsters/LIFE_LIFE_マザー.webp", name: "マザー", fallback: "🌿", revealed: true },
-                  { src: "/monsters/LIFE_STUDY_チックタック.webp", name: "？？？", fallback: "⏰", revealed: false },
-                  { src: "/monsters/LIFE_STAMINA_キャリア.webp", name: "？？？", fallback: "📦", revealed: false },
+                  { src: "/monsters/dark/LIFE_LIFE_マザー.webp", name: "マザー", fallback: "🌿", revealed: true },
+                  { src: "/monsters/dark/LIFE_STUDY_チックタック.webp", name: "？？？", fallback: "⏰", revealed: false },
+                  { src: "/monsters/dark/LIFE_STAMINA_キャリア.webp", name: "？？？", fallback: "📦", revealed: false },
                 ]}
                 stage3={[
-                  { src: "/monsters/LIFE_LIFE_LIFE_ゴッドセバス.webp", name: "？？？", fallback: "👑", revealed: false },
-                  { src: "/monsters/LIFE_STUDY_STUDY_カレンダー.webp", name: "？？？", fallback: "📅", revealed: false },
-                  { src: "/monsters/LIFE_STAMINA_LIFE_ナース.webp", name: "？？？ ...", fallback: "🏥", revealed: false },
+                  { src: "/monsters/dark/LIFE_LIFE_LIFE_ゴッドセバス.webp", name: "？？？", fallback: "👑", revealed: false },
+                  { src: "/monsters/dark/LIFE_STUDY_STUDY_カレンダー.webp", name: "？？？", fallback: "📅", revealed: false },
+                  { src: "/monsters/dark/LIFE_STAMINA_LIFE_ナース.webp", name: "？？？ ...", fallback: "🏥", revealed: false },
                 ]}
               />
             </div>
@@ -381,7 +381,7 @@ export default function LpPage() {
                   </div>
                   <div className={styles.sMonsterArea}>
                     <MonsterImg
-                      src="/monsters/STUDY_ラーン.webp"
+                      src="/monsters/dark/STUDY_ラーン.webp"
                       alt="ラーン"
                       fallback="📚"
                       style={{ width: 80, height: 80, objectFit: "contain", animation: "float 3s ease-in-out infinite", filter: "drop-shadow(0 4px 20px rgba(167,139,250,0.3))" }}
@@ -515,7 +515,7 @@ export default function LpPage() {
                   </div>
                   <div className={styles.sMonsterArea} style={{ padding: "20px 0" }}>
                     <MonsterImg
-                      src="/monsters/STUDY_STUDY_ライブラ.webp"
+                      src="/monsters/dark/STUDY_STUDY_ライブラ.webp"
                       alt="ライブラ"
                       fallback="📚"
                       style={{ width: 100, height: 100, objectFit: "contain", animation: "float 3s ease-in-out infinite", filter: "drop-shadow(0 4px 20px rgba(167,139,250,0.3))" }}
@@ -558,8 +558,8 @@ export default function LpPage() {
                   <div className={styles.sSectionLabel}>コレクション</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {[
-                      { src: "/monsters/STUDY_ラーン.webp", name: "ラーン", fallback: "📚", gold: false },
-                      { src: "/monsters/STUDY_STUDY_ライブラ.webp", name: "ライブラ", fallback: "📖", gold: true },
+                      { src: "/monsters/dark/STUDY_ラーン.webp", name: "ラーン", fallback: "📚", gold: false },
+                      { src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", name: "ライブラ", fallback: "📖", gold: true },
                     ].map((m) => (
                       <div key={m.name} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 8, padding: 6, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                         <MonsterImg src={m.src} alt={m.name} fallback={m.fallback} style={{ width: 32, height: 32, objectFit: "contain" }} />

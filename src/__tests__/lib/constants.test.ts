@@ -162,7 +162,7 @@ describe("MONSTER_TABLE_LIGHT", () => {
 describe("getMonsterStage", () => {
   it("stage0（たまご）はMONSTER_TABLEに依存せず卵を返すこと", () => {
     const stage = getMonsterStage(0, "");
-    expect(stage.image).toBe("/monsters/egg.webp");
+    expect(stage.image).toBe("/monsters/dark/egg.webp");
     expect(stage.ptToEvolve).toBe(1);
   });
 
