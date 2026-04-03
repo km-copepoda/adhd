@@ -164,6 +164,13 @@ export default function LpPage() {
               <span className={`${styles.featureTag} ${styles.tagPurple}`}>PUSH NOTIFICATION</span>
             </div>
 
+            <div className={`${styles.featureCard} ${styles.fLife} ${styles.fadeIn}`}>
+              <div className={styles.featureIcon}>🌙</div>
+              <div className={styles.featureTitle}>日をまたいでも自動で処理</div>
+              <p className={styles.featureDesc}>親が承認し忘れた報告は翌日0時（JST）に自動承認。子どもの XP は必ず確定するので「今夜は確認できなかった…」という罪悪感なく使えます。忙しい日でもアプリが家族をサポートします。</p>
+              <span className={`${styles.featureTag} ${styles.tagLife}`}>AUTO APPROVE</span>
+            </div>
+
             <div className={`${styles.featureCard} ${styles.fPink} ${styles.fadeIn}`}>
               <div className={styles.featureIcon}>📸</div>
               <div className={styles.featureTitle}>写真添付でボーナス XP</div>
