@@ -31,10 +31,23 @@ test.describe("S1: ランディングページ", () => {
   });
 
   test.describe("/ (LP) ページ", () => {
-    test("/ にアクセスしてもリダイレクトされない", async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
       await page.goto("/");
+    });
+
+    test("/ にアクセスしてもリダイレクトされない", async ({ page }) => {
       await expect(page).not.toHaveURL(/\/app\/child\/login|\/app\/parent\/login/);
       await expect(page).toHaveURL(/\/$/);
+    });
+
+    test("LP のヒーローセクションが表示される", async ({ page }) => {
+      await expect(page.getByRole("heading", { name: /QuestBoard/i, level: 1 })).toBeVisible();
+      await expect(page.getByRole("link", { name: /冒険をはじめる/ })).toBeVisible();
+    });
+
+    test("LP から /login に遷移できる", async ({ page }) => {
+      await page.click('a:has-text("冒険をはじめる")');
+      await expect(page).toHaveURL(/\/login/);
     });
   });
 });
