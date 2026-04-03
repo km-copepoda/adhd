@@ -108,7 +108,7 @@ export default function LpPage() {
               { n: "01", icon: "📋", title: "親がクエストを設定", desc: "「宿題をする」「歯磨きをする」といった日常タスクをクエストとして登録。曜日ごとの繰り返しや一時クエストも設定できる。" },
               { n: "02", icon: "⚔", title: "子どもがクリア＆報告", desc: "子ども用画面でクエストをタップしてクリア報告。写真を添付するとボーナス XP ゲット！期限内報告でもボーナス。" },
               { n: "03", icon: "✅", title: "親が承認・プッシュ通知", desc: "報告が届くとプッシュ通知。ワンタップで承認するとXPが確定。未承認のまま翌日を迎えると自動承認される。" },
-              { n: "04", icon: "🐉", title: "XP でモンスターが進化", desc: "XP が貯まるとモンスターが成長・進化。勉強・体力・生活力の3系統、カッコいい系＆かわいい系の2スタイルで全77種。転生してコレクションを広げよう！" },
+              { n: "04", icon: "🐉", title: "XP でモンスターが進化", desc: "XP が貯まるとモンスターが成長・進化。勉強・体力・生活力の3系統、カッコいい系＆かわいい系の2スタイルで全79種。転生してコレクションを広げよう！" },
             ].map((step, i) => (
               <div key={i} className={`${styles.stepCard} ${styles.fadeIn}`}>
                 <div className={styles.stepNumber}>{step.n}</div>
@@ -146,7 +146,7 @@ export default function LpPage() {
             <div className={`${styles.featureCard} ${styles.fLife} ${styles.fadeIn}`}>
               <div className={styles.featureIcon}>🔄</div>
               <div className={styles.featureTitle}>転生とコレクション</div>
-              <p className={styles.featureDesc}>最終形態に到達したら転生して再び卵に。過去のモンスターは図鑑に記録。全77種コンプリートを目指す長期モチベーション。</p>
+              <p className={styles.featureDesc}>最終形態に到達したら転生して再び卵に。過去のモンスターは図鑑に記録。全79種コンプリートを目指す長期モチベーション。</p>
               <span className={`${styles.featureTag} ${styles.tagLife}`}>REBIRTH SYSTEM</span>
             </div>
 
@@ -174,7 +174,7 @@ export default function LpPage() {
             <div className={`${styles.featureCard} ${styles.fPurple} ${styles.fadeIn}`}>
               <div className={styles.featureIcon}>⚡🐾</div>
               <div className={styles.featureTitle}>カッコいい系 or かわいい系を選べる</div>
-              <p className={styles.featureDesc}>モンスターのビジュアルスタイルをふたつから選択。勇者・戦士系のカッコいい「ヒーロー系」か、動物・ファンタジー系のかわいい「どうぶつ系」か。好みのスタイルで38種×2 + 卵1 = 全77種のコレクション。</p>
+              <p className={styles.featureDesc}>モンスターのビジュアルスタイルをふたつから選択。勇者・戦士系のカッコいい「ヒーロー系」か、動物・ファンタジー系のかわいい「どうぶつ系」か。好みのスタイルで39種×2 + 卵1 = 全79種のコレクション。</p>
               <span className={`${styles.featureTag} ${styles.tagPurple}`}>CHARACTER STYLE</span>
             </div>
           </div>
@@ -187,7 +187,7 @@ export default function LpPage() {
         <div className={`${styles.orb} ${styles.monsterOrbM2}`} />
         <div className={styles.container} style={{ position: "relative", zIndex: 1 }}>
           <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>MONSTER COLLECTION</h2>
-          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>3系統 × 2スタイル × ステージ3 = 全77種類のモンスターたち</p>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>3系統 × 2スタイル × ステージ3 = 全79種類のモンスターたち</p>
           <div className={`${styles.divider} ${styles.fadeIn}`} />
 
           {/* スタイル切り替えトグル */}
@@ -210,7 +210,7 @@ export default function LpPage() {
 
           {/* カッコいい系（DARK） */}
           {monsterStyle === "dark" && (
-            <div className={`${styles.monsterPaths} ${styles.fadeIn}`}>
+            <div className={styles.monsterPaths}>
               {/* STUDY系 */}
               <MonsterPath
                 label={{ text: "📚 学力系", colorClass: styles.pathLabelStudy }}
@@ -264,7 +264,7 @@ export default function LpPage() {
 
           {/* かわいい系（LIGHT） */}
           {monsterStyle === "light" && (
-            <div className={`${styles.monsterPaths} ${styles.fadeIn}`}>
+            <div className={styles.monsterPaths}>
               {/* STUDY系 */}
               <MonsterPath
                 label={{ text: "📚 学力系", colorClass: styles.pathLabelStudy }}
@@ -322,7 +322,7 @@ export default function LpPage() {
               <span>卵 1 + (stage1 </span><strong>3</strong>
               <span> + stage2 </span><strong>9</strong>
               <span> + stage3 </span><strong>27</strong>
-              <span>) × 2スタイル = 合計</span><strong>77</strong><span>種</span>
+              <span>) × 2スタイル = 合計</span><strong>79</strong><span>種</span>
             </div>
           </div>
         </div>
