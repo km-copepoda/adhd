@@ -65,7 +65,7 @@ export default function LpPage() {
         <ul className={styles.navLinks}>
           <li><a href="#features">機能</a></li>
           <li><a href="#monsters">モンスター</a></li>
-          <li><a href="#adhd">ADHD サポート</a></li>
+          <li><a href="#habit">続ける仕組み</a></li>
           <li><a href="#screens">画面紹介</a></li>
           <li>
             <a href="#cta" className={`${styles.btnOutline} ${styles.navCta}`}>
@@ -80,7 +80,7 @@ export default function LpPage() {
         <div className={`${styles.orb} ${styles.heroOrb1}`} />
         <div className={`${styles.orb} ${styles.heroOrb2}`} />
 
-        <div className={styles.heroBadge}>✦ ADHD 支援 × ゲーミフィケーション</div>
+        <div className={styles.heroBadge}>✦ 子どもの習慣化 × ゲーミフィケーション</div>
         <div className={styles.heroEgg}>🥚</div>
         <h1 className={styles.heroTitle}>QuestBoard</h1>
         <p className={styles.heroCatchcopy}>クエストをクリアして、モンスターを育てよう</p>
@@ -328,27 +328,27 @@ export default function LpPage() {
         </div>
       </section>
 
-      {/* ===== ADHD SUPPORT ===== */}
-      <section id="adhd" className={`${styles.section} ${styles.adhdSection}`}>
+      {/* ===== HABIT DESIGN ===== */}
+      <section id="habit" className={`${styles.section} ${styles.adhdSection}`}>
         <div className={`${styles.orb} ${styles.adhdOrbA1}`} />
         <div className={styles.container}>
-          <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>ADHD SUPPORT</h2>
-          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>ADHD 特性に寄り添う設計</p>
+          <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>HABIT DESIGN</h2>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>続けたくなる設計が詰まっている。集中しにくい・動き出しが苦手なお子さんにも特に効果的。</p>
           <div className={`${styles.divider} ${styles.fadeIn}`} />
 
           <div className={styles.adhdGrid}>
             {[
               { icon: "⚡", color: styles.adhdIconGold,    title: "即時フィードバック", desc: "タスク完了→承認→XP 確定のフローを最短化。自動承認機能で翌日0時に未承認分を一括処理するため、フィードバック遅延によるモチベーション低下を防ぐ。" },
               { icon: "📋", color: styles.adhdIconStudy,   title: "シンプルな今日のタスク", desc: "子ども画面に表示されるのは「今日のクエスト」のみ。先のタスクで圧倒されず、今日やることだけに集中できる。" },
-              { icon: "🔔", color: styles.adhdIconStamina, title: "具体的なリマインド通知", desc: "「アプリを見て」ではなく「宿題がまだ終わってないよ！」と具体的なタスク名で通知。ADHD 特性上、抽象的な指示より具体的な行動指示が効果的。" },
-              { icon: "🔄", color: styles.adhdIconLife,    title: "短いフィードバックループ", desc: "転生サイクルを約8〜10日に設定。ADHD 特性上、長期目標よりも短期の達成感が続けるモチベーションになる。卵→孵化→進化×3→転生のスプリント設計。" },
+              { icon: "🔔", color: styles.adhdIconStamina, title: "具体的なリマインド通知", desc: "「アプリを見て」ではなく「宿題がまだ終わってないよ！」と具体的なタスク名で通知。子どもは抽象的な指示より具体的な行動指示で動きやすい。" },
+              { icon: "🔄", color: styles.adhdIconLife,    title: "短いフィードバックループ", desc: "転生サイクルを約8〜10日に設定。長期目標より短期の達成感が、子どもにとって続けるモチベーションになる。卵→孵化→進化×3→転生のスプリント設計。" },
               { icon: "🤝", color: styles.adhdIconPurple,  title: "子どもの自発性を尊重", desc: "子どもが自分でタスクを追加し、親が承認する仕組み。自己管理の練習になりながら、親の監督権限も維持する適切なバランス。" },
               { icon: "⏭", color: styles.adhdIconPink,    title: "スキップにも親承認フロー", desc: "「今日はできない」と正直に申告してスキップを申請。親が承認すればストリーク継続。子どものコンディションに寄り添いつつ、安易なスキップを防ぐ。" },
-              { icon: "⏱", color: styles.adhdIconGold,    title: "時間の見える化（タイムブラインドネス対策）", desc: "ADHD に多い「時間感覚の歪み」に対処するため、報告期限を子どもごとに設定可能。期限内に報告するとボーナス XP が得られるため、「今日の締め切り」を意識するきっかけになる。" },
-              { icon: "🎯", color: styles.adhdIconStudy,   title: "ドーパミン多段報酬設計", desc: "タスク完了（+1pt）、期限内報告（+1pt）、写真ボーナス（+1pt）と報酬トリガーを複数設定。毎日のログインストリーク達成でも追加 XP。1日の中で何度も「小さな成功体験」が得られる設計。" },
-              { icon: "⚔", color: styles.adhdIconLife,    title: "「クエスト」形式でタスク開始のハードルを下げる", desc: "「宿題をやりなさい」より「クエストをクリアしよう！」の方が ADHD の子どもは動きやすい。ゲームとしてのフレーミングが、先延ばし（procrastination）を抑制し、タスク開始（task initiation）を促す。" },
-              { icon: "🧠", color: styles.adhdIconPurple,  title: "ワーキングメモリを補う構造", desc: "「何をするべきか」を毎日アプリが提示するため、子ども自身が覚えておく必要がない。タスクを忘れやすい・優先順位がつけられないという ADHD の困りごとを、アプリの構造でカバーする。" },
-              { icon: "💬", color: styles.adhdIconStamina, title: "親子のポジティブな関わりを増やす", desc: "叱る・指示する場面を減らし、「クエスト承認」という形で親が子どもを認める機会を作る。ADHD の子どもは否定的なフィードバックを受けやすいため、承認・XP付与という肯定的な体験の積み重ねが自己肯定感を育てる。" },
+              { icon: "⏱", color: styles.adhdIconGold,    title: "時間の見える化", desc: "子どもは「もうこんな時間！」となりがち。報告期限を子どもごとに設定でき、期限内に報告するとボーナス XP が得られるため、「今日の締め切り」を自然に意識するきっかけになる。" },
+              { icon: "🎯", color: styles.adhdIconStudy,   title: "多段階の小さな達成感", desc: "タスク完了（+1pt）、期限内報告（+1pt）、写真ボーナス（+1pt）と報酬トリガーを複数設定。ログインストリーク達成でも追加 XP。1日の中で何度も「できた！」が積み重なる設計。" },
+              { icon: "⚔", color: styles.adhdIconLife,    title: "「クエスト」形式でタスク開始のハードルを下げる", desc: "「宿題をやりなさい」より「クエストをクリアしよう！」の方が子どもは動きやすい。ゲームとしてのフレーミングが先延ばしを抑制し、自発的なタスク開始を促す。" },
+              { icon: "🧠", color: styles.adhdIconPurple,  title: "やること一覧をアプリが管理", desc: "「何をするべきか」を毎日アプリが提示するため、子ども自身が全部覚えておく必要がない。「タスクを忘れてしまう」「どれから手をつければいいかわからない」という困りごとをアプリの構造でサポート。" },
+              { icon: "💬", color: styles.adhdIconStamina, title: "親子のポジティブな関わりを増やす", desc: "叱る・指示する場面を減らし、「クエスト承認」という形で親が子どもを認める機会を作る。承認・XP付与という肯定的な体験の積み重ねが、子どもの自己肯定感を育てる。" },
             ].map((item, i) => (
               <div key={i} className={`${styles.adhdPoint} ${styles.fadeIn}`}>
                 <div className={`${styles.adhdIcon} ${item.color}`}>{item.icon}</div>
