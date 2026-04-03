@@ -307,6 +307,24 @@ export function getXpInfo(
   };
 }
 
+// ─── 一時タスク汎用テンプレート ──────────────────────
+export type TaskPreset = { title: string; category: Category };
+
+export const TEMP_TASK_TEMPLATES: TaskPreset[] = [
+  { title: "宿題をやる", category: "STUDY" },
+  { title: "音読をする", category: "STUDY" },
+  { title: "ドリルをやる", category: "STUDY" },
+  { title: "本を読む", category: "STUDY" },
+  { title: "外で遊ぶ", category: "STAMINA" },
+  { title: "運動する", category: "STAMINA" },
+  { title: "散歩に行く", category: "STAMINA" },
+  { title: "縄跳びをする", category: "STAMINA" },
+  { title: "部屋を片付ける", category: "LIFE" },
+  { title: "お手伝いをする", category: "LIFE" },
+  { title: "歯磨きをする", category: "LIFE" },
+  { title: "早く寝る", category: "LIFE" },
+];
+
 // Day of week labels (Japanese)
 export const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"] as const;
 

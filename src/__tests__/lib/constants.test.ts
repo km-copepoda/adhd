@@ -9,6 +9,7 @@ import {
   REBIRTH_EGG_THRESHOLD,
   DAY_LABELS,
   STREAK_MILESTONES,
+  TEMP_TASK_TEMPLATES,
   getMonsterStage,
   checkEvolution,
   getXpInfo,
@@ -686,6 +687,35 @@ describe("getEvolutionChildren", () => {
     const children = getEvolutionChildren("STUDY");
     expect(children).not.toContain("STAMINA");
     expect(children).not.toContain("LIFE");
+  });
+});
+
+// ─── TEMP_TASK_TEMPLATES ─────────────────────────────
+
+describe("TEMP_TASK_TEMPLATES", () => {
+  it("1件以上のテンプレートが定義されていること", () => {
+    expect(TEMP_TASK_TEMPLATES.length).toBeGreaterThan(0);
+  });
+
+  it("全テンプレートにtitleとcategoryが存在すること", () => {
+    for (const tpl of TEMP_TASK_TEMPLATES) {
+      expect(typeof tpl.title).toBe("string");
+      expect(tpl.title.length).toBeGreaterThan(0);
+      expect(["STUDY", "STAMINA", "LIFE"]).toContain(tpl.category);
+    }
+  });
+
+  it("3カテゴリ（STUDY/STAMINA/LIFE）が各1件以上含まれること", () => {
+    const categories = TEMP_TASK_TEMPLATES.map((t) => t.category);
+    expect(categories).toContain("STUDY");
+    expect(categories).toContain("STAMINA");
+    expect(categories).toContain("LIFE");
+  });
+
+  it("タイトルが重複しないこと", () => {
+    const titles = TEMP_TASK_TEMPLATES.map((t) => t.title);
+    const unique = new Set(titles);
+    expect(unique.size).toBe(titles.length);
   });
 });
 
