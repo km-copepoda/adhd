@@ -39,6 +39,20 @@ export async function POST(
     targetDate = tomorrow;
   }
 
+  const existing = await prisma.taskTemplate.findFirst({
+    where: {
+      familyId: original.familyId,
+      assignedChildId: original.assignedChildId,
+      title: original.title,
+      isTemporary: true,
+      targetDate,
+    },
+  });
+  if (existing) {
+    rlog.info("Duplicate copy skipped", { originalId: id, existingId: existing.id, targetDate: targetDate.toISOString() });
+    return NextResponse.json(existing);
+  }
+
   const newTask = await prisma.taskTemplate.create({
     data: {
       title: original.title,
