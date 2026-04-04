@@ -15,6 +15,7 @@ export async function setup() {
 
   // 外部キー制約を考慮した削除順序
   await prisma.streak.deleteMany();
+  await prisma.taskStreak.deleteMany();
   await prisma.questInstance.deleteMany();
   await prisma.taskTemplate.deleteMany();
   await prisma.user.deleteMany();
