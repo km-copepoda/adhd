@@ -21,9 +21,9 @@ export async function GET() {
       OR: [
         // 承認済み通常タスク: 今日の曜日に対応
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
-        // 未承認の子供タスク: 申請日（requestedDate）が今日かつ今日の曜日に対応
-        // → 日付をまたいでも申請日以外に表示されない
-        { isTemporary: false, createdBy: "CHILD", requestedDate: today, repeatDays: { has: dayOfWeek } },
+        // 未承認の子供タスク: 申請日（requestedDate）が今日であれば曜日に関わらず表示
+        // → 申請当日は必ず見えるようにし、翌日以降は表示されない
+        { isTemporary: false, createdBy: "CHILD", requestedDate: today },
         // 一時タスク: targetDate が今日
         { isTemporary: true, targetDate: today },
       ],
