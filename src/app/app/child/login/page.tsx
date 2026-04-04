@@ -36,13 +36,15 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ familyCode, childCode }),
       });
-      const resData = await res.json();
       if (!res.ok) {
-        setLoginError(resData.error || "コードが正しくありません");
+        const resData = await res.json().catch(() => ({}));
+        setLoginError((resData as { error?: string }).error || "コードが正しくありません");
         return;
       }
       // ログイン成功 → フルリロードでミドルウェアがセッションを処理
       window.location.href = "/app/child/quests";
+    } catch {
+      setLoginError("エラーが発生しました。もう一度お試しください");
     } finally {
       setLoading(false);
     }
