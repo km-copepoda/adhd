@@ -71,7 +71,6 @@ export async function seedTask(familyId: string, overrides?: Record<string, unkn
       title: "テストタスク",
       emoji: "📚",
       category: "STUDY",
-      difficulty: "NORMAL",
       repeatDays: [0, 1, 2, 3, 4, 5, 6], // 毎日
       familyId,
       ...overrides,
@@ -102,6 +101,7 @@ export async function seedQuestForDate(
 export async function cleanAll() {
   // 外部キー制約を考慮した削除順序
   await prisma.streak.deleteMany();
+  await prisma.taskStreak.deleteMany();
   await prisma.questInstance.deleteMany();
   await prisma.taskTemplate.deleteMany();
   await prisma.user.deleteMany();

@@ -24,7 +24,7 @@ describe("クエストフロー（報告→承認→XP付与）", () => {
     ({ family, parent, child } = await seedFamily());
     task = await seedTask(family.id, {
       category: "STUDY",
-      difficulty: "NORMAL",
+      assignedChildId: child.id,
     });
   });
 
@@ -60,7 +60,7 @@ describe("クエストフロー（報告→承認→XP付与）", () => {
     const json = await res.json();
 
     expect(json.ok).toBe(true);
-    expect(json.xpAdded).toBe(3); // NORMAL = 3pt
+    expect(json.xpAdded).toBe(1); // 基本1pt（期限ボーナス・写真ボーナスなし）
 
     // DB確認
     const updated = await prisma.questInstance.findUnique({ where: { id: quest.id } });
@@ -101,9 +101,9 @@ describe("クエストフロー（報告→承認→XP付与）", () => {
     expect(updatedQuest!.status).toBe("APPROVED");
     expect(updatedQuest!.approvedAt).toBeTruthy();
 
-    // DB確認: XP付与（STUDY + NORMAL = 3pt）
+    // DB確認: XP付与（STUDY 1pt）→ stage0の孵化閾値1ptに達して進化→全ptリセット
     const updatedChild = await prisma.user.findUnique({ where: { id: child.id } });
-    expect(updatedChild!.studyPt).toBe(3);
+    expect(updatedChild!.studyPt).toBe(0);
     expect(updatedChild!.staminaPt).toBe(0);
     expect(updatedChild!.lifePt).toBe(0);
   });

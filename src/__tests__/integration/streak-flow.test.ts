@@ -20,10 +20,13 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
   beforeAll(async () => {
     await cleanAll();
     ({ family, parent, child } = await seedFamily());
-    task = await seedTask(family.id, {
-      category: "STUDY",
-      difficulty: "NORMAL",
+    // マイルストーンボーナスで進化を起こすため、stage1・studyPt=6からスタートする
+    // 各承認で+1pt（計3日で+3pt=9pt）、ストリーク3のボーナス+5ptで計14pt ≥ 10pt → 進化
+    await prisma.user.update({
+      where: { id: child.id },
+      data: { evolutionStage: 1, evolutionPath: "STUDY", studyPt: 6 },
     });
+    task = await seedTask(family.id, { category: "STUDY" });
   });
 
   afterAll(async () => {
@@ -80,7 +83,7 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
     expect(streak!.bestStreak).toBe(3);
 
     // マイルストーンボーナス(+5pt)が付与された証拠として進化を確認:
-    // 承認XPだけなら 6+3=9pt < 進化閾値10pt → 進化しない
+    // 承認XPだけなら 8+1=9pt < 進化閾値10pt → 進化しない
     // マイルストーンボーナス込みで 9+5=14pt >= 10pt → 進化発生（XPリセット）
     const afterChild = await prisma.user.findUnique({ where: { id: child.id } });
     expect(afterChild!.evolutionStage).toBe(beforeStage + 1);

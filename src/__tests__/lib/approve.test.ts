@@ -146,6 +146,70 @@ describe("approveQuestInstance", () => {
   });
 });
 
+describe("転生保留（rebirthPending）", () => {
+  it("stage3でREBIRTH_THRESHOLD到達時にrebirthPending=trueをセットしstageをリセットしないこと", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "child-1",
+      evolutionStage: 3,
+      evolutionPath: "STUDY_STAMINA_LIFE",
+      collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+      studyPt: 19,
+      staminaPt: 0,
+      lifePt: 0,
+      rebirthPending: false,
+      rebirthEggBonus: null,
+    } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await approveQuestInstance(baseQuest as any);
+
+    // user.update は rebirthPending=true をセットすること
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rebirthPending: true,
+        }),
+      }),
+    );
+    // evolutionStage はリセットされないこと（3のまま）
+    const callArgs = mockPrisma.user.update.mock.calls[0][0];
+    expect(callArgs.data.evolutionStage).toBeUndefined();
+  });
+
+  it("rebirthPending=true のときXPを加算するがevolution/rebirthを実行しないこと", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "child-1",
+      evolutionStage: 3,
+      evolutionPath: "STUDY_STAMINA_LIFE",
+      collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+      studyPt: 20,
+      staminaPt: 0,
+      lifePt: 0,
+      rebirthPending: true,
+      rebirthEggBonus: null,
+    } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await approveQuestInstance(baseQuest as any);
+
+    // studyPt は +1 されること (20+1=21)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          studyPt: 21,
+        }),
+      }),
+    );
+    // evolutionStage はリセットされないこと
+    const callArgs = mockPrisma.user.update.mock.calls[0][0];
+    expect(callArgs.data.evolutionStage).toBeUndefined();
+    // rebirthPending は変更されないこと（true のまま）
+    expect(callArgs.data.rebirthPending).toBeUndefined();
+  });
+});
+
 describe("approveSkipQuestInstance", () => {
   it("SKIPPED に更新しストリークを記録すること", async () => {
     mockPrisma.questInstance.update.mockResolvedValue({} as any);

@@ -57,6 +57,8 @@ model User {
   lifePt         Int             @default(0)
   minTasksForStreak   Int             @default(1)
   reportDeadlineTime  String?
+  rebirthPending      Boolean         @default(false)
+  rebirthEggBonus     String?
   familyId    String?
   family      Family?         @relation(fields: [familyId], references: [id])
   quests              QuestInstance[]
