@@ -18,6 +18,8 @@ type MonsterData = {
   pendingStudyPt: number;
   pendingStaminaPt: number;
   pendingLifePt: number;
+  rebirthPending: boolean;
+  rebirthEggBonus: string | null;
 };
 
 type StreakData = {
@@ -28,6 +30,30 @@ type StreakData = {
   currentTitle: { title: string; emoji: string } | null;
 };
 
+const EGG_OPTIONS = [
+  {
+    type: "STUDY",
+    name: "勉強の卵",
+    img: "/monsters/egg-study.png",
+    desc: "📚 学力の確率+20%",
+    color: "#60a5fa",
+  },
+  {
+    type: "STAMINA",
+    name: "体力の卵",
+    img: "/monsters/egg-stamina.png",
+    desc: "💪 体力の確率+20%",
+    color: "#f87171",
+  },
+  {
+    type: "LIFE",
+    name: "生活力の卵",
+    img: "/monsters/egg-life.png",
+    desc: "🌿 生活力の確率+20%",
+    color: "#4ade80",
+  },
+] as const;
+
 export default function MonsterPage() {
   const [data, setData] = useState<MonsterData | null>(null);
   const [streak, setStreak] = useState<StreakData | null>(null);
@@ -35,7 +61,10 @@ export default function MonsterPage() {
   const [showEvolution, setShowEvolution] = useState(false);
   const [hatched, setHatched] = useState(false);
   const [reborn, setReborn] = useState(false);
+  const [showEggSelection, setShowEggSelection] = useState(false);
+  const [rebirthLoading, setRebirthLoading] = useState(false);
   const prevStageRef = useRef<number | null>(null);
+  const selfRebirthRef = useRef(false);
 
   const fetchStatus = () =>
     fetch("/api/monster-status").then((r) => r.json());
@@ -48,6 +77,8 @@ export default function MonsterPage() {
           collectedPaths: d.collectedPaths ?? "[]",
           studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
           pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
+          rebirthPending: d.rebirthPending ?? false,
+          rebirthEggBonus: d.rebirthEggBonus ?? null,
         });
         setStreak({
           currentStreak: d.currentStreak, bestStreak: d.bestStreak,
@@ -56,10 +87,7 @@ export default function MonsterPage() {
         prevStageRef.current = d.evolutionStage;
         // 育成画面以外で進化が起きた場合: 最後に確認したステージと比較して進化演出を表示
         const lastSeen = parseInt(localStorage.getItem("lastSeenEvolutionStage") ?? "-1");
-        const hasEverEvolved = (JSON.parse(d.collectedPaths ?? "[]") as string[]).length > 0;
-        if (d.evolutionStage === 0 && lastSeen >= 3 && hasEverEvolved) {
-          setReborn(true);
-        } else if (d.evolutionStage > lastSeen) {
+        if (d.evolutionStage > lastSeen && lastSeen !== -1) {
           if (d.evolutionStage === 1) {
             setHatched(true);
           } else if (d.evolutionStage > 1) {
@@ -75,11 +103,8 @@ export default function MonsterPage() {
       .channel("monster-changes")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
         fetchStatus().then((d) => {
-          if (prevStageRef.current !== null) {
-            if (d.evolutionStage === 0 && prevStageRef.current >= 3) {
-              setReborn(true);
-              localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
-            } else if (d.evolutionStage > prevStageRef.current) {
+          if (!selfRebirthRef.current && prevStageRef.current !== null) {
+            if (d.evolutionStage > prevStageRef.current) {
               if (prevStageRef.current === 0) {
                 setHatched(true);
               } else {
@@ -94,6 +119,8 @@ export default function MonsterPage() {
             collectedPaths: d.collectedPaths ?? "[]",
             studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
             pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
+            rebirthPending: d.rebirthPending ?? false,
+            rebirthEggBonus: d.rebirthEggBonus ?? null,
           });
           setStreak({
             currentStreak: d.currentStreak, bestStreak: d.bestStreak,
@@ -106,6 +133,37 @@ export default function MonsterPage() {
     return () => { supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRebirth = async (eggType: string) => {
+    setRebirthLoading(true);
+    selfRebirthRef.current = true;
+    try {
+      const res = await fetch("/api/rebirth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eggType }),
+      });
+      if (res.ok) {
+        const newData = await fetchStatus();
+        setData({
+          name: newData.name, side: newData.side ?? null,
+          evolutionStage: newData.evolutionStage, evolutionPath: newData.evolutionPath ?? "",
+          collectedPaths: newData.collectedPaths ?? "[]",
+          studyPt: newData.studyPt, staminaPt: newData.staminaPt, lifePt: newData.lifePt,
+          pendingStudyPt: newData.pendingStudyPt, pendingStaminaPt: newData.pendingStaminaPt, pendingLifePt: newData.pendingLifePt,
+          rebirthPending: newData.rebirthPending ?? false,
+          rebirthEggBonus: newData.rebirthEggBonus ?? null,
+        });
+        prevStageRef.current = 0;
+        localStorage.setItem("lastSeenEvolutionStage", "0");
+        setShowEggSelection(false);
+        setReborn(true);
+      }
+    } finally {
+      selfRebirthRef.current = false;
+      setRebirthLoading(false);
+    }
+  };
 
   if (loading || !data) {
     return (
@@ -220,6 +278,48 @@ export default function MonsterPage() {
         </div>
       )}
 
+      {/* Egg selection overlay */}
+      {showEggSelection && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center px-4"
+          style={{ animation: "fadeIn 0.3s ease-out" }}
+        >
+          <p className="font-serif text-purple-400 text-2xl tracking-widest mb-2">卵を選ぼう</p>
+          <p className="text-quest-dim text-sm mb-8 text-center">
+            次回転生まで、選んだカテゴリの<br />進化確率が<span className="text-purple-400 font-bold">+20%</span>アップ！
+          </p>
+          <div className="flex flex-col gap-3 w-full max-w-sm">
+            {EGG_OPTIONS.map(({ type, name, img, desc, color }) => (
+              <button
+                key={type}
+                onClick={() => handleRebirth(type)}
+                disabled={rebirthLoading}
+                className="bg-quest-card border border-quest-border rounded-xl p-4 flex items-center gap-4 active:scale-95 transition-transform disabled:opacity-50"
+                style={{ borderColor: rebirthLoading ? undefined : `${color}40` }}
+              >
+                <div className="w-16 h-16 flex-shrink-0">
+                  <Image src={img} alt={name} width={64} height={64} className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-bold text-quest-text text-base">{name}</p>
+                  <p className="text-sm mt-0.5" style={{ color }}>{desc}</p>
+                </div>
+                <div className="text-quest-dim text-xl">›</div>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowEggSelection(false)}
+            className="mt-8 text-quest-dim text-sm"
+          >
+            キャンセル（後でする）
+          </button>
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+          `}</style>
+        </div>
+      )}
+
       {/* Monster hero */}
       <div className="flex flex-col items-center py-8 mb-6 rounded-2xl bg-gradient-to-b from-purple-950/30 to-transparent">
         <div className="w-56 h-56 animate-float mb-4 mx-auto" style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}>
@@ -231,7 +331,6 @@ export default function MonsterPage() {
         <p className="text-quest-dim text-xs mt-1">
           {monster.name}
         </p>
-
       </div>
 
       {/* Evolution / Rebirth progress card */}
@@ -243,6 +342,46 @@ export default function MonsterPage() {
         const nextLabel =
           data.evolutionStage === 0 ? "孵化" :
           xpInfo.xpToEvolve !== null ? "進化" : "転生";
+
+        if (data.rebirthPending) {
+          // 転生ボタン表示
+          return (
+            <div className="bg-quest-card border border-purple-500/50 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((s) => (
+                    <div key={s} className="w-3 h-3 rounded-full bg-quest-gold" />
+                  ))}
+                </div>
+                <span className="text-xs text-purple-400/70">{stageLabel}</span>
+              </div>
+              <div className="h-4 bg-quest-border rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full w-full bg-gradient-to-r from-purple-700 to-purple-400 animate-shimmer"
+                />
+              </div>
+              <p className="text-purple-400 font-bold text-sm mb-3">
+                ✨ 転生の準備ができた！
+              </p>
+              <button
+                onClick={() => setShowEggSelection(true)}
+                className="w-full py-3 rounded-xl font-bold text-white text-base"
+                style={{
+                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+                  animation: "rebirthPulse 1.5s ease-in-out infinite",
+                }}
+              >
+                ✨ 転生する！
+              </button>
+              <style>{`
+                @keyframes rebirthPulse {
+                  0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.4); }
+                  50% { box-shadow: 0 0 0 8px rgba(139,92,246,0); }
+                }
+              `}</style>
+            </div>
+          );
+        }
 
         if (xpInfo.xpToEvolve !== null) {
           const approvedPct = Math.min(100, (total / xpInfo.xpToEvolve) * 100);

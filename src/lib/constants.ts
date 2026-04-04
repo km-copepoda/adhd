@@ -189,12 +189,25 @@ export function computeEvolutionWeights(
 
 // ─── selectEvolutionPath ─────────────────────────────
 // 加重乱数でパスを選択する
+// eggBonusCategory: 選択した卵カテゴリ。そのカテゴリの確率に+0.2を加えて正規化する
 export function selectEvolutionPath(
   studyPt: number,
   staminaPt: number,
   lifePt: number,
+  eggBonusCategory?: string | null,
 ): MonsterPath {
   const weights = computeEvolutionWeights(studyPt, staminaPt, lifePt);
+
+  // 卵ボーナス適用: 該当カテゴリに+0.2して正規化
+  if (eggBonusCategory && eggBonusCategory in weights) {
+    const key = eggBonusCategory as MonsterPath;
+    weights[key] = weights[key] + 0.2;
+    const total = weights.STUDY + weights.STAMINA + weights.LIFE;
+    weights.STUDY /= total;
+    weights.STAMINA /= total;
+    weights.LIFE /= total;
+  }
+
   const r = Math.random();
   let cumulative = 0;
 
@@ -217,6 +230,7 @@ export function checkEvolution(
   staminaPt: number,
   lifePt: number,
   isReborn = false,
+  eggBonusCategory?: string | null,
 ): {
   evolved: boolean;
   reborn: boolean;
@@ -268,7 +282,7 @@ export function checkEvolution(
   }
 
   // 全ステージでパスを選択（孵化時も含む）
-  const selected = selectEvolutionPath(studyPt, staminaPt, lifePt);
+  const selected = selectEvolutionPath(studyPt, staminaPt, lifePt, eggBonusCategory);
   const newPath = evolutionPath ? `${evolutionPath}_${selected}` : selected;
 
   return {

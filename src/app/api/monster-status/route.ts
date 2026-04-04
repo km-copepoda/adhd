@@ -56,6 +56,8 @@ export async function GET() {
     pendingStudyPt,
     pendingStaminaPt,
     pendingLifePt,
+    rebirthPending: user.rebirthPending,
+    rebirthEggBonus: user.rebirthEggBonus,
     // streak fields
     currentStreak: streakRecord?.currentStreak ?? 0,
     bestStreak: streakRecord?.bestStreak ?? 0,
