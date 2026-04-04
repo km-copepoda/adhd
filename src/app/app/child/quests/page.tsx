@@ -44,7 +44,7 @@ export default function QuestsPage() {
   const [form, setForm] = useState({
     title: "",
     category: "STUDY" as Category,
-    repeatDays: [1, 2, 3, 4, 5] as number[],
+    repeatDays: [0, 1, 2, 3, 4, 5, 6] as number[],
   });
   const [submitting, setSubmitting] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
@@ -152,7 +152,7 @@ export default function QuestsPage() {
     setSubmitting(false);
     if (res.ok) {
       setShowAddForm(false);
-      setForm({ title: "", category: "STUDY", repeatDays: [1, 2, 3, 4, 5] });
+      setForm({ title: "", category: "STUDY", repeatDays: [0, 1, 2, 3, 4, 5, 6] });
       fetchQuests();
     }
   }

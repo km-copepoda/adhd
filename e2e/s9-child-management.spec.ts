@@ -22,7 +22,7 @@ test.describe("S9: 子供ユーザー管理", () => {
   });
 
   test("ファミリー管理ページが正しく表示される", async ({ page }) => {
-    await expect(page.getByText("ファミリーコード")).toBeVisible();
+    await expect(page.getByText("ファミリーコード", { exact: true })).toBeVisible();
     await expect(page.getByText("メンバー")).toBeVisible();
     await expect(page.getByRole("button", { name: /子どもを追加/ })).toBeVisible();
   });
@@ -80,6 +80,7 @@ test.describe("S9: 子供ユーザー管理", () => {
     // 認証なしの新コンテキストを作成してテストする
     const childContext = await browser.newContext({
       baseURL: `https://${VERCEL_HOSTNAME}`,
+      storageState: { cookies: [], origins: [] },
     });
     const childPage = await childContext.newPage();
 
