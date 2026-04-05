@@ -54,6 +54,14 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
+  
+  if (!body.title || typeof body.title !== "string" || body.title.trim().length === 0 ) {
+      return NextResponse.json({ error: "タスク名は必須です" }, { status: 400 });
+  }
+  if (body.title.length > 32) {
+      return NextResponse.json({ error: "タスク名は32文字以内にしてください" }, { status: 400 });
+  }
+  
   const isTemporary: boolean = body.isTemporary === true;
 
   // CHILD: always assign to self

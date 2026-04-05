@@ -256,6 +256,7 @@ export default function TasksPage() {
           type="text"
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          maxLength={32}
           placeholder="例: 算数ドリルをやる"
           className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-4"
         />
@@ -422,9 +423,9 @@ export default function TasksPage() {
                       >
                         <div className="text-2xl">{task.emoji}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium truncate">{task.title}</p>
-                            <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1">仮</span>
+                          <div className="flex items-start gap-1.5">
+                            <p className="text-sm font-medium break-all">{task.title}</p>
+                            <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1 shrink-0 mt-0.5">仮</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
@@ -491,10 +492,10 @@ export default function TasksPage() {
                       >
                         <div className={`text-2xl ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className={`text-sm font-medium truncate ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
+                          <div className="flex items-start gap-1.5">
+                            <p className={`text-sm font-medium break-all ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
                             {task.completedToday && (
-                              <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1 shrink-0">
+                              <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1 shrink-0 mt-0.5">
                                 ✓ 完了
                               </span>
                             )}
@@ -569,7 +570,7 @@ export default function TasksPage() {
                       >
                         <div className="text-2xl">{task.emoji}</div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-sm font-medium break-all">{task.title}</p>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
                             <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>

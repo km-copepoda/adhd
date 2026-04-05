@@ -309,6 +309,7 @@ export default function QuestsPage() {
               type="text"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              maxLength={32}
               placeholder="タスク名を入力..."
               className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-3"
             />
@@ -416,8 +417,8 @@ export default function QuestsPage() {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium truncate">{quest.template.title}</p>
+                      <div className="flex items-start gap-1.5">
+                        <p className="text-sm font-medium break-all">{quest.template.title}</p>
                         {isTemporary && (
                           <span className="text-[9px] text-amber-400/70 border border-amber-400/30 rounded px-1">
                             一時

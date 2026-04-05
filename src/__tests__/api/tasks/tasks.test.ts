@@ -102,6 +102,40 @@ describe("GET /api/tasks", () => {
 });
 
 describe("POST /api/tasks", () => {
+  if("タスク名が空の場合、400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const res = await POST(makeRequest("/api/tasks", { title: "", assignedChildId: "child-1" }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("タスク名は必須です");
+  });
+  
+  if("タスク名が32文字を超える場合、400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const res = await POST(
+      makeRequest("/api/tasks", {
+        title: "あ".repeat(33),
+        category: "STUDY",
+        assignedChildId: "child-1",
+      })
+    );
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("タスク名は32文字以内にしてください");
+  });
+  
+  if("タスク名が32文字ちょうどなら作成できること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const res = await POST(
+      makeRequest("/api/tasks", {
+        title: "あ".repeat(32),
+        category: "STUDY",
+        assignedChildId: "child-1",
+      })
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("未認証の場合、403を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
     const res = await POST(makeRequest("/api/tasks", { title: "test" }));
