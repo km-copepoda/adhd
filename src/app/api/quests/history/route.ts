@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const targetDate = parseDate(searchParams.get("date"));
+  const childId = searchParams.get("childId") ?? undefined;
   const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, ...
 
   // Step 1: Get all QuestInstances on that date for this family
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     where: {
       date: targetDate,
       template: { familyId: user.familyId },
+      ...(childId ? { childId } : {}),
     },
     include: {
       child: { select: { id: true, name: true, monsterName: true, side: true } },
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
       familyId: user.familyId,
       isActive: true,
       createdAt: { lt: nextDay },
+      ...(childId ? { assignedChildId: childId } : {}),
       OR: [
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
         { isTemporary: true, targetDate },
