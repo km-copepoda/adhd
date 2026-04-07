@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/constants";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
+import { checkAndUnlockBadges } from "@/lib/badges";
 import { log } from "@/lib/logger";
 
 type QuestWithRelations = {
@@ -113,6 +114,11 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
   if (!quest.template.isTemporary) {
     await recordTaskStreak(quest.templateId, quest.childId, quest.date);
   }
+
+  // バッジ解除チェック（エラーが出ても承認フロー全体には影響させない）
+  checkAndUnlockBadges(quest.childId).catch(err =>
+    log.error("Badge check failed", { childId: quest.childId, err }),
+  );
 }
 
 export async function approveSkipQuestInstance(quest: Pick<QuestWithRelations, "id" | "childId" | "date">): Promise<void> {

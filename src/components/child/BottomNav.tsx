@@ -7,9 +7,9 @@ import { shouldShowBottomNav } from "@/lib/bottom-nav";
 
 const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[] = [
   { href: "/child/quests", emoji: "⚔️", label: "クエスト" },
-  { href: "#", emoji: "🏘️", label: "集落", disabled: true },
   { href: "/child/monster", emoji: "🐣", label: "育成" },
   { href: "/child/zukan", emoji: "📖", label: "図鑑" },
+  { href: "/child/badges", emoji: "🏅", label: "実績" },
 ];
 
 export default function BottomNav() {

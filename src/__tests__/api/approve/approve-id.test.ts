@@ -12,6 +12,10 @@ vi.mock("@/lib/streak", () => ({
   recordTaskStreak: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/badges", () => ({
+  checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
+}));
+
 const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
 
 const mockPrisma = vi.mocked(prisma);
