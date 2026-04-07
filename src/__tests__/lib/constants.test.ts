@@ -167,7 +167,7 @@ describe("getMonsterStage", () => {
     expect(stage.ptToEvolve).toBe(1);
   });
 
-  it("stage0でside=LIGHTのときライト卵画像を返すこと", () => {
+  it("stage0でside=LIGHTのときかわいい系卵画像を返すこと", () => {
     const stage = getMonsterStage(0, "", "LIGHT");
     expect(stage.image).toBe("/monsters/light/egg.webp");
     expect(stage.ptToEvolve).toBe(1);
