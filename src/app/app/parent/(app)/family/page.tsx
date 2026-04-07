@@ -215,7 +215,7 @@ export default function FamilyPage() {
               className="w-full bg-quest-card border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-3"
             />
 
-            <label className="block text-quest-dim text-xs mb-1 tracking-wider">サイド</label>
+            <label className="block text-quest-dim text-xs mb-1 tracking-wider">スタイル</label>
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setAddForm((f) => ({ ...f, side: "LIGHT" }))}
@@ -225,7 +225,7 @@ export default function FamilyPage() {
                     : "border-quest-border text-quest-dim hover:border-quest-gold/20"
                 }`}
               >
-                🌸 ライト
+                🌸 かわいい
               </button>
               <button
                 onClick={() => setAddForm((f) => ({ ...f, side: "DARK" }))}
@@ -235,7 +235,7 @@ export default function FamilyPage() {
                     : "border-quest-border text-quest-dim hover:border-quest-gold/20"
                 }`}
               >
-                🌑 ダーク
+                🌑 かっこいい
               </button>
             </div>
 
@@ -273,8 +273,8 @@ export default function FamilyPage() {
                   {member.role === "PARENT" ? "ギルドマスター" : (
                     <>
                       冒険者
-                      {member.side === "LIGHT" && <span className="ml-1 text-pink-400">🌸 ライト</span>}
-                      {member.side === "DARK" && <span className="ml-1 text-purple-400">🌑 ダーク</span>}
+                      {member.side === "LIGHT" && <span className="ml-1 text-pink-400">🌸 かわいい</span>}
+                      {member.side === "DARK" && <span className="ml-1 text-purple-400">🌑 かっこいい</span>}
                     </>
                   )}
                 </p>
