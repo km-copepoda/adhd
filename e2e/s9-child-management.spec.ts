@@ -9,9 +9,10 @@
  * - 子供ユーザーを削除できる
  */
 import { test, expect } from "./fixtures";
+import path from "path";
+import { readCredentials, VERCEL_HOSTNAME, createBrowserContext } from "./credentials";
 
-const FAMILY_CODE = "VJZQSH";
-const VERCEL_HOSTNAME = "adhd-git-develop-km-copepodas-projects.vercel.app";
+const CHILD_AUTH_PATH = path.join(process.cwd(), "playwright/.auth/child-light.json");
 
 test.describe("S9: 子供ユーザー管理", () => {
   test.beforeEach(async ({ page }) => {
@@ -78,24 +79,8 @@ test.describe("S9: 子供ユーザー管理", () => {
     // --- 4. 新しいコンテキストで子供ログインをテスト ---
     // 親セッションのまま /app/child/login に遷移するとミドルウェアが /app/parent/tasks にリダイレクトするため、
     // 認証なしの新コンテキストを作成してテストする
-    const childContext = await browser.newContext({
-      baseURL: `https://${VERCEL_HOSTNAME}`,
-      storageState: { cookies: [], origins: [] },
-    });
-    const childPage = await childContext.newPage();
-
-    // Vercel デプロイ保護の bypass ヘッダーを設定
-    const secret = process.env.VERCEL_BYPASS_SECRET;
-    if (secret) {
-      await childPage.route(`**/${VERCEL_HOSTNAME}/**`, async (route) => {
-        await route.continue({
-          headers: {
-            ...route.request().headers(),
-            "x-vercel-protection-bypass": secret,
-          },
-        });
-      });
-    }
+    const { familyCode } = readCredentials();
+    const { context: childContext, page: childPage } = await createBrowserContext(browser);
 
     try {
       await childPage.goto(`https://${VERCEL_HOSTNAME}/app/child/login`);
@@ -103,7 +88,7 @@ test.describe("S9: 子供ユーザー管理", () => {
         timeout: 15000,
       });
 
-      await childPage.fill('input[placeholder="ABC123"]', FAMILY_CODE);
+      await childPage.fill('input[placeholder="ABC123"]', familyCode);
       await childPage.fill('input[placeholder="1234"]', childCode!.trim());
       await childPage.click('button:has-text("ログイン")');
 
