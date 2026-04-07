@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuestBoard - 子供の成長ダッシュボード モックアップ</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --night: #0d0f1a;
+    --deep: #131629;
+    --card: #1a1f35;
+    --card2: #1f2540;
+    --border: #2e3560;
+    --gold: #f0c040;
+    --gold2: #c9973a;
+    --gold-dim: rgba(240,192,64,0.15);
+    --teal: #4ecdc4;
+    --teal-dim: rgba(78,205,196,0.15);
+    --red: #e05c5c;
+    --green: #5cb85c;
+    --purple: #9b59b6;
+    --orange: #f39c12;
+    --text: #e8e4d8;
+    --text-dim: #8a8fa8;
+    --text-faint: #4a4f68;
+    --study: #4ecdc4;
+    --stamina: #f39c12;
+    --life: #5cb85c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #08090f;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  h1.page-title {
+    font-family: 'Cinzel', serif;
+    text-align: center;
+    font-size: 26px;
+    color: var(--gold);
+    margin-bottom: 6px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 30px rgba(240,192,64,0.4);
+  }
+
+  .page-subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 48px;
+    letter-spacing: 1px;
+  }
+
+  /* === SCREEN GRID === */
+  .screens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 360px));
+    gap: 48px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .screen-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .screen-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* === PHONE FRAME === */
+  .phone-frame {
+    width: 340px;
+    min-height: 680px;
+    background: var(--deep);
+    border-radius: 32px;
+    border: 1.5px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    position: relative;
+  }
+
+  .phone-screen {
+    padding: 20px 16px 24px;
+    overflow-y: auto;
+    max-height: 780px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(46,53,96,0.4);
+  }
+
+  /* === NAV BAR (親画面) === */
+  .bottom-nav {
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--night);
+    padding: 8px 0 4px;
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: var(--text-faint);
+    cursor: pointer;
+  }
+
+  .nav-item.active { color: var(--gold); }
+  .nav-icon { font-size: 18px; }
+
+  /* === PAGE HEADER === */
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-header h2 {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 18px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .page-header p {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* === CHILD SELECTOR === */
+  .child-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .child-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-dim);
+  }
+
+  .child-chip.active {
+    background: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .child-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  /* === SUMMARY STATS === */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .stat-value.teal { color: var(--teal); }
+  .stat-value.green { color: var(--green); }
+
+  .stat-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* === SECTION === */
+  .section {
+    margin-bottom: 16px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .section-link {
+    font-size: 10px;
+    color: var(--teal);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* === HEATMAP CALENDAR === */
+  .heatmap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .heatmap-month {
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .heatmap-nav {
+    display: flex;
+    gap: 4px;
+  }
+
+  .heatmap-nav-btn {
+    width: 20px;
+    height: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .heatmap-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 3px;
+  }
+
+  .weekday-label {
+    text-align: center;
+    font-size: 9px;
+    color: var(--text-faint);
+    padding: 2px 0;
+  }
+
+  .heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+
+  .heatmap-day {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: transparent;
+    cursor: default;
+    position: relative;
+    transition: transform 0.15s;
+  }
+
+  .heatmap-day:hover { transform: scale(1.15); }
+
+  .heatmap-day.empty { background: transparent; }
+  .heatmap-day.level-0 { background: var(--card); border: 1px solid var(--border); }
+  .heatmap-day.level-1 { background: rgba(78,205,196,0.25); border: 1px solid rgba(78,205,196,0.3); }
+  .heatmap-day.level-2 { background: rgba(78,205,196,0.55); border: 1px solid rgba(78,205,196,0.5); }
+  .heatmap-day.level-3 { background: rgba(240,192,64,0.7); border: 1px solid var(--gold); }
+  .heatmap-day.today { box-shadow: 0 0 0 1.5px var(--gold); }
+  .heatmap-day.streak-end { box-shadow: 0 0 6px rgba(240,192,64,0.6); }
+
+  .heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    justify-content: flex-end;
+  }
+
+  .legend-label { font-size: 9px; color: var(--text-faint); }
+  .legend-box {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  .heatmap-summary {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .heatmap-summary span { color: var(--gold); font-weight: 600; }
+
+  /* === CATEGORY BARS === */
+  .category-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .category-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .category-icon {
+    width: 28px;
+    text-align: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .category-info {
+    flex: 1;
+  }
+
+  .category-name {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  .category-name .name { color: var(--text-dim); }
+  .category-name .count { color: var(--text); font-weight: 600; }
+
+  .bar-track {
+    height: 6px;
+    background: var(--card);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  .bar-fill.study { background: linear-gradient(90deg, var(--study), rgba(78,205,196,0.5)); }
+  .bar-fill.stamina { background: linear-gradient(90deg, var(--stamina), rgba(243,156,18,0.5)); }
+  .bar-fill.life { background: linear-gradient(90deg, var(--life), rgba(92,184,92,0.5)); }
+
+  /* === STREAK BANNER === */
+  .streak-banner {
+    background: linear-gradient(135deg, rgba(240,192,64,0.12), rgba(155,89,182,0.12));
+    border: 1px solid rgba(240,192,64,0.25);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .streak-flame {
+    font-size: 28px;
+    line-height: 1;
+    filter: drop-shadow(0 0 8px rgba(240,192,64,0.5));
+  }
+
+  .streak-info { flex: 1; }
+
+  .streak-main {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .streak-main small {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-left: 4px;
+  }
+
+  .streak-sub {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+
+  .streak-best {
+    text-align: right;
+    font-size: 9px;
+    color: var(--text-faint);
+  }
+
+  .streak-best strong {
+    display: block;
+    font-size: 14px;
+    color: var(--purple);
+    font-weight: 700;
+  }
+
+  /* === MONSTER JOURNEY === */
+  .monster-journey {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .journey-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    position: relative;
+  }
+
+  .journey-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: 38px;
+    bottom: -10px;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--border), transparent);
+  }
+
+  .journey-dot-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: 6px;
+  }
+
+  .journey-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .journey-dot.current {
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(240,192,64,0.3);
+    background: var(--gold-dim);
+  }
+
+  .journey-dot.rebirth {
+    border-color: var(--purple);
+    box-shadow: 0 0 10px rgba(155,89,182,0.4);
+    background: rgba(155,89,182,0.15);
+  }
+
+  .journey-content {
+    flex: 1;
+    padding: 6px 0 16px;
+  }
+
+  .journey-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .journey-date {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 1px;
+  }
+
+  .journey-tags {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+
+  .journey-tag {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+
+  .journey-tag.study { background: rgba(78,205,196,0.15); color: var(--study); border: 1px solid rgba(78,205,196,0.3); }
+  .journey-tag.stamina { background: rgba(243,156,18,0.15); color: var(--stamina); border: 1px solid rgba(243,156,18,0.3); }
+  .journey-tag.life { background: rgba(92,184,92,0.15); color: var(--life); border: 1px solid rgba(92,184,92,0.3); }
+  .journey-tag.rebirth { background: rgba(155,89,182,0.15); color: var(--purple); border: 1px solid rgba(155,89,182,0.3); }
+
+  /* === PHOTO ALBUM === */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    position: relative;
+  }
+
+  .photo-thumb:hover { opacity: 0.85; }
+
+  .photo-thumb .photo-emoji {
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--card), var(--card2));
+  }
+
+  .photo-thumb .photo-task {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(13,15,26,0.85);
+    font-size: 8px;
+    color: var(--text-dim);
+    padding: 3px 5px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .photo-empty {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: var(--card);
+    border: 1px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text-faint);
+  }
+
+  /* === DIVIDER === */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    opacity: 0.4;
+    margin: 16px 0;
+  }
+
+  /* === COMMENT BOX === */
+  .comment-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .comment-box strong {
+    color: var(--teal);
+    font-style: normal;
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+
+  /* === MILESTONE BADGE === */
+  .milestone-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .milestone-badge {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .milestone-badge.earned {
+    background: rgba(240,192,64,0.1);
+    border-color: rgba(240,192,64,0.35);
+    color: var(--gold);
+  }
+
+  .milestone-badge .badge-icon { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1 class="page-title">GROWTH DASHBOARD</h1>
+<p class="page-subtitle">親画面 — 子供の成長を見る · モックアップ</p>
+
+<div class="screens-grid">
+
+  <!-- ===== SCREEN 1: 成長サマリー ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">① 成長サマリー（メイン）</div>
+    <div class="phone-frame">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>🔋</span>
+      </div>
+
+      <div class="phone-screen">
+        <div class="page-header">
+          <h2>📈 子供の成長</h2>
+          <p>今月の頑張りと歩みをチェック</p>
+        </div>
+
+        <!-- 子供セレクター -->
+        <div class="child-selector">
+          <div class="child-chip active">
+            <div class="child-avatar">🐱</div>
+            たろう
+          </div>
+          <div class="child-chip">
+            <div class="child-avatar">🐰</div>
+            はなこ
+          </div>
+        </div>
+
+        <!-- ストリークバナー -->
+        <div class="streak-banner">
+          <div class="streak-flame">🔥</div>
+          <div class="streak-info">
+            <div class="streak-main">15<small>日連続！</small></div>
+            <div class="streak-sub">昨日のクエストも頑張ったね</div>
+          </div>
+          <div class="streak-best">
+            <span>最高記録</span>
+            <strong>23日</strong>
+          </div>
+        </div>
+
+        <!-- サマリー統計 -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-value">21</div>
+            <div class="stat-label">今月達成日数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value teal">87</div>
+            <div class="stat-label">獲得XP（月）</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value green">46</div>
+            <div class="stat-label">完了タスク数</div>
+          </div>
+        </div>
+
+        <!-- 月間ヒートマップ -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">📅 月間達成カレンダー</span>
+          </div>
+          <div class="heatmap-header">
+            <span class="heatmap-month">2026年 4月</span>
+            <div class="heatmap-nav">
+              <div class="heatmap-nav-btn">‹</div>
+              <div class="heatmap-nav-btn">›</div>
+            </div>
+          </div>
+
+          <div class="heatmap-weekdays">
+            <div class="weekday-label">日</div>
+            <div class="weekday-label">月</div>
+            <div class="weekday-label">火</div>
+            <div class="weekday-label">水</div>
+            <div class="weekday-label">木</div>
+            <div class="weekday-label">金</div>
+            <div class="weekday-label">土</div>
+          </div>
+
+          <!-- 4月: 1日は水曜 -->
+          <div class="heatmap-grid">
+            <!-- Week 1: 空白(日月火) + 1日(水)〜 -->
+            <div class="heatmap-day empty"></div>
+            <div class="heatmap-day empty"></div>
+            <div class="heatmap-day empty"></div>
+            <div class="heatmap-day level-2"></div><!-- 1日 -->
+            <div class="heatmap-day level-3"></div><!-- 2日 -->
+            <div class="heatmap-day level-1"></div><!-- 3日 -->
+            <div class="heatmap-day level-2"></div><!-- 4日 -->
+
+            <!-- Week 2 -->
+            <div class="heatmap-day level-0"></div><!-- 5日 -->
+            <div class="heatmap-day level-3"></div><!-- 6日 -->
+            <div class="heatmap-day today streak-end"></div><!-- 7日(今日) -->
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+
+            <!-- Week 3 -->
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+
+            <!-- Week 4 -->
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+
+            <!-- Week 5 -->
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day level-0"></div>
+            <div class="heatmap-day empty"></div>
+            <div class="heatmap-day empty"></div>
+            <div class="heatmap-day empty"></div>
+          </div>
+
+          <div class="heatmap-legend">
+            <span class="legend-label">少</span>
+            <div class="legend-box" style="background:var(--card); border:1px solid var(--border);"></div>
+            <div class="legend-box" style="background:rgba(78,205,196,0.25);"></div>
+            <div class="legend-box" style="background:rgba(78,205,196,0.55);"></div>
+            <div class="legend-box" style="background:rgba(240,192,64,0.7);"></div>
+            <span class="legend-label">多</span>
+          </div>
+
+          <div class="heatmap-summary">
+            今月: <span>21日</span>達成 / 先月: <span>18日</span>（<span style="color:var(--green)">+3日↑</span>）
+          </div>
+        </div>
+
+        <!-- カテゴリ分布 -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">⚖️ 頑張りの分布</span>
+            <span class="section-link">詳細</span>
+          </div>
+          <div class="category-bars">
+            <div class="category-row">
+              <div class="category-icon">📚</div>
+              <div class="category-info">
+                <div class="category-name">
+                  <span class="name">勉強</span>
+                  <span class="count">18タスク</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill study" style="width: 65%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="category-row">
+              <div class="category-icon">🏃</div>
+              <div class="category-info">
+                <div class="category-name">
+                  <span class="name">体力</span>
+                  <span class="count">15タスク</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill stamina" style="width: 54%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="category-row">
+              <div class="category-icon">🏠</div>
+              <div class="category-info">
+                <div class="category-name">
+                  <span class="name">生活力</span>
+                  <span class="count">13タスク</span>
+                </div>
+                <div class="bar-track">
+                  <div class="bar-fill life" style="width: 47%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 親コメント欄 -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">💬 今月のひとこと</span>
+            <span class="section-link">編集</span>
+          </div>
+          <div class="comment-box">
+            <strong>4月の記録</strong>
+            先月より3日多く達成！宿題のクエストを特に頑張ってくれた。来月はスポーツ系のクエストも増やしてあげたい。
+          </div>
+        </div>
+
+      </div><!-- /phone-screen -->
+
+      <div class="bottom-nav">
+        <div class="nav-item">
+          <div class="nav-icon">✅</div>
+          <span>承認</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-icon">📋</div>
+          <span>タスク</span>
+        </div>
+        <div class="nav-item active">
+          <div class="nav-icon">📈</div>
+          <span>成長</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-icon">👨‍👩‍👧</div>
+          <span>家族</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN 2: モンスターの旅（成長軌跡） ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">② モンスターの旅（歴代コレクション）</div>
+    <div class="phone-frame">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>🔋</span>
+      </div>
+
+      <div class="phone-screen">
+        <div class="page-header">
+          <h2>🐾 モンスターの旅</h2>
+          <p>たろうが歩んできた成長の軌跡</p>
+        </div>
+
+        <!-- 現在のステータス -->
+        <div style="background: linear-gradient(135deg, rgba(155,89,182,0.15), rgba(240,192,64,0.08)); border: 1px solid rgba(155,89,182,0.35); border-radius: 14px; padding: 14px; margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+          <div style="font-size: 48px; line-height: 1; text-align: center; filter: drop-shadow(0 0 12px rgba(155,89,182,0.5));">🐉</div>
+          <div style="flex: 1;">
+            <div style="font-size: 11px; color: var(--text-faint);">現在のモンスター · Stage 3</div>
+            <div style="font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px;">ウィズダム</div>
+            <div style="display: flex; gap: 4px; margin-top: 6px;">
+              <span class="journey-tag study">📚 勉強×3</span>
+              <span class="journey-tag rebirth">✨ 転生2回</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 9px; color: var(--text-faint);">次の転生まで</div>
+            <div style="font-size: 18px; font-weight: 700; color: var(--purple);">8pt</div>
+            <div style="width: 60px; height: 4px; background: var(--card); border-radius: 2px; margin-top: 4px; overflow: hidden;">
+              <div style="width: 60%; height: 100%; background: var(--purple); border-radius: 2px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 転生バッジ -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">🏅 称号・マイルストーン</span>
+          </div>
+          <div class="milestone-row">
+            <div class="milestone-badge earned">
+              <span class="badge-icon">🔥</span>
+              <span>20日連続</span>
+            </div>
+            <div class="milestone-badge earned">
+              <span class="badge-icon">✨</span>
+              <span>転生2回</span>
+            </div>
+            <div class="milestone-badge earned">
+              <span class="badge-icon">📚</span>
+              <span>勉強マスター</span>
+            </div>
+            <div class="milestone-badge">
+              <span class="badge-icon">🌟</span>
+              <span>転生3回</span>
+            </div>
+            <div class="milestone-badge">
+              <span class="badge-icon">🏃</span>
+              <span>体力マスター</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- モンスター進化タイムライン -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">📜 進化の歴史</span>
+          </div>
+
+          <div class="monster-journey">
+
+            <div class="journey-item">
+              <div class="journey-dot-wrap">
+                <div class="journey-dot current">🐉</div>
+              </div>
+              <div class="journey-content">
+                <div class="journey-name">ウィズダム（現在）</div>
+                <div class="journey-date">2026年3月22日 進化</div>
+                <div class="journey-tags">
+                  <span class="journey-tag study">📚 勉強</span>
+                  <span class="journey-tag study">📚 勉強</span>
+                  <span class="journey-tag study">📚 勉強</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="journey-item">
+              <div class="journey-dot-wrap">
+                <div class="journey-dot rebirth">✨</div>
+              </div>
+              <div class="journey-content">
+                <div class="journey-name" style="color: var(--purple);">2回目の転生</div>
+                <div class="journey-date">2026年3月10日</div>
+                <div class="journey-tags">
+                  <span class="journey-tag rebirth">✨ 転生ボーナス: 勉強の卵</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="journey-item">
+              <div class="journey-dot-wrap">
+                <div class="journey-dot">🦊</div>
+              </div>
+              <div class="journey-content">
+                <div class="journey-name">ライブラ（旧サイクル）</div>
+                <div class="journey-date">2026年2月28日 進化</div>
+                <div class="journey-tags">
+                  <span class="journey-tag study">📚 勉強</span>
+                  <span class="journey-tag study">📚 勉強</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="journey-item">
+              <div class="journey-dot-wrap">
+                <div class="journey-dot rebirth">✨</div>
+              </div>
+              <div class="journey-content">
+                <div class="journey-name" style="color: var(--purple);">1回目の転生</div>
+                <div class="journey-date">2026年2月15日</div>
+                <div class="journey-tags">
+                  <span class="journey-tag rebirth">✨ 転生ボーナス: 体力の卵</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="journey-item">
+              <div class="journey-dot-wrap">
+                <div class="journey-dot">🔮</div>
+              </div>
+              <div class="journey-content">
+                <div class="journey-name">アーマード（旧サイクル）</div>
+                <div class="journey-date">2026年2月5日 進化</div>
+                <div class="journey-tags">
+                  <span class="journey-tag study">📚 勉強</span>
+                  <span class="journey-tag stamina">🏃 体力</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="journey-item">
+              <div class="journey-dot-wrap">
+                <div class="journey-dot">🐣</div>
+              </div>
+              <div class="journey-content">
+                <div class="journey-name">はじめての孵化</div>
+                <div class="journey-date">2026年1月20日</div>
+                <div class="journey-tags">
+                  <span class="journey-tag life">🏠 生活力からスタート</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /phone-screen -->
+
+      <div class="bottom-nav">
+        <div class="nav-item">
+          <div class="nav-icon">✅</div>
+          <span>承認</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-icon">📋</div>
+          <span>タスク</span>
+        </div>
+        <div class="nav-item active">
+          <div class="nav-icon">📈</div>
+          <span>成長</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-icon">👨‍👩‍👧</div>
+          <span>家族</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN 3: 写真アルバム ===== -->
+  <div class="screen-wrap">
+    <div class="screen-label">③ 写真アルバム（オプション）</div>
+    <div class="phone-frame">
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>🔋</span>
+      </div>
+
+      <div class="phone-screen">
+        <div class="page-header">
+          <h2>📷 写真アルバム</h2>
+          <p>報告写真が残る、頑張りの証</p>
+        </div>
+
+        <!-- 月セレクター -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <div class="heatmap-nav-btn">‹</div>
+          <span style="font-size:12px; color:var(--text);">2026年 4月</span>
+          <div class="heatmap-nav-btn">›</div>
+        </div>
+
+        <div style="font-size:10px; color:var(--text-dim); margin-bottom:8px;">9枚の写真</div>
+
+        <!-- フォトグリッド -->
+        <div class="photo-grid">
+          <div class="photo-thumb">
+            <div class="photo-emoji">📐</div>
+            <div class="photo-task">算数ドリル</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">🏃‍♂️</div>
+            <div class="photo-task">縄跳び練習</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">🍳</div>
+            <div class="photo-task">夕食のお手伝い</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">📖</div>
+            <div class="photo-task">読書30分</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">🧹</div>
+            <div class="photo-task">部屋の掃除</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">✏️</div>
+            <div class="photo-task">漢字練習</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">🚴</div>
+            <div class="photo-task">自転車練習</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">🥗</div>
+            <div class="photo-task">野菜を食べた</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">💪</div>
+            <div class="photo-task">腕立て10回</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 前月の写真 -->
+        <div class="section-header" style="margin-bottom:8px;">
+          <span class="section-title">📆 3月の写真</span>
+          <span style="font-size:10px; color:var(--text-faint);">12枚</span>
+        </div>
+        <div class="photo-grid">
+          <div class="photo-thumb">
+            <div class="photo-emoji">🔬</div>
+            <div class="photo-task">理科の実験</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">⚽</div>
+            <div class="photo-task">サッカー練習</div>
+          </div>
+          <div class="photo-thumb">
+            <div class="photo-emoji">🍜</div>
+            <div class="photo-task">一人でご飯</div>
+          </div>
+          <div class="photo-empty">+9</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- ひとことメモ -->
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">💬 写真メモ</span>
+            <span class="section-link">追記</span>
+          </div>
+          <div class="comment-box">
+            <strong>親のメモ · 4月6日</strong>
+            夕食のお手伝い写真、楽しそうな顔してた。自分で野菜を切れるようになってきた！
+          </div>
+        </div>
+
+      </div><!-- /phone-screen -->
+
+      <div class="bottom-nav">
+        <div class="nav-item">
+          <div class="nav-icon">✅</div>
+          <span>承認</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-icon">📋</div>
+          <span>タスク</span>
+        </div>
+        <div class="nav-item active">
+          <div class="nav-icon">📈</div>
+          <span>成長</span>
+        </div>
+        <div class="nav-item">
+          <div class="nav-icon">👨‍👩‍👧</div>
+          <span>家族</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /screens-grid -->
+
+<!-- 実装メモ -->
+<div style="max-width:800px; margin: 60px auto 0; padding: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 16px;">
+  <h3 style="color: var(--gold); font-size: 14px; margin-bottom: 16px; letter-spacing: 1px;">📋 実装メモ</h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; font-size: 11px; color: var(--text-dim); line-height: 1.7;">
+    <div>
+      <div style="color: var(--teal); font-weight: 600; margin-bottom: 4px;">① 成長サマリー</div>
+      <ul style="list-style: none; padding: 0;">
+        <li>・月間ヒートマップ: QuestInstance(APPROVED+SKIPPED)から動的計算</li>
+        <li>・カテゴリ分布: category別にGROUP BY</li>
+        <li>・先月比: 前月の同じクエリと比較</li>
+        <li>・スキーマ変更なしで実現可能</li>
+      </ul>
+    </div>
+    <div>
+      <div style="color: var(--purple); font-weight: 600; margin-bottom: 4px;">② モンスターの旅</div>
+      <ul style="list-style: none; padding: 0;">
+        <li>・collectedPaths（既存）からタイムライン生成</li>
+        <li>・進化日時: 将来的にUser.evolutionHistory(JSON)に記録を追加するか、QuestInstance承認日から推算</li>
+        <li>・マイルストーン: streak.bestStreak等から判定</li>
+      </ul>
+    </div>
+    <div>
+      <div style="color: var(--orange); font-weight: 600; margin-bottom: 4px;">③ 写真アルバム</div>
+      <ul style="list-style: none; padding: 0;">
+        <li>・QuestInstance.photoUrlが存在するものを月別取得</li>
+        <li>・photoBonus付きタスクのみ写真が添付されうる</li>
+        <li>・既存APIに?includePhotos=true クエリを追加するか専用エンドポイントを作成</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
