@@ -53,8 +53,8 @@ test.describe("S9: 子供ユーザー管理", () => {
 
     await page.fill('input[placeholder="例: りゅうくん"]', childName);
 
-    // ライトサイドを選択
-    await page.getByRole("button", { name: /ライト/ }).click();
+    // かわいい系スタイルを選択
+    await page.getByRole("button", { name: /かわいい/ }).click();
 
     await page.getByRole("button", { name: /^追加$/ }).click();
 
