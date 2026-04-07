@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       childId,
       date: { gte: monthStart, lt: monthEnd },
       template: { familyId: user.familyId },
-      status: { in: ["APPROVED", "SKIPPED"] },
+      status: { notIn: ["REJECTED"] },
     },
     select: {
       date: true,
@@ -50,18 +50,19 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const days: Record<string, { approved: number; skipped: number }> = {};
+  const days: Record<string, { approved: number; skipped: number; total: number }> = {};
   let totalApproved = 0;
   let totalXp = 0;
 
   for (const inst of instances) {
     const dateStr = formatDate(inst.date);
-    if (!days[dateStr]) days[dateStr] = { approved: 0, skipped: 0 };
+    if (!days[dateStr]) days[dateStr] = { approved: 0, skipped: 0, total: 0 };
+    days[dateStr].total++;
     if (inst.status === "APPROVED") {
       days[dateStr].approved++;
       totalApproved++;
       totalXp += calcActualXP(inst.deadlineBonusEarned, inst.template.photoBonus, !!inst.photoUrl);
-    } else {
+    } else if (inst.status === "SKIPPED") {
       days[dateStr].skipped++;
     }
   }

@@ -20,7 +20,7 @@ type HistoryItem = {
   template: { title: string; emoji: string; category: Category; photoBonus?: boolean };
 };
 
-type DaySummary = { approved: number; skipped: number };
+type DaySummary = { approved: number; skipped: number; total: number };
 
 type MonthlySummary = {
   days: Record<string, DaySummary>;
@@ -35,19 +35,26 @@ function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function getHeatLevel(day: DaySummary | undefined): "none" | "lv1" | "lv2" | "lv3" | "skip" {
-  if (!day || (day.approved === 0 && day.skipped === 0)) return "none";
+function getHeatLevel(day: DaySummary | undefined): "none" | "lv1" | "lv2" | "lv3" | "lv4" | "lv5" | "lv6" | "skip" {
+  if (!day || day.total === 0) return "none";
   if (day.approved === 0) return "skip";
-  if (day.approved >= 3) return "lv3";
-  if (day.approved >= 2) return "lv2";
+  const pct = (day.approved / day.total) * 100;
+  if (pct >= 100) return "lv6";
+  if (pct >= 80) return "lv5";
+  if (pct >= 60) return "lv4";
+  if (pct >= 40) return "lv3";
+  if (pct >= 20) return "lv2";
   return "lv1";
 }
 
 const HEAT_CLASS: Record<ReturnType<typeof getHeatLevel>, string> = {
   none: "bg-quest-card border border-quest-border text-quest-dim/50",
-  lv1: "bg-teal-500/20 border border-teal-500/30 text-teal-300",
-  lv2: "bg-teal-500/45 border border-teal-500/50 text-white",
-  lv3: "bg-quest-gold/55 border border-quest-gold text-white font-semibold",
+  lv1: "bg-teal-500/10 border border-teal-500/20 text-teal-400/60",
+  lv2: "bg-teal-500/20 border border-teal-500/30 text-teal-300",
+  lv3: "bg-teal-500/35 border border-teal-500/45 text-teal-200",
+  lv4: "bg-teal-500/50 border border-teal-500/60 text-white",
+  lv5: "bg-quest-gold/40 border border-quest-gold/60 text-white",
+  lv6: "bg-quest-gold/65 border border-quest-gold text-white font-semibold",
   skip: "bg-orange-500/20 border border-orange-500/30 text-orange-400",
 };
 
