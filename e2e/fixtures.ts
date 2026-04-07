@@ -13,7 +13,7 @@ export const test = base.extend({
     if (secret) {
       // Vercel ドメインへのリクエストにのみ bypass ヘッダーを追加
       // Supabase 等の外部 API へのリクエストは変更しない
-      await page.route(`**/${VERCEL_HOSTNAME}/**`, async (route) => {
+      await page.route(`https://${VERCEL_HOSTNAME}/**`, async (route) => {
         await route.continue({
           headers: {
             ...route.request().headers(),

@@ -36,9 +36,9 @@ test.describe("S11: 育成画面", () => {
   });
 
   test("パラメータカード（学力/体力/生活力）が3つ表示される", async ({ page }) => {
-    await expect(page.getByText("学力")).toBeVisible();
-    await expect(page.getByText("体力")).toBeVisible();
-    await expect(page.getByText("生活力")).toBeVisible();
+    await expect(page.getByText("学力", { exact: true })).toBeVisible();
+    await expect(page.getByText("体力", { exact: true })).toBeVisible();
+    await expect(page.getByText("生活力", { exact: true })).toBeVisible();
   });
 
   test("新規アカウントはたまごステージ（stage 0）である", async ({ page }) => {

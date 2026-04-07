@@ -83,7 +83,7 @@ test.describe("S9: 子供ユーザー管理", () => {
     const { context: childContext, page: childPage } = await createBrowserContext(browser);
 
     try {
-      await childPage.goto(`https://${VERCEL_HOSTNAME}/app/child/login`);
+      await childPage.goto("/app/child/login");
       await expect(childPage.locator('input[placeholder="ABC123"]')).toBeVisible({
         timeout: 15000,
       });

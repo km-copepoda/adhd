@@ -8,7 +8,7 @@
 import { test as setup, expect } from "./fixtures";
 import path from "path";
 import fs from "fs";
-import { AUTH_DIR, VERCEL_BASE_URL, createBrowserContext } from "./credentials";
+import { AUTH_DIR, VERCEL_BASE_URL, createBrowserContext, getBypassHeaders } from "./credentials";
 
 const CREDENTIALS_FILE = path.join(AUTH_DIR, "qa-credentials.json");
 
@@ -41,13 +41,17 @@ setup("create QA account and child", async ({ page, browser }) => {
   await page.waitForURL("**/app/parent/tasks", { timeout: 30000 });
 
   // 2. ファミリーコードを API から取得
-  const familyRes = await page.request.get("/api/family/code");
+  // page.request は Node.js 直接コールのため page.route() を通らず
+  // Vercel bypass ヘッダーを明示的に付与する必要がある
+  const bypassHeaders = getBypassHeaders();
+  const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
   const familyData = await familyRes.json();
   const familyCode: string = familyData.code;
 
   // 3. 子供ユーザーを API で作成（UIでの子供作成は s9 でテスト済み）
   const childRes = await page.request.post("/api/family/members", {
     data: { monsterName: "QA_child", side: "LIGHT" },
+    headers: bypassHeaders,
   });
   const childData = await childRes.json();
   const childCodeLight: string = childData.childCode;
@@ -64,7 +68,7 @@ setup("create QA account and child", async ({ page, browser }) => {
   // 6. 子供ログイン → child-light.json に保存
   const { context: childCtx, page: childPage } = await createBrowserContext(browser);
   try {
-    await childPage.goto(`${VERCEL_BASE_URL}/app/child/login`);
+    await childPage.goto("/app/child/login");
     await childPage.fill('input[placeholder="ABC123"]', familyCode);
     await childPage.fill('input[placeholder="1234"]', childCodeLight);
     await childPage.click('button:has-text("ログイン")');

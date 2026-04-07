@@ -12,7 +12,7 @@
  */
 import { test, expect } from "./fixtures";
 import path from "path";
-import { createBrowserContext } from "./credentials";
+import { createBrowserContext, getBypassHeaders } from "./credentials";
 
 const CHILD_AUTH = path.join(process.cwd(), "playwright/.auth/child-light.json");
 
@@ -21,7 +21,9 @@ test.describe("S12: スキップ承認フロー", () => {
     const taskTitle = `S12_skip_${Date.now()}`;
 
     // --- 1. 親: 一時タスクを API で作成 ---
-    const familyRes = await page.request.get("/api/family/code");
+    // page.request は Node.js 直接コールのため page.route() を通らず bypass ヘッダーを付与する
+    const bypassHeaders = getBypassHeaders();
+    const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
     const familyData = await familyRes.json();
     const child = familyData.members.find(
       (m: { role: string }) => m.role === "CHILD",
@@ -36,6 +38,7 @@ test.describe("S12: スキップ承認フロー", () => {
         isTemporary: true,
         assignedChildId: child.id,
       },
+      headers: bypassHeaders,
     });
     expect(taskRes.ok()).toBeTruthy();
 
