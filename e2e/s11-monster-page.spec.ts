@@ -41,9 +41,8 @@ test.describe("S11: 育成画面", () => {
     await expect(page.getByText("生活力", { exact: true })).toBeVisible();
   });
 
-  test("新規アカウントはたまごステージ（stage 0）である", async ({ page }) => {
-    // stage dots: 3つ全てが未達成（bg-quest-border = 薄い色）状態
-    // または XP テキストに「孵化」が含まれる
-    await expect(page.getByText(/孵化/)).toBeVisible();
+  test("たまごまたは進化途中のステージである（孵化/進化テキストが表示される）", async ({ page }) => {
+    // s10（as-parent）でXPが付与されて孵化済みの場合は「進化」、まだなら「孵化」
+    await expect(page.getByText(/孵化|進化/)).toBeVisible();
   });
 });

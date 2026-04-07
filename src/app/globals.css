@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme inline {
+@theme {
   /* QuestBoard colors */
   --color-quest-bg: #07080f;
   --color-quest-card: #131828;

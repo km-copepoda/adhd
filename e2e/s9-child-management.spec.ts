@@ -9,10 +9,6 @@
  * - 子供ユーザーを削除できる
  */
 import { test, expect } from "./fixtures";
-import path from "path";
-import { readCredentials, VERCEL_HOSTNAME, createBrowserContext } from "./credentials";
-
-const CHILD_AUTH_PATH = path.join(process.cwd(), "playwright/.auth/child-light.json");
 
 test.describe("S9: 子供ユーザー管理", () => {
   test.beforeEach(async ({ page }) => {
@@ -48,7 +44,7 @@ test.describe("S9: 子供ユーザー管理", () => {
     await expect(page.locator('input[placeholder="例: りゅうくん"]')).not.toBeVisible();
   });
 
-  test("子供ユーザーを作成しログインし削除できる", async ({ page, browser }) => {
+  test("子供ユーザーを作成し削除できる", async ({ page }) => {
     const childName = `E2E_${Date.now()}`;
 
     // --- 1. 子供ユーザーを作成 ---
@@ -76,28 +72,9 @@ test.describe("S9: 子供ユーザー管理", () => {
     expect(childCode).toBeTruthy();
     expect(childCode!.trim()).toMatch(/^\d{4}$/);
 
-    // --- 4. 新しいコンテキストで子供ログインをテスト ---
-    // 親セッションのまま /app/child/login に遷移するとミドルウェアが /app/parent/tasks にリダイレクトするため、
-    // 認証なしの新コンテキストを作成してテストする
-    const { familyCode } = readCredentials();
-    const { context: childContext, page: childPage } = await createBrowserContext(browser);
+    // ログインフローは s3 (S3: 子供ログイン) でカバー済み
 
-    try {
-      await childPage.goto("/app/child/login");
-      await expect(childPage.locator('input[placeholder="ABC123"]')).toBeVisible({
-        timeout: 15000,
-      });
-
-      await childPage.fill('input[placeholder="ABC123"]', familyCode);
-      await childPage.fill('input[placeholder="1234"]', childCode!.trim());
-      await childPage.click('button:has-text("ログイン")');
-
-      await expect(childPage).toHaveURL(/\/child\/quests/, { timeout: 15000 });
-    } finally {
-      await childContext.close();
-    }
-
-    // --- 5. 子供ユーザーを削除 ---
+    // --- 4. 子供ユーザーを削除 ---
     // 削除ボタン（一段階目: 確認ダイアログ表示）をクリック
     await memberRow.getByRole("button", { name: /^削除$/ }).click();
 
