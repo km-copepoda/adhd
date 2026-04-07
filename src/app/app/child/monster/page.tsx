@@ -191,7 +191,7 @@ export default function MonsterPage() {
         const desc = MONSTER_TABLE[data.evolutionPath]?.description;
         return (
           <div
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6"
+            className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
             onClick={() => setShowEvolution(false)}
             style={{ animation: "fadeIn 0.3s ease-out" }}
           >
@@ -225,7 +225,7 @@ export default function MonsterPage() {
         const desc = MONSTER_TABLE[data.evolutionPath]?.description;
         return (
           <div
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 px-6"
+            className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
             onClick={() => setHatched(false)}
             style={{ animation: "fadeIn 0.3s ease-out" }}
           >
@@ -256,7 +256,7 @@ export default function MonsterPage() {
       {/* Rebirth cut-in overlay */}
       {reborn && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90"
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90"
           onClick={() => setReborn(false)}
           style={{ animation: "fadeIn 0.3s ease-out" }}
         >
@@ -281,7 +281,7 @@ export default function MonsterPage() {
       {/* Egg selection overlay */}
       {showEggSelection && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center px-4"
+          className="fixed inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center px-4"
           style={{ animation: "fadeIn 0.3s ease-out" }}
         >
           <p className="font-serif text-purple-400 text-2xl tracking-widest mb-2">卵を選ぼう</p>
