@@ -103,7 +103,9 @@ describe("GET /api/quests/monthly-summary", () => {
 
     expect(json.days["2026-04-01"].approved).toBe(2);
     expect(json.days["2026-04-01"].skipped).toBe(0);
+    expect(json.days["2026-04-01"].total).toBe(2);
     expect(json.days["2026-04-02"].approved).toBe(1);
+    expect(json.days["2026-04-02"].total).toBe(1);
     expect(json.totalApproved).toBe(3);
   });
 
@@ -124,6 +126,86 @@ describe("GET /api/quests/monthly-summary", () => {
 
     expect(json.days["2026-04-03"].skipped).toBe(1);
     expect(json.days["2026-04-03"].approved).toBe(0);
+    expect(json.days["2026-04-03"].total).toBe(1);
+  });
+
+  it("PENDINGはtotalにカウントされapproved/skippedにはカウントされないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        date: new Date("2026-04-01T00:00:00Z"),
+        status: "APPROVED",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { photoBonus: false },
+      },
+      {
+        date: new Date("2026-04-01T00:00:00Z"),
+        status: "PENDING",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { photoBonus: false },
+      },
+    ] as any);
+
+    const res = await GET(makeRequest({ year: "2026", month: "4", childId: "child-1" }));
+    const json = await res.json();
+
+    expect(json.days["2026-04-01"].total).toBe(2);
+    expect(json.days["2026-04-01"].approved).toBe(1);
+    expect(json.days["2026-04-01"].skipped).toBe(0);
+  });
+
+  it("REPORTED/SKIP_REPORTEDもtotalにカウントされること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        date: new Date("2026-04-02T00:00:00Z"),
+        status: "REPORTED",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { photoBonus: false },
+      },
+      {
+        date: new Date("2026-04-02T00:00:00Z"),
+        status: "SKIP_REPORTED",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { photoBonus: false },
+      },
+    ] as any);
+
+    const res = await GET(makeRequest({ year: "2026", month: "4", childId: "child-1" }));
+    const json = await res.json();
+
+    expect(json.days["2026-04-02"].total).toBe(2);
+    expect(json.days["2026-04-02"].approved).toBe(0);
+    expect(json.days["2026-04-02"].skipped).toBe(0);
+  });
+
+  it("REJECTEDはtotalにカウントされないこと（無効化されたタスク）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    // REJECTEDはクエリで除外されるためmockには含まれない想定
+    // クエリにstatus: { notIn: ["REJECTED"] }が含まれることを確認
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        date: new Date("2026-04-01T00:00:00Z"),
+        status: "APPROVED",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { photoBonus: false },
+      },
+    ] as any);
+
+    await GET(makeRequest({ year: "2026", month: "4", childId: "child-1" }));
+
+    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { notIn: ["REJECTED"] },
+        }),
+      })
+    );
   });
 
   it("achievedDaysはapproved >= 1の日数のみをカウントすること（SKIPPEDのみの日は含まない）", async () => {
@@ -274,20 +356,5 @@ describe("GET /api/quests/monthly-summary", () => {
     expect(json.achievedDays).toBe(0);
     expect(json.totalApproved).toBe(0);
     expect(json.totalXp).toBe(0);
-  });
-
-  it("APPROVED/SKIPPED以外のステータス（PENDING等）は集計に含めないこと（クエリレベル）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-
-    await GET(makeRequest({ year: "2026", month: "4", childId: "child-1" }));
-
-    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: { in: ["APPROVED", "SKIPPED"] },
-        }),
-      })
-    );
   });
 });
