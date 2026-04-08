@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import PushSubscriber from "@/components/parent/PushSubscriber";
-import { usePendingApprovalCount } from "@/hooks/usePendingApprovalCount";
+import { usePendingCounts } from "@/hooks/usePendingApprovalCount";
 
 const tabs = [
-  { href: "/app/parent/tasks", emoji: "📋", label: "タスク" },
-  { href: "/app/parent/approve", emoji: "✅", label: "承認", pendingBadge: true },
+  { href: "/app/parent/tasks", emoji: "📋", label: "タスク", badgeKey: "tasks" as const },
+  { href: "/app/parent/approve", emoji: "✅", label: "承認", badgeKey: "approvals" as const },
   { href: "/app/parent/completed", emoji: "🏆", label: "完了" },
   { href: "/app/parent/history", emoji: "📅", label: "履歴" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "家族" },
@@ -16,7 +16,7 @@ const tabs = [
 
 export default function ParentBottomNav() {
   const pathname = usePathname();
-  const pendingCount = usePendingApprovalCount();
+  const counts = usePendingCounts();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -29,7 +29,8 @@ export default function ParentBottomNav() {
       <div className="flex justify-around items-center h-16 px-1">
         {tabs.map((tab) => {
           const isActive = pathname?.startsWith(tab.href);
-          const hasBadge = "pendingBadge" in tab && tab.pendingBadge && pendingCount > 0;
+          const badgeCount = "badgeKey" in tab ? counts[tab.badgeKey] : 0;
+          const hasBadge = badgeCount > 0;
           return (
             <Link
               key={tab.href}
@@ -42,7 +43,7 @@ export default function ParentBottomNav() {
                 {hasBadge ? "🔔" : tab.emoji}
                 {hasBadge && (
                   <span className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                    {pendingCount > 99 ? "99+" : pendingCount}
+                    {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
               </span>

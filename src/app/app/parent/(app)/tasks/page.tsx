@@ -130,12 +130,14 @@ export default function TasksPage() {
   async function handleApprove(id: string) {
     await fetch(`/api/tasks/${id}`, { method: "PATCH" });
     fetchTasks();
+    window.dispatchEvent(new CustomEvent("approvalUpdated"));
   }
 
   async function handleDelete(id: string) {
     if (!confirm("このタスクを削除しますか？")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
     fetchTasks();
+    window.dispatchEvent(new CustomEvent("approvalUpdated"));
   }
 
   async function handleRemind(childId: string) {
