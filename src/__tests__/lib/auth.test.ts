@@ -34,8 +34,8 @@ const mockFamilyCreate = vi.mocked(prisma.family.create);
 function mockSupabaseUser(user: { id: string; email?: string } | null) {
   mockCreateClient.mockResolvedValue({
     auth: {
-      getUser: vi.fn().mockResolvedValue({
-        data: { user },
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: user ? { user } : null },
       }),
     },
   } as any);
