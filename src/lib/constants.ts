@@ -378,6 +378,20 @@ export function getNewMilestoneBonus(oldStreak: number, newStreak: number): numb
   return bonus;
 }
 
+/**
+ * 前回訪問時に保存した称号名と現在の称号名を比較し、
+ * 新たに解除されたマイルストーンを返す。
+ * - lastSeenTitle === null: 初回訪問 → 表示不要（null を返す）
+ * - currentTitle が lastSeenTitle と異なる → 新称号解除（マイルストーンを返す）
+ */
+export function getNewlyUnlockedMilestone(
+  lastSeenTitle: string | null,
+  currentTitle: string | null
+): (typeof STREAK_MILESTONES)[number] | null {
+  if (lastSeenTitle === null || !currentTitle || currentTitle === lastSeenTitle) return null;
+  return STREAK_MILESTONES.find((m) => m.title === currentTitle) ?? null;
+}
+
 /** ボーナスptを3カテゴリ均等分配（端数は STUDY に加算） */
 export function distributeBonus(bonus: number): { study: number; stamina: number; life: number } {
   const base = Math.floor(bonus / 3);

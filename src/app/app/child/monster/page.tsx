@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD } from "@/lib/constants";
+import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD, getNewlyUnlockedMilestone } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -63,11 +63,20 @@ export default function MonsterPage() {
   const [reborn, setReborn] = useState(false);
   const [showEggSelection, setShowEggSelection] = useState(false);
   const [rebirthLoading, setRebirthLoading] = useState(false);
+  const [unlockedAchievement, setUnlockedAchievement] = useState<typeof STREAK_MILESTONES[number] | null>(null);
   const prevStageRef = useRef<number | null>(null);
   const selfRebirthRef = useRef(false);
 
   const fetchStatus = () =>
     fetch("/api/monster-status").then((r) => r.json());
+
+  /** 前回表示済み称号と現在称号を比較し、新解除があればカットインを表示 */
+  const checkAchievementUnlock = (currentTitle: { title: string; emoji: string } | null) => {
+    const lastSeenTitle = localStorage.getItem("lastSeenStreakTitle");
+    const milestone = getNewlyUnlockedMilestone(lastSeenTitle, currentTitle?.title ?? null);
+    if (milestone) setUnlockedAchievement(milestone);
+    localStorage.setItem("lastSeenStreakTitle", currentTitle?.title ?? "");
+  };
 
   useEffect(() => {
     fetchStatus()
@@ -95,6 +104,7 @@ export default function MonsterPage() {
           }
         }
         localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
+        checkAchievementUnlock(d.currentTitle);
       })
       .finally(() => setLoading(false));
 
@@ -126,6 +136,7 @@ export default function MonsterPage() {
             currentStreak: d.currentStreak, bestStreak: d.bestStreak,
             monthlyDays: d.monthlyDays, lastAchievedDate: d.lastAchievedDate, currentTitle: d.currentTitle,
           });
+          checkAchievementUnlock(d.currentTitle);
         });
       })
       .subscribe();
@@ -274,6 +285,51 @@ export default function MonsterPage() {
             @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
             @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
             @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
+          `}</style>
+        </div>
+      )}
+
+      {/* Achievement unlock cutscene */}
+      {unlockedAchievement && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
+          onClick={() => setUnlockedAchievement(null)}
+          style={{ animation: "fadeIn 0.3s ease-out" }}
+        >
+          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
+            <div
+              className="text-9xl mb-6 text-center"
+              style={{
+                filter: "drop-shadow(0 0 40px rgba(251,191,36,0.9))",
+                animation: "pulse 0.8s ease-in-out infinite alternate",
+              }}
+            >
+              {unlockedAchievement.emoji}
+            </div>
+          </div>
+          <p
+            className="font-serif text-quest-gold text-xl tracking-widest mb-2"
+            style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}
+          >
+            称号を獲得！
+          </p>
+          <p
+            className="text-white text-3xl font-bold mb-3"
+            style={{ animation: "evolveIn 0.65s ease-out" }}
+          >
+            {unlockedAchievement.title}
+          </p>
+          <p
+            className="text-yellow-300 text-xl font-bold mb-8"
+            style={{ animation: "evolveIn 0.7s ease-out", textShadow: "0 0 12px rgba(253,224,71,0.6)" }}
+          >
+            +{unlockedAchievement.bonusPt}pt ゲット！
+          </p>
+          <p className="text-quest-dim text-xs">タップして閉じる</p>
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
+            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.15) } }
           `}</style>
         </div>
       )}

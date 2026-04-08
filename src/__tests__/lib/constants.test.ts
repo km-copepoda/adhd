@@ -17,6 +17,7 @@ import {
   selectEvolutionPath,
   getStreakTitle,
   getNewMilestoneBonus,
+  getNewlyUnlockedMilestone,
   distributeBonus,
   generateFamilyCode,
   generateChildCode,
@@ -611,6 +612,40 @@ describe("distributeBonus", () => {
 
   it("0ptの場合はすべて0であること", () => {
     expect(distributeBonus(0)).toEqual({ study: 0, stamina: 0, life: 0 });
+  });
+});
+
+// ─── getNewlyUnlockedMilestone ───────────────────────
+
+describe("getNewlyUnlockedMilestone", () => {
+  it("lastSeenTitle が null（初回訪問）の場合は null を返すこと", () => {
+    expect(getNewlyUnlockedMilestone(null, "はじめの一歩")).toBeNull();
+  });
+
+  it("lastSeenTitle と currentTitle が同じなら null を返すこと", () => {
+    expect(getNewlyUnlockedMilestone("はじめの一歩", "はじめの一歩")).toBeNull();
+  });
+
+  it("currentTitle が null の場合は null を返すこと", () => {
+    expect(getNewlyUnlockedMilestone("はじめの一歩", null)).toBeNull();
+  });
+
+  it("currentTitle が空文字の場合は null を返すこと", () => {
+    expect(getNewlyUnlockedMilestone("はじめの一歩", "")).toBeNull();
+  });
+
+  it("称号が変わった場合は対応するマイルストーンを返すこと", () => {
+    const result = getNewlyUnlockedMilestone("はじめの一歩", "一週間の戦士");
+    expect(result).toMatchObject({ title: "一週間の戦士", emoji: "⚔️", days: 7 });
+  });
+
+  it("前回称号なし（空文字）から新称号解除の場合はマイルストーンを返すこと", () => {
+    const result = getNewlyUnlockedMilestone("", "はじめの一歩");
+    expect(result).toMatchObject({ title: "はじめの一歩", emoji: "🔥", days: 3 });
+  });
+
+  it("存在しない称号名の場合は null を返すこと", () => {
+    expect(getNewlyUnlockedMilestone("", "存在しない称号")).toBeNull();
   });
 });
 
