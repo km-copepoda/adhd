@@ -65,9 +65,12 @@ export default function ApprovePage() {
   }
 
   async function fetchPending() {
-    const res = await fetch("/api/approve/pending");
-    if (res.ok) setQuests(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch("/api/approve/pending");
+      if (res.ok) setQuests(await res.json());
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string) {
