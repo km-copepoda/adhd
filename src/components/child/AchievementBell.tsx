@@ -31,18 +31,18 @@ export default function AchievementBell() {
       .catch(() => {});
   }, []);
 
-  if (currentStreak === null) return null;
-
-  const achievedMilestones = STREAK_MILESTONES.filter((m) => m.days <= currentStreak);
-  if (achievedMilestones.length === 0) return null;
-
-  const unread = getUnreadAchievements(currentStreak, seenTitles);
+  // ローディング中は streak=0 として扱い、ベルは常時表示
+  const streak = currentStreak ?? 0;
+  const achievedMilestones = STREAK_MILESTONES.filter((m) => m.days <= streak);
+  const unread = getUnreadAchievements(streak, seenTitles);
   const unreadCount = unread.length;
 
   const handleOpen = () => {
     setOpen(true);
-    markAllSeen(currentStreak);
-    setSeenTitles(achievedMilestones.map((m) => m.title));
+    if (currentStreak !== null) {
+      markAllSeen(currentStreak);
+      setSeenTitles(achievedMilestones.map((m) => m.title));
+    }
   };
 
   const handleClose = () => setOpen(false);
@@ -79,25 +79,32 @@ export default function AchievementBell() {
               <span className="text-xl">🏆</span>
               <h3 className="text-quest-gold text-lg font-bold tracking-wider">獲得した称号</h3>
             </div>
-            <div className="flex flex-col gap-3">
-              {achievedMilestones.map((m) => {
-                const isNew = !seenTitles.includes(m.title) || unread.some((u) => u.title === m.title);
-                return (
-                  <div key={m.title} className="flex items-center gap-4 py-2 border-b border-quest-border/40 last:border-0">
-                    <span className="text-3xl">{m.emoji}</span>
-                    <div className="flex-1">
-                      <p className="text-white font-bold text-base">{m.title}</p>
-                      <p className="text-quest-dim text-xs">{m.days}日連続達成 · +{m.bonusPt}pt</p>
+            {achievedMilestones.length === 0 ? (
+              <p className="text-quest-dim text-sm text-center py-6">
+                まだ称号がありません。<br />
+                <span className="text-xs">3日連続でタスクを達成すると最初の称号が解除されます！</span>
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {achievedMilestones.map((m) => {
+                  const isNew = unread.some((u) => u.title === m.title);
+                  return (
+                    <div key={m.title} className="flex items-center gap-4 py-2 border-b border-quest-border/40 last:border-0">
+                      <span className="text-3xl">{m.emoji}</span>
+                      <div className="flex-1">
+                        <p className="text-white font-bold text-base">{m.title}</p>
+                        <p className="text-quest-dim text-xs">{m.days}日連続達成 · +{m.bonusPt}pt</p>
+                      </div>
+                      {isNew && (
+                        <span className="bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          NEW
+                        </span>
+                      )}
                     </div>
-                    {isNew && (
-                      <span className="bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        NEW
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
             <button
               onClick={handleClose}
               className="mt-5 w-full py-2 text-quest-dim text-sm border border-quest-border rounded-xl"
