@@ -18,6 +18,7 @@ import {
   getStreakTitle,
   getNewMilestoneBonus,
   getNewlyUnlockedMilestone,
+  getUnreadAchievements,
   distributeBonus,
   generateFamilyCode,
   generateChildCode,
@@ -646,6 +647,44 @@ describe("getNewlyUnlockedMilestone", () => {
 
   it("存在しない称号名の場合は null を返すこと", () => {
     expect(getNewlyUnlockedMilestone("", "存在しない称号")).toBeNull();
+  });
+});
+
+// ─── getUnreadAchievements ───────────────────────────
+
+describe("getUnreadAchievements", () => {
+  it("ストリーク0では空配列を返すこと", () => {
+    expect(getUnreadAchievements(0, [])).toHaveLength(0);
+  });
+
+  it("達成済みマイルストーンが未読の場合はすべて返すこと", () => {
+    const result = getUnreadAchievements(7, []);
+    expect(result).toHaveLength(2); // 3日と7日
+    expect(result.map(m => m.title)).toContain("はじめの一歩");
+    expect(result.map(m => m.title)).toContain("一週間の戦士");
+  });
+
+  it("既読マイルストーンは除外すること", () => {
+    const result = getUnreadAchievements(7, ["はじめの一歩"]);
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe("一週間の戦士");
+  });
+
+  it("すべて既読の場合は空配列を返すこと", () => {
+    const result = getUnreadAchievements(7, ["はじめの一歩", "一週間の戦士"]);
+    expect(result).toHaveLength(0);
+  });
+
+  it("未達成のマイルストーンは含まないこと", () => {
+    const result = getUnreadAchievements(3, []);
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe("はじめの一歩");
+    expect(result.map(m => m.title)).not.toContain("一週間の戦士");
+  });
+
+  it("境界値: ちょうどマイルストーン日数で達成とみなすこと", () => {
+    expect(getUnreadAchievements(3, [])).toHaveLength(1);
+    expect(getUnreadAchievements(2, [])).toHaveLength(0);
   });
 });
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD, getNewlyUnlockedMilestone } from "@/lib/constants";
+import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD, getUnreadAchievements } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -70,12 +70,18 @@ export default function MonsterPage() {
   const fetchStatus = () =>
     fetch("/api/monster-status").then((r) => r.json());
 
-  /** 前回表示済み称号と現在称号を比較し、新解除があればカットインを表示 */
-  const checkAchievementUnlock = (currentTitle: { title: string; emoji: string } | null) => {
-    const lastSeenTitle = localStorage.getItem("lastSeenStreakTitle");
-    const milestone = getNewlyUnlockedMilestone(lastSeenTitle, currentTitle?.title ?? null);
-    if (milestone) setUnlockedAchievement(milestone);
-    localStorage.setItem("lastSeenStreakTitle", currentTitle?.title ?? "");
+  /** 未読実績があればカットインを表示（最新の1件のみ） */
+  const checkAchievementUnlock = (currentStreak: number) => {
+    try {
+      const seenTitles: string[] = JSON.parse(localStorage.getItem("seenAchievementTitles") ?? "[]");
+      const unread = getUnreadAchievements(currentStreak, seenTitles);
+      if (unread.length > 0) {
+        // 最高マイルストーン（最後の要素 = 最多日数）を表示
+        setUnlockedAchievement(unread[unread.length - 1]);
+      }
+    } catch {
+      // localStorageが使えない環境では無視
+    }
   };
 
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function MonsterPage() {
           }
         }
         localStorage.setItem("lastSeenEvolutionStage", String(d.evolutionStage));
-        checkAchievementUnlock(d.currentTitle);
+        checkAchievementUnlock(d.currentStreak);
       })
       .finally(() => setLoading(false));
 
@@ -136,7 +142,7 @@ export default function MonsterPage() {
             currentStreak: d.currentStreak, bestStreak: d.bestStreak,
             monthlyDays: d.monthlyDays, lastAchievedDate: d.lastAchievedDate, currentTitle: d.currentTitle,
           });
-          checkAchievementUnlock(d.currentTitle);
+          checkAchievementUnlock(d.currentStreak);
         });
       })
       .subscribe();
@@ -293,7 +299,16 @@ export default function MonsterPage() {
       {unlockedAchievement && (
         <div
           className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
-          onClick={() => setUnlockedAchievement(null)}
+          onClick={() => {
+            try {
+              const seen: string[] = JSON.parse(localStorage.getItem("seenAchievementTitles") ?? "[]");
+              if (!seen.includes(unlockedAchievement.title)) {
+                seen.push(unlockedAchievement.title);
+                localStorage.setItem("seenAchievementTitles", JSON.stringify(seen));
+              }
+            } catch { /* ignore */ }
+            setUnlockedAchievement(null);
+          }}
           style={{ animation: "fadeIn 0.3s ease-out" }}
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>

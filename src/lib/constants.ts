@@ -368,6 +368,16 @@ export function getStreakTitle(currentStreak: number) {
   return best;
 }
 
+/** 現在のストリーク数で達成済みだが未読（seenTitles に含まれない）の実績リストを返す */
+export function getUnreadAchievements(
+  currentStreak: number,
+  seenTitles: string[]
+): (typeof STREAK_MILESTONES)[number][] {
+  return STREAK_MILESTONES.filter(
+    (m) => m.days <= currentStreak && !seenTitles.includes(m.title)
+  );
+}
+
 /** oldStreak→newStreak で新たに到達したマイルストーンのボーナス合計を返す */
 export function getNewMilestoneBonus(oldStreak: number, newStreak: number): number {
   let bonus = 0;
