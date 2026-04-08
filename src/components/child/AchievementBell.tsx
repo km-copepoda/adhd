@@ -56,7 +56,7 @@ export default function AchievementBell() {
         aria-label="実績"
       >
         <span className="relative text-xl">
-          {unreadCount > 0 ? "🔔" : "🔕"}
+          {unreadCount > 0 ? "🔔" : "🎖️"}
           {unreadCount > 0 && (
             <span
               className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"

@@ -19,6 +19,8 @@ import {
   getNewMilestoneBonus,
   getNewlyUnlockedMilestone,
   getUnreadAchievements,
+  shouldShowMonsterBadge,
+  shouldShowZukanBadge,
   distributeBonus,
   generateFamilyCode,
   generateChildCode,
@@ -647,6 +649,46 @@ describe("getNewlyUnlockedMilestone", () => {
 
   it("存在しない称号名の場合は null を返すこと", () => {
     expect(getNewlyUnlockedMilestone("", "存在しない称号")).toBeNull();
+  });
+});
+
+// ─── shouldShowMonsterBadge ──────────────────────────
+
+describe("shouldShowMonsterBadge", () => {
+  it("lastSeenStage が null（未訪問）なら false を返すこと", () => {
+    expect(shouldShowMonsterBadge(3, null)).toBe(false);
+  });
+
+  it("現在のステージが前回より大きい場合 true を返すこと", () => {
+    expect(shouldShowMonsterBadge(3, "2")).toBe(true);
+  });
+
+  it("現在のステージと前回が同じなら false を返すこと", () => {
+    expect(shouldShowMonsterBadge(3, "3")).toBe(false);
+  });
+
+  it("前回より現在が小さい（あり得ないが）場合も false を返すこと", () => {
+    expect(shouldShowMonsterBadge(1, "3")).toBe(false);
+  });
+});
+
+// ─── shouldShowZukanBadge ────────────────────────────
+
+describe("shouldShowZukanBadge", () => {
+  it("lastSeenCount が null（未訪問）なら false を返すこと", () => {
+    expect(shouldShowZukanBadge(3, null)).toBe(false);
+  });
+
+  it("コレクション数が前回より多い場合 true を返すこと", () => {
+    expect(shouldShowZukanBadge(3, "2")).toBe(true);
+  });
+
+  it("コレクション数が前回と同じなら false を返すこと", () => {
+    expect(shouldShowZukanBadge(3, "3")).toBe(false);
+  });
+
+  it("コレクション数0・前回も0なら false を返すこと", () => {
+    expect(shouldShowZukanBadge(0, "0")).toBe(false);
   });
 });
 

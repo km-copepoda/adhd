@@ -369,6 +369,32 @@ export function getStreakTitle(currentStreak: number) {
   return best;
 }
 
+/**
+ * 育成タブのバッジ表示判定。
+ * lastSeenStage が null（未訪問）なら false。
+ * 現在のステージが前回表示時より進んでいる場合 true。
+ */
+export function shouldShowMonsterBadge(
+  currentStage: number,
+  lastSeenStage: string | null
+): boolean {
+  if (lastSeenStage === null) return false;
+  return currentStage > parseInt(lastSeenStage, 10);
+}
+
+/**
+ * 図鑑タブのバッジ表示判定。
+ * lastSeenCount が null（未訪問）なら false。
+ * コレクション数が前回表示時より増えた場合 true。
+ */
+export function shouldShowZukanBadge(
+  currentCount: number,
+  lastSeenCount: string | null
+): boolean {
+  if (lastSeenCount === null) return false;
+  return currentCount > parseInt(lastSeenCount, 10);
+}
+
 /** 現在のストリーク数で達成済みだが未読（seenTitles に含まれない）の実績リストを返す */
 export function getUnreadAchievements(
   currentStreak: number,

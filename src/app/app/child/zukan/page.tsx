@@ -75,9 +75,13 @@ export default function ZukanPage() {
   useEffect(() => {
     fetch("/api/monster")
       .then((r) => r.json())
-      .then((d: ZukanData) =>
-        setData({ side: d.side ?? null, collectedPaths: d.collectedPaths ?? "[]" })
-      )
+      .then((d: ZukanData) => {
+        const paths = d.collectedPaths ?? "[]";
+        setData({ side: d.side ?? null, collectedPaths: paths });
+        // 図鑑を開いた時点で「見た」とマーク → BottomNav バッジをクリア
+        const count = (JSON.parse(paths) as string[]).length;
+        localStorage.setItem("lastSeenCollectedCount", String(count));
+      })
       .finally(() => setLoading(false));
   }, []);
 
