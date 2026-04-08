@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
+import AchievementBell from "@/components/child/AchievementBell";
 
 const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[] = [
   { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" },
@@ -45,6 +46,7 @@ export default function BottomNav() {
             </Link>
           );
         })}
+        <AchievementBell />
         <button
           onClick={handleLogout}
           className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors text-quest-dim hover:text-red-400"
