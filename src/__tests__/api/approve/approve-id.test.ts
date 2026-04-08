@@ -287,9 +287,9 @@ describe("POST /api/approve/[id]", () => {
       expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
     });
 
-    it("転生条件達成時にstage0・空パスにリセットしcollectedPathsは保持されること", async () => {
+    it("転生条件達成時にrebirthPending=trueをセットしstageをリセットしないこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-      // stage3でbasic 1pt追加 → total=19+1=20 >= REBIRTH_THRESHOLD(20) → 転生
+      // stage3でbasic 1pt追加 → total=19+1=20 >= REBIRTH_THRESHOLD(20) → 転生保留
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q-rebirth",
         date: new Date("2026-03-26"),
@@ -316,6 +316,8 @@ describe("POST /api/approve/[id]", () => {
         staminaPt: 0,
         lifePt: 0,
         collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+        rebirthPending: false,
+        rebirthEggBonus: null,
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.user.update.mockResolvedValue({} as any);
@@ -327,18 +329,19 @@ describe("POST /api/approve/[id]", () => {
       const json = await res.json();
 
       expect(json.ok).toBe(true);
-      // 基本1pt → studyPt=20, total=20 >= REBIRTH_THRESHOLD(20) → 転生
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: "child-1" },
-        data: {
-          studyPt: 0,
-          staminaPt: 0,
-          lifePt: 0,
-          evolutionStage: 0,
-          evolutionPath: "",
-          collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
-        },
-      });
+      // 基本1pt → studyPt=20, total=20 >= REBIRTH_THRESHOLD(20) → rebirthPending=true
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "child-1" },
+          data: expect.objectContaining({
+            studyPt: 20,
+            rebirthPending: true,
+          }),
+        }),
+      );
+      // evolutionStage はリセットされないこと
+      const callArgs = mockPrisma.user.update.mock.calls[0][0];
+      expect(callArgs.data.evolutionStage).toBeUndefined();
     });
   });
 

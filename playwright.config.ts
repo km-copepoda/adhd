@@ -26,26 +26,26 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
       dependencies: ["no-auth"],
     },
-    // 未認証テスト（ランディング・ログインフォーム検証）
+    // 未認証テスト（ランディング・ログインフォーム検証・アカウント登録フォーム）
     {
       name: "no-auth",
-      testMatch: /\/(s1|s2|s3)-.*\.spec\.ts/,
+      testMatch: /\/(s1|s2|s3|s14)-.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
-    // 親アカウントで実行するテスト
+    // 親アカウントで実行するテスト（全フロー・スキップ承認・期限設定を含む）
     {
       name: "as-parent",
-      testMatch: /\/(s4|s6|s9)-.*\.spec\.ts/,
+      testMatch: /\/(s4|s6|s9|s10|s12|s13)-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/parent.json",
       },
       dependencies: ["setup"],
     },
-    // 子供アカウント（ライトモード / userCode: 0321）で実行するテスト
+    // 子供アカウント（ライトモード）で実行するテスト（育成画面を含む）
     {
       name: "as-child",
-      testMatch: /\/(s5|s7|s8)-.*\.spec\.ts/,
+      testMatch: /\/(s5|s7|s8|s11)-.*\.spec\.ts/,
       use: {
         ...devices["Pixel 5"],
         storageState: "playwright/.auth/child-light.json",

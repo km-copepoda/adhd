@@ -11,7 +11,7 @@ import { test, expect } from "./fixtures";
 
 test.describe("S4: 親タスク管理", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/parent/tasks");
+    await page.goto("/app/parent/tasks");
     await expect(page.getByRole("heading", { name: /タスク管理/ })).toBeVisible({
       timeout: 15000,
     });

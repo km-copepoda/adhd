@@ -160,7 +160,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
                   {quest.template.emoji}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-quest-text truncate">{quest.template.title}</p>
+                  <p className="text-base font-bold text-quest-text break-all">{quest.template.title}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-[11px] text-quest-dim">{cat.emoji} {cat.name}</span>
                     {streak >= 1 && (

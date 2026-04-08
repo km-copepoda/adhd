@@ -29,6 +29,18 @@ type QuestWithRelations = {
   };
 };
 
+type FreshChildData = {
+  id: string;
+  evolutionStage: number;
+  evolutionPath: string;
+  collectedPaths: string;
+  studyPt: number;
+  staminaPt: number;
+  lifePt: number;
+  rebirthPending: boolean;
+  rebirthEggBonus: string | null;
+};
+
 /** ボーナスベースのXP計算: 基本1 + 期限ボーナス + 写真ボーナス (最大3) */
 function calculateXP(quest: QuestWithRelations): number {
   let xp = 1;
@@ -52,23 +64,15 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
       studyPt: true,
       staminaPt: true,
       lifePt: true,
+      rebirthPending: true,
+      rebirthEggBonus: true,
     },
-  });
+  }) as FreshChildData | null;
   if (!child) throw new Error(`Child ${quest.childId} not found`);
 
   const newStudy = child.studyPt + (category === "STUDY" ? xp : 0);
   const newStamina = child.staminaPt + (category === "STAMINA" ? xp : 0);
   const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
-
-  const isReborn = (JSON.parse(child.collectedPaths) as string[]).length > 0;
-  const evolution = checkEvolution(
-    child.evolutionStage,
-    child.evolutionPath,
-    newStudy,
-    newStamina,
-    newLife,
-    isReborn,
-  );
 
   log.info("Quest approved", { questId: quest.id, childId: quest.childId, xp, category });
 
@@ -77,31 +81,66 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
     data: { status: "APPROVED", approvedAt: new Date() },
   });
 
-  // collectedPaths: 進化時に新パスを追加、転生時はそのまま保持
-  let collectedPaths = JSON.parse(child.collectedPaths) as string[];
-  if (evolution.evolved) {
-    if (!collectedPaths.includes(evolution.newPath)) {
-      collectedPaths = [...collectedPaths, evolution.newPath];
-    }
-    log.info("Monster evolved", {
-      childId: quest.childId,
-      stage: evolution.newStage,
-      path: evolution.newPath,
-      reborn: evolution.reborn,
+  if (child.rebirthPending) {
+    // 転生待ち中: XPだけ加算し、進化・転生チェックはスキップ
+    await prisma.user.update({
+      where: { id: quest.childId },
+      data: {
+        studyPt: newStudy,
+        staminaPt: newStamina,
+        lifePt: newLife,
+      },
     });
-  }
+  } else {
+    const isReborn = (JSON.parse(child.collectedPaths) as string[]).length > 0;
+    const evolution = checkEvolution(
+      child.evolutionStage,
+      child.evolutionPath,
+      newStudy,
+      newStamina,
+      newLife,
+      isReborn,
+      child.rebirthEggBonus,
+    );
 
-  await prisma.user.update({
-    where: { id: quest.childId },
-    data: {
-      studyPt: evolution.resetStudy,
-      staminaPt: evolution.resetStamina,
-      lifePt: evolution.resetLife,
-      evolutionStage: evolution.newStage,
-      evolutionPath: evolution.newPath,
-      collectedPaths: JSON.stringify(collectedPaths),
-    },
-  });
+    let collectedPaths = JSON.parse(child.collectedPaths) as string[];
+
+    if (evolution.reborn) {
+      // 転生閾値到達: pendingフラグをセット（実際のリセットはユーザー操作後）
+      await prisma.user.update({
+        where: { id: quest.childId },
+        data: {
+          studyPt: newStudy,
+          staminaPt: newStamina,
+          lifePt: newLife,
+          rebirthPending: true,
+        },
+      });
+    } else {
+      // 通常の進化またはポイント加算
+      if (evolution.evolved) {
+        if (!collectedPaths.includes(evolution.newPath)) {
+          collectedPaths = [...collectedPaths, evolution.newPath];
+        }
+        log.info("Monster evolved", {
+          childId: quest.childId,
+          stage: evolution.newStage,
+          path: evolution.newPath,
+        });
+      }
+      await prisma.user.update({
+        where: { id: quest.childId },
+        data: {
+          studyPt: evolution.resetStudy,
+          staminaPt: evolution.resetStamina,
+          lifePt: evolution.resetLife,
+          evolutionStage: evolution.newStage,
+          evolutionPath: evolution.newPath,
+          collectedPaths: JSON.stringify(collectedPaths),
+        },
+      });
+    }
+  }
 
   if (quest.template.createdBy === "CHILD") {
     await prisma.taskTemplate.update({

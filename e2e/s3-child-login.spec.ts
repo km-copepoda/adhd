@@ -1,8 +1,8 @@
 /**
  * S3: 子供ログインフロー
  * - フォーム要素の表示確認
- * - ライトモード（0321）でログイン → /child/quests に遷移
- * - ダークモード（5334）でログイン → /child/quests に遷移
+ * - ライトモード（0321）でログイン → /app/child/quests に遷移
+ * - ダークモード（5334）でログイン → /app/child/quests に遷移
  * - 境界値: 無効コードでエラー
  */
 import { test, expect } from "./fixtures";
@@ -11,7 +11,7 @@ const FAMILY_CODE = "VJZQSH";
 
 test.describe("S3: 子供ログイン", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/child/login");
+    await page.goto("/app/child/login");
   });
 
   test("ログインフォームが表示される", async ({ page }) => {
@@ -23,14 +23,14 @@ test.describe("S3: 子供ログイン", () => {
     await expect(page.getByRole("button", { name: /ログイン/ })).toBeVisible();
   });
 
-  test("ライトモードユーザー（0321）でログイン → /child/quests に遷移する", async ({ page }) => {
+  test("ライトモードユーザー（0321）でログイン → /app/child/quests に遷移する", async ({ page }) => {
     await page.fill('input[placeholder="ABC123"]', FAMILY_CODE);
     await page.fill('input[placeholder="1234"]', "0321");
     await page.click('button:has-text("ログイン")');
     await expect(page).toHaveURL(/\/child\/quests/, { timeout: 15000 });
   });
 
-  test("ダークモードユーザー（5334）でログイン → /child/quests に遷移する", async ({ page }) => {
+  test("ダークモードユーザー（5334）でログイン → /app/child/quests に遷移する", async ({ page }) => {
     await page.fill('input[placeholder="ABC123"]', FAMILY_CODE);
     await page.fill('input[placeholder="1234"]', "5334");
     await page.click('button:has-text("ログイン")');

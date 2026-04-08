@@ -26,12 +26,15 @@ export const config = { matcher: [...] };
 
 | 役割 | ログイン画面 | ホーム |
 |------|-------------|--------|
-| 親   | `/parent/login` | `/parent/tasks` |
-| 子   | `/child/login`  | `/child/quests` |
+| 親   | `/app/parent/login` | `/app/parent/tasks` |
+| 子   | `/app/child/login`  | `/app/child/quests` |
 
-- `/login` `/child/onboarding` は旧パスで現在は存在しない
-- `src/app/parent/(app)/layout.tsx` が親ナビ（Sidebar + ParentBottomNav）を提供
-- `/parent/login` は `(app)` の外にあるためナビなし
+- `/` = LP（常に公開、ログイン済みでもリダイレクトしない）
+- `/login` = ログイン選択画面（ログイン済みならホームへリダイレクト）
+- `/app/register` = 親アカウント新規登録
+- `src/app/app/parent/(app)/layout.tsx` が親ナビ（Sidebar + ParentBottomNav）を提供
+- `/app/parent/login` は `(app)` の外にあるためナビなし
+- 旧パス（`/parent/*`, `/child/*`, `/register`）は廃止済み
 
 ---
 

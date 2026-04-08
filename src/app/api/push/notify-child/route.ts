@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     await sendPushToChild(childId, {
       title: "⏰ リマインド",
       body: `「${quest.template.title}」がまだ終わってないよ！`,
-      url: "/child/quests",
+      url: "/app/child/quests",
     });
   } else {
     // 未完了タスク一覧をまとめて通知
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     await sendPushToChild(childId, {
       title: "⏰ リマインド",
       body: `${taskNames}がまだ終わってないよ！`,
-      url: "/child/quests",
+      url: "/app/child/quests",
     });
   }
 

@@ -9,6 +9,7 @@ import {
   REBIRTH_EGG_THRESHOLD,
   DAY_LABELS,
   STREAK_MILESTONES,
+  TEMP_TASK_TEMPLATES,
   getMonsterStage,
   checkEvolution,
   getXpInfo,
@@ -162,11 +163,11 @@ describe("MONSTER_TABLE_LIGHT", () => {
 describe("getMonsterStage", () => {
   it("stage0（たまご）はMONSTER_TABLEに依存せず卵を返すこと", () => {
     const stage = getMonsterStage(0, "");
-    expect(stage.image).toBe("/monsters/egg.webp");
+    expect(stage.image).toBe("/monsters/dark/egg.webp");
     expect(stage.ptToEvolve).toBe(1);
   });
 
-  it("stage0でside=LIGHTのときライト卵画像を返すこと", () => {
+  it("stage0でside=LIGHTのときかわいい系卵画像を返すこと", () => {
     const stage = getMonsterStage(0, "", "LIGHT");
     expect(stage.image).toBe("/monsters/light/egg.webp");
     expect(stage.ptToEvolve).toBe(1);
@@ -686,6 +687,123 @@ describe("getEvolutionChildren", () => {
     const children = getEvolutionChildren("STUDY");
     expect(children).not.toContain("STAMINA");
     expect(children).not.toContain("LIFE");
+  });
+});
+
+// ─── TEMP_TASK_TEMPLATES ─────────────────────────────
+
+describe("TEMP_TASK_TEMPLATES", () => {
+  it("1件以上のテンプレートが定義されていること", () => {
+    expect(TEMP_TASK_TEMPLATES.length).toBeGreaterThan(0);
+  });
+
+  it("全テンプレートにtitleとcategoryが存在すること", () => {
+    for (const tpl of TEMP_TASK_TEMPLATES) {
+      expect(typeof tpl.title).toBe("string");
+      expect(tpl.title.length).toBeGreaterThan(0);
+      expect(["STUDY", "STAMINA", "LIFE"]).toContain(tpl.category);
+    }
+  });
+
+  it("3カテゴリ（STUDY/STAMINA/LIFE）が各1件以上含まれること", () => {
+    const categories = TEMP_TASK_TEMPLATES.map((t) => t.category);
+    expect(categories).toContain("STUDY");
+    expect(categories).toContain("STAMINA");
+    expect(categories).toContain("LIFE");
+  });
+
+  it("タイトルが重複しないこと", () => {
+    const titles = TEMP_TASK_TEMPLATES.map((t) => t.title);
+    const unique = new Set(titles);
+    expect(unique.size).toBe(titles.length);
+  });
+});
+
+// ─── selectEvolutionPath (egg bonus) ─────────────────
+
+describe("selectEvolutionPath with eggBonusCategory", () => {
+  it("eggBonusCategory=STUDYで確率の合計が1.0であること", () => {
+    // bonusを適用後も正規化されるため合計は1.0
+    // weights without bonus: STUDY=0.6, STAMINA=0.2, LIFE=0.2
+    // +0.2 to STUDY → STUDY=0.8, STAMINA=0.2, LIFE=0.2 → total=1.2 → normalize
+    // STUDY=0.8/1.2≈0.667, STAMINA=0.2/1.2≈0.167, LIFE=0.2/1.2≈0.167
+    // テストは何度実行しても有効なパスを返すことを確認
+    for (const r of [0, 0.3, 0.6, 0.8, 0.99]) {
+      vi.spyOn(Math, "random").mockReturnValue(r);
+      const path = selectEvolutionPath(80, 10, 10, "STUDY");
+      expect(["STUDY", "STAMINA", "LIFE"]).toContain(path);
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("eggBonusCategory=STUDYでSTUDY選択確率が上がること（r=0.65はSTUDYになる）", () => {
+    // bonus なし: STUDY=0.6, STAMINA=0.2, LIFE=0.2 → r=0.65 は STAMINA
+    vi.spyOn(Math, "random").mockReturnValue(0.65);
+    expect(selectEvolutionPath(80, 10, 10)).toBe("STAMINA");
+    vi.restoreAllMocks();
+
+    // bonus あり: STUDY≈0.667 → r=0.65 は STUDY
+    vi.spyOn(Math, "random").mockReturnValue(0.65);
+    expect(selectEvolutionPath(80, 10, 10, "STUDY")).toBe("STUDY");
+    vi.restoreAllMocks();
+  });
+
+  it("eggBonusCategory=STAMINAでSTAMINA選択確率が上がること", () => {
+    // 均等（0,0,0）: STUDY=STAMINA=LIFE=1/3≈0.333
+    // STAMINA bonus: STUDY=0.333, STAMINA=0.533, LIFE=0.333 → normalize
+    // r=0.5 はbonusなしでSTAMINA(1/3+1/3=0.667)だが、bonusありでSTUDYとSTAMINAの境界が変わる
+    // bonusあり: STUDY/(0.333+0.533+0.333)=0.333/1.2≈0.278, STAMINA=0.533/1.2≈0.444, LIFE=0.333/1.2≈0.278
+    // r=0.4 → cumulative: STUDY=0.278 < 0.4, STAMINA=0.278+0.444=0.722 >= 0.4 → STAMINA
+    vi.spyOn(Math, "random").mockReturnValue(0.4);
+    const path = selectEvolutionPath(0, 0, 0, "STAMINA");
+    expect(path).toBe("STAMINA");
+    vi.restoreAllMocks();
+  });
+
+  it("eggBonusCategoryがnullの場合はbonusなしと同じ動作をすること", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const withNull = selectEvolutionPath(80, 10, 10, null);
+    const withUndefined = selectEvolutionPath(80, 10, 10);
+    expect(withNull).toBe(withUndefined);
+    vi.restoreAllMocks();
+  });
+
+  it("eggBonusCategoryが無効な値の場合はbonusなしと同じ動作をすること", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const withInvalid = selectEvolutionPath(80, 10, 10, "INVALID");
+    const withUndefined = selectEvolutionPath(80, 10, 10);
+    expect(withInvalid).toBe(withUndefined);
+    vi.restoreAllMocks();
+  });
+});
+
+// ─── checkEvolution with eggBonusCategory ────────────
+
+describe("checkEvolution with eggBonusCategory (egg bonus)", () => {
+  it("eggBonusCategoryがSTUDYの場合、進化パス選択にbonusが適用されること", () => {
+    // r=0.65: bonus=STUDYなし→STAMINA, bonus=STUDY→STUDY になることを確認
+    vi.spyOn(Math, "random").mockReturnValue(0.65);
+    const withoutBonus = checkEvolution(1, "STAMINA", 80, 10, 10, false);
+    vi.restoreAllMocks();
+
+    vi.spyOn(Math, "random").mockReturnValue(0.65);
+    const withBonus = checkEvolution(1, "STAMINA", 80, 10, 10, false, "STUDY");
+    vi.restoreAllMocks();
+
+    expect(withoutBonus.newPath).toBe("STAMINA_STAMINA");
+    expect(withBonus.newPath).toBe("STAMINA_STUDY");
+  });
+
+  it("eggBonusCategoryがnullでも正常に動作すること", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const result = checkEvolution(1, "STUDY", 10, 0, 0, false, null);
+    expect(result.evolved).toBe(true);
+    vi.restoreAllMocks();
+  });
+
+  it("転生判定にeggBonusCategoryは影響しないこと", () => {
+    const result = checkEvolution(3, "STUDY_STAMINA_LIFE", REBIRTH_THRESHOLD, 0, 0, false, "STUDY");
+    expect(result.reborn).toBe(true);
   });
 });
 

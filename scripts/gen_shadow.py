@@ -1,7 +1,7 @@
 """
 モンスター画像から影版webpを生成するスクリプト。
 透明部分はそのまま、不透明ピクセルはすべて暗紫色 (25, 20, 50) に置換する。
-出力先: public/monsters/shadow/ および public/monsters/shadow/light/
+出力先: public/monsters/shadow/dark/ および public/monsters/shadow/light/
 """
 import os
 from pathlib import Path
@@ -27,7 +27,7 @@ def make_shadow(src: Path, dst: Path) -> None:
 def main() -> None:
     base = Path(__file__).parent.parent / "public" / "monsters"
     targets = [
-        (base, base / "shadow"),
+        (base / "dark", base / "shadow" / "dark"),
         (base / "light", base / "shadow" / "light"),
     ]
     for src_dir, dst_dir in targets:

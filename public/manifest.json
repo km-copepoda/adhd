@@ -2,7 +2,7 @@
   "name": "QuestBoard",
   "short_name": "QB",
   "description": "クエストをクリアしてモンスターを育てよう！",
-  "start_url": "/",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "background_color": "#07080f",

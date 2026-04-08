@@ -10,19 +10,16 @@
  */
 import { test, expect } from "./fixtures";
 
-const FAMILY_CODE = "VJZQSH";
-const VERCEL_HOSTNAME = "adhd-git-develop-km-copepodas-projects.vercel.app";
-
 test.describe("S9: 子供ユーザー管理", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/parent/family");
+    await page.goto("/app/parent/family");
     await expect(page.getByRole("heading", { name: /ファミリー管理/ })).toBeVisible({
       timeout: 15000,
     });
   });
 
   test("ファミリー管理ページが正しく表示される", async ({ page }) => {
-    await expect(page.getByText("ファミリーコード")).toBeVisible();
+    await expect(page.getByText("ファミリーコード", { exact: true })).toBeVisible();
     await expect(page.getByText("メンバー")).toBeVisible();
     await expect(page.getByRole("button", { name: /子どもを追加/ })).toBeVisible();
   });
@@ -47,7 +44,7 @@ test.describe("S9: 子供ユーザー管理", () => {
     await expect(page.locator('input[placeholder="例: りゅうくん"]')).not.toBeVisible();
   });
 
-  test("子供ユーザーを作成しログインし削除できる", async ({ page, browser }) => {
+  test("子供ユーザーを作成し削除できる", async ({ page }) => {
     const childName = `E2E_${Date.now()}`;
 
     // --- 1. 子供ユーザーを作成 ---
@@ -56,8 +53,8 @@ test.describe("S9: 子供ユーザー管理", () => {
 
     await page.fill('input[placeholder="例: りゅうくん"]', childName);
 
-    // ライトサイドを選択
-    await page.getByRole("button", { name: /ライト/ }).click();
+    // かわいい系スタイルを選択
+    await page.getByRole("button", { name: /かわいい/ }).click();
 
     await page.getByRole("button", { name: /^追加$/ }).click();
 
@@ -75,43 +72,9 @@ test.describe("S9: 子供ユーザー管理", () => {
     expect(childCode).toBeTruthy();
     expect(childCode!.trim()).toMatch(/^\d{4}$/);
 
-    // --- 4. 新しいコンテキストで子供ログインをテスト ---
-    // 親セッションのまま /child/login に遷移するとミドルウェアが /parent/tasks にリダイレクトするため、
-    // 認証なしの新コンテキストを作成してテストする
-    const childContext = await browser.newContext({
-      baseURL: `https://${VERCEL_HOSTNAME}`,
-    });
-    const childPage = await childContext.newPage();
+    // ログインフローは s3 (S3: 子供ログイン) でカバー済み
 
-    // Vercel デプロイ保護の bypass ヘッダーを設定
-    const secret = process.env.VERCEL_BYPASS_SECRET;
-    if (secret) {
-      await childPage.route(`**/${VERCEL_HOSTNAME}/**`, async (route) => {
-        await route.continue({
-          headers: {
-            ...route.request().headers(),
-            "x-vercel-protection-bypass": secret,
-          },
-        });
-      });
-    }
-
-    try {
-      await childPage.goto(`https://${VERCEL_HOSTNAME}/child/login`);
-      await expect(childPage.locator('input[placeholder="ABC123"]')).toBeVisible({
-        timeout: 15000,
-      });
-
-      await childPage.fill('input[placeholder="ABC123"]', FAMILY_CODE);
-      await childPage.fill('input[placeholder="1234"]', childCode!.trim());
-      await childPage.click('button:has-text("ログイン")');
-
-      await expect(childPage).toHaveURL(/\/child\/quests/, { timeout: 15000 });
-    } finally {
-      await childContext.close();
-    }
-
-    // --- 5. 子供ユーザーを削除 ---
+    // --- 4. 子供ユーザーを削除 ---
     // 削除ボタン（一段階目: 確認ダイアログ表示）をクリック
     await memberRow.getByRole("button", { name: /^削除$/ }).click();
 

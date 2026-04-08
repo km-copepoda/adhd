@@ -2,7 +2,7 @@
  * S5: 子供クエスト完了報告フロー
  * 前提: as-child プロジェクト（storageState: child-light.json）で実行
  *
- * - /child/quests が表示される
+ * - /app/child/quests が表示される
  * - PENDING クエストをクリックするとアクションシートが開く
  * - 「⚔ クエスト完了！」を押すと成功画面が表示される
  * - 報告後クエストのステータスが「確認中...」になる
@@ -11,7 +11,7 @@ import { test, expect } from "./fixtures";
 
 test.describe("S5: 子供クエスト完了報告", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/child/quests");
+    await page.goto("/app/child/quests");
     // ローディングスピナーが消えるまで待つ
     await expect(page.getByRole("heading", { name: /今日のクエスト/ })).toBeVisible({
       timeout: 15000,

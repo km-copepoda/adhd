@@ -23,7 +23,7 @@ describe("スキップフロー（申請→親承認→SKIPPED）", () => {
   beforeAll(async () => {
     await cleanAll();
     ({ family, parent, child } = await seedFamily());
-    task = await seedTask(family.id);
+    task = await seedTask(family.id, { assignedChildId: child.id });
 
     // クエスト生成
     mockAsUser({ ...child, familyId: family.id });

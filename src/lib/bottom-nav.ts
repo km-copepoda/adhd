@@ -3,5 +3,5 @@
  * ログイン（onboarding）画面では非表示にする。
  */
 export function shouldShowBottomNav(pathname: string): boolean {
-  return pathname !== "/child/login";
+  return pathname !== "/app/child/login";
 }

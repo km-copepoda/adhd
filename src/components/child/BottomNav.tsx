@@ -6,10 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
 
 const tabs: { href: string; emoji: string; label: string; disabled?: boolean }[] = [
-  { href: "/child/quests", emoji: "⚔️", label: "クエスト" },
-  { href: "/child/monster", emoji: "🐣", label: "育成" },
-  { href: "/child/zukan", emoji: "📖", label: "図鑑" },
-  { href: "/child/badges", emoji: "🏅", label: "実績" },
+  { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" },
+  { href: "/app/child/monster", emoji: "🐣", label: "育成" },
+  { href: "/app/child/zukan", emoji: "📖", label: "図鑑" },
+  { href: "/app/child/badges", emoji: "🏅", label: "実績" },
 ];
 
 export default function BottomNav() {
@@ -20,7 +20,7 @@ export default function BottomNav() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/child/login";
+    window.location.href = "/app/child/login";
   }
 
   return (

@@ -31,7 +31,7 @@ export default function LoginStreakChecker() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 px-6"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/85 px-6"
       onClick={() => setCutin(null)}
       style={{ animation: "fadeIn 0.3s ease-out" }}
     >
