@@ -221,8 +221,7 @@ export function selectEvolutionPath(
 
 // ─── checkEvolution ───────────────────────────────────
 // 進化チェック。進化した場合はパラメータをリセットし新パスを返す。
-// ステージ0→1（孵化）はパス選択なし（newPath = ""）
-// ステージ1以降の進化でパスを加重乱数で選択し追記する。
+// 全ステージ（孵化含む）で加重乱数によるパス選択を行い、evolutionPath に追記する。
 export function checkEvolution(
   evolutionStage: number,
   evolutionPath: string,
