@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { isIOS, isInStandaloneMode, shouldShowInstallPrompt } from "@/lib/ios-install";
+import { isIOS, isIPad, isInStandaloneMode, shouldShowInstallPrompt } from "@/lib/ios-install";
 
 describe("isIOS", () => {
   const originalNavigator = global.navigator;
@@ -13,23 +13,39 @@ describe("isIOS", () => {
 
   it("iPhone の userAgent を検出する", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" },
+      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", maxTouchPoints: 5 },
       configurable: true,
     });
     expect(isIOS()).toBe(true);
   });
 
-  it("iPad の userAgent を検出する", () => {
+  it("旧 iPad の userAgent を検出する", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" },
+      value: { userAgent: "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", maxTouchPoints: 5 },
       configurable: true,
     });
     expect(isIOS()).toBe(true);
+  });
+
+  it("iPadOS 13+ (UA が Macintosh) を maxTouchPoints で検出する", () => {
+    Object.defineProperty(global, "navigator", {
+      value: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", maxTouchPoints: 5 },
+      configurable: true,
+    });
+    expect(isIOS()).toBe(true);
+  });
+
+  it("Mac デスクトップ (maxTouchPoints=0) は false", () => {
+    Object.defineProperty(global, "navigator", {
+      value: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", maxTouchPoints: 0 },
+      configurable: true,
+    });
+    expect(isIOS()).toBe(false);
   });
 
   it("Android の userAgent は false", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" },
+      value: { userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36", maxTouchPoints: 5 },
       configurable: true,
     });
     expect(isIOS()).toBe(false);
@@ -37,10 +53,40 @@ describe("isIOS", () => {
 
   it("Desktop Chrome の userAgent は false", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
+      value: { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", maxTouchPoints: 0 },
       configurable: true,
     });
     expect(isIOS()).toBe(false);
+  });
+});
+
+describe("isIPad", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("旧 iPad の userAgent を iPad と判定する", () => {
+    Object.defineProperty(global, "navigator", {
+      value: { userAgent: "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15", maxTouchPoints: 5 },
+      configurable: true,
+    });
+    expect(isIPad()).toBe(true);
+  });
+
+  it("iPadOS 13+ (Macintosh UA + maxTouchPoints>1) を iPad と判定する", () => {
+    Object.defineProperty(global, "navigator", {
+      value: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", maxTouchPoints: 5 },
+      configurable: true,
+    });
+    expect(isIPad()).toBe(true);
+  });
+
+  it("iPhone は iPad でない", () => {
+    Object.defineProperty(global, "navigator", {
+      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", maxTouchPoints: 5 },
+      configurable: true,
+    });
+    expect(isIPad()).toBe(false);
   });
 });
 
@@ -85,7 +131,16 @@ describe("shouldShowInstallPrompt", () => {
 
   it("iOS + ブラウザモード + 未dismiss なら true", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", standalone: false },
+      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", standalone: false, maxTouchPoints: 5 },
+      configurable: true,
+    });
+    vi.stubGlobal("window", { matchMedia: () => ({ matches: false }), localStorage: { getItem: vi.fn().mockReturnValue(null) } });
+    expect(shouldShowInstallPrompt()).toBe(true);
+  });
+
+  it("iPad (iPadOS 13+) + ブラウザモード + 未dismiss なら true", () => {
+    Object.defineProperty(global, "navigator", {
+      value: { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15", standalone: false, maxTouchPoints: 5 },
       configurable: true,
     });
     vi.stubGlobal("window", { matchMedia: () => ({ matches: false }), localStorage: { getItem: vi.fn().mockReturnValue(null) } });
@@ -94,7 +149,7 @@ describe("shouldShowInstallPrompt", () => {
 
   it("すでに standalone モードなら false", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", standalone: true },
+      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", standalone: true, maxTouchPoints: 5 },
       configurable: true,
     });
     expect(shouldShowInstallPrompt()).toBe(false);
@@ -102,7 +157,7 @@ describe("shouldShowInstallPrompt", () => {
 
   it("非iOS なら false", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120", standalone: false },
+      value: { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120", standalone: false, maxTouchPoints: 0 },
       configurable: true,
     });
     vi.stubGlobal("window", { matchMedia: () => ({ matches: false }), localStorage: { getItem: vi.fn().mockReturnValue(null) } });
@@ -111,7 +166,7 @@ describe("shouldShowInstallPrompt", () => {
 
   it("dismiss 済みなら false", () => {
     Object.defineProperty(global, "navigator", {
-      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", standalone: false },
+      value: { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", standalone: false, maxTouchPoints: 5 },
       configurable: true,
     });
     vi.stubGlobal("window", {

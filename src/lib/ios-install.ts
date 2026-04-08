@@ -1,8 +1,19 @@
 const IOS_INSTALL_DISMISSED_KEY = "ios-install-prompt-dismissed";
 
+export function isIPad(): boolean {
+  if (typeof navigator === "undefined") return false;
+  // 旧iPadOS: UAに "iPad" が含まれる
+  if (/iPad/.test(navigator.userAgent)) return true;
+  // iPadOS 13+: UAが "Macintosh" に変わるが maxTouchPoints > 1
+  if (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+
 export function isIOS(): boolean {
   if (typeof navigator === "undefined") return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (/iPhone|iPod/.test(navigator.userAgent)) return true;
+  if (isIPad()) return true;
+  return false;
 }
 
 export function isInStandaloneMode(): boolean {

@@ -45,7 +45,7 @@ export default function IOSInstallPrompt() {
             ホーム画面に追加してアプリとして使えます
           </p>
           <p style={{ color: "#94a3b8", fontSize: 13, margin: 0, lineHeight: 1.5 }}>
-            下のバーの{" "}
+            {"画面内の"}{" "}
             <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: "#7dd3fc" }}>
               <ShareIcon />
               {" "}共有ボタン
