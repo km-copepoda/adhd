@@ -21,6 +21,7 @@ import {
   getUnreadAchievements,
   shouldShowMonsterBadge,
   shouldShowZukanBadge,
+  getNewBadgeCount,
   distributeBonus,
   generateFamilyCode,
   generateChildCode,
@@ -727,6 +728,34 @@ describe("getUnreadAchievements", () => {
   it("境界値: ちょうどマイルストーン日数で達成とみなすこと", () => {
     expect(getUnreadAchievements(3, [])).toHaveLength(1);
     expect(getUnreadAchievements(2, [])).toHaveLength(0);
+  });
+});
+
+// ─── getNewBadgeCount ────────────────────────────────
+
+describe("getNewBadgeCount", () => {
+  it("lastSeenCount が null（未訪問）なら 0 を返すこと", () => {
+    expect(getNewBadgeCount(5, null)).toBe(0);
+  });
+
+  it("解除数が前回より多い場合は差分を返すこと", () => {
+    expect(getNewBadgeCount(5, "3")).toBe(2);
+  });
+
+  it("解除数が前回と同じなら 0 を返すこと", () => {
+    expect(getNewBadgeCount(5, "5")).toBe(0);
+  });
+
+  it("解除数が前回より少ない（あり得ないが）場合は 0 を返すこと", () => {
+    expect(getNewBadgeCount(3, "5")).toBe(0);
+  });
+
+  it("初回訪問後（lastSeen='0'）に1個解除された場合は 1 を返すこと", () => {
+    expect(getNewBadgeCount(1, "0")).toBe(1);
+  });
+
+  it("解除数も前回も 0 なら 0 を返すこと", () => {
+    expect(getNewBadgeCount(0, "0")).toBe(0);
   });
 });
 

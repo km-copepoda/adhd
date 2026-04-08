@@ -394,6 +394,21 @@ export function shouldShowZukanBadge(
   return currentCount > parseInt(lastSeenCount, 10);
 }
 
+/**
+ * 実績タブのバッジ件数を返す。
+ * lastSeenCount が null（未訪問）なら 0。
+ * 解除済み件数が前回確認時より増えた分を返す（負にはならない）。
+ */
+export function getNewBadgeCount(
+  unlockedCount: number,
+  lastSeenCount: string | null
+): number {
+  if (lastSeenCount === null) return 0;
+  const seen = parseInt(lastSeenCount, 10);
+  if (isNaN(seen)) return 0;
+  return Math.max(0, unlockedCount - seen);
+}
+
 /** 現在のストリーク数で達成済みだが未読（seenTitles に含まれない）の実績リストを返す */
 export function getUnreadAchievements(
   currentStreak: number,

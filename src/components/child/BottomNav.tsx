@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
-import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, STREAK_MILESTONES } from "@/lib/constants";
+import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, getNewBadgeCount, STREAK_MILESTONES } from "@/lib/constants";
 
 const SEEN_KEY = "seenAchievementTitles";
+const SEEN_BADGE_COUNT_KEY = "lastSeenBadgeUnlockedCount";
 
 const tabs: { href: string; emoji: string; label: string; badgeKey?: "monster" | "zukan" | "badges" }[] = [
   { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" },
@@ -23,11 +24,16 @@ export default function BottomNav() {
   const [badgesCount, setBadgesCount] = useState(0);
   const statusRef = useRef<{ evolutionStage: number; collectedCount: number } | null>(null);
   const streakRef = useRef<number | null>(null);
+  const unlockedBadgeCountRef = useRef<number | null>(null);
 
-  function updateBadgesCount(streak: number) {
+  function computeBadgesCount(streak: number, unlockedCount: number | null) {
     try {
       const seenTitles = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]") as string[];
-      setBadgesCount(getUnreadAchievements(streak, seenTitles).length);
+      const milestoneCount = getUnreadAchievements(streak, seenTitles).length;
+      const badgeCount = unlockedCount !== null
+        ? getNewBadgeCount(unlockedCount, localStorage.getItem(SEEN_BADGE_COUNT_KEY))
+        : 0;
+      setBadgesCount(milestoneCount + badgeCount);
     } catch {
       setBadgesCount(0);
     }
@@ -50,7 +56,16 @@ export default function BottomNav() {
       .then((d) => {
         const streak = d.currentStreak ?? 0;
         streakRef.current = streak;
-        updateBadgesCount(streak);
+        computeBadgesCount(streak, unlockedBadgeCountRef.current);
+      })
+      .catch(() => {});
+
+    fetch("/api/badges/unseen-count")
+      .then((r) => r.json())
+      .then((d) => {
+        const count = d.unlockedCount ?? 0;
+        unlockedBadgeCountRef.current = count;
+        computeBadgesCount(streakRef.current ?? 0, count);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,9 +84,12 @@ export default function BottomNav() {
       const streak = streakRef.current ?? 0;
       const achieved = STREAK_MILESTONES.filter((m) => m.days <= streak).map((m) => m.title);
       localStorage.setItem(SEEN_KEY, JSON.stringify(achieved));
+      if (unlockedBadgeCountRef.current !== null) {
+        localStorage.setItem(SEEN_BADGE_COUNT_KEY, String(unlockedBadgeCountRef.current));
+      }
       setBadgesCount(0);
     } else if (streakRef.current !== null) {
-      updateBadgesCount(streakRef.current);
+      computeBadgesCount(streakRef.current, unlockedBadgeCountRef.current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
