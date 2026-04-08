@@ -14,7 +14,7 @@ export type BadgeContext = {
   evolutionStage: number;
   rebirthCount: number;        // collectedPaths の長さ
   totalXp: number;             // studyPt + staminaPt + lifePt
-  collectionCount: number;     // rebirthCount と同値
+  collectionCount: number;     // ( rebirthCount - 1 ) / 3 をして切り捨てた値が転生回数
 
   // コレクション系
   hasStudyCollection: boolean;
@@ -448,7 +448,7 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
 
   // コレクション解析
   const collectedPathsList = JSON.parse(user.collectedPaths || "[]") as string[];
-  const rebirthCount = collectedPathsList.length;
+  const rebirthCount = Math.floor((collectedPathsList.length - 1) / 3);
   const hasStudyCollection = collectedPathsList.some(p => p.startsWith("STUDY"));
   const hasStaminaCollection = collectedPathsList.some(p => p.startsWith("STAMINA"));
   const hasLifeCollection = collectedPathsList.some(p => p.startsWith("LIFE"));
