@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import PushSubscriber from "@/components/parent/PushSubscriber";
-import { usePendingApprovalCount } from "@/hooks/usePendingApprovalCount";
+import { usePendingCounts } from "@/hooks/usePendingApprovalCount";
 
 const links = [
-  { href: "/app/parent/tasks", emoji: "📋", label: "タスク管理" },
-  { href: "/app/parent/approve", emoji: "✅", label: "承認", pendingBadge: true },
+  { href: "/app/parent/tasks", emoji: "📋", label: "タスク管理", badgeKey: "tasks" as const },
+  { href: "/app/parent/approve", emoji: "✅", label: "承認", badgeKey: "approvals" as const },
   { href: "/app/parent/completed", emoji: "🏆", label: "今日の完了" },
   { href: "/app/parent/history", emoji: "📅", label: "過去の記録" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "ファミリー" },
@@ -16,7 +16,7 @@ const links = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const pendingCount = usePendingApprovalCount();
+  const counts = usePendingCounts();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -33,7 +33,8 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-1">
         {links.map((link) => {
           const isActive = pathname?.startsWith(link.href);
-          const hasBadge = "pendingBadge" in link && link.pendingBadge && pendingCount > 0;
+          const badgeCount = "badgeKey" in link ? counts[link.badgeKey] : 0;
+          const hasBadge = badgeCount > 0;
           return (
             <Link
               key={link.href}
@@ -50,7 +51,7 @@ export default function Sidebar() {
                 {hasBadge ? "🔔" : link.emoji}
                 {hasBadge && (
                   <span className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                    {pendingCount > 99 ? "99+" : pendingCount}
+                    {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
               </span>
