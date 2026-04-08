@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isIPad, shouldShowInstallPrompt, dismissInstallPrompt } from "@/lib/ios-install";
+import { shouldShowInstallPrompt, dismissInstallPrompt } from "@/lib/ios-install";
 
 export default function IOSInstallPrompt() {
   const [show, setShow] = useState(false);
-  const [isPad, setIsPad] = useState(false);
 
   useEffect(() => {
     setShow(shouldShowInstallPrompt());
-    setIsPad(isIPad());
   }, []);
 
   if (!show) return null;
@@ -47,7 +45,7 @@ export default function IOSInstallPrompt() {
             ホーム画面に追加してアプリとして使えます
           </p>
           <p style={{ color: "#94a3b8", fontSize: 13, margin: 0, lineHeight: 1.5 }}>
-            {isPad ? "画面上部の" : "画面下部の"}{" "}
+            {"画面内の"}{" "}
             <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: "#7dd3fc" }}>
               <ShareIcon />
               {" "}共有ボタン
