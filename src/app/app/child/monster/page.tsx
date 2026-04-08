@@ -617,12 +617,9 @@ export default function MonsterPage() {
         {params.map((p) => {
           const label = CATEGORY_LABEL[p.key];
           const color = CATEGORY_COLOR[p.key];
-          const approvedPct = xpInfo.xpToEvolve !== null
-            ? Math.min(100, Math.round((p.value / xpInfo.xpToEvolve) * 100))
-            : 100;
-          const pendingPct = xpInfo.xpToEvolve !== null
-            ? Math.min(100 - approvedPct, Math.round((p.pending / xpInfo.xpToEvolve) * 100))
-            : 0;
+          const threshold = xpInfo.xpToEvolve ?? REBIRTH_THRESHOLD;
+          const approvedPct = Math.min(100, Math.round((p.value / threshold) * 100));
+          const pendingPct = Math.min(100 - approvedPct, Math.round((p.pending / threshold) * 100));
 
           return (
             <div

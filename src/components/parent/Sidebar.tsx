@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import PushSubscriber from "@/components/parent/PushSubscriber";
+import { usePendingCounts } from "@/hooks/usePendingApprovalCount";
 
 const links = [
-  { href: "/app/parent/tasks", emoji: "📋", label: "タスク管理" },
-  { href: "/app/parent/approve", emoji: "✅", label: "承認" },
+  { href: "/app/parent/tasks", emoji: "📋", label: "タスク管理", badgeKey: "tasks" as const },
+  { href: "/app/parent/approve", emoji: "✅", label: "承認", badgeKey: "approvals" as const },
   { href: "/app/parent/completed", emoji: "🏆", label: "今日の完了" },
   { href: "/app/parent/history", emoji: "📅", label: "過去の記録" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "ファミリー" },
@@ -15,6 +16,7 @@ const links = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const counts = usePendingCounts();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -31,6 +33,8 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-1">
         {links.map((link) => {
           const isActive = pathname?.startsWith(link.href);
+          const badgeCount = "badgeKey" in link ? counts[link.badgeKey] : 0;
+          const hasBadge = badgeCount > 0;
           return (
             <Link
               key={link.href}
@@ -38,10 +42,19 @@ export default function Sidebar() {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 isActive
                   ? "bg-quest-gold/10 text-quest-gold border border-quest-gold/20"
+                  : hasBadge
+                  ? "text-orange-400 hover:text-orange-300 hover:bg-orange-400/5"
                   : "text-quest-dim hover:text-quest-text hover:bg-white/5"
               }`}
             >
-              <span>{link.emoji}</span>
+              <span className="relative">
+                {hasBadge ? "🔔" : link.emoji}
+                {hasBadge && (
+                  <span className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </span>
+                )}
+              </span>
               <span>{link.label}</span>
             </Link>
           );

@@ -66,6 +66,7 @@ model User {
   taskStreaks         TaskStreak[]
   assignedTasks       TaskTemplate[]     @relation("AssignedTasks")
   pushSubscriptions   PushSubscription[]
+  badges              UserBadge[]
   createdAt           DateTime           @default(now())
 
   @@unique([familyId, childCode])
@@ -85,7 +86,8 @@ model TaskTemplate {
   requestedDate    DateTime?       @db.Date
   familyId         String
   family           Family          @relation(fields: [familyId], references: [id])
-  photoBonus       Boolean         @default(false)
+  photoBonus          Boolean         @default(false)
+  originalCreatedBy   Role            @default(PARENT)
   assignedChildId  String?
   assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests           QuestInstance[]
@@ -145,6 +147,17 @@ model TaskStreak {
   updatedAt        DateTime     @updatedAt
 
   @@unique([taskId, childId])
+}
+
+model UserBadge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId    String
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
 }
 
 model PushSubscription {

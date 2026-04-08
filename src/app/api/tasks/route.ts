@@ -94,6 +94,7 @@ export async function POST(request: Request) {
       requestedDate: !isTemporary && user.role === "CHILD" ? todayDate : null,
       photoBonus: body.photoBonus === true,
       createdBy: user.role,
+      originalCreatedBy: user.role,
       familyId: user.familyId,
       assignedChildId,
     },

@@ -176,6 +176,7 @@ describe("POST /api/tasks", () => {
         requestedDate: null,
         photoBonus: false,
         createdBy: "PARENT",
+        originalCreatedBy: "PARENT",
         familyId: "fam-1",
         assignedChildId: "child-1",
       },

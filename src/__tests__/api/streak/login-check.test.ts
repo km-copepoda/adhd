@@ -4,6 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { POST } from "@/app/api/streak/login-check/route";
 import { childUser, streak, parentUser } from "../../helpers/fixtures";
 
+vi.mock("@/lib/badges", () => ({
+  checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
