@@ -20,7 +20,11 @@ export function usePendingApprovalCount() {
 
     fetchCount();
     const interval = setInterval(fetchCount, 30_000);
-    return () => clearInterval(interval);
+    window.addEventListener("approvalUpdated", fetchCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("approvalUpdated", fetchCount);
+    };
   }, []);
 
   return count;
