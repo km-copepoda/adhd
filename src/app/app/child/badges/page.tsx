@@ -34,6 +34,10 @@ export default function BadgesPage() {
         if (d.newlyUnlocked.length > 0) {
           setNewIds(new Set(d.newlyUnlocked));
         }
+        // 訪問時点の解除数を記録してBottomNavバッジをクリア
+        try {
+          localStorage.setItem("lastSeenBadgeUnlockedCount", String(d.unlockedCount));
+        } catch { /* ignore */ }
       })
       .finally(() => setLoading(false));
   }, []);
