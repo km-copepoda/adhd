@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
 import { xpRangeLabel } from "@/lib/xpRange";
 import { computeQuestSuccessDisplay } from "@/lib/questProgress";
+import { fireCompletionConfetti } from "@/lib/confetti";
 import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
@@ -98,6 +99,13 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
   const isSubmitting = sheetState === "submitting";
   const isSuccess = sheetState === "success-complete" || sheetState === "success-skip";
 
+  // confetti effect on completion
+  useEffect(() => {
+    if (sheetState !== "success-complete") return;
+    const { allDone } = computeQuestSuccessDisplay(questsCompleted, questsTotal);
+    fireCompletionConfetti(allDone);
+  }, [sheetState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center px-4"
@@ -116,28 +124,80 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
           <div className="text-center py-8 px-5">
             {sheetState === "success-complete" ? (
               <>
-                <p className="text-5xl mb-3">🎉</p>
-                <p className="text-2xl font-black text-quest-gold mb-1">クエスト報告完了！</p>
-                <p className="text-xs text-quest-dim mb-4">親の確認でポイント確定</p>
+                <div
+                  style={{
+                    animation: "successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+                  }}
+                >
+                  <p className="text-7xl mb-2">🎉</p>
+                </div>
+                <p
+                  className="text-2xl font-black mb-1"
+                  style={{
+                    animation: "successFadeUp 0.4s ease 0.15s both",
+                    color: "#FFD700",
+                    textShadow: "0 0 20px rgba(255,215,0,0.6)",
+                  }}
+                >
+                  クエスト完了！
+                </p>
+                <p
+                  className="text-xs text-quest-dim mb-5"
+                  style={{ animation: "successFadeUp 0.4s ease 0.25s both" }}
+                >
+                  親の確認でポイント確定
+                </p>
                 {/* Quest progress */}
                 {questsTotal > 0 && (() => {
-                  // questsCompleted は onReport 内の refreshQuests() 完了後に
-                  // 既に更新された値が渡されるため +1 不要
                   const { completed, remaining, allDone } = computeQuestSuccessDisplay(questsCompleted, questsTotal);
                   return (
-                    <div className="bg-quest-bg rounded-xl px-4 py-3 text-sm">
+                    <div
+                      className="rounded-xl px-4 py-3 text-sm"
+                      style={{
+                        animation: "successFadeUp 0.4s ease 0.35s both",
+                        background: allDone
+                          ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,107,0.1))"
+                          : "var(--color-quest-bg)",
+                        border: allDone ? "1px solid rgba(255,215,0,0.4)" : undefined,
+                      }}
+                    >
                       <p className="text-quest-dim text-xs mb-1">今日のクエスト</p>
                       <p className="font-bold text-quest-text">
                         {completed} / {questsTotal} 完了
                       </p>
                       {allDone ? (
-                        <p className="text-quest-gold font-bold mt-1">🏆 全部クリア！すごい！</p>
+                        <p
+                          className="font-black mt-1 text-base"
+                          style={{
+                            color: "#FFD700",
+                            textShadow: "0 0 12px rgba(255,215,0,0.7)",
+                            animation: "successPulse 0.8s ease 0.5s both",
+                          }}
+                        >
+                          🏆 全部クリア！すごい！
+                        </p>
                       ) : (
-                        <p className="text-quest-dim text-xs mt-1">あと{remaining}個！</p>
+                        <p className="text-quest-dim text-xs mt-1">あと{remaining}個！がんばれ！</p>
                       )}
                     </div>
                   );
                 })()}
+                <style>{`
+                  @keyframes successPop {
+                    0% { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+                    70% { transform: scale(1.2) rotate(5deg); }
+                    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+                  }
+                  @keyframes successFadeUp {
+                    from { opacity: 0; transform: translateY(12px); }
+                    to { opacity: 1; transform: translateY(0); }
+                  }
+                  @keyframes successPulse {
+                    0% { transform: scale(0.8); opacity: 0; }
+                    60% { transform: scale(1.1); }
+                    100% { transform: scale(1); opacity: 1; }
+                  }
+                `}</style>
               </>
             ) : (
               <>
