@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { onApprovalsUpdated } from "@/lib/approval-events";
 
 type PendingCounts = { approvals: number; tasks: number };
 
@@ -23,6 +24,9 @@ export function usePendingCounts(): PendingCounts {
 
     fetchCounts();
 
+    // 承認操作後の直接通知（Realtime の補完）
+    const unsubApproval = onApprovalsUpdated(fetchCounts);
+
     const supabase = createClient();
     const channel = supabase
       .channel("pending-counts-changes")
@@ -30,7 +34,10 @@ export function usePendingCounts(): PendingCounts {
       .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, fetchCounts)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      unsubApproval();
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return counts;

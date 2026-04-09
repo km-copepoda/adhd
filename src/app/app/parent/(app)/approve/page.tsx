@@ -7,6 +7,7 @@ import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { xpRangeLabel, calcActualXP } from "@/lib/xpRange";
+import { notifyApprovalsUpdated } from "@/lib/approval-events";
 
 type PendingQuest = {
   id: string;
@@ -95,6 +96,7 @@ export default function ApprovePage() {
       });
     }
 
+    notifyApprovalsUpdated();
     fetchPending();
   }
 
@@ -116,6 +118,7 @@ export default function ApprovePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),
     });
+    notifyApprovalsUpdated();
     fetchPending();
   }
 
