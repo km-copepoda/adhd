@@ -8,6 +8,7 @@
  * - ストリークカードが表示される
  * - 合計ポイントカードが表示される
  * - パラメータカード（学力/体力/生活力）が表示される
+ * - 転生ボタンは新規アカウントでは表示されない（rebirthPending=false）
  */
 import { test, expect } from "./fixtures";
 
@@ -44,5 +45,16 @@ test.describe("S11: 育成画面", () => {
   test("たまごまたは進化途中のステージである（孵化/進化テキストが表示される）", async ({ page }) => {
     // s10（as-parent）でXPが付与されて孵化済みの場合は「進化」、まだなら「孵化」
     await expect(page.getByText(/孵化|進化/)).toBeVisible();
+  });
+
+  test("新規アカウントは転生ボタンが表示されない", async ({ page }) => {
+    // 転生ボタンは rebirthPending=true のときのみ表示される
+    // 新規アカウントは rebirthPending=false なので表示されない
+    await expect(page.getByRole("button", { name: /転生する！/ })).not.toBeVisible();
+  });
+
+  test("新規アカウントは卵選択オーバーレイが表示されない", async ({ page }) => {
+    // 転生ボタンがないため卵選択オーバーレイも表示されない
+    await expect(page.getByText("卵を選ぼう")).not.toBeVisible();
   });
 });

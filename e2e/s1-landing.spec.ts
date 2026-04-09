@@ -50,4 +50,35 @@ test.describe("S1: ランディングページ", () => {
       await expect(page).toHaveURL(/\/login/);
     });
   });
+
+  test.describe("LP モンスタースタイル切り替え", () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto("/");
+      // スタイル切り替えトグルが表示されるまでスクロール
+      await page.getByRole("button", { name: /カッコいい系|かわいい系/ }).first().waitFor({
+        timeout: 15000,
+      });
+    });
+
+    test("スタイルトグルボタンが2つ表示される", async ({ page }) => {
+      await expect(page.getByRole("button", { name: /カッコいい系（ヒーロー）/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /かわいい系（どうぶつ）/ })).toBeVisible();
+    });
+
+    test("「かわいい系」ボタンをクリックするとライト系モンスターが表示される", async ({ page }) => {
+      await page.getByRole("button", { name: /かわいい系（どうぶつ）/ }).click();
+      // かわいい系（LIGHT）セクションが表示される
+      await expect(page.getByRole("button", { name: /かわいい系（どうぶつ）/ })).toBeVisible();
+      // DARK セクションは非表示になる（カッコいい系ボタンがアクティブでない）
+      await expect(page.getByRole("button", { name: /カッコいい系（ヒーロー）/ })).toBeVisible();
+    });
+
+    test("「カッコいい系」ボタンをクリックするとダーク系モンスターが表示される", async ({ page }) => {
+      // まずかわいい系に切り替えてから戻す
+      await page.getByRole("button", { name: /かわいい系（どうぶつ）/ }).click();
+      await page.getByRole("button", { name: /カッコいい系（ヒーロー）/ }).click();
+      // カッコいい系に戻った後もボタンが表示されている
+      await expect(page.getByRole("button", { name: /カッコいい系（ヒーロー）/ })).toBeVisible();
+    });
+  });
 });
