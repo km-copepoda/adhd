@@ -6,6 +6,7 @@ import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
 import { xpRangeLabel } from "@/lib/xpRange";
+import { notifyApprovalsUpdated } from "@/lib/approval-events";
 
 type Task = {
   id: string;
@@ -121,6 +122,7 @@ export default function TasksPage() {
     if (res.ok) {
       if (isEditingPending && editingId) {
         await fetch(`/api/tasks/${editingId}`, { method: "PATCH" });
+        notifyApprovalsUpdated();
       }
       resetForm();
       fetchTasks();
@@ -129,6 +131,7 @@ export default function TasksPage() {
 
   async function handleApprove(id: string) {
     await fetch(`/api/tasks/${id}`, { method: "PATCH" });
+    notifyApprovalsUpdated();
     fetchTasks();
   }
 
