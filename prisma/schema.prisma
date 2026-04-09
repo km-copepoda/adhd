@@ -107,6 +107,7 @@ model QuestInstance {
   photoUrl            String?
   deadlineBonusEarned Boolean   @default(false)
   rejectionReason     String?
+  approvalStamp       String?
   templateId       String
   template   TaskTemplate @relation(fields: [templateId], references: [id])
   childId    String

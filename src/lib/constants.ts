@@ -1,5 +1,17 @@
 import type { Category, MonsterPath } from "@/types";
 
+// 承認スタンプ（親が承認時に子供へ送るスタンプ）
+export const APPROVAL_STAMPS = [
+  { emoji: "⭐", label: "よくできた" },
+  { emoji: "🎉", label: "すごい" },
+  { emoji: "👏", label: "えらい" },
+  { emoji: "💪", label: "がんばった" },
+  { emoji: "🌟", label: "さすが" },
+  { emoji: "❤️", label: "うれしい" },
+  { emoji: "🏆", label: "完璧" },
+  { emoji: "🎯", label: "ぴったり" },
+] as const;
+
 // Category labels
 export const CATEGORY_LABEL: Record<Category, { emoji: string; name: string }> = {
   STUDY: { emoji: "📚", name: "学力" },

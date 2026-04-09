@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, REJECTION_REASONS } from "@/lib/constants";
+import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";
@@ -47,6 +47,8 @@ export default function ApprovePage() {
   const [copyDates, setCopyDates] = useState<Record<string, string>>({});
   const [rejectModal, setRejectModal] = useState<RejectModalState | null>(null);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
+  const [stampModal, setStampModal] = useState<PendingQuest | null>(null);
+  const [selectedStamp, setSelectedStamp] = useState<string>("");
 
   useEffect(() => {
     fetchPending();
@@ -74,11 +76,11 @@ export default function ApprovePage() {
     }
   }
 
-  async function handleAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string) {
+  async function handleAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string, stamp?: string) {
     await fetch(`/api/approve/${quest.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, rejectionReason, rejectionComment }),
+      body: JSON.stringify({ action, rejectionReason, rejectionComment, ...(stamp ? { stamp } : {}) }),
     });
 
     // スキップ承認 + 一時タスク + コピーオン の場合、翌日にコピー
@@ -160,7 +162,14 @@ export default function ApprovePage() {
           return (
             <div
               key={quest.id}
-              onClick={() => handleAction(quest, "approve")}
+              onClick={() => {
+                if (isSkipRequest) {
+                  handleAction(quest, "approve");
+                } else {
+                  setSelectedStamp("");
+                  setStampModal(quest);
+                }
+              }}
               className={`bg-quest-card border rounded-xl p-5 cursor-pointer transition-colors ${
                 isSkipRequest
                   ? "border-red-400/20 hover:border-red-400/40"
@@ -231,7 +240,7 @@ export default function ApprovePage() {
                     ? "bg-red-400/10 text-red-400 border border-red-400/30"
                     : "btn-gold"
                 }`}>
-                  {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl)}pt)`}
+                  {isSkipRequest ? "✓ スキップを承認" : `⭐ 承認する (+${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl)}pt)`}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); openRejectModal(quest); }}
@@ -313,6 +322,59 @@ export default function ApprovePage() {
                 className="flex-1 text-sm bg-red-400/10 border border-red-400/30 text-red-300 rounded-xl py-2.5 disabled:opacity-40"
               >
                 差し戻す
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* スタンプ選択モーダル */}
+      {stampModal && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-end justify-center z-[60] p-4"
+          onClick={() => setStampModal(null)}
+        >
+          <div
+            className="bg-quest-card border border-quest-border rounded-2xl p-5 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-medium mb-1">スタンプを選んで承認</h2>
+            <p className="text-xs text-quest-dim mb-4">
+              {stampModal.child.monsterName || stampModal.child.name} の「{stampModal.template.title}」
+            </p>
+
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {APPROVAL_STAMPS.map(({ emoji, label }) => (
+                <button
+                  key={emoji}
+                  onClick={() => setSelectedStamp((s) => s === emoji ? "" : emoji)}
+                  className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border transition-colors ${
+                    selectedStamp === emoji
+                      ? "border-quest-gold/60 bg-quest-gold/10 text-quest-gold"
+                      : "border-quest-border text-quest-dim hover:border-quest-gold/30"
+                  }`}
+                >
+                  <span className="text-2xl">{emoji}</span>
+                  <span className="text-[10px]">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStampModal(null)}
+                className="flex-1 text-sm border border-quest-border rounded-xl py-2.5 text-quest-dim"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => {
+                  handleAction(stampModal, "approve", undefined, undefined, selectedStamp || undefined);
+                  setStampModal(null);
+                }}
+                className="flex-1 btn-gold text-sm py-2.5"
+              >
+                {selectedStamp ? `${selectedStamp} 承認する` : "✓ 承認する"}
               </button>
             </div>
           </div>

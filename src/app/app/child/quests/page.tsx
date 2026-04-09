@@ -16,6 +16,7 @@ type Quest = {
   status: QuestStatus;
   comment: string | null;
   rejectionReason: string | null;
+  approvalStamp: string | null;
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
   hasDeadline: boolean;
@@ -458,7 +459,13 @@ export default function QuestsPage() {
 
                       {isApproved ? (
                         <div className="flex flex-col items-end gap-0.5">
-                          <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</div>
+                          {quest.approvalStamp ? (
+                            <div className="w-9 h-9 rounded-full bg-quest-gold/10 border border-quest-gold/30 flex items-center justify-center text-xl animate-pulse-once">
+                              {quest.approvalStamp}
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</div>
+                          )}
                           <span className="text-[9px] text-green-400/70">承認済み</span>
                         </div>
                       ) : isReported ? (
