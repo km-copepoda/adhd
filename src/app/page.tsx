@@ -108,7 +108,7 @@ export default function LpPage() {
               { n: "01", icon: "📋", title: "親がクエストを設定", desc: "「宿題をする」「歯磨きをする」といった日常タスクをクエストとして登録。曜日ごとの繰り返しや一時クエストも設定できる。" },
               { n: "02", icon: "⚔", title: "子どもがクリア＆報告", desc: "子ども用画面でクエストをタップしてクリア報告。写真を添付するとボーナス XP ゲット！期限内報告でもボーナス。" },
               { n: "03", icon: "✅", title: "親が承認・プッシュ通知", desc: "報告が届くとプッシュ通知。ワンタップで承認するとXPが確定。未承認のまま翌日を迎えると自動承認される。" },
-              { n: "04", icon: "🐉", title: "XP でモンスターが進化", desc: "XP が貯まるとモンスターが成長・進化。勉強・体力・生活力の3系統、カッコいい系＆かわいい系の2スタイルで全79種。転生してコレクションを広げよう！" },
+              { n: "04", icon: "🐉", title: "XP でモンスターが進化・転生", desc: "XP が貯まるとモンスターが成長・進化。最終形態に達すると「転生ボタン」が出現。勉強・体力・生活力の卵を自分で選んで次サイクルをスタート！選んだ卵の系統は進化確率+20%のボーナス。全79種コレクション＋100種の実績バッジを目指そう。" },
             ].map((step, i) => (
               <div key={i} className={`${styles.stepCard} ${styles.fadeIn}`}>
                 <div className={styles.stepNumber}>{step.n}</div>
@@ -145,8 +145,8 @@ export default function LpPage() {
 
             <div className={`${styles.featureCard} ${styles.fLife} ${styles.fadeIn}`}>
               <div className={styles.featureIcon}>🔄</div>
-              <div className={styles.featureTitle}>転生とコレクション</div>
-              <p className={styles.featureDesc}>最終形態に到達したら転生して再び卵に。過去のモンスターは図鑑に記録。全79種コンプリートを目指す長期モチベーション。</p>
+              <div className={styles.featureTitle}>手動転生 × 卵選択ボーナス</div>
+              <p className={styles.featureDesc}>最終形態に到達すると「転生ボタン」が出現。子どもが自分のタイミングで次サイクルを開始できる。卵の種類（勉強・体力・生活力）を選ぶと、その系統の進化確率に+20%ボーナス。過去のモンスターは図鑑に記録され、全79種コンプリートが長期目標になる。</p>
               <span className={`${styles.featureTag} ${styles.tagLife}`}>REBIRTH SYSTEM</span>
             </div>
 
@@ -183,6 +183,13 @@ export default function LpPage() {
               <div className={styles.featureTitle}>カッコいい系 or かわいい系を選べる</div>
               <p className={styles.featureDesc}>モンスターのビジュアルスタイルをふたつから選択。勇者・戦士系のカッコいい「ヒーロー系」か、動物・ファンタジー系のかわいい「どうぶつ系」か。好みのスタイルで39種×2 + 卵1 = 全79種のコレクション。</p>
               <span className={`${styles.featureTag} ${styles.tagPurple}`}>CHARACTER STYLE</span>
+            </div>
+
+            <div className={`${styles.featureCard} ${styles.fGold} ${styles.fadeIn}`}>
+              <div className={styles.featureIcon}>🏅</div>
+              <div className={styles.featureTitle}>100種類の実績バッジ</div>
+              <p className={styles.featureDesc}>初クエスト・連続ログイン・写真撮影・転生回数など多彩な条件で100種類のバッジを解除。「気づいたら達成していた」という小さな驚きが積み重なり、継続するモチベーションをさらに後押しする。</p>
+              <span className={`${styles.featureTag} ${styles.tagGold}`}>BADGE SYSTEM</span>
             </div>
           </div>
         </div>
@@ -352,7 +359,7 @@ export default function LpPage() {
               { icon: "🤝", color: styles.adhdIconPurple,  title: "子どもの自発性を尊重", desc: "子どもが自分でタスクを追加し、親が承認する仕組み。自己管理の練習になりながら、親の監督権限も維持する適切なバランス。" },
               { icon: "⏭", color: styles.adhdIconPink,    title: "スキップにも親承認フロー", desc: "「今日はできない」と正直に申告してスキップを申請。親が承認すればストリーク継続。子どものコンディションに寄り添いつつ、安易なスキップを防ぐ。" },
               { icon: "⏱", color: styles.adhdIconGold,    title: "時間の見える化", desc: "子どもは「もうこんな時間！」となりがち。報告期限を子どもごとに設定でき、期限内に報告するとボーナス XP が得られるため、「今日の締め切り」を自然に意識するきっかけになる。" },
-              { icon: "🎯", color: styles.adhdIconStudy,   title: "多段階の小さな達成感", desc: "タスク完了（+1pt）、期限内報告（+1pt）、写真ボーナス（+1pt）と報酬トリガーを複数設定。ログインストリーク達成でも追加 XP。1日の中で何度も「できた！」が積み重なる設計。" },
+              { icon: "🎯", color: styles.adhdIconStudy,   title: "多段階の小さな達成感", desc: "タスク完了（+1pt）、期限内報告（+1pt）、写真ボーナス（+1pt）と報酬トリガーを複数設定。ログインストリーク達成でも追加 XP。さらに100種の実績バッジが「気づいたら達成！」という驚きを加え、1日に何度も「できた！」が積み重なる設計。" },
               { icon: "⚔", color: styles.adhdIconLife,    title: "「クエスト」形式でタスク開始のハードルを下げる", desc: "「宿題をやりなさい」より「クエストをクリアしよう！」の方が子どもは動きやすい。ゲームとしてのフレーミングが先延ばしを抑制し、自発的なタスク開始を促す。" },
               { icon: "🧠", color: styles.adhdIconPurple,  title: "やること一覧をアプリが管理", desc: "「何をするべきか」を毎日アプリが提示するため、子ども自身が全部覚えておく必要がない。「タスクを忘れてしまう」「どれから手をつければいいかわからない」という困りごとをアプリの構造でサポート。" },
               { icon: "💬", color: styles.adhdIconStamina, title: "親子のポジティブな関わりを増やす", desc: "叱る・指示する場面を減らし、「クエスト承認」という形で親が子どもを認める機会を作る。承認・XP付与という肯定的な体験の積み重ねが、子どもの自己肯定感を育てる。" },
@@ -506,6 +513,63 @@ export default function LpPage() {
                     <button type="button" style={{ flex: 1, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--dim)", fontSize: 9, padding: 6, borderRadius: 8, cursor: "pointer" }}>
                       📋 タスク管理
                     </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 子ども: 実績バッジ */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>🏅 子ども — 実績バッジ</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`}>
+                  <div className={styles.sHeader}>
+                    <div className={styles.sTitle}>BADGES</div>
+                    <div className={styles.sXp}>🏅 12 / 100</div>
+                  </div>
+                  {/* 新バッジ解除演出 */}
+                  <div className={styles.notifyBubble} style={{ background: "rgba(240,192,64,0.1)", borderLeft: "3px solid var(--gold)" }}>
+                    <div className={styles.notifyDot} style={{ background: "var(--gold)" }} />
+                    <div className={styles.notifyText} style={{ color: "var(--gold)" }}>🏅 新バッジ解除！「3日連続クリア」</div>
+                  </div>
+                  <div className={styles.sSectionLabel}>最近の解除</div>
+                  {/* バッジ一覧 */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                    {[
+                      { icon: "⚔", label: "初クリア", unlocked: true },
+                      { icon: "🔥", label: "3日連続", unlocked: true },
+                      { icon: "📸", label: "写真初投稿", unlocked: true },
+                      { icon: "🥚", label: "孵化！", unlocked: true },
+                      { icon: "📚", label: "宿題10回", unlocked: true },
+                      { icon: "🌟", label: "7日連続", unlocked: false },
+                      { icon: "🔄", label: "初転生", unlocked: false },
+                      { icon: "💪", label: "体力30pt", unlocked: false },
+                    ].map((b, i) => (
+                      <div key={i} style={{
+                        background: b.unlocked ? "rgba(240,192,64,0.1)" : "var(--card2)",
+                        border: `1px solid ${b.unlocked ? "rgba(240,192,64,0.4)" : "var(--border)"}`,
+                        borderRadius: 8,
+                        padding: "6px 2px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 2,
+                        opacity: b.unlocked ? 1 : 0.4,
+                      }}>
+                        <span style={{ fontSize: 18, filter: b.unlocked ? "none" : "grayscale(1)" }}>{b.icon}</span>
+                        <span style={{ fontSize: 7, color: b.unlocked ? "var(--gold)" : "var(--dim)", textAlign: "center", lineHeight: 1.2 }}>{b.unlocked ? b.label : "？？？"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.sSectionLabel}>進捗</div>
+                  <div style={{ background: "var(--card2)", borderRadius: 8, padding: 8, fontSize: 9, color: "var(--dim)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span>全100バッジ達成まで</span>
+                      <span style={{ color: "var(--gold)" }}>12%</span>
+                    </div>
+                    <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ width: "12%", height: "100%", background: "var(--gold)", borderRadius: 2 }} />
+                    </div>
                   </div>
                 </div>
               </div>
