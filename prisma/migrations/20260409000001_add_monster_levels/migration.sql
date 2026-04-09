@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "monsterLevels" TEXT NOT NULL DEFAULT '{}';

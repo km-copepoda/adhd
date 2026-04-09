@@ -16,6 +16,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 type ZukanData = {
   side: string | null;
   collectedPaths: string;
+  monsterLevels: string;
 };
 
 function shadowPath(imagePath: string): string {
@@ -77,7 +78,7 @@ export default function ZukanPage() {
       .then((r) => r.json())
       .then((d: ZukanData) => {
         const paths = d.collectedPaths ?? "[]";
-        setData({ side: d.side ?? null, collectedPaths: paths });
+        setData({ side: d.side ?? null, collectedPaths: paths, monsterLevels: d.monsterLevels ?? "{}" });
         // 図鑑を開いた時点で「見た」とマーク → BottomNav バッジをクリア
         const count = (JSON.parse(paths) as string[]).length;
         localStorage.setItem("lastSeenCollectedCount", String(count));
@@ -88,6 +89,7 @@ export default function ZukanPage() {
   if (loading || !data) return <LoadingSpinner />;
 
   const collected = new Set<string>(JSON.parse(data.collectedPaths) as string[]);
+  const monsterLevels = JSON.parse(data.monsterLevels) as Record<string, number>;
   const monsterTable = data.side === "LIGHT" ? MONSTER_TABLE_LIGHT : MONSTER_TABLE;
   const eggData = data.side === "LIGHT" ? EGG_STAGE_LIGHT : EGG_STAGE;
   const total = collected.size;
@@ -227,6 +229,8 @@ export default function ZukanPage() {
                       {s3Keys.map((s3) => {
                         const m3 = monsterTable[s3];
                         const isS3Collected = collected.has(s3);
+                        // Lv: monsterLevels に記録があればその値、収集済みだが記録なし（旧データ）は 1
+                        const lv = monsterLevels[s3] ?? (isS3Collected ? 1 : 0);
                         return (
                           <div
                             key={s3}
@@ -247,6 +251,18 @@ export default function ZukanPage() {
                             <p className="text-[8px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
                               {isS3Collected ? m3.name : "？？？"}
                             </p>
+                            {isS3Collected && (
+                              <span
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: "bold",
+                                  color: lv >= 2 ? "#fbbf24" : "#a78bfa",
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                Lv {lv}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
