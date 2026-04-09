@@ -331,12 +331,9 @@ export default function LpPage() {
           )}
 
           <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-            <div className={`${styles.monsterCountBadge} ${styles.fadeIn}`} style={{ display: "inline-flex" }}>
+            <div className={`${styles.monsterCountBadge} ${styles.fadeIn}`}>
               <span>🥚</span>
-              <span>卵 1 + (stage1 </span><strong>3</strong>
-              <span> + stage2 </span><strong>9</strong>
-              <span> + stage3 </span><strong>27</strong>
-              <span>) × 2スタイル = 合計</span><strong>79</strong><span>種</span>
+              <span>卵 1 + (stage1 <strong>3</strong> + stage2 <strong>9</strong> + stage3 <strong>27</strong>) × 2スタイル = 合計<strong>79</strong>種</span>
             </div>
           </div>
         </div>
@@ -726,7 +723,7 @@ function MonsterPath({ label, s, stage1, stage2, stage3 }: MonsterPathProps) {
         <div className={s.monsterStage}>
           <div className={s.monsterItem}>
             <div className={s.monsterImgWrap}>
-              <MonsterImg src={stage1.src} alt={stage1.name} fallback={stage1.fallback} style={{ width: 52, height: 52, objectFit: "contain" }} />
+              <MonsterImg src={stage1.src} alt={stage1.name} fallback={stage1.fallback} style={{ width: 72, height: 72, objectFit: "contain" }} />
             </div>
             <div className={s.monsterItemName}>{stage1.name}</div>
           </div>
@@ -736,8 +733,8 @@ function MonsterPath({ label, s, stage1, stage2, stage3 }: MonsterPathProps) {
         <div className={s.monsterStage} style={{ gap: 6 }}>
           {stage2.map((m) => (
             <div key={m.name} className={`${s.monsterItem} ${!m.revealed ? s.monsterShadow : ""}`}>
-              <div className={s.monsterImgWrap} style={{ width: 52, height: 52 }}>
-                <MonsterImg src={m.src} alt={m.name} fallback={m.fallback} style={{ width: 44, height: 44, objectFit: "contain" }} />
+              <div className={s.monsterImgWrap} style={{ width: 72, height: 72 }}>
+                <MonsterImg src={m.src} alt={m.name} fallback={m.fallback} style={{ width: 62, height: 62, objectFit: "contain" }} />
               </div>
               <div className={s.monsterItemName}>{m.name}</div>
             </div>
@@ -745,11 +742,11 @@ function MonsterPath({ label, s, stage1, stage2, stage3 }: MonsterPathProps) {
         </div>
         <div className={s.pathArrow}>↓</div>
         {/* Stage 3 */}
-        <div className={s.monsterStage} style={{ gap: 4 }}>
+        <div className={s.monsterStage} style={{ gap: 6 }}>
           {stage3.map((m) => (
             <div key={m.name} className={`${s.monsterItem} ${s.monsterShadow}`}>
-              <div className={s.monsterImgWrap} style={{ width: 46, height: 46 }}>
-                <MonsterImg src={m.src} alt={m.name} fallback={m.fallback} style={{ width: 38, height: 38, objectFit: "contain" }} />
+              <div className={s.monsterImgWrap} style={{ width: 64, height: 64 }}>
+                <MonsterImg src={m.src} alt={m.name} fallback={m.fallback} style={{ width: 54, height: 54, objectFit: "contain" }} />
               </div>
               <div className={s.monsterItemName} style={{ fontSize: 8 }}>{m.name}</div>
             </div>
