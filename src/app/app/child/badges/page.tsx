@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ALL_BADGES } from "@/lib/badges";
 import { createClient } from "@/lib/supabase/client";
 
 type BadgeData = {
@@ -29,7 +28,10 @@ export default function BadgesPage() {
 
   const fetchBadges = () => {
     fetch("/api/badges")
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d: BadgesResponse) => {
         setData(d);
         if (d.newlyUnlocked.length > 0) {
@@ -40,6 +42,7 @@ export default function BadgesPage() {
           localStorage.setItem("lastSeenBadgeUnlockedCount", String(d.unlockedCount));
         } catch { /* ignore */ }
       })
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   };
 
