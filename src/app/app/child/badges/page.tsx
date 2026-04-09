@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type BadgeData = {
   id: string;
@@ -59,11 +60,7 @@ export default function BadgesPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-quest-bg flex items-center justify-center">
-        <div className="text-quest-dim text-sm animate-pulse">読み込み中...</div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!data) {
