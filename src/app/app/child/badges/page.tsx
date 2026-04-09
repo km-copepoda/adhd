@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ALL_BADGES } from "@/lib/badges";
+import { createClient } from "@/lib/supabase/client";
 
 type BadgeData = {
   id: string;
@@ -26,16 +27,28 @@ export default function BadgesPage() {
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
+  const fetchBadges = () => {
     fetch("/api/badges")
       .then(r => r.json())
       .then((d: BadgesResponse) => {
         setData(d);
         if (d.newlyUnlocked.length > 0) {
-          setNewIds(new Set(d.newlyUnlocked));
+          setNewIds(prev => new Set([...prev, ...d.newlyUnlocked]));
         }
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchBadges();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("badge-changes")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, fetchBadges)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   if (loading) {
