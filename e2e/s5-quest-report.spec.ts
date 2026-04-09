@@ -68,7 +68,7 @@ test.describe("S5: 子供クエスト完了報告", () => {
     await page.getByRole("button", { name: /クエスト完了/ }).click();
 
     // 成功画面が表示される
-    await expect(page.getByText("クエスト報告完了！")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("クエスト完了！")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("親の確認でポイント確定")).toBeVisible();
   });
 
