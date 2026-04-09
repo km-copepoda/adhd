@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/constants";
 import { calcActualXP } from "@/lib/xpRange";
 import type { Category } from "@/types";
@@ -74,6 +74,7 @@ export default function HistoryPage() {
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const firstLoad = useRef(true);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
 
   // 子供一覧を取得（初回のみ）
@@ -117,7 +118,10 @@ export default function HistoryPage() {
     fetch(`/api/quests/history?date=${formatDate(selectedDate)}&childId=${selectedChildId}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setItems(data))
-      .finally(() => setLoadingItems(false));
+      .finally(() => {
+        firstLoad.current = false;
+        setLoadingItems(false);
+      });
   }, [selectedDate, selectedChildId]);
 
   const approved = items.filter((i) => i.status === "APPROVED");
@@ -136,7 +140,7 @@ export default function HistoryPage() {
   const selectedChild = children.find((c) => c.id === selectedChildId);
   const childDisplayName = selectedChild?.monsterName || selectedChild?.name || "";
 
-  if (loadingSummary) {
+  if (loadingSummary || (firstLoad.current && loadingItems)) {
     return (
       <div className="flex justify-center py-20">
         <LoadingSpinner />
