@@ -73,8 +73,7 @@ export default function HistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
-  const [loadingSummary, setLoadingSummary] = useState(false);
-  const [loadingChildren, setLoadingChildren] = useState(true);
+  const [loadingSummary, setLoadingSummary] = useState(true);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
 
   // 子供一覧を取得（初回のみ）
@@ -90,9 +89,12 @@ export default function HistoryPage() {
             monsterName: m.monsterName,
           }));
         setChildren(kids);
-        if (kids.length > 0) setSelectedChildId(kids[0].id);
-      })
-      .finally(() => setLoadingChildren(false));
+        if (kids.length > 0) {
+          setSelectedChildId(kids[0].id);
+        } else {
+          setLoadingSummary(false);
+        }
+      });
   }, []);
 
   // 月次サマリーを取得（月・子供が変わったとき）
@@ -134,7 +136,7 @@ export default function HistoryPage() {
   const selectedChild = children.find((c) => c.id === selectedChildId);
   const childDisplayName = selectedChild?.monsterName || selectedChild?.name || "";
 
-  if (loadingChildren || loadingSummary) {
+  if (loadingSummary) {
     return (
       <div className="flex justify-center py-20">
         <LoadingSpinner />
