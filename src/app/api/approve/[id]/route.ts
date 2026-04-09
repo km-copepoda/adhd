@@ -15,7 +15,7 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { action, rejectionReason, rejectionComment } = await request.json();
+  const { action, rejectionReason, rejectionComment, stamp } = await request.json();
 
   const quest = await prisma.questInstance.findUnique({
     where: { id },
@@ -60,7 +60,7 @@ export async function POST(
   }
 
   // 通常承認
-  await approveQuestInstance(quest);
+  await approveQuestInstance(quest, stamp ?? undefined);
 
   rlog.done("Quest approved", {
     questId: id,
