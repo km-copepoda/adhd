@@ -9,6 +9,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
+import { computeCompletedCount } from "@/lib/questProgress";
 
 type Quest = {
   id: string;
@@ -167,9 +168,7 @@ export default function QuestsPage() {
     }));
   }
 
-  const completedCount = quests.filter(
-    (q) => q.status === "REPORTED" || q.status === "APPROVED"
-  ).length;
+  const completedCount = computeCompletedCount(quests);
 
   const provisionalPt = quests
     .filter((q) => q.status === "REPORTED")
