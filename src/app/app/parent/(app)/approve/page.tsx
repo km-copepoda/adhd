@@ -96,7 +96,6 @@ export default function ApprovePage() {
     }
 
     fetchPending();
-    window.dispatchEvent(new CustomEvent("approvalUpdated"));
   }
 
   function openRejectModal(quest: PendingQuest) {
@@ -118,7 +117,6 @@ export default function ApprovePage() {
       body: JSON.stringify({ ids }),
     });
     fetchPending();
-    window.dispatchEvent(new CustomEvent("approvalUpdated"));
   }
 
   const canSubmitReject = rejectModal && rejectModal.selectedReason &&
