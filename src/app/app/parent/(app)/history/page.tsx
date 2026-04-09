@@ -74,6 +74,7 @@ export default function HistoryPage() {
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [loadingChildren, setLoadingChildren] = useState(true);
   const [photoModal, setPhotoModal] = useState<string | null>(null);
 
   // 子供一覧を取得（初回のみ）
@@ -90,7 +91,8 @@ export default function HistoryPage() {
           }));
         setChildren(kids);
         if (kids.length > 0) setSelectedChildId(kids[0].id);
-      });
+      })
+      .finally(() => setLoadingChildren(false));
   }, []);
 
   // 月次サマリーを取得（月・子供が変わったとき）
@@ -131,6 +133,14 @@ export default function HistoryPage() {
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
   const childDisplayName = selectedChild?.monsterName || selectedChild?.name || "";
+
+  if (loadingChildren || loadingSummary) {
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -206,65 +216,57 @@ export default function HistoryPage() {
           </button>
         </div>
 
-        {loadingSummary ? (
-          <div className="flex justify-center py-8">
-            <LoadingSpinner />
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-7 text-center text-xs text-quest-dim mb-1">
-              {DAY_LABELS.map((d) => (
-                <span key={d} className="py-1">{d}</span>
-              ))}
-            </div>
+        <div className="grid grid-cols-7 text-center text-xs text-quest-dim mb-1">
+          {DAY_LABELS.map((d) => (
+            <span key={d} className="py-1">{d}</span>
+          ))}
+        </div>
 
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} />
-              ))}
-              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                const d = new Date(year, month, day);
-                const isFuture = d > today;
-                const dateStr = formatDate(d);
-                const isSelected = dateStr === formatDate(selectedDate);
-                const isToday = dateStr === formatDate(today);
-                const heatLevel = isFuture ? "none" : getHeatLevel(monthlySummary?.days[dateStr]);
+        <div className="grid grid-cols-7 gap-1 text-center text-xs">
+          {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+            const d = new Date(year, month, day);
+            const isFuture = d > today;
+            const dateStr = formatDate(d);
+            const isSelected = dateStr === formatDate(selectedDate);
+            const isToday = dateStr === formatDate(today);
+            const heatLevel = isFuture ? "none" : getHeatLevel(monthlySummary?.days[dateStr]);
 
-                return (
-                  <button
-                    key={day}
-                    onClick={() => !isFuture && setSelectedDate(d)}
-                    disabled={isFuture}
-                    className={[
-                      "aspect-square rounded-md flex items-center justify-center transition-transform text-xs",
-                      isFuture
-                        ? "text-quest-dim/20 cursor-default"
-                        : `${HEAT_CLASS[heatLevel]} hover:scale-110`,
-                      isSelected ? "outline outline-2 outline-quest-gold outline-offset-1" : "",
-                      isToday && !isSelected ? "outline outline-2 outline-teal-400 outline-offset-1" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  >
-                    {day}
-                  </button>
-                );
-              })}
-            </div>
+            return (
+              <button
+                key={day}
+                onClick={() => !isFuture && setSelectedDate(d)}
+                disabled={isFuture}
+                className={[
+                  "aspect-square rounded-md flex items-center justify-center transition-transform text-xs",
+                  isFuture
+                    ? "text-quest-dim/20 cursor-default"
+                    : `${HEAT_CLASS[heatLevel]} hover:scale-110`,
+                  isSelected ? "outline outline-2 outline-quest-gold outline-offset-1" : "",
+                  isToday && !isSelected ? "outline outline-2 outline-teal-400 outline-offset-1" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
 
-            {/* 凡例 */}
-            <div className="flex items-center gap-1.5 mt-3 justify-end text-[9px] text-quest-dim/70">
-              <div className="w-2.5 h-2.5 rounded-sm bg-quest-card border border-quest-border" />
-              <span>なし</span>
-              <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/20 ml-1" />
-              <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/45" />
-              <div className="w-2.5 h-2.5 rounded-sm bg-quest-gold/55 border border-quest-gold" />
-              <span>完了多</span>
-              <div className="w-2.5 h-2.5 rounded-sm bg-orange-500/20 ml-1" />
-              <span>スキップ</span>
-            </div>
-          </>
-        )}
+        {/* 凡例 */}
+        <div className="flex items-center gap-1.5 mt-3 justify-end text-[9px] text-quest-dim/70">
+          <div className="w-2.5 h-2.5 rounded-sm bg-quest-card border border-quest-border" />
+          <span>なし</span>
+          <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/20 ml-1" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/45" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-quest-gold/55 border border-quest-gold" />
+          <span>完了多</span>
+          <div className="w-2.5 h-2.5 rounded-sm bg-orange-500/20 ml-1" />
+          <span>スキップ</span>
+        </div>
       </div>
 
       {/* 選択日ヘッダー */}
