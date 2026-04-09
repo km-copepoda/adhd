@@ -30,6 +30,7 @@ export async function GET() {
     evolutionStage: user.evolutionStage,
     evolutionPath: user.evolutionPath,
     collectedPaths: user.collectedPaths,
+    monsterLevels: user.monsterLevels,
     studyPt: user.studyPt,
     staminaPt: user.staminaPt,
     lifePt: user.lifePt,

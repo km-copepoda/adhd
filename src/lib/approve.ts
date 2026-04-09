@@ -34,6 +34,7 @@ type FreshChildData = {
   evolutionStage: number;
   evolutionPath: string;
   collectedPaths: string;
+  monsterLevels: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -61,6 +62,7 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
       evolutionStage: true,
       evolutionPath: true,
       collectedPaths: true,
+      monsterLevels: true,
       studyPt: true,
       staminaPt: true,
       lifePt: true,
@@ -104,6 +106,7 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
     );
 
     let collectedPaths = JSON.parse(child.collectedPaths) as string[];
+    const monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
 
     if (evolution.reborn) {
       // 転生閾値到達: pendingフラグをセット（実際のリセットはユーザー操作後）
@@ -122,6 +125,9 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
         if (!collectedPaths.includes(evolution.newPath)) {
           collectedPaths = [...collectedPaths, evolution.newPath];
         }
+        if (evolution.newStage === 3) {
+          monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
+        }
         log.info("Monster evolved", {
           childId: quest.childId,
           stage: evolution.newStage,
@@ -137,6 +143,7 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
           evolutionStage: evolution.newStage,
           evolutionPath: evolution.newPath,
           collectedPaths: JSON.stringify(collectedPaths),
+          monsterLevels: JSON.stringify(monsterLevels),
         },
       });
     }

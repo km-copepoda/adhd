@@ -91,6 +91,7 @@ describe("POST /api/approve/[id]", () => {
           evolutionStage: 1,
           evolutionPath: "STUDY",
           collectedPaths: '["STUDY"]',
+          monsterLevels: "{}",
         },
       });
       vi.restoreAllMocks();
@@ -203,6 +204,7 @@ describe("POST /api/approve/[id]", () => {
           evolutionStage: 1,
           evolutionPath: "",
           collectedPaths: "[]",
+          monsterLevels: "{}",
         },
       });
     });
