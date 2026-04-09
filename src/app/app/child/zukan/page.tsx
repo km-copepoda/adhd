@@ -256,7 +256,11 @@ export default function ZukanPage() {
                                 style={{
                                   fontSize: 8,
                                   fontWeight: "bold",
-                                  color: lv >= 2 ? "#fbbf24" : "#a78bfa",
+                                  color: lv >= 5 ? "#fbbf24"
+                                       : lv === 4 ? "#fb923c"
+                                       : lv === 3 ? "#60a5fa"
+                                       : lv === 2 ? "#a78bfa"
+                                       : "#9ca3af",
                                   letterSpacing: "0.05em",
                                 }}
                               >
