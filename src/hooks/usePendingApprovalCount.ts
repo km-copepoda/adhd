@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { onApprovalsUpdated } from "@/lib/approval-events";
 
 type PendingCounts = { approvals: number; tasks: number };
 
 export function usePendingCounts(): PendingCounts {
+  const id = useId();
   const [counts, setCounts] = useState<PendingCounts>({ approvals: 0, tasks: 0 });
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export function usePendingCounts(): PendingCounts {
 
     const supabase = createClient();
     const channel = supabase
-      .channel("pending-counts-changes")
+      .channel(`pending-counts-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, fetchCounts)
       .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, fetchCounts)
       .subscribe((status, err) => {
