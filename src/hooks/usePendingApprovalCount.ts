@@ -33,9 +33,7 @@ export function usePendingCounts(): PendingCounts {
       .channel(`pending-counts-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, fetchCounts)
       .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, fetchCounts)
-      .subscribe((status, err) => {
-        console.log("[Realtime] pending-counts:", status, err ?? "");
-      });
+      .subscribe();
 
     return () => {
       unsubApproval();
