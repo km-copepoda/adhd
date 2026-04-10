@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import { getDeadlineDisplay } from "@/lib/date";
@@ -9,6 +9,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
+import { computeCompletedCount } from "@/lib/questProgress";
+import { findNewlyStampedApproval } from "@/lib/stampCelebration";
 
 type Quest = {
   id: string;
@@ -16,6 +18,7 @@ type Quest = {
   status: QuestStatus;
   comment: string | null;
   rejectionReason: string | null;
+  approvalStamp: string | null;
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
   hasDeadline: boolean;
@@ -49,6 +52,8 @@ export default function QuestsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [stampCelebration, setStampCelebration] = useState<{ stamp: string; questTitle: string } | null>(null);
+  const questsRef = useRef<Quest[]>([]);
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -98,12 +103,24 @@ export default function QuestsPage() {
 
   async function refreshQuests() {
     const res = await fetch("/api/quests/today");
-    if (res.ok) setQuests(await res.json());
+    if (!res.ok) return;
+    const newQuests: Quest[] = await res.json();
+    const celebration = findNewlyStampedApproval(questsRef.current, newQuests);
+    if (celebration) setStampCelebration(celebration);
+    questsRef.current = newQuests;
+    setQuests(newQuests);
   }
 
   async function fetchQuests() {
     setLoading(true);
-    await refreshQuests();
+    const res = await fetch("/api/quests/today");
+    if (res.ok) {
+      const loaded: Quest[] = await res.json();
+      // 初回マウント時は questsRef を現在の状態で初期化するが、祝福チェックはしない
+      // （画面遷移で戻ってきたとき既承認クエストの通知が再表示されるバグを防ぐ）
+      questsRef.current = loaded;
+      setQuests(loaded);
+    }
     setLoading(false);
   }
 
@@ -166,9 +183,7 @@ export default function QuestsPage() {
     }));
   }
 
-  const completedCount = quests.filter(
-    (q) => q.status === "REPORTED" || q.status === "APPROVED"
-  ).length;
+  const completedCount = computeCompletedCount(quests);
 
   const provisionalPt = quests
     .filter((q) => q.status === "REPORTED")
@@ -458,7 +473,13 @@ export default function QuestsPage() {
 
                       {isApproved ? (
                         <div className="flex flex-col items-end gap-0.5">
-                          <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</div>
+                          {quest.approvalStamp ? (
+                            <div className="w-9 h-9 rounded-full bg-quest-gold/10 border border-quest-gold/30 flex items-center justify-center text-xl animate-pulse-once">
+                              {quest.approvalStamp}
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-sm">✓</div>
+                          )}
                           <span className="text-[9px] text-green-400/70">承認済み</span>
                         </div>
                       ) : isReported ? (
@@ -516,6 +537,25 @@ export default function QuestsPage() {
           onSkip={handleSkip}
           onClose={() => setActiveQuest(null)}
         />
+      )}
+
+      {/* スタンプ祝福オーバーレイ */}
+      {stampCelebration && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70"
+          onClick={() => setStampCelebration(null)}
+        >
+          <div className="flex flex-col items-center gap-4 select-none">
+            <div className="text-[96px] animate-stamp-pop">
+              {stampCelebration.stamp}
+            </div>
+            <div className="text-center">
+              <p className="text-white font-bold text-xl">承認されたよ！</p>
+              <p className="text-white/70 text-sm mt-1">「{stampCelebration.questTitle}」</p>
+            </div>
+            <p className="text-white/40 text-xs mt-2">タップで閉じる</p>
+          </div>
+        </div>
       )}
     </>
   );
