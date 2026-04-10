@@ -35,9 +35,13 @@ export function usePendingCounts(): PendingCounts {
       .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, fetchCounts)
       .subscribe();
 
+    const onVisible = () => { if (document.visibilityState === "visible") fetchCounts(); };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       unsubApproval();
       supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

@@ -59,7 +59,13 @@ export default function ApprovePage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, refreshPending)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const onVisible = () => { if (document.visibilityState === "visible") refreshPending(); };
+    document.addEventListener("visibilitychange", onVisible);
+    
+    return () => {
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   async function refreshPending() {

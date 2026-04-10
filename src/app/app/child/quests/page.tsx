@@ -96,7 +96,13 @@ export default function QuestsPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const onVisible = () => { if (documen.visibilityState === "visible") refreshQuests(); };
+    document.addEventListener("visibilitychange", onVisible);
+    
+    return () => {
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   async function fetchMonster() {

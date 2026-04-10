@@ -55,8 +55,14 @@ export default function BadgesPage() {
       .channel("badge-changes")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, fetchBadges)
       .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    
+    const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
+    document.addEventListener("visibilitychange", onVisible);
+    
+    return () => {
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   if (loading) {

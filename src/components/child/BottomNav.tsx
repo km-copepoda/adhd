@@ -98,7 +98,19 @@ export default function BottomNav() {
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    const onVisible == () => {
+      if (document.visibilityState === "visible") {
+        fetchMonsterStatus();
+        fetchBadgesCount();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    
+    return () => {
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
