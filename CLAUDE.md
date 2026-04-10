@@ -48,6 +48,17 @@ export const config = { matcher: [...] };
 
 ---
 
+## 承認ロジック
+
+承認処理の共有ロジックは **`src/lib/approve.ts`** に集約済み。
+
+- `approveQuestInstance(id)` — タスク完了承認（XP付与・ストリーク更新・バッジチェック含む）
+- `approveSkipQuestInstance(id)` — スキップ承認
+
+新たな承認フローを追加する場合はここに追記し、各 API ルートから呼び出す。APIルート内に承認ロジックを直接書かない。
+
+---
+
 ## Claude への作業指示
 
 ### 指示を受ける前に
