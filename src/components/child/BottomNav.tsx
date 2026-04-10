@@ -25,6 +25,7 @@ export default function BottomNav() {
   const [monsterBadge, setMonsterBadge] = useState(false);
   const [zukanBadge, setZukanBadge] = useState(false);
   const [badgesCount, setBadgesCount] = useState(0);
+  const [rebirthReady, setRebirthReady] = useState(false);
   const statusRef = useRef<{ evolutionStage: number; collectedCount: number } | null>(null);
   const streakRef = useRef<number | null>(null);
   const unlockedBadgeCountRef = useRef<number | null>(null);
@@ -50,6 +51,7 @@ export default function BottomNav() {
         statusRef.current = { evolutionStage: d.evolutionStage, collectedCount: count };
         setMonsterBadge(shouldShowMonsterBadge(d.evolutionStage, localStorage.getItem("lastSeenEvolutionStage")));
         setZukanBadge(shouldShowZukanBadge(count, localStorage.getItem("lastSeenCollectedCount")));
+        setRebirthReady(!!d.rebirthPending);
       })
       .catch(() => {});
   }
@@ -164,7 +166,7 @@ export default function BottomNav() {
           const isActive = pathname?.startsWith(tab.href);
           const hasBadge =
             (tab.badgeKey === "quests" && questRemaining > 0 && !isActive) ||
-            (tab.badgeKey === "monster" && monsterBadge) ||
+            (tab.badgeKey === "monster" && (monsterBadge || rebirthReady)) ||
             (tab.badgeKey === "zukan" && zukanBadge) ||
             (tab.badgeKey === "badges" && badgesCount > 0);
           return (
