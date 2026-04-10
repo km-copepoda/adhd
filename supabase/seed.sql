@@ -65,6 +65,12 @@ BEGIN
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE "QuestInstance";
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'User'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE "User";
+  END IF;
 END $$;
 
 -- RLS 再帰を避けるための SECURITY DEFINER ヘルパー関数
