@@ -50,7 +50,7 @@ function calculateXP(quest: QuestWithRelations): number {
   return xp;
 }
 
-export async function approveQuestInstance(quest: QuestWithRelations): Promise<void> {
+export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
   const xp = calculateXP(quest);
   const category = quest.template.category;
 
@@ -80,7 +80,11 @@ export async function approveQuestInstance(quest: QuestWithRelations): Promise<v
 
   await prisma.questInstance.update({
     where: { id: quest.id },
-    data: { status: "APPROVED", approvedAt: new Date() },
+    data: {
+      status: "APPROVED",
+      approvedAt: new Date(),
+      ...(stamp ? { approvalStamp: stamp } : {}),
+    },
   });
 
   if (child.rebirthPending) {

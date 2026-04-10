@@ -267,6 +267,66 @@ describe("POST /api/approve/[id]", () => {
       expect(mockRecordTaskStreak).not.toHaveBeenCalled();
     });
 
+    it("stamp を渡すと questInstance.update に approvalStamp が含まれること", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-stamp",
+        date: new Date("2026-04-09"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { category: "STUDY", createdBy: "PARENT", photoBonus: false, isTemporary: false },
+        child: childData,
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      await POST(
+        makeRequest("/api/approve/q-stamp", { action: "approve", stamp: "⭐" }),
+        makeParams("q-stamp"),
+      );
+
+      expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+        where: { id: "q-stamp" },
+        data: { status: "APPROVED", approvedAt: expect.any(Date), approvalStamp: "⭐" },
+      });
+      vi.restoreAllMocks();
+    });
+
+    it("stamp なしで承認すると approvalStamp は undefined（フィールドなし）であること", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-nostamp",
+        date: new Date("2026-04-09"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { category: "STUDY", createdBy: "PARENT", photoBonus: false, isTemporary: false },
+        child: childData,
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      await POST(
+        makeRequest("/api/approve/q-nostamp", { action: "approve" }),
+        makeParams("q-nostamp"),
+      );
+
+      expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+        where: { id: "q-nostamp" },
+        data: { status: "APPROVED", approvedAt: expect.any(Date) },
+      });
+      vi.restoreAllMocks();
+    });
+
     it("PARENT作成テンプレートの場合、テンプレート承認をスキップすること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
