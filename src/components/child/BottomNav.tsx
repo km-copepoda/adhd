@@ -58,7 +58,7 @@ export default function BottomNav() {
     fetch("/api/quests/today")
       .then((r) => r.json())
       .then((quests: { status: string }[]) => {
-        setQuestRemainin(computeRemainingCount(quests));
+        setQuestRemaining(computeRemainingCount(quests));
       })
       .catch(() => {});
   }
