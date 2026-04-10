@@ -134,7 +134,7 @@ export default function QuestsPage() {
       const loaded: Quest[] = await res.json();
 
       // 別画面にいた間にスタンプ承認された場合の祝福チェック
-      const stored = sessionStrage.getItem("prevQuestStates");
+      const stored = sessionStorage.getItem("prevQuestStates");
       if (stored) {
         try {
           const prev = JSON.parse(stored);
