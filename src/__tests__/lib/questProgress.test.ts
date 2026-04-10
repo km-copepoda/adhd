@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeQuestSuccessDisplay, computeCompletedCount } from "@/lib/questProgress";
+import { computeQuestSuccessDisplay, computeCompletedCount, computeRemainingCount } from "@/lib/questProgress";
 
 describe("computeQuestSuccessDisplay", () => {
   it("completed が 1、total が 1 のとき allDone になる（2/1 にならない）", () => {
@@ -61,5 +61,33 @@ describe("computeCompletedCount", () => {
 
   it("空配列は 0", () => {
     expect(computeCompletedCount([])).toBe(0);
+  });
+});
+
+describe("computeRemainingCount", () => {
+  const q = (status: string) => ({ status });
+  
+  it("PENDING と REJECTED をカウントする", () => {
+    const quests = [q("PENDING"), q("REJECTED"), q("APPROVED")];
+    expect(computeRemainingCount(quests)).toBe(2);
+  });
+
+  it("REPORTED / APPROVED / SKIPPED / SKIP_REPORTED はカウントしない", () => {
+    const quests = [q("REPORTED"), q("APPROVED"), q("SKIPPED"), q("SKIP_REPORTED")];
+    expect(computeRemainingCount(quests)).toBe(0);
+  });
+
+  it("すべて PENDING のとき全数を返す", () => {
+    const quests = [q("PENDING"), q("PENDING"), q("PENDING")];
+    expect(computeRemainingCount(quests)).toBe(3);
+  });
+  
+  it("空配列は 0", () => {
+    expect(computeRemainingCount([])).toBe(0);
+  });
+  
+  it("computeCompletedCount + computeRemainingCount = total になる", () => {
+    const quests = [q("PENDING"), q("REPORTED"), q("APPROVED"), q("REJECTED"), q("SKIPPED"), q("SKIP_REPORTED")];
+    expect(computeCompletedCount(quests) + computeRemainingCount(quests)).toBe(quests.length);
   });
 });

@@ -13,6 +13,15 @@ export function computeCompletedCount(quests: { status: string }[]): number {
   return quests.filter((q) => COMPLETED_STATUSES.has(q.status)).length;
 }
 
+const REMAINING_STATUSES = new Set(["PENDING", "REJECTED"]);
+/**
+ * 未消化（アクションが必要な）クエスト数を返す。
+ * PENDING（未報告）とREJECTED（差し戻し）を含む。
+ */
+export function computeRemainingCount(quests: { status: string }[]): number {
+  return quests.filter((q) => REMAINING_STATUSES.has(q.status)).length;
+}
+
 /**
  * クエスト完了報告後の成功画面に表示する進捗情報を計算する。
  *

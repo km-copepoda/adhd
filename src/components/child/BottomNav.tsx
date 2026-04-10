@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
 import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, getNewBadgeCount, STREAK_MILESTONES } from "@/lib/constants";
+import { computeRemainingCount } from "@/lib/questProgress";
 
 const SEEN_KEY = "seenAchievementTitles";
 const SEEN_BADGE_COUNT_KEY = "lastSeenBadgeUnlockedCount";
@@ -20,7 +21,7 @@ const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | 
 export default function BottomNav() {
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
-  const [questBadge, setQuestBadge] = useState(false);
+  const [questRemaining, setQuestRemaining] = useState(0);
   const [monsterBadge, setMonsterBadge] = useState(false);
   const [zukanBadge, setZukanBadge] = useState(false);
   const [badgesCount, setBadgesCount] = useState(0);
@@ -52,7 +53,16 @@ export default function BottomNav() {
       })
       .catch(() => {});
   }
-    
+  
+  function fetchQuestRemaining() {
+    fetch("/api/quests/today")
+      .then((r) => r.json())
+      .then((quests: { status: string }[]) => {
+        setQuestRemainin(computeRemainingCount(quests));
+      })
+      .catch(() => {});
+  }
+  
   function fetchBadgesCount() {
     fetch("/api/badges/unseen-count")
       .then((r) => r.json())
@@ -67,6 +77,7 @@ export default function BottomNav() {
   // 初回マウント時にモンスター状態とストリークを取得
   useEffect(() => {
     fetchMonsterStatus();
+    fetchQuestRemaining();
 
     fetch("/api/streak")
       .then((r) => r.json())
@@ -93,9 +104,7 @@ export default function BottomNav() {
         fetchBadgesCount();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, () => {
-        if (!pathnameRef.current?.startsWith("/app/child/quests")) {
-          setQuestBadge(true);
-        }
+        fetchQuestRemaining();
       })
       .subscribe();
 
@@ -103,6 +112,7 @@ export default function BottomNav() {
       if (document.visibilityState === "visible") {
         fetchMonsterStatus();
         fetchBadgesCount();
+        fetchQuestRemaining();
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -117,9 +127,6 @@ export default function BottomNav() {
   // パス変更時にバッジを再評価
   useEffect(() => {
     pathnameRef.current = pathname;
-    if (pathname?.startsWith("/app/child/quests")) {
-      setQuestBadge(false);
-    }
   
     const s = statusRef.current;
     if (s) {
@@ -156,7 +163,7 @@ export default function BottomNav() {
         {tabs.map((tab) => {
           const isActive = pathname?.startsWith(tab.href);
           const hasBadge =
-            (tab.badgeKey === "quests" && questBadge) ||
+            (tab.badgeKey === "quests" && questRemaining > 0 && !isActive) ||
             (tab.badgeKey === "monster" && monsterBadge) ||
             (tab.badgeKey === "zukan" && zukanBadge) ||
             (tab.badgeKey === "badges" && badgesCount > 0);
@@ -171,7 +178,14 @@ export default function BottomNav() {
               <span className="relative text-xl">
                 {tab.emoji}
                 {hasBadge && (
-                  tab.badgeKey === "badges" ? (
+                  tab.badgeKey === "quests" ? (
+                    <span
+                      className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"
+                      style={{ lineHeight: 1 }}
+                    >
+                      {questRemaining > 9 ? "9+" : questRemaining}
+                    </span>
+                  ) : tab.badgeKey === "badges" ? (
                     <span
                       className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"
                       style={{ lineHeight: 1 }}
