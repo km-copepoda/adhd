@@ -10,8 +10,8 @@ import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, ge
 const SEEN_KEY = "seenAchievementTitles";
 const SEEN_BADGE_COUNT_KEY = "lastSeenBadgeUnlockedCount";
 
-const tabs: { href: string; emoji: string; label: string; badgeKey?: "monster" | "zukan" | "badges" }[] = [
-  { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" },
+const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | "monster" | "zukan" | "badges" }[] = [
+  { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" , badgeKey: "quests" },
   { href: "/app/child/monster", emoji: "🐣", label: "育成", badgeKey: "monster" },
   { href: "/app/child/zukan", emoji: "📖", label: "図鑑", badgeKey: "zukan" },
   { href: "/app/child/badges", emoji: "🏅", label: "実績", badgeKey: "badges" },
@@ -19,6 +19,8 @@ const tabs: { href: string; emoji: string; label: string; badgeKey?: "monster" |
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  const [questBadge, setQuestBadge] = useState(false);
   const [monsterBadge, setMonsterBadge] = useState(false);
   const [zukanBadge, setZukanBadge] = useState(false);
   const [badgesCount, setBadgesCount] = useState(0);
@@ -39,8 +41,7 @@ export default function BottomNav() {
     }
   }
 
-  // 初回マウント時にモンスター状態とストリークを取得
-  useEffect(() => {
+  function fetchMonsterStatus() {
     fetch("/api/monster-status")
       .then((r) => r.json())
       .then((d) => {
@@ -50,6 +51,22 @@ export default function BottomNav() {
         setZukanBadge(shouldShowZukanBadge(count, localStorage.getItem("lastSeenCollectedCount")));
       })
       .catch(() => {});
+  }
+    
+  function fetchBadgesCount() {
+    fetch("/api/badges/unseen-count")
+      .then((r) => r.json())
+      .then((d) => {
+        const count = d.unlockedCount ?? 0;
+        unlockedBadgeCountRef.current = count;
+        computeBadgesCount(streakRef.current ?? 0, count);
+      })
+      .catch(() => {});
+  }
+
+  // 初回マウント時にモンスター状態とストリークを取得
+  useEffect(() => {
+    fetchMonsterStatus();
 
     fetch("/api/streak")
       .then((r) => r.json())
@@ -60,19 +77,38 @@ export default function BottomNav() {
       })
       .catch(() => {});
 
-    fetch("/api/badges/unseen-count")
-      .then((r) => r.json())
-      .then((d) => {
-        const count = d.unlockedCount ?? 0;
-        unlockedBadgeCountRef.current = count;
-        computeBadgesCount(streakRef.current ?? 0, count);
+    fetchBadgesCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Realtimeでバッジをリアルタイム更新
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("child-nav-realtime")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
+        fetchMonsterStatus();
       })
-      .catch(() => {});
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, () => {
+        fetchBadgesCount();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, () => {
+        if (!pathnameRef.current?.startsWith("/app/child/quests")) {
+          setQuestBadge(true);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // パス変更時にバッジを再評価
   useEffect(() => {
+    pathnameRef.current = pathname;
+    if (pathname?.startsWith("/app/child/quests")) {
+      setQuestBadge(false);
+    }
+  
     const s = statusRef.current;
     if (s) {
       setMonsterBadge(shouldShowMonsterBadge(s.evolutionStage, localStorage.getItem("lastSeenEvolutionStage")));
@@ -108,6 +144,7 @@ export default function BottomNav() {
         {tabs.map((tab) => {
           const isActive = pathname?.startsWith(tab.href);
           const hasBadge =
+            (tab.badgeKey === "quests" && questBadge) ||
             (tab.badgeKey === "monster" && monsterBadge) ||
             (tab.badgeKey === "zukan" && zukanBadge) ||
             (tab.badgeKey === "badges" && badgesCount > 0);

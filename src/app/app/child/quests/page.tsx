@@ -55,6 +55,22 @@ export default function QuestsPage() {
   const [stampCelebration, setStampCelebration] = useState<{ stamp: string; questTitle: string } | null>(null);
   const questsRef = useRef<Quest[]>([]);
 
+  // 離脱時にクエスト状態を保存（別画面から戻った時のスタンプ祝福検知用）
+  useEffect(() => {
+    return () => {
+      if (questsRef.current.length > 0) {
+        sessionStorage.setItem("prevQuestStates", JSON.stringify(
+          questsRef.current.map((q) => ({
+            id: q.id,
+            status: q.status,
+            approvalStamp: q.approvalStamp ?? null,
+            template: { title: q.template.title },
+          })),
+        ));
+      }
+    };
+  }, []);
+
   useEffect(() => {
     fetch("/api/users/me")
       .then((r) => r.json())
@@ -116,8 +132,18 @@ export default function QuestsPage() {
     const res = await fetch("/api/quests/today");
     if (res.ok) {
       const loaded: Quest[] = await res.json();
-      // 初回マウント時は questsRef を現在の状態で初期化するが、祝福チェックはしない
-      // （画面遷移で戻ってきたとき既承認クエストの通知が再表示されるバグを防ぐ）
+
+      // 別画面にいた間にスタンプ承認された場合の祝福チェック
+      const stored = sessionStrage.getItem("prevQuestStates");
+      if (stored) {
+        try {
+          const prev = JSON.parse(stored);
+          const celebration = findNewlyStampedApproval(prev, loaded);
+          if (celebration) setStampCelebration(celebration);
+        } catch { /* ignore */ }
+        sessionStorage.removeItem("prevQuestStates");
+      }
+
       questsRef.current = loaded;
       setQuests(loaded);
     }
