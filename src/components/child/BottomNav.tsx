@@ -99,7 +99,7 @@ export default function BottomNav() {
       })
       .subscribe();
 
-    const onVisible == () => {
+    const onVisible = () => {
       if (document.visibilityState === "visible") {
         fetchMonsterStatus();
         fetchBadgesCount();

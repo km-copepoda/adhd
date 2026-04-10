@@ -96,7 +96,7 @@ export default function QuestsPage() {
       })
       .subscribe();
 
-    const onVisible = () => { if (documen.visibilityState === "visible") refreshQuests(); };
+    const onVisible = () => { if (document.visibilityState === "visible") refreshQuests(); };
     document.addEventListener("visibilitychange", onVisible);
     
     return () => {
