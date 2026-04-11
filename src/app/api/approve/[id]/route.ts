@@ -41,6 +41,12 @@ export async function POST(
     return NextResponse.json({ ok: true });
   }
 
+  // REPORTED 以外のステータスは操作不可（二重承認・未報告承認を防ぐ）
+  if (quest.status !== "REPORTED") {
+    rlog.warn("Invalid quest status for approval/rejection", { questId: id, status: quest.status });
+    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+  }
+
   if (action === "reject") {
     if (!rejectionReason) {
       return NextResponse.json({ error: "差し戻し理由を選択してください" }, { status: 400 });

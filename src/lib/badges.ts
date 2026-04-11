@@ -419,6 +419,7 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
           rejectionReason: true,
           reportedAt: true,
           createdAt: true,
+          template: { select: { photoBonus: true } },
         },
         orderBy: { date: "asc" },
       }),
@@ -448,7 +449,7 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
 
   // コレクション解析
   const collectedPathsList = JSON.parse(user.collectedPaths || "[]") as string[];
-  const rebirthCount = Math.floor((collectedPathsList.length - 1) / 3);
+  const rebirthCount = Math.max(0, Math.floor((collectedPathsList.length - 1) / 3));
   const hasStudyCollection = collectedPathsList.some(p => p.startsWith("STUDY"));
   const hasStaminaCollection = collectedPathsList.some(p => p.startsWith("STAMINA"));
   const hasLifeCollection = collectedPathsList.some(p => p.startsWith("LIFE"));
@@ -462,6 +463,14 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   const deadlineBonusCount = approvedQuests.filter(q => q.deadlineBonusEarned).length;
   const skipCount = skippedQuests.length;
   const retrySuccessCount = approvedQuests.filter(q => q.rejectionReason).length;
+
+  // 累計XP: 承認済みクエストから生涯獲得XPを算出（進化・転生でリセットされない）
+  let totalLifetimeXp = 0;
+  for (const q of approvedQuests) {
+    totalLifetimeXp += 1;
+    if (q.deadlineBonusEarned) totalLifetimeXp++;
+    if (q.template.photoBonus && q.photoUrl) totalLifetimeXp++;
+  }
 
   // 速報: 30分以内の報告（createdAt → reportedAt）
   const quickReportCount = approvedQuests.filter(q => {
@@ -617,8 +626,8 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   return {
     evolutionStage: user.evolutionStage,
     rebirthCount,
-    totalXp: user.studyPt + user.staminaPt + user.lifePt,
-    collectionCount: rebirthCount,
+    totalXp: totalLifetimeXp,
+    collectionCount: collectedPathsList.length,
     hasStudyCollection,
     hasStaminaCollection,
     hasLifeCollection,

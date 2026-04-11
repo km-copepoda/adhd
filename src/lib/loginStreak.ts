@@ -83,24 +83,63 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
     bonus,
   );
 
+  if (child.rebirthPending) {
+    // 転生待ち中: XPだけ加算し、進化チェックはスキップ
+    await prisma.user.update({
+      where: { id: childId },
+      data: { studyPt: newStudy, staminaPt: newStamina, lifePt: newLife },
+    });
+    log.info("Login streak bonus applied (rebirth pending, XP only)", { childId, bonus });
+    return;
+  }
+
+  const collectedPaths = JSON.parse(child.collectedPaths) as string[];
+  const isReborn = collectedPaths.length > 0;
+  const monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
+
   const evolution = checkEvolution(
     child.evolutionStage,
     child.evolutionPath,
     newStudy,
     newStamina,
     newLife,
+    isReborn,
+    child.rebirthEggBonus,
   );
 
-  await prisma.user.update({
-    where: { id: childId },
-    data: {
-      studyPt: evolution.resetStudy,
-      staminaPt: evolution.resetStamina,
-      lifePt: evolution.resetLife,
-      evolutionStage: evolution.newStage,
-      evolutionPath: evolution.newPath,
-    },
-  });
+  if (evolution.reborn) {
+    await prisma.user.update({
+      where: { id: childId },
+      data: {
+        studyPt: newStudy,
+        staminaPt: newStamina,
+        lifePt: newLife,
+        rebirthPending: true,
+      },
+    });
+  } else {
+    if (evolution.evolved) {
+      if (!collectedPaths.includes(evolution.newPath)) {
+        collectedPaths.push(evolution.newPath);
+      }
+      if (evolution.newStage === 3) {
+        monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
+      }
+    }
+
+    await prisma.user.update({
+      where: { id: childId },
+      data: {
+        studyPt: evolution.resetStudy,
+        staminaPt: evolution.resetStamina,
+        lifePt: evolution.resetLife,
+        evolutionStage: evolution.newStage,
+        evolutionPath: evolution.newPath,
+        collectedPaths: JSON.stringify(collectedPaths),
+        monsterLevels: JSON.stringify(monsterLevels),
+      },
+    });
+  }
 
   log.info("Login streak bonus applied", { childId, bonus, evolved: evolution.evolved });
 }

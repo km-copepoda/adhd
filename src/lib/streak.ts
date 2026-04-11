@@ -80,31 +80,63 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
       const newStamina = latestChild.staminaPt + dist.stamina;
       const newLife = latestChild.lifePt + dist.life;
 
-      const evolution = checkEvolution(
-        latestChild.evolutionStage,
-        latestChild.evolutionPath,
-        newStudy,
-        newStamina,
-        newLife,
-      );
+      if (latestChild.rebirthPending) {
+        // 転生待ち中: XPだけ加算し、進化チェックはスキップ
+        await prisma.user.update({
+          where: { id: childId },
+          data: { studyPt: newStudy, staminaPt: newStamina, lifePt: newLife },
+        });
+      } else {
+        const collectedPaths = JSON.parse(latestChild.collectedPaths) as string[];
+        const isReborn = collectedPaths.length > 0;
+        const monsterLevels = JSON.parse(latestChild.monsterLevels ?? "{}") as Record<string, number>;
 
-      await prisma.user.update({
-        where: { id: childId },
-        data: {
-          studyPt: evolution.resetStudy,
-          staminaPt: evolution.resetStamina,
-          lifePt: evolution.resetLife,
-          evolutionStage: evolution.newStage,
-          evolutionPath: evolution.newPath,
-        },
-      });
-      
-      log.info("Streak milestone bonus", {
-        childId,
-        newStreak,
-        bonus,
-        evolved: evolution.evolved,
-      });
+        const evolution = checkEvolution(
+          latestChild.evolutionStage,
+          latestChild.evolutionPath,
+          newStudy,
+          newStamina,
+          newLife,
+          isReborn,
+          latestChild.rebirthEggBonus,
+        );
+
+        if (evolution.reborn) {
+          await prisma.user.update({
+            where: { id: childId },
+            data: {
+              studyPt: newStudy,
+              staminaPt: newStamina,
+              lifePt: newLife,
+              rebirthPending: true,
+            },
+          });
+        } else {
+          if (evolution.evolved) {
+            if (!collectedPaths.includes(evolution.newPath)) {
+              collectedPaths.push(evolution.newPath);
+            }
+            if (evolution.newStage === 3) {
+              monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
+            }
+          }
+
+          await prisma.user.update({
+            where: { id: childId },
+            data: {
+              studyPt: evolution.resetStudy,
+              staminaPt: evolution.resetStamina,
+              lifePt: evolution.resetLife,
+              evolutionStage: evolution.newStage,
+              evolutionPath: evolution.newPath,
+              collectedPaths: JSON.stringify(collectedPaths),
+              monsterLevels: JSON.stringify(monsterLevels),
+            },
+          });
+        }
+      }
+
+      log.info("Streak milestone bonus", { childId, newStreak, bonus });
     }
   }
 }

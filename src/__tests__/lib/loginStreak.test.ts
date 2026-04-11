@@ -162,4 +162,61 @@ describe("recordLoginActivity", () => {
     expect(result.bonusGranted).toBe(0);
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
+
+  it("rebirthPending中はボーナスでXPのみ加算し進化チェックをスキップ", async () => {
+    const yesterday = new Date("2026-03-28");
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 3,
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        studyPt: 15, staminaPt: 2, lifePt: 2,
+        rebirthPending: true,
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+      }) as any,
+    );
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    const result = await recordLoginActivity("child-1", today);
+
+    expect(result.bonusGranted).toBe(1);
+    // XPのみ加算、進化関連フィールドなし
+    const updateData = mockPrisma.user.update.mock.calls[0][0].data;
+    // addBonusToMinCategory: min=2(STAMINA=LIFE) → STAMINA に+1
+    expect(updateData.staminaPt).toBe(3);
+    expect(updateData).not.toHaveProperty("evolutionStage");
+    expect(updateData).not.toHaveProperty("evolutionPath");
+  });
+
+  it("ボーナスで進化した場合、collectedPathsとmonsterLevelsが更新される", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+    const yesterday = new Date("2026-03-28");
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    // stage1、9pt蓄積中。ボーナス1ptで total=10 → 10以上なので進化する
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 1,
+        evolutionPath: "STUDY",
+        studyPt: 4, staminaPt: 3, lifePt: 2,
+        collectedPaths: '["STUDY"]',
+        monsterLevels: "{}",
+      }) as any,
+    );
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordLoginActivity("child-1", today);
+
+    const updateData = mockPrisma.user.update.mock.calls[0][0].data;
+    expect(updateData).toHaveProperty("collectedPaths");
+    expect(updateData).toHaveProperty("monsterLevels");
+    expect(updateData.evolutionStage).toBe(2);
+
+    vi.restoreAllMocks();
+  });
 });

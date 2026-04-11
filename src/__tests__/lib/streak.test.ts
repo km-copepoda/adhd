@@ -186,4 +186,71 @@ describe("recordDailyAchievement", () => {
 
     expect(mockPrisma.user.update).toHaveBeenCalled();
   });
+
+  it("rebirthPending中はマイルストーンボーナスでXPのみ加算し進化チェックをスキップ", async () => {
+    const yesterday = new Date("2026-03-12");
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({
+        studyPt: 15, staminaPt: 3, lifePt: 2,
+        rebirthPending: true,
+        evolutionStage: 3,
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+      }) as any);
+    mockCounts(1, 3);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordDailyAchievement("child-1", today);
+
+    // XPのみ加算、進化関連フィールドは更新されないこと
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          studyPt: expect.any(Number),
+          staminaPt: expect.any(Number),
+          lifePt: expect.any(Number),
+        }),
+      }),
+    );
+    const updateData = mockPrisma.user.update.mock.calls[0][0].data;
+    expect(updateData).not.toHaveProperty("evolutionStage");
+    expect(updateData).not.toHaveProperty("evolutionPath");
+  });
+
+  it("マイルストーンボーナスで進化した場合、collectedPathsとmonsterLevelsが更新される", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+    const yesterday = new Date("2026-03-12");
+    // stage2、9pt蓄積中。ボーナス5ptで total=14 → 30未満なので進化しない
+    // stage1、9pt蓄積中。ボーナス5ptで total=14 → 10以上なので進化する
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({
+        studyPt: 4, staminaPt: 3, lifePt: 2,
+        evolutionStage: 1,
+        evolutionPath: "STUDY",
+        collectedPaths: '["STUDY"]',
+        monsterLevels: "{}",
+      }) as any);
+    mockCounts(1, 3);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordDailyAchievement("child-1", today);
+
+    // collectedPaths に新パスが追加されること
+    const updateData = mockPrisma.user.update.mock.calls[0][0].data;
+    expect(updateData).toHaveProperty("collectedPaths");
+    expect(updateData).toHaveProperty("monsterLevels");
+    expect(updateData.evolutionStage).toBe(2);
+
+    vi.restoreAllMocks();
+  });
 });

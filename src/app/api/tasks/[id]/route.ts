@@ -90,29 +90,42 @@ export async function DELETE(
     if (task?.createdBy === "CHILD" && task.quests.length > 0) {
       const category = task.category;
 
-      for (const quest of task.quests) {
-        // ボーナスベースのXP計算（approve.ts と同じロジック）
+      // APPROVED のクエストのみXPが付与済み（REPORTEDはまだ未付与）
+      const approvedQuests = task.quests.filter(q => q.status === "APPROVED");
+      let totalXp = 0;
+      for (const quest of approvedQuests) {
         let xp = 1;
         if (quest.deadlineBonusEarned) xp++;
         if (task.photoBonus && quest.photoUrl) xp++;
-
-        const child = quest.child;
-        await prisma.user.update({
-          where: { id: child.id },
-          data: {
-            studyPt: Math.max(0, child.studyPt - (category === "STUDY" ? xp : 0)),
-            staminaPt: Math.max(0, child.staminaPt - (category === "STAMINA" ? xp : 0)),
-            lifePt: Math.max(0, child.lifePt - (category === "LIFE" ? xp : 0)),
-          },
-        });
-        await prisma.questInstance.update({
-          where: { id: quest.id },
-          data: { status: "REJECTED" },
-        });
+        totalXp += xp;
       }
+
+      // 最新のchildデータを取得してXPを一括差し引き（stale data を避ける）
+      if (totalXp > 0) {
+        const childId = task.quests[0].childId;
+        const freshChild = await prisma.user.findUnique({ where: { id: childId } });
+        if (freshChild) {
+          await prisma.user.update({
+            where: { id: childId },
+            data: {
+              studyPt: Math.max(0, freshChild.studyPt - (category === "STUDY" ? totalXp : 0)),
+              staminaPt: Math.max(0, freshChild.staminaPt - (category === "STAMINA" ? totalXp : 0)),
+              lifePt: Math.max(0, freshChild.lifePt - (category === "LIFE" ? totalXp : 0)),
+            },
+          });
+        }
+      }
+
+      // 全クエスト（REPORTED + APPROVED）のステータスを一括更新
+      await prisma.questInstance.updateMany({
+        where: { id: { in: task.quests.map(q => q.id) } },
+        data: { status: "REJECTED" },
+      });
+
       rlog.warn("XP clawback on task rejection", {
         taskId: id,
         category,
+        clawbackXp: totalXp,
         questCount: task.quests.length,
         userId: user.id,
       });

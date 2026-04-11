@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const targetDate = parseDate(searchParams.get("date"));
   const childId = searchParams.get("childId") ?? undefined;
-  const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, ...
+  const dayOfWeek = targetDate.getUTCDay(); // 0=Sun, 1=Mon, ...
 
   // Step 1: Get all QuestInstances on that date for this family
   const instances = await prisma.questInstance.findMany({

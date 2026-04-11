@@ -18,11 +18,15 @@ interface UserFixture {
   evolutionStage: number;
   evolutionPath: string;
   collectedPaths: string;
+  monsterLevels: string;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
   minTasksForStreak: number;
   childCode: string | null;
+  rebirthPending: boolean;
+  rebirthEggBonus: string | null;
+  reportDeadlineTime: string | null;
   family?: { id: string; code: string };
 }
 
@@ -38,11 +42,15 @@ export function parentUser(overrides?: Partial<UserFixture>): UserFixture {
     evolutionStage: 0,
     evolutionPath: "",
     collectedPaths: "[]",
+    monsterLevels: "{}",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,
     minTasksForStreak: 1,
     childCode: null,
+    rebirthPending: false,
+    rebirthEggBonus: null,
+    reportDeadlineTime: null,
     ...overrides,
   };
 }
@@ -59,11 +67,15 @@ export function childUser(overrides?: Partial<UserFixture>): UserFixture {
     evolutionStage: 0,
     evolutionPath: "",
     collectedPaths: "[]",
+    monsterLevels: "{}",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,
     minTasksForStreak: 1,
     childCode: "1234",
+    rebirthPending: false,
+    rebirthEggBonus: null,
+    reportDeadlineTime: null,
     ...overrides,
   };
 }
@@ -79,8 +91,11 @@ interface TaskTemplateFixture {
   isTemporary: boolean;
   targetDate: Date | null;
   createdBy: "PARENT" | "CHILD";
+  originalCreatedBy: "PARENT" | "CHILD";
   isActive: boolean;
   familyId: string;
+  photoBonus: boolean;
+  assignedChildId: string | null;
   quests?: QuestInstanceFixture[];
 }
 
@@ -94,8 +109,11 @@ export function taskTemplate(overrides?: Partial<TaskTemplateFixture>): TaskTemp
     isTemporary: false,
     targetDate: null,
     createdBy: "PARENT",
+    originalCreatedBy: "PARENT",
     isActive: true,
     familyId: "fam-1",
+    photoBonus: false,
+    assignedChildId: "child-1",
     ...overrides,
   };
 }
@@ -107,10 +125,14 @@ interface QuestInstanceFixture {
   templateId: string;
   childId: string;
   date: Date;
-  status: "PENDING" | "REPORTED" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "REPORTED" | "APPROVED" | "REJECTED" | "SKIP_REPORTED" | "SKIPPED";
   comment: string | null;
   reportedAt: Date | null;
   approvedAt: Date | null;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
+  approvalStamp: string | null;
+  rejectionReason: string | null;
   template?: Partial<TaskTemplateFixture>;
   child?: Partial<UserFixture>;
 }
@@ -125,6 +147,10 @@ export function questInstance(overrides?: Partial<QuestInstanceFixture>): QuestI
     comment: null,
     reportedAt: null,
     approvedAt: null,
+    deadlineBonusEarned: false,
+    photoUrl: null,
+    approvalStamp: null,
+    rejectionReason: null,
     ...overrides,
   };
 }

@@ -73,10 +73,10 @@ export type DeadlineUrgency = "normal" | "warning" | "danger" | "expired";
 
 /**
  * 今日の期限（JST "HH:mm"）までの残り時間と緊急度を返す（クライアント用）。
- * - normal: 60分以上
- * - warning: 30〜59分
- * - danger: 0〜29分（0分を含む）
- * - expired: 過ぎた（minutesLeft < 0 または 0）
+ * - normal: 61分以上
+ * - warning: 31〜60分
+ * - danger: 1〜30分
+ * - expired: 0分以下（ちょうど0分=期限切れ）
  */
 export function getDeadlineDisplay(
   deadlineTime: string,

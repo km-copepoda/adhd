@@ -49,6 +49,48 @@ describe("POST /api/approve/[id]", () => {
     expect(res.status).toBe(404);
   });
 
+  // ── ステータスバリデーション ─────────────
+
+  it("REPORTED以外のステータス（PENDING等）で400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      id: "q-pending",
+      status: "PENDING",
+      date: new Date("2026-03-13"),
+      childId: "child-1",
+      templateId: "tpl-1",
+      template: { category: "STUDY", createdBy: "PARENT" },
+      child: { id: "child-1" },
+    } as any);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-pending", { action: "approve" }),
+      makeParams("q-pending"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("既にAPPROVED済みのクエストで400を返すこと（二重承認防止）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      id: "q-approved",
+      status: "APPROVED",
+      date: new Date("2026-03-13"),
+      childId: "child-1",
+      templateId: "tpl-1",
+      template: { category: "STUDY", createdBy: "PARENT" },
+      child: { id: "child-1" },
+    } as any);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-approved", { action: "approve" }),
+      makeParams("q-approved"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
   // ── 承認 ──────────────────────────────────
 
   describe("action: approve", () => {
@@ -58,6 +100,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -102,6 +145,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1-dl",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -128,6 +172,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1-ph",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -154,6 +199,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1-all",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -180,6 +226,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 1, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q1b",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -214,6 +261,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 1, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q2",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-child",
@@ -245,6 +293,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q-tmp",
+        status: "REPORTED",
         date: new Date("2026-03-19"),
         childId: "child-1",
         templateId: "tpl-tmp",
@@ -273,6 +322,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q-stamp",
+        status: "REPORTED",
         date: new Date("2026-04-09"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -303,6 +353,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q-nostamp",
+        status: "REPORTED",
         date: new Date("2026-04-09"),
         childId: "child-1",
         templateId: "tpl-1",
@@ -332,6 +383,7 @@ describe("POST /api/approve/[id]", () => {
       const childData = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q3",
+        status: "REPORTED",
         date: new Date("2026-03-13"),
         childId: "child-1",
         templateId: "tpl-parent",
@@ -354,6 +406,7 @@ describe("POST /api/approve/[id]", () => {
       // stage3でbasic 1pt追加 → total=19+1=20 >= REBIRTH_THRESHOLD(20) → 転生保留
       mockPrisma.questInstance.findUnique.mockResolvedValue({
         id: "q-rebirth",
+        status: "REPORTED",
         date: new Date("2026-03-26"),
         childId: "child-1",
         templateId: "tpl-1",

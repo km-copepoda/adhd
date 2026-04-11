@@ -151,7 +151,7 @@ describe("DELETE /api/tasks/[id]", () => {
     expect(res.status).toBe(403);
   });
 
-  it("親が仮タスクを却下する際、完了済みクエストのXPを差し引くこと", async () => {
+  it("親が仮タスクを却下する際、APPROVED済みクエストのXPのみ差し引くこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
 
     mockPrisma.taskTemplate.findUnique.mockResolvedValue({
@@ -162,6 +162,7 @@ describe("DELETE /api/tasks/[id]", () => {
       quests: [
         {
           id: "q1",
+          childId: "child-1",
           status: "REPORTED",
           deadlineBonusEarned: false,
           photoUrl: null,
@@ -169,6 +170,7 @@ describe("DELETE /api/tasks/[id]", () => {
         },
         {
           id: "q2",
+          childId: "child-1",
           status: "APPROVED",
           deadlineBonusEarned: false,
           photoUrl: null,
@@ -177,16 +179,20 @@ describe("DELETE /api/tasks/[id]", () => {
       ],
     } as any);
 
+    // findUnique で最新データを取得（stale data対策）
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3,
+    } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
     mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
 
     const res = await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     const json = await res.json();
 
     expect(json.ok).toBe(true);
-    // XP差し引き: base 1pt のみ（deadlineBonusEarned=false, photoBonus=false）
-    expect(mockPrisma.user.update).toHaveBeenCalledTimes(2);
+    // APPROVED の 1件のみXP差し引き（REPORTEDはXP未付与なので除外）
+    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: "child-1" },
       data: {
@@ -195,11 +201,60 @@ describe("DELETE /api/tasks/[id]", () => {
         lifePt: 3,
       },
     });
-    // クエストをREJECTEDに
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledTimes(2);
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
+    // 全クエスト（REPORTED + APPROVED）をREJECTEDに一括更新
+    expect(mockPrisma.questInstance.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["q1", "q2"] } },
       data: { status: "REJECTED" },
+    });
+  });
+
+  it("複数APPROVED クエストのXPが正しく累計で差し引かれること（stale data防止）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+      id: "t1-multi",
+      createdBy: "CHILD",
+      photoBonus: true,
+      category: "STUDY",
+      quests: [
+        {
+          id: "q-a1",
+          childId: "child-1",
+          status: "APPROVED",
+          deadlineBonusEarned: true,
+          photoUrl: "photo.jpg",
+          child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+        },
+        {
+          id: "q-a2",
+          childId: "child-1",
+          status: "APPROVED",
+          deadlineBonusEarned: false,
+          photoUrl: null,
+          child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+        },
+      ],
+    } as any);
+
+    // 最新のchildデータ
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3,
+    } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
+    mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
+
+    await DELETE(makeRequest("/api/tasks/t1-multi", {}), makeParams("t1-multi"));
+
+    // q-a1: 1(基本) + 1(期限) + 1(写真) = 3pt, q-a2: 1pt → 合計4pt
+    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "child-1" },
+      data: {
+        studyPt: 6, // 10 - 4
+        staminaPt: 5,
+        lifePt: 3,
+      },
     });
   });
 
@@ -231,16 +286,20 @@ describe("DELETE /api/tasks/[id]", () => {
       quests: [
         {
           id: "q3",
-          status: "REPORTED",
+          childId: "child-2",
+          status: "APPROVED",
           deadlineBonusEarned: false,
           photoUrl: null,
-          child: { id: "child-2", studyPt: 2, staminaPt: 1, lifePt: 0 },
+          child: { id: "child-2", studyPt: 2, staminaPt: 0, lifePt: 0 },
         },
       ],
     } as any);
 
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "child-2", studyPt: 2, staminaPt: 0, lifePt: 0,
+    } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 } as any);
     mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
 
     await DELETE(makeRequest("/api/tasks/t3", {}), makeParams("t3"));
@@ -249,7 +308,7 @@ describe("DELETE /api/tasks/[id]", () => {
       where: { id: "child-2" },
       data: {
         studyPt: 2,
-        staminaPt: 0, // Math.max(0, 1-1) = 0
+        staminaPt: 0, // Math.max(0, 0-1) = 0
         lifePt: 0,
       },
     });

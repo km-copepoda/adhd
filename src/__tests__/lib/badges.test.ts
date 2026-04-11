@@ -192,6 +192,27 @@ describe("checkBadgeConditions", () => {
     });
   });
 
+  // ─── XP系（totalXp は累計XP、進化リセット後も蓄積される）────
+  describe("xp badges reflect lifetime XP", () => {
+    it("totalXp >= 100 で xp_100 が解除（累計XPのため進化後も到達可能）", () => {
+      expect(checkBadgeConditions(ctx({ totalXp: 100 })).has("xp_100")).toBe(true);
+    });
+    it("totalXp >= 200 で xp_200 が解除", () => {
+      expect(checkBadgeConditions(ctx({ totalXp: 200 })).has("xp_200")).toBe(true);
+      expect(checkBadgeConditions(ctx({ totalXp: 199 })).has("xp_200")).toBe(false);
+    });
+  });
+
+  // ─── コレクション系はcollectedPaths長を使う ────
+  describe("collection badges use path count, not rebirth count", () => {
+    it("collectionCount=3（3つの進化パス）で collection_3 が解除", () => {
+      expect(checkBadgeConditions(ctx({ collectionCount: 3 })).has("collection_3")).toBe(true);
+    });
+    it("collectionCount=2 では collection_3 が未解除", () => {
+      expect(checkBadgeConditions(ctx({ collectionCount: 2 })).has("collection_3")).toBe(false);
+    });
+  });
+
   // ─── XP系 ───────────────────────────────────────────
   describe("xp_10 (#33)", () => {
     it("totalXp >= 10 で解除", () => {
