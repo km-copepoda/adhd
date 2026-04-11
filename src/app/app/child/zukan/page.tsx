@@ -125,15 +125,15 @@ export default function ZukanPage() {
             { img: "/monsters/egg-stamina.png", label: "💪 体力の卵", color: "rgba(248,113,113,0.3)" },
             { img: "/monsters/egg-life.png", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)" },
           ].map((egg) => (
-            <div key={egg.laben} className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28" style={{ borderColor: egg.color }}>
+            <div key={egg.label} className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28" style={{ borderColor: egg.color }}>
               <Image
                 src={egg.img}
-                alt={egg.laben}
+                alt={egg.label}
                 width={56}
                 height={56}
                 className="object-contain"
               />
-              <p className="text-[10px] text-quest-text text-center">{egg.laben}</p>
+              <p className="text-[10px] text-quest-text text-center">{egg.label}</p>
             </div>
           ))}
         </div>
