@@ -114,6 +114,25 @@ describe("POST /api/rebirth", () => {
       }),
     );
   });
+  
+  it("有効なeggType(NORMAL)でrebirthを実行しreborthEggBonusがnullになること", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...childUser({ id: "child-1" }),
+      rebirthPending: true,
+    } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+    
+    const req = makeRequest("/api/rebirth", { eggType: "NORMAL" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ rebirthEggBonus: null }),
+      }),
+    );
+  });
 
   it("成功時に{ ok: true }を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);

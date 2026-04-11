@@ -32,6 +32,13 @@ type StreakData = {
 
 const EGG_OPTIONS = [
   {
+    type: "NORMAL",
+    name: "ふつうの卵",
+    img: "", // side に応じて動的に決定
+    desc: "ボーナスなし",
+    color: "#a78bfa",
+  },
+  {
     type: "STUDY",
     name: "勉強の卵",
     img: "/monsters/egg-study.png",
@@ -53,6 +60,13 @@ const EGG_OPTIONS = [
     color: "#4ade80",
   },
 ] as const;
+
+/** rebirthEggBonus -> 卵画像のマッピング */
+const EGG_BONUS_IMAGE: Record<string, string> = {
+  STUDY: "/monsters/egg-study.png",
+  STAMINA: "/monsters/egg-stamina.png",
+  LIFE: "/monsters/egg-life.png",
+};
 
 export default function MonsterPage() {
   const [data, setData] = useState<MonsterData | null>(null);
@@ -196,8 +210,12 @@ export default function MonsterPage() {
 
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
   const isReborn = (JSON.parse(data.collectedPaths) as string[]).length > 0;
-  const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt, isReborn);
-  const monster = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
+  const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt, isReborn, data.rebirthEggBonus);
+  const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
+  // 転生後の卵は選択した卵タイプの画像を表示する
+  const monster = data.evolutionStage === 0 && data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
+    ? { ...monsterBase, image: EGG_BONUS_IMAGE(data.rebirthEggBonus] }
+    : monsterBase;
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
   const params = [
@@ -285,7 +303,7 @@ export default function MonsterPage() {
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
             <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(139,92,246,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {data ? (() => { const egg = getMonsterStage(0, "", data.side); return "image" in egg ? <Image src={egg.image} alt="たまご" width={320} height={320} className="w-full h-full object-contain" /> : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
+              [data ? (() => { const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus] ? EGG_BONUS_IMAGE[data.rebirthEggBonus] : getMonsterStage(0, "", data.side).image; return <Image src={eggImg} alt="たまご" width={320} height={320} className="w-full h-full object-contain" />; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
             </div>
           </div>
           <p className="font-serif text-purple-400 text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(139,92,246,0.8)" }}>
@@ -366,7 +384,9 @@ export default function MonsterPage() {
             次回転生まで、選んだカテゴリの<br />進化確率が<span className="text-purple-400 font-bold">+20%</span>アップ！
           </p>
           <div className="flex flex-col gap-3 w-full max-w-sm">
-            {EGG_OPTIONS.map(({ type, name, img, desc, color }) => (
+            {EGG_OPTIONS.map(({ type, name, img, desc, color }) => {
+              const eggImg = img || (data?.side === "LIGHT" ? "/monsters/light/egg.webp" : "/monsters/dark/egg.webp");
+              return (
               <button
                 key={type}
                 onClick={() => handleRebirth(type)}
@@ -375,7 +395,7 @@ export default function MonsterPage() {
                 style={{ borderColor: rebirthLoading ? undefined : `${color}40` }}
               >
                 <div className="w-16 h-16 flex-shrink-0">
-                  <Image src={img} alt={name} width={64} height={64} className="w-full h-full object-contain" />
+                  <Image src={eggImg} alt={name} width={64} height={64} className="w-full h-full object-contain" />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-bold text-quest-text text-base">{name}</p>
@@ -383,6 +403,7 @@ export default function MonsterPage() {
                 </div>
                 <div className="text-quest-dim text-xl">›</div>
               </button>
+              );
             ))}
           </div>
           <button

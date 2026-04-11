@@ -205,6 +205,15 @@ describe("進化・転生の閾値テスト", () => {
       }),
     );
   });
+  
+  it("全ステージの進化で rebirthEggBonus はクリアされないこと（次の転生まで持続）", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      makeChild({ evolutionStage: 0, studyPt: 0, rebirthEggBonus: "STUDY" }) as any,
+    );
+    await approveQuestInstance(baseQuest as any);
+    const callArgs = mockPrisma.user.update.mock.calls[0][0] as any;
+    expect(callArgs.data.rebirthEggBonus).toBeUndefined();
+  });
 
   it("stage 1 は 9pt では stage 2 に進化しない（境界値: 10pt 必要）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(

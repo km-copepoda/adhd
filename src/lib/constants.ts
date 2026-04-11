@@ -199,9 +199,27 @@ export function computeEvolutionWeights(
   return weights;
 }
 
+// ─── applyEggBonus ─────────────────────────────
+// 卵ボーナス: 該当カテゴリの確率を絶対値+20%し、残りを比較縮小して合計1を保つ
+// 例: 33%/33%/33% + STUDY -> 53%/23%/23%
+export function applyEggBonus(
+  weights: { STUDY: number; STAMINA: number; LIFE: number },
+  eggBonusCategory: string,
+): void {
+  if (!(eggBonusCategory in weights)) return;
+  const key = eggBonusCategory as MonsterPath;
+  const otherSum = 1 - weights[key];
+  weights[key] = Math.min(weights[key] + 0.2, 1);
+  const remaining = 1 - weights[key];
+  const scale = otherSum > 0 ? remaining / otherSum : 0;
+  for (const k of ["STUDY", "STAMINA", "LIFE"] as MonsterPath[]) {
+    if (k !== key) weights[k] *= scale;
+  }
+}
+
 // ─── selectEvolutionPath ─────────────────────────────
 // 加重乱数でパスを選択する
-// eggBonusCategory: 選択した卵カテゴリ。そのカテゴリの確率に+0.2を加えて正規化する
+// eggBonusCategory: 選択した卵カテゴリ。そのカテゴリの確率を絶対値+20%する
 export function selectEvolutionPath(
   studyPt: number,
   staminaPt: number,
@@ -210,14 +228,8 @@ export function selectEvolutionPath(
 ): MonsterPath {
   const weights = computeEvolutionWeights(studyPt, staminaPt, lifePt);
 
-  // 卵ボーナス適用: 該当カテゴリに+0.2して正規化
-  if (eggBonusCategory && eggBonusCategory in weights) {
-    const key = eggBonusCategory as MonsterPath;
-    weights[key] = weights[key] + 0.2;
-    const total = weights.STUDY + weights.STAMINA + weights.LIFE;
-    weights.STUDY /= total;
-    weights.STAMINA /= total;
-    weights.LIFE /= total;
+  if (eggBonusCategory) {
+    applyEggBonus(weights, eggBonusCategory);
   }
 
   const r = Math.random();
@@ -315,11 +327,21 @@ export function getXpInfo(
   staminaPt: number,
   lifePt: number,
   isReborn = false,
+  eggBonusCategory?: string | null,
 ) {
   const total = studyPt + staminaPt + lifePt;
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
   const baseXp = EVOLUTION_THRESHOLDS[stageIdx];
   const xpToEvolve = evolutionStage === 0 && isReborn ? REBIRTH_EGG_THRESHOLD : baseXp;
+
+  let evolutionWeights: { STUDY: number; STAMINA: number; LIFE: number } | null = null;
+  if (xpToEvolve !== null) {
+    const weights = computeEvolutionWeights(studyPt, staminaPt, lifePt);
+    if (eggBonusCategory) {
+      applyEggBonus(weights, eggBonusCategory);
+    }
+    evolutionWeights = weights;
+  }
 
   return {
     totalPt: total,
@@ -327,8 +349,7 @@ export function getXpInfo(
     xpInStage: total,
     xpToEvolve,
     ptNeeded: xpToEvolve !== null ? xpToEvolve - total : null,
-    evolutionWeights:
-      xpToEvolve !== null ? computeEvolutionWeights(studyPt, staminaPt, lifePt) : null,
+    evolutionWeights,
   };
 }
 

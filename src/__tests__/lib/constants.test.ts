@@ -15,6 +15,7 @@ import {
   getXpInfo,
   computeEvolutionWeights,
   selectEvolutionPath,
+  applyEggBonus,
   getStreakTitle,
   getNewMilestoneBonus,
   getNewlyUnlockedMilestone,
@@ -555,7 +556,46 @@ describe("getXpInfo", () => {
       expect(info.xpToEvolve).toBe(10);
     });
   });
+  
+  describe("卵ボーナス（eggBonusCategory）", () => {
+    it("eggBonusCategory=STUDY で STUDY の確率が絶対値+20%されること", () => {
+      // ポイント均等 -> ベースは1/3ずつ
+      const info = getXpInfo(0, "", 1, 1, 1, false, "STUDY");
+      expect(info.evolutionWeights).not.toBeNull();
+      // STUDY: 33% + 20% = 53%, 残りは比例縮小
+      expect(info.evolutionWeights!.STUDY).toBeCloseTo(1 / 3 + 0.2, 4);
+      // 残り: (1/3) * (1 - 0.5333) / (2/3) = 0.2333
+      const remaining = (1 - (1 / 3 + 0.2)) / 2;
+      expect(info.evolutionWeights!.STAMINA).toBeCloseTo(remaining, 4);
+      expect(info.evolutionWeights!.LIFE).toBeCloseTo(remaining, 4);
+    });
+    
+    it("eggBonusCategory=null の場合はベース重みのままであること", () => {
+      const withBonus = getXpInfo(0, "", 1, 1, 1, false, null);
+      const without = getXpInfo(0, "", 1, 1, 1, false);
+      expect(withBonus.evolutionWeights).toEqual(without.evolutionWeights);
+    });
+    
+    it("eggBonusCategory=undefined の場合はベース重みのままであること", () => {
+      const info = getXpInfo(0, "", 1, 1, 1, false, undefined);
+      expect(info.evolutionWeights!.STUDY).toBeCloseTo(1 / 3, 4);
+    });
+    
+    it("最終形態（stage3）では eggBonusCategory があっても evolutionWeights はnull", () => {
+      const info = getXpInfo(3, "STUDY_STAMINA_LIFE", 10, 10, 10, false, "STUDY");
+      expect(info.evolutionWeights).toBeNull();
+    });
+    
+    it("偏ったポイントに卵ボーナスを加算しても合計が1になること", () => {
+      const info = getXpInfo(1, "STUDY", 8, 1, 1, false, "LIFE");
+      expect(info.evolutionWeights).not.toBeNull();
+      const sum = info.evolutionWeights!.STUDY + info.evolutionWeights!.STAMINA + info.evolutionWeights!.LIFE;
+      expect(sum).toBeCloseTo(1, 4);
+    });
+  });
 });
+
+
 
 // ─── STREAK_MILESTONES ──────────────────────────────
 
@@ -866,13 +906,46 @@ describe("TEMP_TASK_TEMPLATES", () => {
 
 // ─── selectEvolutionPath (egg bonus) ─────────────────
 
+// ─── applyEggBonus ─────────────────
+
+describe("applyEggBonus", () => {
+  it("均等ベースに STUDY ボーナスで 53%/23%/23%になること", () => {
+    const w = { STUDY: 1 / 3, STAMINA: 1 / 3, LIFE: 1 / 3 };
+    applyEggBonus(w, "STUDY");
+    expect(w.STUDY).toBeCloseTo(1 / 3 + 0.2, 4);
+    expect(w.STAMINA).toBeCloseTo(w.LIFE, 4);
+    expect(w.STUDY + w.STAMINA + w.LIFE).toBeCloseTo(1, 4);
+  });
+
+  it("偏ったベース(0.6/0.3/0.1に最大カテゴリのボーナスで 80%/10%/10% になること", () => {
+    const w = { STUDY: 0.6, STAMINA: 0.3, LIFE: 0.1 };
+    applyEggBonus(w, "STUDY");
+    expect(w.STUDY).toBeCloseTo(0.8, 4);
+    expect(w.STAMINA).toBeCloseTo(0.15, 4);
+    expect(w.LIFE).toBeCloseTo(0.05, 4);
+    expect(w.STUDY + w.STAMINA + w.LIFE).toBeCloseTo(1, 4);
+  });
+  
+  it("偏ったベースに最小カテゴリのボーナスでも合計が1になること", () => {
+    const w = { STUDY: 0.6, STAMINA: 0.3, LIFE: 0.1 };
+    applyEggBonus(w, "LIFE");
+    expect(w.LIFE).toBeCloseTo(0.3, 4);
+    expect(w.STUDY + w.STAMINA + w.LIFE).toBeCloseTo(1, 4);
+  });
+
+  it("無効なカテゴリでは何も変わらないこと", () => {
+    const w = { STUDY: 0.5, STAMINA: 0.3, LIFE: 0.2 };
+    const before = { ...w };
+    applyEggBonus(w, "INVALID");
+    expect(w).toEqual(before);
+  });
+});
+
 describe("selectEvolutionPath with eggBonusCategory", () => {
   it("eggBonusCategory=STUDYで確率の合計が1.0であること", () => {
-    // bonusを適用後も正規化されるため合計は1.0
+    // bonusを適用後も合計は1.0（絶対値+20%, 残りを比例縮小）
     // weights without bonus: STUDY=0.6, STAMINA=0.2, LIFE=0.2
-    // +0.2 to STUDY → STUDY=0.8, STAMINA=0.2, LIFE=0.2 → total=1.2 → normalize
-    // STUDY=0.8/1.2≈0.667, STAMINA=0.2/1.2≈0.167, LIFE=0.2/1.2≈0.167
-    // テストは何度実行しても有効なパスを返すことを確認
+    // +0.2 to STUDY -> STUDY = 0.8, 残り0.2を比例分配 -> STAMINA=0.1, LIFE=0.1
     for (const r of [0, 0.3, 0.6, 0.8, 0.99]) {
       vi.spyOn(Math, "random").mockReturnValue(r);
       const path = selectEvolutionPath(80, 10, 10, "STUDY");
@@ -881,24 +954,23 @@ describe("selectEvolutionPath with eggBonusCategory", () => {
     }
   });
 
-  it("eggBonusCategory=STUDYでSTUDY選択確率が上がること（r=0.65はSTUDYになる）", () => {
-    // bonus なし: STUDY=0.6, STAMINA=0.2, LIFE=0.2 → r=0.65 は STAMINA
-    vi.spyOn(Math, "random").mockReturnValue(0.65);
+  it("eggBonusCategory=STUDYでSTUDY選択確率が上がること（r=0.75はSTUDYになる）", () => {
+    // bonus なし: STUDY=0.6, STAMINA=0.2, LIFE=0.2 -> r=0.75 は STAMINA
+    vi.spyOn(Math, "random").mockReturnValue(0.75);
     expect(selectEvolutionPath(80, 10, 10)).toBe("STAMINA");
     vi.restoreAllMocks();
 
-    // bonus あり: STUDY≈0.667 → r=0.65 は STUDY
-    vi.spyOn(Math, "random").mockReturnValue(0.65);
+    // bonus あり: STUDY≈0.8 → r=0.75 は STUDY
+    vi.spyOn(Math, "random").mockReturnValue(0.75);
     expect(selectEvolutionPath(80, 10, 10, "STUDY")).toBe("STUDY");
     vi.restoreAllMocks();
   });
 
   it("eggBonusCategory=STAMINAでSTAMINA選択確率が上がること", () => {
     // 均等（0,0,0）: STUDY=STAMINA=LIFE=1/3≈0.333
-    // STAMINA bonus: STUDY=0.333, STAMINA=0.533, LIFE=0.333 → normalize
-    // r=0.5 はbonusなしでSTAMINA(1/3+1/3=0.667)だが、bonusありでSTUDYとSTAMINAの境界が変わる
-    // bonusあり: STUDY/(0.333+0.533+0.333)=0.333/1.2≈0.278, STAMINA=0.533/1.2≈0.444, LIFE=0.333/1.2≈0.278
-    // r=0.4 → cumulative: STUDY=0.278 < 0.4, STAMINA=0.278+0.444=0.722 >= 0.4 → STAMINA
+    // STAMINA bonus（絶対値+20%）: STAMINA=0.533, 残り0.467を比例分配
+    // -> STUDY=0.233, STAMINA=0.533, LIFE=0.233
+    // r=0.4 -> cumulative: STUDY=0.233 < 0.4, STAMINA=0.233+0.533=0.767 >= 0.4 -> STAMINA
     vi.spyOn(Math, "random").mockReturnValue(0.4);
     const path = selectEvolutionPath(0, 0, 0, "STAMINA");
     expect(path).toBe("STAMINA");

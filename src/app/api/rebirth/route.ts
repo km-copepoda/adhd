@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const VALID_EGG_TYPES = ["STUDY", "STAMINA", "LIFE"] as const;
+const VALID_EGG_TYPES = ["NORMAL", "STUDY", "STAMINA", "LIFE"] as const;
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     where: { id: user.id },
     data: {
       rebirthPending: false,
-      rebirthEggBonus: eggType,
+      rebirthEggBonus: eggType === "NORMAL" ? null : eggType,
       evolutionStage: 0,
       evolutionPath: "",
       studyPt: 0,
