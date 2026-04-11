@@ -787,7 +787,7 @@ function InstallGuideSection({ s }: { s: typeof styles }) {
               <div className={s.installStep}>
                 <span className={s.installStepNum}>3</span>
                 <span>
-                  「<span className={s.installStepHighlight}>ホーム画面に追加</span>」 を選択
+                  「<span className={s.installHighlightText}>ホーム画面に追加</span>」を選択
                 </span>
               </div>
             </div>
@@ -831,15 +831,15 @@ function InstallGuideSection({ s }: { s: typeof styles }) {
                 <div className={s.installStep}>
                   <span className={s.installStepNum}>2</span>
                   <span>
-                    右上の <strong>:</strong> メニューをタップ
+                    右上の <strong>︙</strong> メニューをタップ
                   </span>
                 </div>
                 <div className={s.installStep}>
                   <span className={s.installStepNum}>3</span>
                   <span>
-                    「<span className={s.installStepHighlightText}>ホーム画面に追加</span>」
+                    「<span className={s.installHighlightText}>ホーム画面に追加</span>」
                     または
-                    「<span className={s.installHighLightText}>アプリをインストール</span>」
+                    「<span className={s.installHighlightText}>アプリをインストール</span>」
                     を選択
                   </span>
                 </div>
@@ -850,7 +850,7 @@ function InstallGuideSection({ s }: { s: typeof styles }) {
         
         <p className={`${s.installHint} ${s.fadeIn}`}>
           QuestBoard は PWA （Progressive Web App） です。<br />
-          ストアからのダウンロードは不要。ブラウザからそのままンストールできます。<br />
+          ストアからのダウンロードは不要。ブラウザからそのままインストールできます。
         </p>
       </div>
     </section>
