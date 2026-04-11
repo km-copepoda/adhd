@@ -70,4 +70,55 @@ describe("getMonsterMiniData", () => {
     expect(result.ptToEvolve).toBe(5);
     expect(result.ptNeeded).toBe(3); // 5 - 2
   });
+  
+  it("rebirthEggBonus=STUDY の場合、stage0 で勉強の卵画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      studyPt: 0,
+      staminaPt: 0,
+      lifePt: 0,
+      rebirthEggBonus: "STUDY",
+    });
+    expect(result.image).toBe("/monsters/egg-study.png");
+  });
+
+  it("rebirthEggBonus=STAMINA の場合、stage0 で体力の卵画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      rebirthEggBonus: "STAMINA",
+    });
+    expect(result.image).toBe("/monsters/egg-stamina.png");
+  });
+
+  it("rebirthEggBonus=LIFE の場合、stage0 で生活力の卵画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      rebirthEggBonus: "LIFE",
+    });
+    expect(result.image).toBe("/monsters/egg-life.png");
+  });
+
+  it("rebirthEggBonus=null の場合、stage0 でデフォルト卵画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      rebirthEggBonus: null,
+    });
+    expect(result.image).toBe("/monsters/dark/egg.webp");
+  });
+  
+  it("stage1 移行は rebirthEggBonus があってもモンスター画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      rebirthEggBonus: "STUDY",
+    });
+    expect(result.image).toBe("/monsters/dark/STUDY_ラーン.webp");
+  });
 });

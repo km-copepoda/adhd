@@ -11,6 +11,12 @@ export type MonsterMiniData = {
   rebirthThreshold: number;
 };
 
+const EGG_BONUS_IMAGE: Record<string, string> = {
+  STUDY: "/monsters/egg-study.png",
+  STAMINA: "/monsters/egg-stamina.png",
+  LIFE: "/monsters/egg-life.png",
+};
+
 export function getMonsterMiniData(params: {
   evolutionStage: number;
   evolutionPath: string;
@@ -19,11 +25,17 @@ export function getMonsterMiniData(params: {
   staminaPt: number;
   lifePt: number;
   collectedPaths: string;
+  rebirthEggBonus?: string | null;
 }): MonsterMiniData {
-  const { evolutionStage, evolutionPath, side, studyPt, staminaPt, lifePt, collectedPaths } = params;
+  const { evolutionStage, evolutionPath, side, studyPt, staminaPt, lifePt, collectedPaths, rebirthEggBonus } = params;
   const isReborn = (JSON.parse(collectedPaths) as string[]).length > 0;
   const monster = getMonsterStage(evolutionStage, evolutionPath, side);
-  const xpInfo = getXpInfo(evolutionStage, evolutionPath, studyPt, staminaPt, lifePt, isReborn);
+  const xpInfo = getXpInfo(evolutionStage, evolutionPath, studyPt, staminaPt, lifePt, isReborn, rebirthEggBonus);
+  
+  // 転生後の卵は選択した卵タイプの画像を表示する
+  const image = evolutionStage === 0 && rebirthEggBonus && EGG_BONUS_IMAGE[rebirthEggBonus]
+    ? EGG_BONUS_IMAGE[rebirthEggBonus]
+    : monster.image;
 
   const stageLabel =
     evolutionStage === 0 ? "たまご" :
@@ -31,7 +43,7 @@ export function getMonsterMiniData(params: {
     `stage ${evolutionStage} / 3`;
 
   return {
-    image: monster.image,
+    image,
     monsterName: monster.name,
     stageLabel,
     ptCurrent: xpInfo.totalPt,

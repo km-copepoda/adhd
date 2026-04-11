@@ -119,6 +119,7 @@ export default function QuestsPage() {
         staminaPt: d.staminaPt,
         lifePt: d.lifePt,
         collectedPaths: d.collectedPaths ?? "[]",
+        rebirthEggBonus: d.rebirthEggBonus ?? null,
       }),
     );
   }

@@ -51,6 +51,7 @@ describe("GET /api/family/code", () => {
       side: null,
       evolutionStage: 0,
       evolutionPath: "",
+      rebirthEggBonus: null,
       childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,

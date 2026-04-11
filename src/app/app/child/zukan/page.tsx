@@ -109,15 +109,33 @@ export default function ZukanPage() {
 
       {/* ── 卵 ── */}
       <div className="flex flex-col items-center mb-4">
-        <div className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28">
-          <Image
-            src={eggData.image}
-            alt="たまご"
-            width={56}
-            height={56}
-            className="object-contain"
-          />
-          <p className="text-xs text-quest-text">🥚 たまご</p>
+        <div className="flex gap-2 justify-center flex-wrap">
+          <div className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28">
+            <Image
+              src={eggData.image}
+              alt="たまご"
+              width={56}
+              height={56}
+              className="object-contain"
+            />
+            <p className="text-xs text-quest-text">🥚 たまご</p>
+          </div>
+          {[
+            { img: "/monsters/egg-study.png", label: "📚 勉強の卵", color: "rgba(96,165,250,0.3)" },
+            { img: "/monsters/egg-stamina.png", label: "💪 体力の卵", color: "rgba(248,113,113,0.3)" },
+            { img: "/monsters/egg-life.png", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)" },
+          ].map((egg) => (
+            <div key={egg.laben} className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28" style={{ borderColor: egg.color }}>
+              <Image
+                src={egg.img}
+                alt={egg.laben}
+                width={56}
+                height={56}
+                className="object-contain"
+              />
+              <p className="text-[10px] text-quest-text text-center">{egg.laben}</p>
+            </div>
+          ))}
         </div>
         <div className="text-quest-dim/50 text-[11px] mt-2">▾ 孵化</div>
       </div>

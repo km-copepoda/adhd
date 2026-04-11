@@ -24,6 +24,7 @@ export async function GET() {
       side: u.side,
       evolutionStage: u.evolutionStage ?? 0,
       evolutionPath: (u.evolutionPath as string) ?? "",
+      rebirthEggBonus: (u.rebirthEggBonus as string | null) ?? null,
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
