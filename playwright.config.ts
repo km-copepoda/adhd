@@ -32,10 +32,10 @@ export default defineConfig({
       testMatch: /\/(s1|s2|s3|s14)-.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
-    // 親アカウントで実行するテスト（全フロー・スキップ承認・期限設定を含む）
+    // 親アカウントで実行するテスト（全フロー・スキップ承認・期限設定・履歴・完了を含む）
     {
       name: "as-parent",
-      testMatch: /\/(s4|s6|s9|s10|s12|s13)-.*\.spec\.ts/,
+      testMatch: /\/(s4|s6|s9|s10|s12|s13|s16|s17|s18)-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/parent.json",
