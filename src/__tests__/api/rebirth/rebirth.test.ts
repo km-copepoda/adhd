@@ -115,7 +115,7 @@ describe("POST /api/rebirth", () => {
     );
   });
   
-  it("有効なeggType(NORMAL)でrebirthを実行しreborthEggBonusがnullになること", async () => {
+  it("有効なeggType(NORMAL)でrebirthを実行しrebirthEggBonusがnullになること", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
     mockPrisma.user.findUnique.mockResolvedValue({
       ...childUser({ id: "child-1" }),

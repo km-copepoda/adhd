@@ -214,7 +214,7 @@ export default function MonsterPage() {
   const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
   // 転生後の卵は選択した卵タイプの画像を表示する
   const monster = data.evolutionStage === 0 && data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
-    ? { ...monsterBase, image: EGG_BONUS_IMAGE(data.rebirthEggBonus] }
+    ? { ...monsterBase, image: EGG_BONUS_IMAGE[data.rebirthEggBonus] }
     : monsterBase;
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
@@ -303,7 +303,7 @@ export default function MonsterPage() {
         >
           <div style={{ animation: "evolveIn 0.5s ease-out" }}>
             <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(139,92,246,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              [data ? (() => { const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus] ? EGG_BONUS_IMAGE[data.rebirthEggBonus] : getMonsterStage(0, "", data.side).image; return <Image src={eggImg} alt="たまご" width={320} height={320} className="w-full h-full object-contain" />; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
+              {data ? (() => { const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus] ? EGG_BONUS_IMAGE[data.rebirthEggBonus] : getMonsterStage(0, "", data.side).image; return <Image src={eggImg} alt="たまご" width={320} height={320} className="w-full h-full object-contain" />; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
             </div>
           </div>
           <p className="font-serif text-purple-400 text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(139,92,246,0.8)" }}>
@@ -404,7 +404,7 @@ export default function MonsterPage() {
                 <div className="text-quest-dim text-xl">›</div>
               </button>
               );
-            ))}
+            })}
           </div>
           <button
             onClick={() => setShowEggSelection(false)}
