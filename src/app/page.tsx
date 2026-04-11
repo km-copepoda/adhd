@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./lp.module.css";
+import { Share } from "next/font/google";
 
 type MonsterStyle = "dark" | "light";
 
@@ -67,6 +68,7 @@ export default function LpPage() {
           <li><a href="#monsters">モンスター</a></li>
           <li><a href="#habit">続ける仕組み</a></li>
           <li><a href="#screens">画面紹介</a></li>
+          <li><a href="#install">インストール</a></li>
           <li>
             <a href="#cta" className={`${styles.btnOutline} ${styles.navCta}`}>
               はじめる
@@ -647,6 +649,9 @@ export default function LpPage() {
         </div>
       </section>
 
+      {/* ===== INSTALL GUILD ===== */}
+      <InstallGuideSection s={styles} />
+
       {/* ===== TESTIMONIALS ===== */}
       <section className={styles.section}>
         <div className={styles.container}>
@@ -701,6 +706,178 @@ export default function LpPage() {
         <p style={{ marginTop: 8 }}>クエストをクリアして、モンスターを育てよう</p>
       </footer>
     </div>
+  );
+}
+
+/* ===== InstallGuideSection サブコンポーネント ===== */
+function InstallGuideSection({ s }: { s: typeof styles }) {
+  const [deferredPrompt, setDeferredPrompt] = useState<
+     (Event & { prompt: () => Promise<void>; useChoice: Promise<{ outcome: string }> }) | null
+  >(null);
+  const [isIos, setIsIos] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    // iOS / Androidid 判定
+    const ua = navigator.userAgent;
+    const ios = 
+      /iPhone|iPad/.test(ua) ||
+      /iPad/.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      const android = /Android/.test(ua);
+      setIsIos(ios);
+      setIsAndroid(android);
+
+      // すでにインストールされているか判定
+      const standalone =
+        ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone) ||
+        window.matchMedia("(display-mode: standalone)").matches;
+      setIsStandalone(standalone);
+
+      // Android / Chrome のbeforeinstallprompt
+      const handler = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e as typeof deferredPrompt);
+      };
+      window.addEventListener("beforeinstallprompt", handler);
+      return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  //インストール済みなら非表示
+  if (isStandalone) return null;
+
+  const handlerInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.useChoice;
+    if (outcome === "accepted") setDeferredPrompt
+  };
+
+  return (
+    <section id="install" className={`${s.section} ${s.installSection}`}>
+      <div className={s.container}>
+        <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>INSTALL</h2>
+        <p className={`${s.sectionSub} ${s.fadeIn}`}>
+          ホーム画面に追加して、アプリとして使おう
+        </p>
+        <div className={`${s.divider} ${s.fadeIn}`} />
+
+        <div className={`${s.installCards} ${s.fadeIn}`}>
+          {/* ---- iOS / iPad カード ---- */}
+          <div
+            className={`${s.installCard} ${isIos ? s.installCardHighlight : ""}`}
+          >
+            <div className={s.installIcon}>🍎</div>
+            <div className={s.installCardTitle}>iPhone / iPad</div>
+            <div className={s.installSteps}>
+              <div className={s.installStep}>
+                <span className={s.installStepNum}>1</span>
+                <span>
+                  <strong>Safari</strong> でこのページを開く
+                </span>
+              </div>
+              <div className={s.installStep}>
+                <span className={s.installStepNum}>2</span>
+                <span>
+                  画面下の{" "}
+                  <span className={s.installShareIcon}>
+                    <ShareIcon />
+                  </span>{" "}
+                  共有ボタンをタップ
+                </span>
+              </div>
+              <div className={s.installStep}>
+                <span className={s.installStepNum}>3</span>
+                <span>
+                  「<span className={s.installStepHighlight}>ホーム画面に追加</span>」
+                  を選択
+                </span>
+              </div>
+            </div>
+            {isIos && (
+              <div className={s.installHint} style={{ marginTop: 8, fontSize: 11 }}>
+                ※「ホーム画面に追加」が見つからない場合は合は「もっと見る」をタップしてください
+              </div>
+            )}
+          </div>
+
+          {/* ---- Android カード ---- */}
+          <div
+            className={`${s.installCard} ${isAndroid ? s.installCardHighlight : ""}`}
+          >
+            <div className={s.installIcon}>🤖</div>
+            <div className={s.installCardTitle}>Android</div>
+            {deferredPrompt ? (
+              <>
+                <div className={s.installSteps}>
+                  <div className={s.installStep}>
+                    <span className={s.installStepNum}></span>
+                    <span>ワンタップでインストールできます</span>
+                  </div>
+                </div>
+                <div className={s.installBtnWrap}>
+                  <button
+                    type="button"
+                    className={s.installBtn}
+                    onClick={handlerInstallClick}
+                  >
+                   📲 今すぐインストール
+                  </button>
+                </div>
+              </>
+            ) : (
+            <div className={s.installSteps}>
+              <div className={s.installStep}>
+                <span className={s.installStepNum}>1</span>
+                <span>
+                  <strong>Chrome</strong> でこのページを開く
+                </span>
+              </div>
+              <div className={s.installStep}>
+                <span className={s.installStepNum}>2</span>
+                <span>
+                  右上の <strong>:</strong> メニューをタップ
+                </span>
+              </div>
+              <div className={s.installStep}>
+                <span className={s.installStepNum}>3</span>
+                <span>
+                  「<span className={s.installStepHighlightText}>ホーム画面に追加</span>」
+                  または
+                  「<span className={s.installHighLightText}>アプリをインストール</span>」
+                  を選択
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <p className={`${s.installHint} ${s.fadeIn}`}>
+          QuestBoard は PWA (Progressive Web App) です。<br />
+          ストアからのダウンロードは不要。ブラウザから直接インストールできます。<br />
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
   );
 }
 
