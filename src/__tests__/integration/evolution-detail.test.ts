@@ -20,7 +20,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
 
     beforeAll(async () => {
         await cleanAll();
-        ({ family, parent, child } = awant seedFamily());
+        ({ family, parent, child } = await seedFamily());
         task = await seedTask(family.id, { category: "STUDY", assignedChildId: child.id });
     });
 
@@ -40,14 +40,14 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
 
         const c = await prisma.user.findUnique({ where: { id: child.id } });
         expect(c!.evolutionStage).toBe(1);
-        expect(c!.evolutionPath.length).toBeGreaterThan(0); // "STUDY" or "STAMINA" or "LIFE"
+        expect(c!.evolutionPath.length).toBeGreaterThan(0);
 
         const paths = JSON.parse(c!.collectedPaths) as string[];
         expect(paths).toContain(c!.evolutionPath);
     });
 
     it("stage3到達でmonsterLevelsのカウントが増えること", async () => {
-        // stage2->3 への進化を設定（閾値30pt）
+        // stage2->3 への進化を設定（閾値30pt） - 日付を離してストリーク干渉を回避
         const beforeChild = await prisma.user.findUnique({ where: { id: child.id } });
         const currentPath = beforeChild!.evolutionPath;
 
@@ -60,7 +60,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
             },
         });
 
-        const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-02"), "REPORTED");
+        const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-10"), "REPORTED");
 
         mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
         await approveQuest(
@@ -69,22 +69,25 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
         );
 
         const c = await prisma.user.findUnique({ where: { id: child.id } });
-        expect(c!.evolutionStaage).toBe(3);
+        expect(c!.evolutionStage).toBe(3);
 
         const levels = JSON.parse(c!.monsterLevels) as Record<string, number>;
         expect(levels[c!.evolutionPath]).toBeGreaterThanOrEqual(1);
     });
 
     it("転生後の卵は5ptで孵化すること（通常の1ptではない）", async () => {
-        // stage3から転生閾値まで到到させるる
+        // ストリークをリセットして干渉を防ぐ
+        await prisma.streak.deleteMany({ where: { childId: child.id } });
+
+        // stage3から転生閾値まで到達させる
         await prisma.user.update({
             where: { id: child.id },
             data: { studyPt: 19, staminaPt: 0, lifePt: 0 },
         });
 
-        const questRebirth = await seedQuestForDate(task.id, child.id, new Date("2026-04-03"), "REPORTED");
+        const questRebirth = await seedQuestForDate(task.id, child.id, new Date("2026-04-20"), "REPORTED");
         mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
-        await rebirthQuest(
+        await approveQuest(
             makeRequest(`/api/approve/${questRebirth.id}`, { action: "approve" }),
             makeParams(questRebirth.id),
         );
@@ -97,12 +100,12 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
         mockAsUser({ ...child, familyId: family.id, role: "CHILD" });
         await rebirthQuest(makeRequest("/api/rebirth", { eggType: "STUDY" }));
 
-        c = await prisma.user.findUnique({ where: { id: child.i } });
+        c = await prisma.user.findUnique({ where: { id: child.id } });
         expect(c!.evolutionStage).toBe(0);
         expect(c!.rebirthEggBonus).toBe("STUDY");
 
-        // 1pt では孵化しないこと（転生後は REBIRTH_EGG_THRESHOLD=5pt で孵化する）
-        const quest1pt = await seedQuestForDate(task.id, child.id, new Date("2026-04-04"), "REPORTED");
+        // 1pt では孵化しないこと（転生後は REBIRTH_EGG_THRESHOLD=5pt）
+        const quest1pt = await seedQuestForDate(task.id, child.id, new Date("2026-04-25"), "REPORTED");
         mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
         await approveQuest(
             makeRequest(`/api/approve/${quest1pt.id}`, { action: "approve" }),
@@ -113,28 +116,31 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
         expect(c!.evolutionStage).toBe(0); // まだ卵
         expect(c!.studyPt).toBe(1);
 
-        // 追加で4pt稼いで合計5ptに
-        for ( let i = 0; i < 4; i++ ) {
-            const date = new Date(`2026-04-${5 + i}`);
+        // 追加で4pt稼いで合計5ptに（非連続日数でストリーク干渉を回避）
+        for (let i = 0; i < 4; i++) {
+            const date = new Date("2026-04-27");
+            // date 自動的に 4/27, 4/29, 5/1, 5/3
+            date.setDate(date.getDate() + (i * 2));
+
             const q = await seedQuestForDate(task.id, child.id, date, "REPORTED");
             mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
             await approveQuest(
-                makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
+                makeRequest(`/api/approve/${q.id}`, { action: "approve" }),
                 makeParams(q.id),
             );
         }
 
-        c = await primsa.user.findUnique({ where: { id: child.id } });
-        expect(c!.evolutionStage).toBe(1); // 5pt 以上なので孵化
+        c = await prisma.user.findUnique({ where: { id: child.id } });
+        expect(c!.evolutionStage).toBe(1); // 5pt以上なので孵化
     });
 });
 
-describe("ストリークマイルストーンボーナスでの進化時にcollectedPathsが更新されること", async () => {
+describe("ストリークマイルストーンボーナスでの進化時にcollectedPathsが更新されること", () => {
     let family: any;
     let parent: any;
     let child: any;
     let task: any;
-    
+
     beforeAll(async () => {
         await cleanAll();
         ({ family, parent, child } = await seedFamily());
@@ -160,12 +166,12 @@ describe("ストリークマイルストーンボーナスでの進化時にcoll
         // 3日連続承認してストリーク3に到達
         for (let i = 0; i < 3; i++) {
             const date = new Date(`2026-04-${i + 1}`);
-            const quest = await seedQuestForDate(task.id, child.id, date, "REPORTED");
+            const q= await seedQuestForDate(task.id, child.id, date, "REPORTED");
 
             mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
             await approveQuest(
                 makeRequest(`/api/approve/${q.id}`, { action: "approve" }),
-                makeParams(quest.id),
+                makeParams(q.id),
             );
         }
 

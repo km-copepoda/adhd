@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { loadBadgeContext } from "@/lib/badges";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
 import {
@@ -51,10 +51,10 @@ describe("バッジコンテキスト計算の正確性", () => {
         await cleanAll();
     });
 
-    it("新規ユーザ（collectedPaths=[]）で rebirthCount が0以上であること", async () => {
+    it("新規ユーザー（collectedPaths=[]）で rebirthCount が0以上であること", async () => {
         const ctx = await loadBadgeContext(child.id);
         expect(ctx.rebirthCount).toBeGreaterThanOrEqual(0);
-        expect(ctx.rebirthCount).toBe(0); // 新規ユーザ
+        expect(ctx.rebirthCount).toBe(0);
     });
 
     it("collectionCount が collectedPaths.length と等しいこと", async () => {
@@ -62,20 +62,20 @@ describe("バッジコンテキスト計算の正確性", () => {
         await prisma.user.update({
             where: { id: child.id },
             data: {
-                collectedPaths: '["STUDY", "STUDY_STUDY", "STUDY_STUDY_STUDY"]',
+                collectedPaths: '["STUDY","STUDY_STUDY","STUDY_STUDY_STUDY"]',
                 evolutionStage: 3,
                 evolutionPath: "STUDY_STUDY_STUDY",
             },
         });
 
         const ctx = await loadBadgeContext(child.id);
-        expect(ctx.collectionCount).toBe(3); // パス数と同じ
+        expect(ctx.collectionCount).toBe(3);
     });
 
     it("totalXp が現在のポイント合計と一致すること", async () => {
-        // 3つのクエストを承認（各1pt基本 = 3pt）
+        // 3つのクエストを承認（非連続日でストリークマイルストーン干渉を回避）
         for (let i = 0; i < 3; i++) {
-            const date = new Date(`2026-04-${20 + i}`);
+            const date = new Date(`2026-04-${20 + i * 2}`); // 4/20, 4/22, 4/24
             const quest = await seedQuestForDate(task.id, child.id, date, "REPORTED");
 
             mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
@@ -96,14 +96,14 @@ describe("バッジコンテキスト計算の正確性", () => {
         expect(ctx.totalXp).toBeGreaterThanOrEqual(3);
     });
 
-    it("写真付きクエストのXPがtotalXPに正しく反映されていること", async () => {
-        // XP を付与しておく
+    it("写真付きクエストのXPがtotalXPに正しく反映されること", async () => {
+        // XPを付与しておく
         await prisma.user.update({
             where: { id: child.id },
             data: { studyPt: 3 },
         });
 
-        // 写真付きクエストを作成
+        // 写真付き承認クエストを作成
         await prisma.questInstance.create({
             data: {
                 templateId: task.id,
@@ -112,7 +112,7 @@ describe("バッジコンテキスト計算の正確性", () => {
                 status: "APPROVED",
                 reportedAt: new Date(),
                 approvedAt: new Date(),
-                photoUrl: "http://example.com/photo.jpg",
+                photoUrl: "https://example.com/photo.jpg",
                 deadlineBonusEarned: true,
             },
         });
@@ -121,7 +121,7 @@ describe("バッジコンテキスト計算の正確性", () => {
 
         expect(ctx.photoCount).toBe(1);
         expect(ctx.deadlineBonusCount).toBe(1);
-        // totalXp は studyPt(3) + staminaPTt(0) + lifePt(0) = 3
+        // totalXp は studyPt(3) + staminaPt(0) + lifePt(0) = 3
         expect(ctx.totalXp).toBe(3);
     });
 });

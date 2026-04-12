@@ -26,7 +26,7 @@ describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () 
         await cleanAll();
     });
 
-    it("CHILD操作タスクの削除で、APPROVEDクエストのXPのみ回収されること（REPORTEDは対象外）", async () => {
+    it("CHILDタスクの削除で、APPROVEDクエストのXPのみ回収されること（REPORTEDは対象外）", async () => {
         // CHILD作成タスクを作成
         const task = await seedTask(family.id, {
             category: "STUDY",
@@ -34,22 +34,21 @@ describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () 
             assignedChildId: child.id,
         });
 
-        // 2つのクエスト: 1つはAPPROVED、1つはREPORETED
+        // APPROVEDクエスト（XP付与済み想定）とREPORTEDクエスト（XP未付与）
         const quest1 = await seedQuestForDate(task.id, child.id, new Date("2026-04-01"), "APPROVED");
         const quest2 = await seedQuestForDate(task.id, child.id, new Date("2026-04-02"), "REPORTED");
 
-        // quest2のみ承認（1ptのXP付与）
+        // APPROVE分のXPを手動設定（approveQuest経由だとcreatedByがPARENTに代わるため）
+        await prisma.user.update({
+            where: { id: child.id },
+            data: { studyPt: 1, staminaPt: 0, lifePt: 0 },
+        })
+
+        const beforeChild = await prisma.user.findUnique({ where: { id: child.id } });
+        const xpBefore = beforeChild!.studyPt + beforeChild!.staminaPt + beforeChild!.lifePt;
+
+        // 親がタスク削除
         mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
-        await approveQuest(
-            makeRequest(`/api/approve/${quest2.id}`, { action: "approve" }),
-            makeParams(quest2.id),
-        );
-
-        // 承認後のXPを記録（進化でリセットされる可能性があるので実値を取得）
-        const afterApprove = await prisma.user.findUnique({ where: { id: child.id } });
-        const xpBefore = afterApprove!.studyPt + afterApprove!.staminaPt + afterApprove!.lifePt;
-
-        // タスク削除
         const req = new Request(`http://localhost/api/tasks/${task.id}`, {
             method: "DELETE",
             body: "{}",
@@ -58,15 +57,12 @@ describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () 
         const json = await res.json();
         expect(json.ok).toBe(true);
 
-        // XP回収の確認: APPROVEDクエストのみ回収される
+        // XP回収の確認: APPROVEDのquest1の1クエストのみ回収される
         const afterDelete = await prisma.user.findUnique({ where: { id: child.id } });
         const xpAfter = afterDelete!.studyPt + afterDelete!.staminaPt + afterDelete!.lifePt;
+        expect(xpAfter).toBe(xpBefore - 1);
 
-        // APPROVED分の基本XP（1pt）のみ差し引かれる
-        // ただし進化リセット後は0になっている場合がある
-        expect(xpAfter).toBeLessThanOrEqual(xpBefore);
-
-        // 両両クエストがREJECTEDになること
+        // 両クエストがREJECTEDになること
         const q1 = await prisma.questInstance.findUnique({ where: { id: quest1.id } });
         const q2 = await prisma.questInstance.findUnique({ where: { id: quest2.id } });
         expect(q1!.status).toBe("REJECTED");
@@ -74,7 +70,7 @@ describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () 
 
         // タスクがソフトデリートされること
         const deletedTask = await prisma.taskTemplate.findUnique({ where: { id: task.id } });
-        expect(deletedtask!.isActive).toBe(false);
+        expect(deletedTask!.isActive).toBe(false);
     });
 
     it("PARENT作成タスクの削除ではXP回収が発生しないこと", async () => {

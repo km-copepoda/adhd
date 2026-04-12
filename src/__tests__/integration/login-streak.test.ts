@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { POST as loginCheck } from "@/app/api/auth/login/route";
+import { POST as loginCheck } from "@/app/api/streak/login-check/route";
+import { todayJST } from "@/lib/date";
 import {
     prisma,
     mockAsUser,
@@ -15,9 +16,7 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
     beforeAll(async () => {
         await cleanAll();
         ({ family, child } = await seedFamily());
-        // stage1, sutdyPt=8 でスタート（10日ボーナス+1ptで total=9ptなら進化しない、
-        // ただしstage3閾値10ptで考えると 8+1(bonus)+日次ログイン前後のpt次第）
-        // -> シンプルに低いptで非進化を確認
+        // stage1, studyPt=2 でスタート（10日ボーナス+1ptで total=7、閾値10未満で進化しない）
         await prisma.user.update({
             where: { id: child.id },
             data: { evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 },
@@ -25,7 +24,7 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
     });
 
     afterAll(async () => {
-        await cleanALl();
+        await cleanAll();
     });
 
     it("初回ログインでloginCurrentStreak=1になること", async () => {
@@ -38,9 +37,10 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
         expect(json.bonusGranted).toBe(0);
     });
 
-    it("翌日ログインで連続日数が増えること", async () => {
-        // lastLoginDateを昨日に設定して翌日のログインをシミュレート
-        const yesterday = new Date();
+    it("10日目のログインでマイルストーンボーナスが付与されること", async () => {
+        // lastLoginDateをJST基準の昨日に設定して翌日のログインをシミュレート
+        const today = todayJST();
+        const yesterday = new Date(today);
         yesterday.setUTCDate(yesterday.getUTCDate()  -1);
         await prisma.streak.update({
             where: { childId: child.id },
@@ -55,11 +55,11 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
         const res = await loginCheck(makeRequest("/api/streak/login-check", {}));
         const json = await res.json();
 
-        expect(json.loginStreak).toBe(1);
-        expect(json.bonusGranted).toBe(0);
+        expect(json.loginStreak).toBe(10);
+        expect(json.bonusGranted).toBe(1);
 
         // ボーナスでXPが増えていること
-        const c = await primsa.user.findUnique({ where: { id: child.id } });
+        const c = await prisma.user.findUnique({ where: { id: child.id } });
         const totalXp = c!.studyPt + c!.staminaPt + c!.lifePt;
         // 基本XP(6) + ボーナス(1pt最小カテゴリに加算) = 7
         expect(totalXp).toBe(7);
@@ -70,7 +70,7 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
         await prisma.user.update({
             where: { id: child.id },
             data: {
-                rebirthPending: true
+                rebirthPending: true,
                 evolutionStage: 3,
                 evolutionPath: "STUDY_STUDY_STUDY",
                 studyPt: 18, staminaPt: 0, lifePt: 0,
@@ -78,7 +78,8 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
         });
 
         // ストリークを19にして次回で20日目ボーナス
-        const yesterday = new Date();
+        const today = todayJST();
+        const yesterday = new Date(today);
         yesterday.setUTCDate(yesterday.getUTCDate() - 1);
         await prisma.streak.update({
             where: { childId: child.id },
@@ -94,13 +95,13 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
         const json = await res.json();
 
         expect(json.loginStreak).toBe(20);
-        expect(json.bonusGranted).toBe(0);
+        expect(json.bonusGranted).toBe(1);
 
-        //rebirthPendingが維持され、stageリセットされていないこと
+        // rebirthPendingが維持され、stageリセットされていないこと
         const c = await prisma.user.findUnique({ where: { id: child.id } });
         expect(c!.rebirthPending).toBe(true);
         expect(c!.evolutionStage).toBe(3);
-        // XPは加算されていること（18 + 1 = 19on studyPt, or min categoryに加算）
+        // XPは加算されていること（最小カテゴリに+1pt）
         const totalXp = c!.studyPt + c!.staminaPt + c!.lifePt;
         expect(totalXp).toBe(19);
     });
