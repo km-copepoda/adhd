@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getMonsterMiniData } from "@/lib/monster-mini";
-import { REBIRTH_THRESHOLD } from "@/lib/constants";
+import { REBIRTH_THRESHOLD } from "@/lib/evolution";
 
 const base = {
   evolutionStage: 1,

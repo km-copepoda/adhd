@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { generateFamilyCode } from "@/lib/constants";
+import { generateFamilyCode } from "@/lib/categories";
 import { log, routeLogger } from "@/lib/logger";
 
 export async function GET() {

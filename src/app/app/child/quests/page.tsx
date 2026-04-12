@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS } from "@/lib/constants";
+import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
 import { getDeadlineDisplay } from "@/lib/date";
 import type { Category, QuestStatus } from "@/types";

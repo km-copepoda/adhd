@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/constants";
+import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/streakMilestones";
 
 const SEEN_KEY = "seenAchievementTitles";
 

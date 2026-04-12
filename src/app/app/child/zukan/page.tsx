@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import {
-  MONSTER_TABLE,
-  MONSTER_TABLE_LIGHT,
-  CATEGORY_LABEL,
-  EGG_STAGE,
-  EGG_STAGE_LIGHT,
-  getEvolutionChildren,
-} from "@/lib/constants";
+import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, EGG_STAGE, EGG_STAGE_LIGHT, getEvolutionChildren } from "@/lib/monsters";
+import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 

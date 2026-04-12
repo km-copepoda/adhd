@@ -1,4 +1,5 @@
-import { getMonsterStage, getXpInfo, REBIRTH_THRESHOLD } from "./constants";
+import { getMonsterStage } from "./monsters";
+import { getXpInfo, REBIRTH_THRESHOLD } from "./evolution";
 
 export type MonsterMiniData = {
   image: string;

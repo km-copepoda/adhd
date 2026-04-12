@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getStreakTitle } from "@/lib/constants";
+import { getStreakTitle } from "@/lib/streakMilestones";
 import { monthStartJST, monthEndJST } from "@/lib/date";
 
 export async function GET() {

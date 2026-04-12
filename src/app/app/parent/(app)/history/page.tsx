@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CATEGORY_LABEL } from "@/lib/constants";
+import { CATEGORY_LABEL } from "@/lib/categories";
 import { calcActualXP } from "@/lib/xpRange";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";

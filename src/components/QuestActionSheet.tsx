@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
-import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/constants";
+import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import { xpRangeLabel } from "@/lib/xpRange";
 import { computeQuestSuccessDisplay } from "@/lib/questProgress";
 import { fireCompletionConfetti } from "@/lib/confetti";

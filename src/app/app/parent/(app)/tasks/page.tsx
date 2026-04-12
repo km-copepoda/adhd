@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DAY_LABELS, TEMP_TASK_TEMPLATES } from "@/lib/constants";
+import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
 import { xpRangeLabel } from "@/lib/xpRange";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
+import TaskForm from "@/components/parent/TaskForm";
+import type { FormData, FormMode } from "@/components/parent/TaskForm";
 
 type Task = {
   id: string;
@@ -32,10 +34,7 @@ type Child = {
   reportDeadlineTime: string | null;
 };
 
-
-type FormMode = "regular" | "temporary";
-
-const defaultForm = (childId: string) => ({
+const defaultForm = (childId: string): FormData => ({
   title: "",
   category: "STUDY" as Category,
   repeatDays: [1, 2, 3, 4, 5] as number[],
@@ -169,15 +168,6 @@ export default function TasksPage() {
     setOpenChildId(task.assignedChildId || null);
   }
 
-  function toggleDay(day: number) {
-    setForm((f) => ({
-      ...f,
-      repeatDays: f.repeatDays.includes(day)
-        ? f.repeatDays.filter((d) => d !== day)
-        : [...f.repeatDays, day].sort(),
-    }));
-  }
-
   // 子供ごとにタスクを振り分け（完了済み・期限切れの一時タスクは除外）
   function tasksForChild(childId: string) {
     const all = tasks.filter((t) => t.assignedChildId === childId);
@@ -187,175 +177,6 @@ export default function TasksPage() {
       regular: all.filter((t) => !t.isTemporary && t.createdBy !== "CHILD"),
       temporary: all.filter((t) => isVisibleTemporaryTask(t, todayStr)),
     };
-  }
-
-  // フォームUI（子供セクション内に展開）
-  function renderForm(childId: string, childName: string) {
-    return (
-      <div className="bg-quest-card border border-quest-gold/20 rounded-xl p-5 mb-4">
-        {/* Mode tabs */}
-        {!editingId && (
-          <div className="flex gap-1 mb-4 bg-quest-bg rounded-lg p-1">
-            <button
-              onClick={() => setFormMode("regular")}
-              className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                formMode === "regular"
-                  ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
-                  : "text-quest-dim hover:text-quest-text"
-              }`}
-            >
-              📅 通常タスク
-            </button>
-            <button
-              onClick={() => setFormMode("temporary")}
-              className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                formMode === "temporary"
-                  ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
-                  : "text-quest-dim hover:text-quest-text"
-              }`}
-            >
-              ⚡ 一時タスク
-            </button>
-          </div>
-        )}
-
-        <h3 className="text-quest-gold text-sm font-bold mb-4">
-          {editingId
-            ? `${childName} のタスクを編集`
-            : formMode === "temporary"
-            ? `${childName} に一時タスクを追加`
-            : `${childName} にタスクを追加`}
-        </h3>
-
-        {/* Template picker - temporary mode only */}
-        {formMode === "temporary" && !editingId && (
-          <div className="mb-4">
-            <label className="block text-quest-dim text-xs mb-2 tracking-wider">テンプレートから選択</label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {TEMP_TASK_TEMPLATES.map((tpl) => {
-                const cat = CATEGORY_LABEL[tpl.category];
-                const isSelected = form.title === tpl.title && form.category === tpl.category;
-                return (
-                  <button
-                    key={`${tpl.category}-${tpl.title}`}
-                    onClick={() => setForm((f) => ({ ...f, title: tpl.title, category: tpl.category }))}
-                    className={`text-left px-3 py-2 rounded-lg text-xs border transition-colors ${
-                      isSelected
-                        ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
-                        : "border-quest-border text-quest-dim hover:border-quest-gold/20 hover:text-quest-text"
-                    }`}
-                  >
-                    {cat.emoji} {tpl.title}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Title */}
-        <label className="block text-quest-dim text-xs mb-1 tracking-wider">タスク名</label>
-        <input
-          type="text"
-          value={form.title}
-          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          maxLength={32}
-          placeholder="例: 算数ドリルをやる"
-          className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-4"
-        />
-
-        {/* Category */}
-        <label className="block text-quest-dim text-xs mb-1 tracking-wider">カテゴリ</label>
-        <div className="flex gap-2 mb-4">
-          {(["STUDY", "STAMINA", "LIFE"] as Category[]).map((cat) => {
-            const label = CATEGORY_LABEL[cat];
-            return (
-              <button
-                key={cat}
-                onClick={() => setForm((f) => ({ ...f, category: cat }))}
-                className={`flex-1 py-2 rounded-lg text-sm border transition-colors ${
-                  form.category === cat
-                    ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
-                    : "border-quest-border text-quest-dim hover:border-quest-gold/20"
-                }`}
-              >
-                {label.emoji} {label.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Photo bonus toggle */}
-        <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
-          <div className="flex-1 min-w-0">
-            <p className="text-quest-text text-sm">📷 写真添付を有効にする</p>
-            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると報告時に写真を添付できる（添付すると +1pt）</p>
-          </div>
-          <button
-            onClick={() => setForm((f) => ({ ...f, photoBonus: !f.photoBonus }))}
-            className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 overflow-hidden ${
-              form.photoBonus ? "bg-quest-gold" : "bg-quest-border"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                form.photoBonus ? "translate-x-4" : "translate-x-0"
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Regular: repeat days / Temporary: target date */}
-        {formMode === "regular" ? (
-          <>
-            <label className="block text-quest-dim text-xs mb-1 tracking-wider">繰り返し</label>
-            <div className="flex gap-1 mb-5">
-              {DAY_LABELS.map((label, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleDay(i)}
-                  className={`w-9 h-9 rounded-lg text-xs font-bold border transition-colors ${
-                    form.repeatDays.includes(i)
-                      ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
-                      : "border-quest-border text-quest-dim"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <label className="block text-quest-dim text-xs mb-1 tracking-wider">
-              実施日（未指定の場合は今日）
-            </label>
-            <input
-              type="date"
-              value={form.targetDate}
-              onChange={(e) => setForm((f) => ({ ...f, targetDate: e.target.value }))}
-              className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text focus:outline-none focus:border-quest-gold/30 mb-5"
-            />
-          </>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleSubmit}
-            disabled={!form.title.trim()}
-            className="btn-gold flex-1 text-sm disabled:opacity-40"
-          >
-            {isEditingPending ? "更新して承認" : editingId ? "更新" : "作成"}
-          </button>
-          <button
-            onClick={resetForm}
-            className="text-quest-dim text-sm border border-quest-border rounded-xl px-4 py-2 hover:border-quest-gold/20"
-          >
-            キャンセル
-          </button>
-        </div>
-      </div>
-    );
   }
 
   if (loading) return <LoadingSpinner />;
@@ -409,7 +230,19 @@ export default function TasksPage() {
             </div>
 
             {/* Form for this child */}
-            {isOpen && renderForm(child.id, name)}
+            {isOpen && (
+              <TaskForm
+                form={form}
+                formMode={formMode}
+                editingId={editingId}
+                isEditingPending={isEditingPending}
+                childName={name}
+                onFormChange={setForm}
+                onFormModeChange={setFormMode}
+                onSubmit={handleSubmit}
+                onCancel={resetForm}
+              />
+            )}
 
             {/* Pending tasks */}
             {pending.length > 0 && (

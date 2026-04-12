@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage } from "@/lib/constants";
+import { getMonsterStage } from "@/lib/monsters";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 

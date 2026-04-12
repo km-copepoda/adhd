@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getStreakTitle } from "@/lib/constants";
+import { getStreakTitle } from "@/lib/streakMilestones";
 import { monthStartJST, monthEndJST } from "@/lib/date";
+import { calculateQuestXP } from "@/lib/xp";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -33,9 +34,7 @@ export async function GET() {
 
   let pendingStudyPt = 0, pendingStaminaPt = 0, pendingLifePt = 0;
   for (const q of pendingQuests) {
-    let xp = 1;
-    if (q.deadlineBonusEarned) xp++;
-    if (q.template.photoBonus && q.photoUrl) xp++;
+    const xp = calculateQuestXP(q);
     if (q.template.category === "STUDY") pendingStudyPt += xp;
     else if (q.template.category === "STAMINA") pendingStaminaPt += xp;
     else if (q.template.category === "LIFE") pendingLifePt += xp;
