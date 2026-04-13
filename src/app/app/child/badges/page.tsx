@@ -3,16 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
-
-type BadgeData = {
-  id: string;
-  name: string;
-  emoji: string;
-  description: string;
-  unlocked: boolean;
-  unlockedAt: string | null;
-  isNew: boolean;
-};
+import { sortAndFilterBadges, type BadgeData, type BadgeFilter } from "@/lib/badgeFilter";
 
 type BadgesResponse = {
   badges: BadgeData[];
@@ -24,7 +15,7 @@ type BadgesResponse = {
 export default function BadgesPage() {
   const [data, setData] = useState<BadgesResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
+  const [filter, setFilter] = useState<BadgeFilter>("all");
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
   const fetchBadges = () => {
@@ -55,10 +46,10 @@ export default function BadgesPage() {
       .channel("badge-changes")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, fetchBadges)
       .subscribe();
-    
+
     const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
     document.addEventListener("visibilitychange", onVisible);
-    
+
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
@@ -77,13 +68,20 @@ export default function BadgesPage() {
     );
   }
 
-  const filtered = data.badges.filter(b => {
-    if (filter === "unlocked") return b.unlocked;
-    if (filter === "locked") return !b.unlocked;
-    return true;
-  });
+  // badgesにisNewを反映してからsortAndFilterBadgesに渡す
+  const badgesWithNew = data.badges.map(b => ({ ...b, isNew: newIds.has(b.id) }));
+  const filtered = sortAndFilterBadges(badgesWithNew, filter);
 
   const pct = Math.round((data.unlockedCount / data.totalCount) * 100);
+  const hasNew = newIds.size > 0;
+
+  type FilterOption = { value: BadgeFilter; label: string };
+  const filterOptions: FilterOption[] = [
+    ...(hasNew ? [{ value: "new" as BadgeFilter, label: `🆕 新着 ${newIds.size}` }] : []),
+    { value: "all", label: "すべて" },
+    { value: "unlocked", label: "解除済み" },
+    { value: "locked", label: "未解除" },
+  ];
 
   return (
     <div className="min-h-screen bg-quest-bg pb-24">
@@ -104,28 +102,23 @@ export default function BadgesPage() {
           />
         </div>
 
-        {/* 新着バッジ通知 */}
-        {newIds.size > 0 && (
-          <div className="bg-quest-gold/10 border border-quest-gold/30 rounded-lg px-3 py-2 mb-2">
-            <p className="text-quest-gold text-xs font-bold">
-              🎉 {newIds.size}個の新しい実績を解除しました！
-            </p>
-          </div>
-        )}
-
         {/* フィルター */}
-        <div className="flex gap-2">
-          {(["all", "unlocked", "locked"] as const).map(f => (
+        <div className="flex gap-2 flex-wrap">
+          {filterOptions.map(({ value, label }) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={value}
+              onClick={() => setFilter(value)}
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                filter === f
-                  ? "bg-quest-gold text-quest-bg border-quest-gold font-bold"
-                  : "border-quest-border text-quest-dim hover:text-quest-text"
+                filter === value
+                  ? value === "new"
+                    ? "bg-quest-gold text-quest-bg border-quest-gold font-bold animate-pulse"
+                    : "bg-quest-gold text-quest-bg border-quest-gold font-bold"
+                  : value === "new"
+                    ? "border-quest-gold text-quest-gold hover:bg-quest-gold/10 font-semibold"
+                    : "border-quest-border text-quest-dim hover:text-quest-text"
               }`}
             >
-              {f === "all" ? "すべて" : f === "unlocked" ? "解除済み" : "未解除"}
+              {label}
             </button>
           ))}
         </div>
@@ -134,32 +127,34 @@ export default function BadgesPage() {
       {/* バッジ一覧 */}
       <div className="p-4 grid grid-cols-2 gap-3">
         {filtered.map(badge => (
-          <BadgeCard key={badge.id} badge={badge} isNew={newIds.has(badge.id)} />
+          <BadgeCard key={badge.id} badge={badge} />
         ))}
       </div>
 
       {filtered.length === 0 && (
         <div className="text-center text-quest-dim text-sm py-12">
-          {filter === "unlocked" ? "まだ解除した実績がありません" : "すべて解除済みです！"}
+          {filter === "unlocked" ? "まだ解除した実績がありません"
+            : filter === "new" ? "新しい実績はありません"
+            : "すべて解除済みです！"}
         </div>
       )}
     </div>
   );
 }
 
-function BadgeCard({ badge, isNew }: { badge: BadgeData; isNew: boolean }) {
+function BadgeCard({ badge }: { badge: BadgeData }) {
   return (
     <div
       className={`relative rounded-xl border p-3 transition-all ${
         badge.unlocked
-          ? isNew
-            ? "bg-quest-gold/10 border-quest-gold shadow-lg shadow-quest-gold/20"
+          ? badge.isNew
+            ? "bg-quest-gold/15 border-quest-gold shadow-lg shadow-quest-gold/30"
             : "bg-quest-card border-quest-border"
           : "bg-quest-card/50 border-quest-border/50 opacity-50"
       }`}
     >
-      {isNew && (
-        <span className="absolute -top-1.5 -right-1.5 bg-quest-gold text-quest-bg text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+      {badge.isNew && (
+        <span className="absolute -top-2 -right-2 bg-quest-gold text-quest-bg text-[11px] font-bold px-2 py-0.5 rounded-full shadow-md">
           NEW
         </span>
       )}
@@ -170,7 +165,7 @@ function BadgeCard({ badge, isNew }: { badge: BadgeData; isNew: boolean }) {
         </span>
         <span
           className={`text-xs font-bold leading-tight ${
-            badge.unlocked ? "text-quest-text" : "text-quest-dim"
+            badge.isNew ? "text-quest-gold" : badge.unlocked ? "text-quest-text" : "text-quest-dim"
           }`}
         >
           {badge.name}
