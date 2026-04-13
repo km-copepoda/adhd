@@ -58,6 +58,7 @@ describe("GET /api/family/code", () => {
       studyPt: 0,
       staminaPt: 0,
       lifePt: 0,
+      collectedPaths: "[]",
     });
     expect(json.members[1].childCode).toBe("1234");
   });

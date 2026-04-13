@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage } from "@/lib/monsters";
+import { getMonsterStage, getXpInfo } from "@/lib/constants";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -27,6 +27,7 @@ type Member = {
   studyPt: number;
   staminaPt: number;
   lifePt: number;
+  collectedPaths: string;
 };
 
 type FamilyData = {
@@ -288,18 +289,36 @@ export default function FamilyPage() {
                     </>
                   )}
                 </p>
-                {member.role === "CHILD" && (
-                  <p className="text-[10px] text-quest-dim mt-0.5">
-                    <span className="text-quest-gold font-bold">Lv.{member.evolutionStage}</span>
-                    <span className="mx-1">·</span>
-                    <span className="text-blue-400">📚{member.studyPt}</span>
-                    <span className="mx-0.5" />
-                    <span className="text-green-400">💪{member.staminaPt}</span>
-                    <span className="mx-0.5" />
-                    <span className="text-yellow-400">🏠{member.lifePt}</span>
-                    <span className="ml-1 text-quest-dim">({member.studyPt + member.staminaPt + member.lifePt}pt 合計)</span>
-                  </p>
-                )}
+                {member.role === "CHILD" && (() => {
+                  const isReborn = (JSON.parse(member.collectedPaths) as string[]).length > 0;
+                  const xpInfo = getXpInfo(member.evolutionStage, member.evolutionPath, member.studyPt, member.staminaPt, member.lifePt, isReborn, member.rebirthEggBonus);
+                  const total = member.studyPt + member.staminaPt + member.lifePt;
+                  const pct = xpInfo.xpToEvolve !== null ? Math.min(100, Math.round((total / xpInfo.xpToEvolve) * 100)) : 100;
+                  const nextLabel = member.evolutionStage === 0 ? "孵化" : xpInfo.xpToEvolve !== null ? "進化" : "転生";
+                  return (
+                    <div className="mt-1">
+                      <p className="text-[10px] text-quest-dim">
+                        <span className="text-quest-gold font-bold">Lv.{member.evolutionStage}</span>
+                        <span className="mx-1">·</span>
+                        <span className="text-blue-400">📚{member.studyPt}</span>{" "}
+                        <span className="text-green-400">💪{member.staminaPt}</span>{" "}
+                        <span className="text-yellow-400">🏠{member.lifePt}</span>
+                        {xpInfo.xpToEvolve !== null && (
+                          <span className="ml-1">· あと<span className="text-quest-gold font-bold"> {Math.max(0, xpInfo.ptNeeded!)} </span>ptで{nextLabel}</span>
+                        )}
+                      </p>
+                      <div className="mt-1 h-1.5 w-full bg-quest-border rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-quest-gold rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-[9px] text-quest-dim/60 mt-0.5 text-right">
+                        {total}{xpInfo.xpToEvolve !== null ? ` / ${xpInfo.xpToEvolve} pt` : " pt"}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
               {member.role === "CHILD" && member.childCode && (
                 <div className="text-right">
