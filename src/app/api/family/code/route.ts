@@ -31,6 +31,7 @@ export async function GET() {
       studyPt: (u.studyPt as number) ?? 0,
       staminaPt: (u.staminaPt as number) ?? 0,
       lifePt: (u.lifePt as number) ?? 0,
+      collectedPaths: (u.collectedPaths as string) ?? "[]",
     }));
 
     return NextResponse.json({
