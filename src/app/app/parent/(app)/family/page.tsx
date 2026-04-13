@@ -297,7 +297,10 @@ export default function FamilyPage() {
               <div className="flex flex-col gap-2 mt-2 px-3 pb-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-quest-dim">🔥 ストリーク最低タスク数</span>
+                    <div>
+                      <span className="text-[10px] text-quest-dim">🔥 ストリーク最低タスク数</span>
+                      <p className="text-[10px] text-quest-dim/60 mt-0.5">1日にこの数以上達成するとストリーク継続</p>
+                    </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak - 1)}
@@ -344,8 +347,9 @@ export default function FamilyPage() {
                   </button>
                 )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-quest-dim">⏰ 報告期限（JST）</span>
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] text-quest-dim/60">⏰ 報告期限（JST）— この時刻より前に報告すると +1pt ボーナス。未設定なら期限なし</p>
+                  <div className="flex items-center gap-2">
                   <input
                     type="time"
                     value={deadlineTimes[member.id] ?? ""}

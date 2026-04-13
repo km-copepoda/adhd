@@ -7,6 +7,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
 import { xpRangeLabel } from "@/lib/xpRange";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
+import SetupGuideBanner from "@/components/SetupGuideBanner";
 
 type Task = {
   id: string;
@@ -366,6 +367,8 @@ export default function TasksPage() {
         <h1 className="font-serif text-quest-gold text-2xl tracking-wider">📋 タスク管理</h1>
         <p className="text-quest-dim text-sm mt-1">定期クエストの作成・編集</p>
       </div>
+
+      <SetupGuideBanner />
 
       {children.length === 0 && (
         <p className="text-quest-dim text-sm text-center py-12">
