@@ -28,6 +28,9 @@ export async function GET() {
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
+      studyPt: (u.studyPt as number) ?? 0,
+      staminaPt: (u.staminaPt as number) ?? 0,
+      lifePt: (u.lifePt as number) ?? 0,
     }));
 
     return NextResponse.json({

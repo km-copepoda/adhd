@@ -24,6 +24,9 @@ type Member = {
   childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
+  studyPt: number;
+  staminaPt: number;
+  lifePt: number;
 };
 
 type FamilyData = {
@@ -285,6 +288,18 @@ export default function FamilyPage() {
                     </>
                   )}
                 </p>
+                {member.role === "CHILD" && (
+                  <p className="text-[10px] text-quest-dim mt-0.5">
+                    <span className="text-quest-gold font-bold">Lv.{member.evolutionStage}</span>
+                    <span className="mx-1">·</span>
+                    <span className="text-blue-400">📚{member.studyPt}</span>
+                    <span className="mx-0.5" />
+                    <span className="text-green-400">💪{member.staminaPt}</span>
+                    <span className="mx-0.5" />
+                    <span className="text-yellow-400">🏠{member.lifePt}</span>
+                    <span className="ml-1 text-quest-dim">({member.studyPt + member.staminaPt + member.lifePt}pt 合計)</span>
+                  </p>
+                )}
               </div>
               {member.role === "CHILD" && member.childCode && (
                 <div className="text-right">
