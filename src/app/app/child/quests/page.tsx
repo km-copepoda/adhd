@@ -11,6 +11,7 @@ import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount } from "@/lib/questProgress";
 import { findNewlyStampedApproval } from "@/lib/stampCelebration";
+import { shouldShowReportHint } from "@/lib/quest-hint";
 
 type Quest = {
   id: string;
@@ -53,6 +54,7 @@ export default function QuestsPage() {
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [stampCelebration, setStampCelebration] = useState<{ stamp: string; questTitle: string } | null>(null);
+  const [reportHintDismissed, setReportHintDismissed] = useState(false);
   const questsRef = useRef<Quest[]>([]);
 
   // 離脱時にクエスト状態を保存（別画面から戻った時のスタンプ祝福検知用）
@@ -416,6 +418,28 @@ export default function QuestsPage() {
                 キャンセル
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Report hint (first time) */}
+        {shouldShowReportHint({
+          hasQuests: quests.length > 0,
+          anyReported: quests.some((q) => q.status !== "PENDING"),
+          hasSeen: reportHintDismissed,
+        }) && (
+          <div className="mb-3 bg-quest-gold/10 border border-quest-gold/30 rounded-xl px-4 py-3 flex items-start gap-3">
+            <span className="text-xl shrink-0">👆</span>
+            <div className="flex-1">
+              <p className="text-quest-gold text-xs font-bold">タスクをタップして報告しよう！</p>
+              <p className="text-quest-dim text-[10px] mt-0.5">完了したらタスクをタップ → コメントや写真を添付して報告 → 親が承認するとXPがもらえるよ</p>
+            </div>
+            <button
+              onClick={() => setReportHintDismissed(true)}
+              className="text-quest-dim/60 text-sm leading-none shrink-0"
+              aria-label="ヒントを閉じる"
+            >
+              ✕
+            </button>
           </div>
         )}
 
