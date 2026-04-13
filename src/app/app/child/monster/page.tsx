@@ -37,9 +37,9 @@ type StreakData = {
 
 /** rebirthEggBonus -> 卵画像のマッピング */
 const EGG_BONUS_IMAGE: Record<string, string> = {
-  STUDY: "/monsters/egg-study.png",
-  STAMINA: "/monsters/egg-stamina.png",
-  LIFE: "/monsters/egg-life.png",
+  STUDY: "/monsters/egg-study.webp",
+  STAMINA: "/monsters/egg-stamina.webp",
+  LIFE: "/monsters/egg-life.webp",
 };
 
 export default function MonsterPage() {
