@@ -332,12 +332,13 @@ export default function HistoryPage() {
                       {isApproved ? ` · +${calcActualXP(item.deadlineBonusEarned, !!item.template.photoBonus, !!item.photoUrl)}pt` : ""}
                     </p>
                     {item.photoUrl && (
-                      <button
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.photoUrl}
+                        alt="報告写真"
+                        className="w-full h-32 object-cover rounded-xl mt-2 cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => setPhotoModal(item.photoUrl)}
-                        className="flex items-center gap-2 text-sm text-quest-dim border border-quest-border rounded-xl px-4 py-2.5 mt-2 w-full justify-center hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
-                      >
-                        📷 写真を見る
-                      </button>
+                      />
                     )}
                     {item.comment && (
                       <p className="text-xs text-quest-dim mt-2 bg-quest-bg rounded-lg px-3 py-2">

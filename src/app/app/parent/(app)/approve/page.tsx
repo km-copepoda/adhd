@@ -189,12 +189,13 @@ export default function ApprovePage() {
                 </div>
               </div>
               {quest.photoUrl && (
-                <button
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={quest.photoUrl}
+                  alt="報告写真"
+                  className="w-full h-40 object-cover rounded-xl mb-4 cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={(e) => { e.stopPropagation(); setPhotoModal(quest.photoUrl); }}
-                  className="flex items-center gap-2 text-sm text-quest-dim border border-quest-border rounded-xl px-4 py-2.5 mb-4 w-full justify-center hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
-                >
-                  📷 写真を見る
-                </button>
+                />
               )}
               {quest.comment && (
                 <div className={`rounded-lg p-3 mb-4 text-sm ${
