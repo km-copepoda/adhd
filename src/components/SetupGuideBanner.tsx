@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSetupGuideSteps, shouldShowSetupGuide } from "@/lib/setup-guide";
-
-const STORAGE_KEY = "parent-setup-guide-seen";
+import Link from "next/link";
+import { getSetupGuideSteps, shouldShowSetupGuide, SETUP_GUIDE_STORAGE_KEY } from "@/lib/setup-guide";
 
 export default function SetupGuideBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const seen = localStorage.getItem(STORAGE_KEY) === "true";
+    const seen = localStorage.getItem(SETUP_GUIDE_STORAGE_KEY) === "true";
     if (shouldShowSetupGuide(seen)) {
       setVisible(true);
     }
   }, []);
 
   function dismiss() {
-    localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(SETUP_GUIDE_STORAGE_KEY, "true");
     setVisible(false);
   }
 
@@ -45,8 +44,13 @@ export default function SetupGuideBanner() {
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-quest-gold/20 border border-quest-gold/40 text-quest-gold text-xs font-bold flex items-center justify-center">
               {s.step}
             </span>
-            <div>
-              <p className="text-quest-text text-sm font-medium">{s.title}</p>
+            <div className="flex-1">
+              <Link
+                href={s.href}
+                className="text-quest-gold text-sm font-medium hover:underline"
+              >
+                {s.title} →
+              </Link>
               <p className="text-quest-dim text-xs mt-0.5">{s.description}</p>
             </div>
           </li>
