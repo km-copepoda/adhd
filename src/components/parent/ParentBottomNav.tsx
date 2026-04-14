@@ -21,7 +21,7 @@ export default function ParentBottomNav() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/app/parent/login";
+    window.location.href = "/login";
   }
 
   return (
