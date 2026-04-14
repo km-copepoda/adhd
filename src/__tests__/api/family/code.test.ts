@@ -59,6 +59,7 @@ describe("GET /api/family/code", () => {
       staminaPt: 0,
       lifePt: 0,
       collectedPaths: "[]",
+      lastLoginDate: null,
     });
     expect(json.members[1].childCode).toBe("1234");
   });
@@ -90,7 +91,12 @@ describe("GET /api/family/code", () => {
 
     expect(mockPrisma.family.findUnique).toHaveBeenCalledWith({
       where: { id: "fam-1" },
-      include: { users: { orderBy: { createdAt: "asc" } } },
+      include: {
+        users: {
+          orderBy: { createdAt: "asc" },
+          include: { streak: { select: { lastLoginDate: true } } },
+        },
+      },
     });
   });
 

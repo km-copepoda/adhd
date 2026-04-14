@@ -13,7 +13,12 @@ export async function GET() {
 
     const family = await prisma.family.findUnique({
       where: { id: user.familyId },
-      include: { users: { orderBy: { createdAt: "asc" } } },
+      include: {
+        users: {
+          orderBy: { createdAt: "asc" },
+          include: { streak: { select: { lastLoginDate: true } } },
+        },
+      },
     });
 
     const members = (family?.users || []).map((u: Record<string, unknown>) => ({
@@ -32,6 +37,9 @@ export async function GET() {
       staminaPt: (u.staminaPt as number) ?? 0,
       lifePt: (u.lifePt as number) ?? 0,
       collectedPaths: (u.collectedPaths as string) ?? "[]",
+      lastLoginDate: ((u.streak as { lastLoginDate: Date | null } | null)?.lastLoginDate ?? null)
+        ? String((u.streak as { lastLoginDate: Date | null }).lastLoginDate)
+        : null,
     }));
 
     return NextResponse.json({
