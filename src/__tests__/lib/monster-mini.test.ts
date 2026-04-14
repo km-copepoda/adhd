@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getMonsterMiniData } from "@/lib/monster-mini";
-import { REBIRTH_THRESHOLD } from "@/lib/constants";
+import { REBIRTH_THRESHOLD } from "@/lib/evolution";
 
 const base = {
   evolutionStage: 1,
@@ -81,7 +81,7 @@ describe("getMonsterMiniData", () => {
       lifePt: 0,
       rebirthEggBonus: "STUDY",
     });
-    expect(result.image).toBe("/monsters/egg-study.png");
+    expect(result.image).toBe("/monsters/egg-study.webp");
   });
 
   it("rebirthEggBonus=STAMINA の場合、stage0 で体力の卵画像を返す", () => {
@@ -91,7 +91,7 @@ describe("getMonsterMiniData", () => {
       evolutionPath: "",
       rebirthEggBonus: "STAMINA",
     });
-    expect(result.image).toBe("/monsters/egg-stamina.png");
+    expect(result.image).toBe("/monsters/egg-stamina.webp");
   });
 
   it("rebirthEggBonus=LIFE の場合、stage0 で生活力の卵画像を返す", () => {
@@ -101,7 +101,7 @@ describe("getMonsterMiniData", () => {
       evolutionPath: "",
       rebirthEggBonus: "LIFE",
     });
-    expect(result.image).toBe("/monsters/egg-life.png");
+    expect(result.image).toBe("/monsters/egg-life.webp");
   });
 
   it("rebirthEggBonus=null の場合、stage0 でデフォルト卵画像を返す", () => {

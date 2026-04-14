@@ -118,6 +118,97 @@ SKIP_REPORTED -> PENDING（親がスキップ却下）
 
 ---
 
+## コード構成規約
+
+### `src/lib/` のモジュール分割ルール
+
+lib 内のファイルは **1ファイル1責務** を原則とし、以下のように分類する。
+
+| 分類 | ファイル例 | ルール |
+|------|-----------|--------|
+| データ定義 | `monsters.ts`, `badges.data.ts`, `categories.ts` | 純粋なデータ（定数・テーブル）。DB依存なし |
+| ビジネスロジック | `evolution.ts`, `streakMilestones.ts`, `badges.data.ts` | 純粋関数。副作用なし、テスト容易 |
+| DB操作 | `badges.ts`, `approve.ts`, `streak.ts` | Prisma を使う処理。純粋関数はデータ定義側に置く |
+| インフラ | `prisma.ts`, `auth.ts`, `logger.ts`, `push.ts` | 外部サービス接続 |
+| UIユーティリティ | `confetti.ts`, `spinner.ts`, `ios-install.ts` | クライアント専用の小さなヘルパー |
+
+#### やってはいけないこと
+- **1ファイルにデータ定義・ロジック・DB操作を混在させない**（旧 `constants.ts` / 旧 `badges.ts` の失敗パターン）
+- **バレルファイル（re-export だけのファイル）を作らない** — インポート元を直接指定する
+
+#### 新規ファイル追加時
+- 300行を超えそうなら分割を検討する
+- 純粋関数と DB 操作は別ファイルに分ける（テストしやすさのため）
+
+### XP 計算
+
+XP 計算は **`src/lib/xp.ts`** の `calculateQuestXP()` を使う。
+
+```ts
+import { calculateQuestXP } from "@/lib/xp";
+const xp = calculateQuestXP(quest); // 1 + deadlineBonus + photoBonus
+```
+
+API ルート内で `let xp = 1; if (...) xp++; ...` と手書きしない。
+
+### 進化ロジックのインポート先
+
+| 用途 | インポート元 |
+|------|-------------|
+| `checkEvolution`, `getXpInfo`, `REBIRTH_THRESHOLD` 等 | `@/lib/evolution` |
+| `MONSTER_TABLE`, `getMonsterStage`, `getEvolutionChildren` | `@/lib/monsters` |
+| `CATEGORY_LABEL`, `CATEGORY_COLOR`, `DAY_LABELS` 等 | `@/lib/categories` |
+| `STREAK_MILESTONES`, `getStreakTitle`, `distributeBonus` 等 | `@/lib/streakMilestones` |
+| `ALL_BADGES`, `checkBadgeConditions`, `BadgeContext` 型 | `@/lib/badges` または `@/lib/badges.data` |
+
+旧 `@/lib/constants` は削除済み。使わないこと。
+
+### コンポーネント分割ルール
+
+#### ファイル配置
+
+```
+src/components/
+  child/          ← 子供画面専用
+  parent/         ← 親画面専用
+  *.tsx           ← 共有コンポーネント
+```
+
+#### 分割の判断基準
+- ページコンポーネントが **500行を超えたら** フォームやモーダルの抽出を検討する
+- **再利用可能な UI パーツ**（モーダル、カットイン等）は `components/` に抽出する
+- ページ固有のロジックはページ内に残してよい
+
+#### 既存の抽出済みコンポーネント
+- `components/parent/TaskForm.tsx` — タスク作成・編集フォーム
+- `components/child/EggSelectionModal.tsx` — 転生時の卵選択
+- `components/child/CutsceneOverlay.tsx` — 進化・孵化・転生・実績のカットイン演出
+
+### カスタムフック
+
+| フック | 用途 |
+|-------|------|
+| `hooks/useApiFetch.ts` | 汎用APIフェッチ（loading/error/data + refetch） |
+| `hooks/usePendingApprovalCount.ts` | 承認待ち件数（Realtime + 可視性検出） |
+
+新しいデータフェッチが必要な場合は `useApiFetch` の利用を検討する。ただし Supabase Realtime やカスタム変換が必要な場合はページ内で直接書いてよい。
+
+### 認証ヘルパー
+
+```ts
+import { getCurrentUser, requireUser, AuthError } from "@/lib/auth";
+
+// ロール不問（未認証のみ拒否）
+const user = await requireUser();
+
+// ロール指定
+const parent = await requireUser("PARENT");
+```
+
+`requireUser` は未認証時に `AuthError` をスローする。API ルートでは引き続き `getCurrentUser()` + 手動チェックでもよい。
+
+---
+
 ## Claude への作業指示
 
 ### 指示を受ける前に

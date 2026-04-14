@@ -55,9 +55,32 @@ describe("GET /api/family/code", () => {
       childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,
+      studyPt: 0,
+      staminaPt: 0,
+      lifePt: 0,
+      collectedPaths: "[]",
       lastLoginDate: null,
     });
     expect(json.members[1].childCode).toBe("1234");
+  });
+
+  it("子供メンバーのXPフィールドを返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.family.findUnique.mockResolvedValue(
+      family({
+        users: [
+          { id: "u2", name: "太郎", role: "CHILD", monsterName: "ドラゴン", side: "DARK", childCode: "1234",
+            studyPt: 5, staminaPt: 3, lifePt: 2 },
+        ],
+      }) as any,
+    );
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.members[0].studyPt).toBe(5);
+    expect(json.members[0].staminaPt).toBe(3);
+    expect(json.members[0].lifePt).toBe(2);
   });
 
   it("usersをcreatedAt昇順で取得すること", async () => {

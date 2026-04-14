@@ -2,9 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo, CATEGORY_LABEL, CATEGORY_COLOR, STREAK_MILESTONES, MONSTER_TABLE, REBIRTH_THRESHOLD, getUnreadAchievements } from "@/lib/constants";
+import { getMonsterStage, MONSTER_TABLE } from "@/lib/monsters";
+import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
+import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
+import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/streakMilestones";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import EggSelectionModal from "@/components/child/EggSelectionModal";
+import CutsceneOverlay from "@/components/child/CutsceneOverlay";
 
 type MonsterData = {
   name: string;
@@ -30,42 +35,11 @@ type StreakData = {
   currentTitle: { title: string; emoji: string } | null;
 };
 
-const EGG_OPTIONS = [
-  {
-    type: "NORMAL",
-    name: "ふつうの卵",
-    img: "", // side に応じて動的に決定
-    desc: "ボーナスなし",
-    color: "#a78bfa",
-  },
-  {
-    type: "STUDY",
-    name: "勉強の卵",
-    img: "/monsters/egg-study.png",
-    desc: "📚 学力の確率+20%",
-    color: "#60a5fa",
-  },
-  {
-    type: "STAMINA",
-    name: "体力の卵",
-    img: "/monsters/egg-stamina.png",
-    desc: "💪 体力の確率+20%",
-    color: "#f87171",
-  },
-  {
-    type: "LIFE",
-    name: "生活力の卵",
-    img: "/monsters/egg-life.png",
-    desc: "🌿 生活力の確率+20%",
-    color: "#4ade80",
-  },
-] as const;
-
 /** rebirthEggBonus -> 卵画像のマッピング */
 const EGG_BONUS_IMAGE: Record<string, string> = {
-  STUDY: "/monsters/egg-study.png",
-  STAMINA: "/monsters/egg-stamina.png",
-  LIFE: "/monsters/egg-life.png",
+  STUDY: "/monsters/egg-study.webp",
+  STAMINA: "/monsters/egg-stamina.webp",
+  LIFE: "/monsters/egg-life.webp",
 };
 
 export default function MonsterPage() {
@@ -229,101 +203,56 @@ export default function MonsterPage() {
       {/* Evolution cut-in overlay */}
       {showEvolution && data && (() => {
         const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
-        const desc = MONSTER_TABLE[data.evolutionPath]?.description;
         return (
-          <div
-            className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
-            onClick={() => setShowEvolution(false)}
-            style={{ animation: "fadeIn 0.3s ease-out" }}
-          >
-            <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-              <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-                <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" />
-              </div>
-            </div>
-            <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
-              進化した！
-            </p>
-            <p className="text-quest-gold/70 text-lg mb-4">{m.name}</p>
-            {desc && (
-              <p className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs" style={{ animation: "evolveIn 0.7s ease-out" }}>
-                {desc}
-              </p>
-            )}
-            <p className="text-quest-dim text-xs">タップして閉じる</p>
-            <style>{`
-              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-              @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-              @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
-            `}</style>
-          </div>
+          <CutsceneOverlay
+            onClose={() => setShowEvolution(false)}
+            imageSrc={m.image}
+            imageAlt={m.name}
+            title="進化した！"
+            subtitle={m.name}
+            description={MONSTER_TABLE[data.evolutionPath]?.description}
+          />
         );
       })()}
 
       {/* Hatch cut-in overlay (egg → first form) */}
       {hatched && data && (() => {
         const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
-        const desc = MONSTER_TABLE[data.evolutionPath]?.description;
         return (
-          <div
-            className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
-            onClick={() => setHatched(false)}
-            style={{ animation: "fadeIn 0.3s ease-out" }}
-          >
-            <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-              <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(251,191,36,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-                <Image src={m.image} alt={m.name} width={320} height={320} className="w-full h-full object-contain" />
-              </div>
-            </div>
-            <p className="font-serif text-quest-gold text-3xl tracking-widest mb-1" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}>
-              うまれた！
-            </p>
-            <p className="text-quest-gold/70 text-lg mb-4">{m.name}</p>
-            {desc && (
-              <p className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs" style={{ animation: "evolveIn 0.7s ease-out" }}>
-                {desc}
-              </p>
-            )}
-            <p className="text-quest-dim text-xs">タップして閉じる</p>
-            <style>{`
-              @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-              @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-              @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
-            `}</style>
-          </div>
+          <CutsceneOverlay
+            onClose={() => setHatched(false)}
+            imageSrc={m.image}
+            imageAlt={m.name}
+            title="うまれた！"
+            subtitle={m.name}
+            description={MONSTER_TABLE[data.evolutionPath]?.description}
+          />
         );
       })()}
 
       {/* Rebirth cut-in overlay */}
-      {reborn && (
-        <div
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90"
-          onClick={() => setReborn(false)}
-          style={{ animation: "fadeIn 0.3s ease-out" }}
-        >
-          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div className="w-80 h-80 mb-6 mx-auto" style={{ filter: "drop-shadow(0 0 40px rgba(139,92,246,0.8))", animation: "pulse 0.8s ease-in-out infinite alternate" }}>
-              {data ? (() => { const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus] ? EGG_BONUS_IMAGE[data.rebirthEggBonus] : getMonsterStage(0, "", data.side).image; return <Image src={eggImg} alt="たまご" width={320} height={320} className="w-full h-full object-contain" />; })() : <span className="text-9xl flex items-center justify-center w-full h-full">🥚</span>}
-            </div>
-          </div>
-          <p className="font-serif text-purple-400 text-3xl tracking-widest mb-2" style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(139,92,246,0.8)" }}>
-            転生！
-          </p>
-          <p className="text-purple-400/70 text-lg mb-8">新たな冒険がはじまる…</p>
-          <p className="text-quest-dim text-xs">タップして閉じる</p>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.1) } }
-          `}</style>
-        </div>
-      )}
+      {reborn && (() => {
+        const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
+          ? EGG_BONUS_IMAGE[data.rebirthEggBonus]
+          : getMonsterStage(0, "", data.side).image;
+        return (
+          <CutsceneOverlay
+            onClose={() => setReborn(false)}
+            imageSrc={eggImg}
+            imageAlt="たまご"
+            glowColor="rgba(139,92,246,0.8)"
+            title="転生！"
+            titleColor="text-purple-400"
+            subtitle="新たな冒険がはじまる…"
+            subtitleColor="text-purple-400/70"
+          />
+        );
+      })()}
 
       {/* Achievement unlock cutscene */}
       {unlockedAchievement && (
-        <div
-          className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 px-6"
-          onClick={() => {
+        <CutsceneOverlay
+          onClose={() => {
             try {
               const seen: string[] = JSON.parse(localStorage.getItem("seenAchievementTitles") ?? "[]");
               if (!seen.includes(unlockedAchievement.title)) {
@@ -333,89 +262,23 @@ export default function MonsterPage() {
             } catch { /* ignore */ }
             setUnlockedAchievement(null);
           }}
-          style={{ animation: "fadeIn 0.3s ease-out" }}
-        >
-          <div style={{ animation: "evolveIn 0.5s ease-out" }}>
-            <div
-              className="text-9xl mb-6 text-center"
-              style={{
-                filter: "drop-shadow(0 0 40px rgba(251,191,36,0.9))",
-                animation: "pulse 0.8s ease-in-out infinite alternate",
-              }}
-            >
-              {unlockedAchievement.emoji}
-            </div>
-          </div>
-          <p
-            className="font-serif text-quest-gold text-xl tracking-widest mb-2"
-            style={{ animation: "evolveIn 0.6s ease-out", textShadow: "0 0 20px rgba(251,191,36,0.8)" }}
-          >
-            称号を獲得！
-          </p>
-          <p
-            className="text-white text-3xl font-bold mb-3"
-            style={{ animation: "evolveIn 0.65s ease-out" }}
-          >
-            {unlockedAchievement.title}
-          </p>
-          <p
-            className="text-yellow-300 text-xl font-bold mb-8"
-            style={{ animation: "evolveIn 0.7s ease-out", textShadow: "0 0 12px rgba(253,224,71,0.6)" }}
-          >
-            +{unlockedAchievement.bonusPt}pt ゲット！
-          </p>
-          <p className="text-quest-dim text-xs">タップして閉じる</p>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-            @keyframes evolveIn { from { opacity: 0; transform: scale(0.3) } to { opacity: 1; transform: scale(1) } }
-            @keyframes pulse { from { transform: scale(1) } to { transform: scale(1.15) } }
-          `}</style>
-        </div>
+          emoji={unlockedAchievement.emoji}
+          title="称号を獲得！"
+          titleColor="text-quest-gold"
+          subtitle={unlockedAchievement.title}
+          subtitleColor="text-white"
+          bonus={{ text: `+${unlockedAchievement.bonusPt}pt ゲット！`, color: "#fde047" }}
+        />
       )}
 
       {/* Egg selection overlay */}
       {showEggSelection && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center px-4"
-          style={{ animation: "fadeIn 0.3s ease-out" }}
-        >
-          <p className="font-serif text-purple-400 text-2xl tracking-widest mb-2">卵を選ぼう</p>
-          <p className="text-quest-dim text-sm mb-8 text-center">
-            次回転生まで、選んだカテゴリの<br />進化確率が<span className="text-purple-400 font-bold">+20%</span>アップ！
-          </p>
-          <div className="flex flex-col gap-3 w-full max-w-sm">
-            {EGG_OPTIONS.map(({ type, name, img, desc, color }) => {
-              const eggImg = img || (data?.side === "LIGHT" ? "/monsters/light/egg.webp" : "/monsters/dark/egg.webp");
-              return (
-              <button
-                key={type}
-                onClick={() => handleRebirth(type)}
-                disabled={rebirthLoading}
-                className="bg-quest-card border border-quest-border rounded-xl p-4 flex items-center gap-4 active:scale-95 transition-transform disabled:opacity-50"
-                style={{ borderColor: rebirthLoading ? undefined : `${color}40` }}
-              >
-                <div className="w-16 h-16 flex-shrink-0">
-                  <Image src={eggImg} alt={name} width={64} height={64} className="w-full h-full object-contain" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-bold text-quest-text text-base">{name}</p>
-                  <p className="text-sm mt-0.5" style={{ color }}>{desc}</p>
-                </div>
-                <div className="text-quest-dim text-xl">›</div>
-              </button>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => setShowEggSelection(false)}
-            className="mt-8 text-quest-dim text-sm"
-          >
-            キャンセル（後でする）
-          </button>
-          <style>{`
-            @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-          `}</style>
-        </div>
+        <EggSelectionModal
+          side={data.side}
+          loading={rebirthLoading}
+          onSelect={handleRebirth}
+          onCancel={() => setShowEggSelection(false)}
+        />
       )}
 
       {/* Monster hero */}

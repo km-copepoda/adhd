@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
-import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, getNewBadgeCount, STREAK_MILESTONES } from "@/lib/constants";
+import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, getNewBadgeCount, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { computeRemainingCount } from "@/lib/questProgress";
 
 const SEEN_KEY = "seenAchievementTitles";

@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/constants", () => ({
+vi.mock("@/lib/categories", () => ({
   generateFamilyCode: vi.fn(() => "ABC123"),
 }));
 

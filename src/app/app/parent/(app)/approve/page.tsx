@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/constants";
+import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";

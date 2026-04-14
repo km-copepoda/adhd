@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { checkEvolution, getNewMilestoneBonus, distributeBonus } from "@/lib/constants";
+import { checkEvolution } from "@/lib/evolution";
+import { getNewMilestoneBonus, distributeBonus } from "@/lib/streakMilestones";
 import { log } from "@/lib/logger";
 
 /**

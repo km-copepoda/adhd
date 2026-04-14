@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { checkEvolution } from "@/lib/constants";
+import { checkEvolution } from "@/lib/evolution";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import { checkAndUnlockBadges } from "@/lib/badges";
 import { log } from "@/lib/logger";
+import { calculateQuestXP } from "@/lib/xp";
 
 type QuestWithRelations = {
   id: string;
@@ -42,16 +43,8 @@ type FreshChildData = {
   rebirthEggBonus: string | null;
 };
 
-/** ボーナスベースのXP計算: 基本1 + 期限ボーナス + 写真ボーナス (最大3) */
-function calculateXP(quest: QuestWithRelations): number {
-  let xp = 1;
-  if (quest.deadlineBonusEarned) xp++;
-  if (quest.template.photoBonus && quest.photoUrl) xp++;
-  return xp;
-}
-
 export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
-  const xp = calculateXP(quest);
+  const xp = calculateQuestXP(quest);
   const category = quest.template.category;
 
   // 最新のchildデータをDBから取得（stale dataによるポイント上書きを防ぐ）

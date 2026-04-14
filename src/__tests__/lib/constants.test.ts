@@ -1,33 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  CATEGORY_LABEL,
-  CATEGORY_COLOR,
-  MONSTER_TABLE,
-  MONSTER_TABLE_LIGHT,
-  EVOLUTION_THRESHOLDS,
-  REBIRTH_THRESHOLD,
-  REBIRTH_EGG_THRESHOLD,
-  DAY_LABELS,
-  STREAK_MILESTONES,
-  TEMP_TASK_TEMPLATES,
-  getMonsterStage,
-  checkEvolution,
-  getXpInfo,
-  computeEvolutionWeights,
-  selectEvolutionPath,
-  applyEggBonus,
-  getStreakTitle,
-  getNewMilestoneBonus,
-  getNewlyUnlockedMilestone,
-  getUnreadAchievements,
-  shouldShowMonsterBadge,
-  shouldShowZukanBadge,
-  getNewBadgeCount,
-  distributeBonus,
-  generateFamilyCode,
-  generateChildCode,
-  getEvolutionChildren,
-} from "@/lib/constants";
+import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, getMonsterStage, getEvolutionChildren } from "@/lib/monsters";
+import { EVOLUTION_THRESHOLDS, REBIRTH_THRESHOLD, REBIRTH_EGG_THRESHOLD, checkEvolution, getXpInfo, computeEvolutionWeights, selectEvolutionPath, applyEggBonus } from "@/lib/evolution";
+import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS, TEMP_TASK_TEMPLATES, generateFamilyCode, generateChildCode } from "@/lib/categories";
+import { STREAK_MILESTONES, getStreakTitle, getNewMilestoneBonus, getNewlyUnlockedMilestone, getUnreadAchievements, shouldShowMonsterBadge, shouldShowZukanBadge, getNewBadgeCount, distributeBonus } from "@/lib/streakMilestones";
 
 // ─── 定数マップのテスト ───────────────────────────────
 

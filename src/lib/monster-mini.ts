@@ -1,4 +1,5 @@
-import { getMonsterStage, getXpInfo, REBIRTH_THRESHOLD } from "./constants";
+import { getMonsterStage } from "./monsters";
+import { getXpInfo, REBIRTH_THRESHOLD } from "./evolution";
 
 export type MonsterMiniData = {
   image: string;
@@ -12,9 +13,9 @@ export type MonsterMiniData = {
 };
 
 const EGG_BONUS_IMAGE: Record<string, string> = {
-  STUDY: "/monsters/egg-study.png",
-  STAMINA: "/monsters/egg-stamina.png",
-  LIFE: "/monsters/egg-life.png",
+  STUDY: "/monsters/egg-study.webp",
+  STAMINA: "/monsters/egg-stamina.webp",
+  LIFE: "/monsters/egg-life.webp",
 };
 
 export function getMonsterMiniData(params: {

@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import {
-  MONSTER_TABLE,
-  MONSTER_TABLE_LIGHT,
-  CATEGORY_LABEL,
-  EGG_STAGE,
-  EGG_STAGE_LIGHT,
-  getEvolutionChildren,
-} from "@/lib/constants";
+import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, EGG_STAGE, EGG_STAGE_LIGHT, getEvolutionChildren } from "@/lib/monsters";
+import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -121,9 +115,9 @@ export default function ZukanPage() {
             <p className="text-xs text-quest-text">🥚 たまご</p>
           </div>
           {[
-            { img: "/monsters/egg-study.png", label: "📚 勉強の卵", color: "rgba(96,165,250,0.3)" },
-            { img: "/monsters/egg-stamina.png", label: "💪 体力の卵", color: "rgba(248,113,113,0.3)" },
-            { img: "/monsters/egg-life.png", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)" },
+            { img: "/monsters/egg-study.webp", label: "📚 勉強の卵", color: "rgba(96,165,250,0.3)" },
+            { img: "/monsters/egg-stamina.webp", label: "💪 体力の卵", color: "rgba(248,113,113,0.3)" },
+            { img: "/monsters/egg-life.webp", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)" },
           ].map((egg) => (
             <div key={egg.label} className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28" style={{ borderColor: egg.color }}>
               <Image

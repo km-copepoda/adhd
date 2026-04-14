@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { checkEvolution } from "@/lib/constants";
+import { checkEvolution } from "@/lib/evolution";
 import { log } from "@/lib/logger";
 
 export interface LoginActivityResult {

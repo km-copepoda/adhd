@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { generateChildCode } from "@/lib/constants";
+import { generateChildCode } from "@/lib/categories";
 import { routeLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
