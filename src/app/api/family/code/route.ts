@@ -13,7 +13,12 @@ export async function GET() {
 
     const family = await prisma.family.findUnique({
       where: { id: user.familyId },
-      include: { users: { orderBy: { createdAt: "asc" } } },
+      include: {
+        users: {
+          orderBy: { createdAt: "asc" },
+          include: { streak: { select: { lastLoginDate: true } } },
+        },
+      },
     });
 
     const members = (family?.users || []).map((u: Record<string, unknown>) => ({
@@ -28,6 +33,9 @@ export async function GET() {
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
+      lastLoginDate: ((u.streak as { lastLoginDate: Date | null } | null)?.lastLoginDate ?? null)
+        ? String((u.streak as { lastLoginDate: Date | null }).lastLoginDate)
+        : null,
     }));
 
     return NextResponse.json({

@@ -31,6 +31,7 @@ type Child = {
   id: string;
   monsterName: string | null;
   reportDeadlineTime: string | null;
+  lastLoginDate: string | null;
 };
 
 
@@ -368,7 +369,11 @@ export default function TasksPage() {
         <p className="text-quest-dim text-sm mt-1">定期クエストの作成・編集</p>
       </div>
 
-      <SetupGuideBanner />
+      <SetupGuideBanner progress={{
+        hasChild: children.length > 0,
+        hasTask: tasks.length > 0,
+        childLoggedIn: children.some((c) => c.lastLoginDate !== null),
+      }} />
 
       {children.length === 0 && (
         <p className="text-quest-dim text-sm text-center py-12">
