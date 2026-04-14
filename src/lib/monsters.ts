@@ -1,8 +1,8 @@
 import { EVOLUTION_THRESHOLDS } from "@/lib/evolution";
 
 // ─── たまご ───────────────────────────────────────────
-export const EGG_STAGE = { image: "/monsters/dark/egg.webp", name: "たまご", ptToEvolve: 1 };
-export const EGG_STAGE_LIGHT = { image: "/monsters/light/egg.webp", name: "たまご", ptToEvolve: 1 };
+export const EGG_STAGE = { image: "/monsters/dark/egg.webp", name: "たまご", ptToEvolve: 1, description: "これから何が生まれるかな？ワクワクするね！"};
+export const EGG_STAGE_LIGHT = { image: "/monsters/light/egg.webp", name: "たまご", ptToEvolve: 1, description: "これから何が生まれるかな？ワクワクするね！" };
 
 export const MONSTER_TABLE: Record<string, { image: string; name: string; description: string }> = {
   // Stage 1: 3体（孵化直後に分岐）
