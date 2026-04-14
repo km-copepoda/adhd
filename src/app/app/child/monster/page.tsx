@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, MONSTER_TABLE } from "@/lib/monsters";
+import { getMonsterStage } from "@/lib/monsters";
 import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/streakMilestones";
@@ -210,7 +210,7 @@ export default function MonsterPage() {
             imageAlt={m.name}
             title="進化した！"
             subtitle={m.name}
-            description={MONSTER_TABLE[data.evolutionPath]?.description}
+            description={m.description}
           />
         );
       })()}
@@ -225,7 +225,7 @@ export default function MonsterPage() {
             imageAlt={m.name}
             title="うまれた！"
             subtitle={m.name}
-            description={MONSTER_TABLE[data.evolutionPath]?.description}
+            description={m.description}
           />
         );
       })()}
