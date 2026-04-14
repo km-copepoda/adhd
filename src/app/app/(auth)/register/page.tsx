@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { SETUP_GUIDE_STORAGE_KEY } from "@/lib/setup-guide";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -40,6 +41,7 @@ export default function RegisterPage() {
       return;
     }
 
+    localStorage.removeItem(SETUP_GUIDE_STORAGE_KEY);
     window.location.href = "/app/parent/tasks";
   }
 
