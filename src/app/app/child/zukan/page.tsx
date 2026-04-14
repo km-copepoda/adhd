@@ -6,6 +6,8 @@ import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, EGG_STAGE, EGG_STAGE_LIGHT, getEvol
 import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import MonsterImageModal from "@/components/MonsterImageModal";
+import { getZukanStageLabel } from "@/lib/zukanStageLabel";
 
 type ZukanData = {
   side: string | null;
@@ -63,9 +65,12 @@ function PathChips({ path, size = "md" }: { path: string; size?: "sm" | "md" }) 
   );
 }
 
+type SelectedMonster = { image: string; name: string; stageLabel: string };
+
 export default function ZukanPage() {
   const [data, setData] = useState<ZukanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<SelectedMonster | null>(null);
 
   useEffect(() => {
     fetch("/api/monster")
@@ -83,6 +88,9 @@ export default function ZukanPage() {
   if (loading || !data) return <LoadingSpinner />;
 
   const collected = new Set<string>(JSON.parse(data.collectedPaths) as string[]);
+
+  const openModal = (image: string, name: string, path: string) =>
+    setSelected({ image, name, stageLabel: getZukanStageLabel(path) });
   const monsterLevels = JSON.parse(data.monsterLevels) as Record<string, number>;
   const monsterTable = data.side === "LIGHT" ? MONSTER_TABLE_LIGHT : MONSTER_TABLE;
   const eggData = data.side === "LIGHT" ? EGG_STAGE_LIGHT : EGG_STAGE;
@@ -171,7 +179,10 @@ export default function ZukanPage() {
               className="flex items-center gap-3 px-3 py-3"
               style={{ background: "#1a1829", borderBottom: "1px solid #1e1c2e" }}
             >
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div
+                className={`flex flex-col items-center gap-1 flex-shrink-0${isS1Collected ? " cursor-pointer active:opacity-80" : ""}`}
+                onClick={isS1Collected ? () => openModal(m1.image, m1.name, s1) : undefined}
+              >
                 <Image
                   src={isS1Collected ? m1.image : shadowPath(m1.image)}
                   alt={m1.name}
@@ -213,12 +224,13 @@ export default function ZukanPage() {
                   >
                     {/* S2 card */}
                     <div
-                      className="flex flex-col items-center gap-1 flex-shrink-0 rounded-xl p-1"
+                      className={`flex flex-col items-center gap-1 flex-shrink-0 rounded-xl p-1${isS2Collected ? " cursor-pointer active:opacity-80" : ""}`}
                       style={{
                         width: 76,
                         background: "#1a1829",
                         border: `1px solid ${isS2Collected ? "rgba(251,191,36,0.28)" : "#2e2a42"}`,
                       }}
+                      onClick={isS2Collected ? () => openModal(m2.image, m2.name, s2) : undefined}
                     >
                       <PathChips path={s2} />
                       <Image
@@ -246,11 +258,12 @@ export default function ZukanPage() {
                         return (
                           <div
                             key={s3}
-                            className="flex flex-col items-center gap-1 rounded-lg p-1"
+                            className={`flex flex-col items-center gap-1 rounded-lg p-1${isS3Collected ? " cursor-pointer active:opacity-80" : ""}`}
                             style={{
                               background: "linear-gradient(160deg, #1e1a2e, #1a1829)",
                               border: `1px solid ${isS3Collected ? "rgba(139,92,246,0.35)" : "#3d3450"}`,
                             }}
+                            onClick={isS3Collected ? () => openModal(m3.image, m3.name, s3) : undefined}
                           >
                             <PathChips path={s3} size="sm" />
                             <Image
@@ -290,6 +303,15 @@ export default function ZukanPage() {
           </div>
         );
       })}
+
+      {selected && (
+        <MonsterImageModal
+          image={selected.image}
+          monsterName={selected.name}
+          stageLabel={selected.stageLabel}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }
