@@ -56,7 +56,7 @@ export default function MonsterPage() {
   const selfRebirthRef = useRef(false);
 
   const fetchStatus = () =>
-    fetch("/api/monster-status").then((r) => r.json());
+    fetch("/api/monster-status").then((r) => (r.ok ? r.json() : null));
 
   /** 未読実績があればカットインを表示（最新の1件のみ） */
   const checkAchievementUnlock = (currentStreak: number) => {
@@ -75,6 +75,7 @@ export default function MonsterPage() {
   useEffect(() => {
     fetchStatus()
       .then((d) => {
+        if (!d) return;
         setData({
           name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
           collectedPaths: d.collectedPaths ?? "[]",
@@ -107,6 +108,7 @@ export default function MonsterPage() {
       .channel("monster-changes")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
         fetchStatus().then((d) => {
+          if (!d) return;
           if (!selfRebirthRef.current && prevStageRef.current !== null) {
             if (d.evolutionStage > prevStageRef.current) {
               if (prevStageRef.current === 0) {
@@ -156,6 +158,7 @@ export default function MonsterPage() {
       });
       if (res.ok) {
         const newData = await fetchStatus();
+        if (!newData) return;
         setData({
           name: newData.name, side: newData.side ?? null,
           evolutionStage: newData.evolutionStage, evolutionPath: newData.evolutionPath ?? "",
