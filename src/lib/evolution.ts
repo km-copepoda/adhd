@@ -57,19 +57,27 @@ export function computeEvolutionWeights(
     thirdProb = remaining * (third[1] / secondAndThirdTotal);
   }
 
-  const rawWeights = { STUDY: 0, STAMINA: 0, LIFE: 0 };
-  rawWeights[first[0]] = firstProb;
-  rawWeights[second[0]] = secondProb;
-  rawWeights[third[0]] = thirdProb;
+  const weights = { STUDY: 0, STAMINA: 0, LIFE: 0 };
+  weights[first[0]] = firstProb;
+  weights[second[0]] = secondProb;
+  weights[third[0]] = thirdProb;
 
-  // 下限保証: 各パスに MIN を確保し、残りを実績比率で配分
+  // 下限保証: floor を下回るパスに不足分を補填し、上回るパスから比例的に取る
+  // → 支配パスの60%上限はそのまま保たれる
   const floor = MIN_EVOLUTION_PROBABILITY;
-  const remainingBudget = 1 - floor * 3;
-  return {
-    STUDY: floor + rawWeights.STUDY * remainingBudget,
-    STAMINA: floor + rawWeights.STAMINA * remainingBudget,
-    LIFE: floor + rawWeights.LIFE * remainingBudget,
-  };
+  const paths = ["STUDY", "STAMINA", "LIFE"] as MonsterPath[];
+  const belowFloor = paths.filter((k) => weights[k] < floor);
+  if (belowFloor.length > 0) {
+    const totalDeficit = belowFloor.reduce((sum, k) => sum + (floor - weights[k]), 0);
+    const aboveFloor = paths.filter((k) => weights[k] > floor);
+    const totalAbove = aboveFloor.reduce((sum, k) => sum + (weights[k] - floor), 0);
+    for (const k of belowFloor) weights[k] = floor;
+    for (const k of aboveFloor) {
+      weights[k] -= totalDeficit * ((weights[k] - floor) / totalAbove);
+    }
+  }
+
+  return weights;
 }
 
 // ─── applyEggBonus ─────────────────────────────
