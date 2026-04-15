@@ -14,8 +14,15 @@ export const REBIRTH_THRESHOLD = 20;
 // 転生後の卵（collectedPaths.length > 0）はこのptで孵化する（初回の1ptより長い）
 export const REBIRTH_EGG_THRESHOLD = 5;
 
+// ─── MIN_EVOLUTION_PROBABILITY ───────────────────────
+// 各パスの進化確率の下限（10%）。
+// スタミナタスクを全くやらなくても STAMINA 系に進化する可能性を担保する。
+// アルゴリズム: 各パスに MIN を保証 + 残り (1 - MIN*3) を実績比率で配分
+export const MIN_EVOLUTION_PROBABILITY = 0.1;
+
 // ─── computeEvolutionWeights ──────────────────────────
-// dominant パラメータは最大60%の確率、残り40%は2番目・3番目の比率で分配
+// dominant パラメータは最大60%の確率、残り40%は2番目・3番目の比率で分配。
+// さらに MIN_EVOLUTION_PROBABILITY の下限を各パスに保証する。
 export function computeEvolutionWeights(
   studyPt: number,
   staminaPt: number,
@@ -50,12 +57,19 @@ export function computeEvolutionWeights(
     thirdProb = remaining * (third[1] / secondAndThirdTotal);
   }
 
-  const weights = { STUDY: 0, STAMINA: 0, LIFE: 0 };
-  weights[first[0]] = firstProb;
-  weights[second[0]] = secondProb;
-  weights[third[0]] = thirdProb;
+  const rawWeights = { STUDY: 0, STAMINA: 0, LIFE: 0 };
+  rawWeights[first[0]] = firstProb;
+  rawWeights[second[0]] = secondProb;
+  rawWeights[third[0]] = thirdProb;
 
-  return weights;
+  // 下限保証: 各パスに MIN を確保し、残りを実績比率で配分
+  const floor = MIN_EVOLUTION_PROBABILITY;
+  const remainingBudget = 1 - floor * 3;
+  return {
+    STUDY: floor + rawWeights.STUDY * remainingBudget,
+    STAMINA: floor + rawWeights.STAMINA * remainingBudget,
+    LIFE: floor + rawWeights.LIFE * remainingBudget,
+  };
 }
 
 // ─── applyEggBonus ─────────────────────────────
