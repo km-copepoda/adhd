@@ -14,8 +14,15 @@ export const REBIRTH_THRESHOLD = 20;
 // 転生後の卵（collectedPaths.length > 0）はこのptで孵化する（初回の1ptより長い）
 export const REBIRTH_EGG_THRESHOLD = 5;
 
+// ─── MIN_EVOLUTION_PROBABILITY ───────────────────────
+// 各パスの進化確率の下限（15%）。
+// スタミナタスクを全くやらなくても STAMINA 系に進化する可能性を担保する。
+// 0ptのパスへの不足分を上位パスから比例的に取ることで、支配パスの60%上限は保たれる。
+export const MIN_EVOLUTION_PROBABILITY = 0.15;
+
 // ─── computeEvolutionWeights ──────────────────────────
-// dominant パラメータは最大60%の確率、残り40%は2番目・3番目の比率で分配
+// dominant パラメータは最大60%の確率、残り40%は2番目・3番目の比率で分配。
+// さらに MIN_EVOLUTION_PROBABILITY の下限を各パスに保証する。
 export function computeEvolutionWeights(
   studyPt: number,
   staminaPt: number,
@@ -54,6 +61,21 @@ export function computeEvolutionWeights(
   weights[first[0]] = firstProb;
   weights[second[0]] = secondProb;
   weights[third[0]] = thirdProb;
+
+  // 下限保証: floor を下回るパスに不足分を補填し、上回るパスから比例的に取る
+  // → 支配パスの60%上限はそのまま保たれる
+  const floor = MIN_EVOLUTION_PROBABILITY;
+  const paths = ["STUDY", "STAMINA", "LIFE"] as MonsterPath[];
+  const belowFloor = paths.filter((k) => weights[k] < floor);
+  if (belowFloor.length > 0) {
+    const totalDeficit = belowFloor.reduce((sum, k) => sum + (floor - weights[k]), 0);
+    const aboveFloor = paths.filter((k) => weights[k] > floor);
+    const totalAbove = aboveFloor.reduce((sum, k) => sum + (weights[k] - floor), 0);
+    for (const k of belowFloor) weights[k] = floor;
+    for (const k of aboveFloor) {
+      weights[k] -= totalDeficit * ((weights[k] - floor) / totalAbove);
+    }
+  }
 
   return weights;
 }
