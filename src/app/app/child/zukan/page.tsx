@@ -137,12 +137,11 @@ export default function ZukanPage() {
                 style={{ borderColor: obtained ? egg.color : "transparent" }}
               >
                 <Image
-                  src={egg.img}
+                  src={obtained ? egg.img : shadowPath(egg.img)}
                   alt={egg.label}
                   width={56}
                   height={56}
                   className="object-contain"
-                  style={obtained ? undefined : { filter: "brightness(0) opacity(0.4)" }}
                 />
                 <p className="text-[10px] text-center" style={{ color: obtained ? "var(--quest-text)" : "rgba(154,140,110,0.5)" }}>
                   {obtained ? egg.label : "？？？"}
