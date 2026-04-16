@@ -26,6 +26,7 @@ interface UserFixture {
   childCode: string | null;
   rebirthPending: boolean;
   rebirthEggBonus: string | null;
+  usedEggBonuses: string;
   reportDeadlineTime: string | null;
   family?: { id: string; code: string };
 }
@@ -50,6 +51,7 @@ export function parentUser(overrides?: Partial<UserFixture>): UserFixture {
     childCode: null,
     rebirthPending: false,
     rebirthEggBonus: null,
+    usedEggBonuses: "[]",
     reportDeadlineTime: null,
     ...overrides,
   };
@@ -75,6 +77,7 @@ export function childUser(overrides?: Partial<UserFixture>): UserFixture {
     childCode: "1234",
     rebirthPending: false,
     rebirthEggBonus: null,
+    usedEggBonuses: "[]",
     reportDeadlineTime: null,
     ...overrides,
   };

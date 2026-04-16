@@ -13,6 +13,7 @@ type ZukanData = {
   side: string | null;
   collectedPaths: string;
   monsterLevels: string;
+  usedEggBonuses: string;
 };
 
 function shadowPath(imagePath: string): string {
@@ -77,7 +78,7 @@ export default function ZukanPage() {
       .then((r) => r.json())
       .then((d: ZukanData) => {
         const paths = d.collectedPaths ?? "[]";
-        setData({ side: d.side ?? null, collectedPaths: paths, monsterLevels: d.monsterLevels ?? "{}" });
+        setData({ side: d.side ?? null, collectedPaths: paths, monsterLevels: d.monsterLevels ?? "{}", usedEggBonuses: d.usedEggBonuses ?? "[]" });
         // 図鑑を開いた時点で「見た」とマーク → BottomNav バッジをクリア
         const count = (JSON.parse(paths) as string[]).length;
         localStorage.setItem("lastSeenCollectedCount", String(count));
@@ -88,6 +89,7 @@ export default function ZukanPage() {
   if (loading || !data) return <LoadingSpinner />;
 
   const collected = new Set<string>(JSON.parse(data.collectedPaths) as string[]);
+  const usedEggs = new Set<string>(JSON.parse(data.usedEggBonuses) as string[]);
 
   const openModal = (image: string, name: string, path: string) =>
     setSelected({ image, name, stageLabel: getZukanStageLabel(path) });
@@ -123,21 +125,31 @@ export default function ZukanPage() {
             <p className="text-xs text-quest-text">🥚 たまご</p>
           </div>
           {[
-            { img: "/monsters/egg-study.webp", label: "📚 勉強の卵", color: "rgba(96,165,250,0.3)" },
-            { img: "/monsters/egg-stamina.webp", label: "💪 体力の卵", color: "rgba(248,113,113,0.3)" },
-            { img: "/monsters/egg-life.webp", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)" },
-          ].map((egg) => (
-            <div key={egg.label} className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28" style={{ borderColor: egg.color }}>
-              <Image
-                src={egg.img}
-                alt={egg.label}
-                width={56}
-                height={56}
-                className="object-contain"
-              />
-              <p className="text-[10px] text-quest-text text-center">{egg.label}</p>
-            </div>
-          ))}
+            { img: "/monsters/egg-study.webp", label: "📚 勉強の卵", color: "rgba(96,165,250,0.3)", key: "STUDY" },
+            { img: "/monsters/egg-stamina.webp", label: "💪 体力の卵", color: "rgba(248,113,113,0.3)", key: "STAMINA" },
+            { img: "/monsters/egg-life.webp", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)", key: "LIFE" },
+          ].map((egg) => {
+            const obtained = usedEggs.has(egg.key);
+            return (
+              <div
+                key={egg.label}
+                className="bg-quest-card border border-quest-border rounded-xl p-3 flex flex-col items-center gap-1 w-28"
+                style={{ borderColor: obtained ? egg.color : "transparent" }}
+              >
+                <Image
+                  src={egg.img}
+                  alt={egg.label}
+                  width={56}
+                  height={56}
+                  className="object-contain"
+                  style={obtained ? undefined : { filter: "brightness(0) opacity(0.4)" }}
+                />
+                <p className="text-[10px] text-center" style={{ color: obtained ? "var(--quest-text)" : "rgba(154,140,110,0.5)" }}>
+                  {obtained ? egg.label : "？？？"}
+                </p>
+              </div>
+            );
+          })}
         </div>
         <div className="text-quest-dim/50 text-[11px] mt-2">▾ 孵化</div>
       </div>

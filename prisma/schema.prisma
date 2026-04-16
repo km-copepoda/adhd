@@ -60,6 +60,7 @@ model User {
   reportDeadlineTime  String?
   rebirthPending      Boolean         @default(false)
   rebirthEggBonus     String?
+  usedEggBonuses      String          @default("[]")
   familyId    String?
   family      Family?         @relation(fields: [familyId], references: [id])
   quests              QuestInstance[]
