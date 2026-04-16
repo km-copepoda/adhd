@@ -36,5 +36,6 @@ export async function GET() {
     pendingStudyPt,
     pendingStaminaPt,
     pendingLifePt,
+    usedEggBonuses: user.usedEggBonuses ?? "[]",
   });
 }

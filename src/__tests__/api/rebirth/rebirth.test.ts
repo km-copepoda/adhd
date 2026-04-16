@@ -54,6 +54,7 @@ describe("POST /api/rebirth", () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       ...childUser({ id: "child-1" }),
       rebirthPending: true,
+      usedEggBonuses: "[]",
     } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -72,7 +73,48 @@ describe("POST /api/rebirth", () => {
           studyPt: 0,
           staminaPt: 0,
           lifePt: 0,
+          usedEggBonuses: '["STUDY"]',
         }),
+      }),
+    );
+  });
+
+  it("既にSTUDYを使用済みの場合、usedEggBonusesに重複追加しないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...childUser({ id: "child-1" }),
+      rebirthPending: true,
+      usedEggBonuses: '["STUDY"]',
+    } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ usedEggBonuses: '["STUDY"]' }),
+      }),
+    );
+  });
+
+  it("NORMALの場合、usedEggBonusesを変更しないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...childUser({ id: "child-1" }),
+      rebirthPending: true,
+      usedEggBonuses: '["STUDY"]',
+    } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    const req = makeRequest("/api/rebirth", { eggType: "NORMAL" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ usedEggBonuses: '["STUDY"]' }),
       }),
     );
   });
@@ -82,6 +124,7 @@ describe("POST /api/rebirth", () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       ...childUser({ id: "child-1" }),
       rebirthPending: true,
+      usedEggBonuses: "[]",
     } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -101,6 +144,7 @@ describe("POST /api/rebirth", () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       ...childUser({ id: "child-1" }),
       rebirthPending: true,
+      usedEggBonuses: "[]",
     } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
 
@@ -120,6 +164,7 @@ describe("POST /api/rebirth", () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       ...childUser({ id: "child-1" }),
       rebirthPending: true,
+      usedEggBonuses: "[]",
     } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
     
@@ -139,6 +184,7 @@ describe("POST /api/rebirth", () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       ...childUser({ id: "child-1" }),
       rebirthPending: true,
+      usedEggBonuses: "[]",
     } as any);
     mockPrisma.user.update.mockResolvedValue({} as any);
 

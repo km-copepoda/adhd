@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "usedEggBonuses" TEXT NOT NULL DEFAULT '[]';

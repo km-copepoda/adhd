@@ -38,6 +38,19 @@ describe("GET /api/monster", () => {
     expect(json.pendingStaminaPt).toBe(0);
     expect(json.pendingLifePt).toBe(0);
     expect(json.side).toBeDefined();
+    expect(json.usedEggBonuses).toBeDefined();
+  });
+
+  it("usedEggBonusesを正しく返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(
+      { ...childUser(), usedEggBonuses: '["STUDY","STAMINA"]' } as any,
+    );
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.usedEggBonuses).toBe('["STUDY","STAMINA"]');
   });
 
   it("承認待ちクエストのpendingXPを正しく集計すること", async () => {
