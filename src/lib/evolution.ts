@@ -15,10 +15,10 @@ export const REBIRTH_THRESHOLD = 20;
 export const REBIRTH_EGG_THRESHOLD = 5;
 
 // ─── MIN_EVOLUTION_PROBABILITY ───────────────────────
-// 各パスの進化確率の下限（10%）。
+// 各パスの進化確率の下限（15%）。
 // スタミナタスクを全くやらなくても STAMINA 系に進化する可能性を担保する。
-// アルゴリズム: 各パスに MIN を保証 + 残り (1 - MIN*3) を実績比率で配分
-export const MIN_EVOLUTION_PROBABILITY = 0.1;
+// 0ptのパスへの不足分を上位パスから比例的に取ることで、支配パスの60%上限は保たれる。
+export const MIN_EVOLUTION_PROBABILITY = 0.15;
 
 // ─── computeEvolutionWeights ──────────────────────────
 // dominant パラメータは最大60%の確率、残り40%は2番目・3番目の比率で分配。
