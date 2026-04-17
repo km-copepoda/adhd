@@ -71,28 +71,15 @@ describe("sortAndFilterBadges", () => {
     });
   });
 
-  describe("filter=new", () => {
-    it("新着バッジのみ返す", () => {
-      const result = sortAndFilterBadges(badges, "new");
-      expect(result.every(b => b.isNew)).toBe(true);
-      expect(result).toHaveLength(2);
-    });
-  });
-
   describe("新着なしの場合", () => {
     const noBadges: BadgeData[] = [
       makeBadge("locked1", false),
       makeBadge("unlocked1", true),
     ];
 
-    it("filter=all でも全件返す", () => {
+    it("filter=all で全件返す", () => {
       const result = sortAndFilterBadges(noBadges, "all");
       expect(result).toHaveLength(2);
-    });
-
-    it("filter=new で空配列を返す", () => {
-      const result = sortAndFilterBadges(noBadges, "new");
-      expect(result).toHaveLength(0);
     });
   });
 });

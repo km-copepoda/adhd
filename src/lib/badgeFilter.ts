@@ -8,7 +8,21 @@ export type BadgeData = {
   isNew: boolean;
 };
 
-export type BadgeFilter = "all" | "unlocked" | "locked" | "new";
+export type BadgeFilter = "all" | "unlocked" | "locked";
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * バッジが「当日 JST」に解除されたかどうかを返す。
+ * @param unlockedAt DB から取得した解除日時文字列（UTC）
+ * @param nowMs      現在時刻のミリ秒（テスト用に差し替え可能、デフォルトは Date.now()）
+ */
+export function isBadgeNew(unlockedAt: string | null, nowMs = Date.now()): boolean {
+  if (!unlockedAt) return false;
+  const todayJST = new Date(nowMs + JST_OFFSET_MS).toISOString().slice(0, 10);
+  const dateJST = new Date(new Date(unlockedAt).getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
+  return todayJST === dateJST;
+}
 
 /**
  * バッジ一覧をフィルタリングし、新着優先でソートして返す。
@@ -21,7 +35,6 @@ export function sortAndFilterBadges(
   const filtered = badges.filter(b => {
     if (filter === "unlocked") return b.unlocked;
     if (filter === "locked") return !b.unlocked;
-    if (filter === "new") return b.isNew;
     return true;
   });
 
