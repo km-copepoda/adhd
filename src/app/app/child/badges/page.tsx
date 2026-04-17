@@ -18,7 +18,7 @@ export default function BadgesPage() {
   const [filter, setFilter] = useState<BadgeFilter>("all");
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
-  const fetchBadges = () => {
+  const fetchBadges = (isInitial = false) => {
     fetch("/api/badges")
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -28,6 +28,10 @@ export default function BadgesPage() {
         setData(d);
         if (d.newlyUnlocked.length > 0) {
           setNewIds(prev => new Set([...prev, ...d.newlyUnlocked]));
+          // 初回ロード時に新着があれば自動的に「新着」フィルターを選択
+          if (isInitial) {
+            setFilter("new");
+          }
         }
         // 訪問時点の解除数を記録してBottomNavバッジをクリア
         try {
@@ -39,12 +43,12 @@ export default function BadgesPage() {
   };
 
   useEffect(() => {
-    fetchBadges();
+    fetchBadges(true);
 
     const supabase = createClient();
     const channel = supabase
       .channel("badge-changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, fetchBadges)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, () => fetchBadges())
       .subscribe();
 
     const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
