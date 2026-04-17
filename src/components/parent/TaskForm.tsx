@@ -1,6 +1,14 @@
 "use client";
 
-import { CATEGORY_LABEL, DAY_LABELS, TEMP_TASK_TEMPLATES } from "@/lib/categories";
+import { useState } from "react";
+import {
+  CATEGORY_LABEL,
+  DAY_LABELS,
+  TASK_TEMPLATES_BY_AGE,
+  AGE_GROUPS,
+  AGE_GROUP_LABEL,
+  type AgeGroup,
+} from "@/lib/categories";
 import type { Category } from "@/types";
 
 type FormData = {
@@ -39,6 +47,8 @@ export default function TaskForm({
   onSubmit,
   onCancel,
 }: Props) {
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>("elementary_low");
+
   function toggleDay(day: number) {
     onFormChange((f) => ({
       ...f,
@@ -47,6 +57,8 @@ export default function TaskForm({
         : [...f.repeatDays, day].sort(),
     }));
   }
+
+  const templates = TASK_TEMPLATES_BY_AGE[selectedAgeGroup];
 
   return (
     <div className="bg-quest-card border border-quest-gold/20 rounded-xl p-5 mb-4">
@@ -84,12 +96,29 @@ export default function TaskForm({
           : `${childName} にタスクを追加`}
       </h3>
 
-      {/* Template picker - temporary mode only */}
-      {formMode === "temporary" && !editingId && (
+      {/* Template picker */}
+      {!editingId && (
         <div className="mb-4">
           <label className="block text-quest-dim text-xs mb-2 tracking-wider">テンプレートから選択</label>
+          {/* Age group tabs */}
+          <div className="flex gap-1 mb-2 overflow-x-auto">
+            {AGE_GROUPS.map((group) => (
+              <button
+                key={group}
+                onClick={() => setSelectedAgeGroup(group)}
+                className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  selectedAgeGroup === group
+                    ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
+                    : "text-quest-dim border border-quest-border hover:text-quest-text"
+                }`}
+              >
+                {AGE_GROUP_LABEL[group]}
+              </button>
+            ))}
+          </div>
+          {/* Template grid */}
           <div className="grid grid-cols-2 gap-1.5">
-            {TEMP_TASK_TEMPLATES.map((tpl) => {
+            {templates.map((tpl) => {
               const cat = CATEGORY_LABEL[tpl.category];
               const isSelected = form.title === tpl.title && form.category === tpl.category;
               return (

@@ -10,6 +10,7 @@ import { notifyApprovalsUpdated } from "@/lib/approval-events";
 import SetupGuideBanner from "@/components/SetupGuideBanner";
 import TaskForm from "@/components/parent/TaskForm";
 import type { FormData, FormMode } from "@/components/parent/TaskForm";
+import TemplateImportSection from "@/components/parent/TemplateImportSection";
 
 type Task = {
   id: string;
@@ -51,6 +52,8 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   // openChildId: どの子供のフォームが開いているか
   const [openChildId, setOpenChildId] = useState<string | null>(null);
+  // テンプレート一括追加UIが開いている子供のID
+  const [importChildId, setImportChildId] = useState<string | null>(null);
   const todayDow = new Date().getDay(); // 0=日 ... 6=土
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
@@ -79,11 +82,19 @@ export default function TasksPage() {
     setEditingId(null);
     setFormMode("regular");
     setOpenChildId(childId);
+    setImportChildId(null);
+  }
+
+  function openImportForChild(childId: string) {
+    setImportChildId(childId);
+    setOpenChildId(null);
+    setEditingId(null);
   }
 
   function resetForm() {
     setEditingId(null);
     setOpenChildId(null);
+    setImportChildId(null);
     setFormMode("regular");
   }
 
@@ -208,6 +219,8 @@ export default function TasksPage() {
         const isOpen = openChildId === child.id;
         const totalCount = pending.length + regular.length + temporary.length;
 
+        const isImporting = importChildId === child.id;
+
         return (
           <div key={child.id} className="mb-10">
             {/* Child section header */}
@@ -218,7 +231,7 @@ export default function TasksPage() {
                   {totalCount > 0 ? `${totalCount}件` : "タスクなし"}
                 </span>
               </div>
-              {!isOpen && (
+              {!isOpen && !isImporting && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleRemind(child.id)}
@@ -226,6 +239,12 @@ export default function TasksPage() {
                     title="今日の未完了タスクをリマインド"
                   >
                     🔔 リマインド
+                  </button>
+                  <button
+                    onClick={() => openImportForChild(child.id)}
+                    className="text-xs text-quest-dim hover:text-quest-text border border-quest-border hover:border-quest-gold/20 rounded-lg px-3 py-1.5 transition-colors"
+                  >
+                    📋 テンプレート
                   </button>
                   <button
                     onClick={() => openFormForChild(child.id)}
@@ -236,6 +255,16 @@ export default function TasksPage() {
                 </div>
               )}
             </div>
+
+            {/* Template import for this child */}
+            {isImporting && (
+              <TemplateImportSection
+                childId={child.id}
+                existingTitles={[...pending, ...regular].map((t) => t.title)}
+                onImported={() => { resetForm(); fetchTasks(); }}
+                onCancel={resetForm}
+              />
+            )}
 
             {/* Form for this child */}
             {isOpen && (
@@ -437,10 +466,24 @@ export default function TasksPage() {
             )}
 
             {/* Empty state */}
-            {!isOpen && totalCount === 0 && (
-              <p className="text-quest-dim/50 text-sm text-center py-4 border border-dashed border-quest-border/30 rounded-xl">
-                タスクがありません
-              </p>
+            {!isOpen && !isImporting && totalCount === 0 && (
+              <div className="text-center py-6 border border-dashed border-quest-border/30 rounded-xl">
+                <p className="text-quest-dim/50 text-sm mb-3">タスクがありません</p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => openImportForChild(child.id)}
+                    className="text-xs text-quest-gold border border-quest-gold/30 rounded-lg px-3 py-1.5 hover:bg-quest-gold/5 transition-colors"
+                  >
+                    📋 テンプレートから始める
+                  </button>
+                  <button
+                    onClick={() => openFormForChild(child.id)}
+                    className="text-xs text-quest-dim border border-quest-border rounded-lg px-3 py-1.5 hover:text-quest-text transition-colors"
+                  >
+                    ✏️ 自分で作る
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         );
