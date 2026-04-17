@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo } from "@/lib/constants";
+import { getMonsterStage, getXpInfo, REBIRTH_THRESHOLD } from "@/lib/constants";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
@@ -293,7 +293,8 @@ export default function FamilyPage() {
                   const isReborn = (JSON.parse(member.collectedPaths) as string[]).length > 0;
                   const xpInfo = getXpInfo(member.evolutionStage, member.evolutionPath, member.studyPt, member.staminaPt, member.lifePt, isReborn, member.rebirthEggBonus);
                   const total = member.studyPt + member.staminaPt + member.lifePt;
-                  const pct = xpInfo.xpToEvolve !== null ? Math.min(100, Math.round((total / xpInfo.xpToEvolve) * 100)) : 100;
+                  const threshold = xpInfo.xpToEvolve !== null ? xpInfo.xpToEvolve : REBIRTH_THRESHOLD;
+                  const pct = Math.min(100, Math.round((total / threshold) * 100));
                   const nextLabel = member.evolutionStage === 0 ? "孵化" : xpInfo.xpToEvolve !== null ? "進化" : "転生";
                   return (
                     <div className="mt-1">
@@ -303,9 +304,7 @@ export default function FamilyPage() {
                         <span className="text-blue-400">📚{member.studyPt}</span>{" "}
                         <span className="text-green-400">💪{member.staminaPt}</span>{" "}
                         <span className="text-yellow-400">🏠{member.lifePt}</span>
-                        {xpInfo.xpToEvolve !== null && (
-                          <span className="ml-1">· あと<span className="text-quest-gold font-bold"> {Math.max(0, xpInfo.ptNeeded!)} </span>ptで{nextLabel}</span>
-                        )}
+                        <span className="ml-1">· あと<span className="text-quest-gold font-bold"> {Math.max(0, threshold - total)} </span>ptで{nextLabel}</span>
                       </p>
                       <div className="mt-1 h-1.5 w-full bg-quest-border rounded-full overflow-hidden">
                         <div
@@ -314,7 +313,7 @@ export default function FamilyPage() {
                         />
                       </div>
                       <p className="text-[9px] text-quest-dim/60 mt-0.5 text-right">
-                        {total}{xpInfo.xpToEvolve !== null ? ` / ${xpInfo.xpToEvolve} pt` : " pt"}
+                        {total} / {threshold} pt
                       </p>
                     </div>
                   );
