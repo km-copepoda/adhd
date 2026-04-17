@@ -608,23 +608,24 @@ export default function QuestsPage() {
         />
       )}
 
-      {/* スタンプ祝福オーバーレイ（キュー先頭を表示し、閉じると次へ） */}
+      {/* スタンプ祝福オーバーレイ（全件を1枚にまとめて表示） */}
       {stampQueue.length > 0 && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70"
-          onClick={() => setStampQueue((prev) => prev.slice(1))}
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/70 px-6"
+          onClick={() => setStampQueue([])}
         >
-          <div className="flex flex-col items-center gap-4 select-none">
-            <div className="text-[96px] animate-stamp-pop">
-              {stampQueue[0].stamp}
+          <div className="flex flex-col items-center gap-4 select-none w-full max-w-sm">
+            <p className="text-white font-bold text-xl">
+              {stampQueue.length === 1 ? "承認されたよ！" : `${stampQueue.length}件 承認されたよ！`}
+            </p>
+            <div className={`flex flex-wrap justify-center gap-4 ${stampQueue.length === 1 ? "" : "w-full"}`}>
+              {stampQueue.map((c) => (
+                <div key={c.questId} className="flex flex-col items-center gap-1">
+                  <div className="text-[72px] animate-stamp-pop">{c.stamp}</div>
+                  <p className="text-white/70 text-xs text-center max-w-[80px] truncate">「{c.questTitle}」</p>
+                </div>
+              ))}
             </div>
-            <div className="text-center">
-              <p className="text-white font-bold text-xl">承認されたよ！</p>
-              <p className="text-white/70 text-sm mt-1">「{stampQueue[0].questTitle}」</p>
-            </div>
-            {stampQueue.length > 1 && (
-              <p className="text-white/60 text-xs">あと{stampQueue.length - 1}件の承認があるよ</p>
-            )}
             <p className="text-white/40 text-xs mt-2">タップで閉じる</p>
           </div>
         </div>
