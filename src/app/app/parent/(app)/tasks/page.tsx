@@ -260,6 +260,7 @@ export default function TasksPage() {
             {isImporting && (
               <TemplateImportSection
                 childId={child.id}
+                existingTitles={[...pending, ...regular].map((t) => t.title)}
                 onImported={() => { resetForm(); fetchTasks(); }}
                 onCancel={resetForm}
               />

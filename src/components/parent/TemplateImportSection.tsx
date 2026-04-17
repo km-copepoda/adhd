@@ -13,16 +13,30 @@ import {
 
 type Props = {
   childId: string;
+  existingTitles: string[];
   onImported: () => void;
   onCancel: () => void;
 };
 
 const DEFAULT_REPEAT_DAYS = [1, 2, 3, 4, 5]; // 月〜金
 
-export default function TemplateImportSection({ childId, onImported, onCancel }: Props) {
+export function getInitialSelectedTitles(
+  templates: TaskPreset[],
+  existingTitles: string[]
+): Set<string> {
+  const existingSet = new Set(existingTitles);
+  return new Set(templates.filter((t) => !existingSet.has(t.title)).map((t) => t.title));
+}
+
+export default function TemplateImportSection({
+  childId,
+  existingTitles,
+  onImported,
+  onCancel,
+}: Props) {
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>("elementary_low");
   const [selectedTitles, setSelectedTitles] = useState<Set<string>>(
-    () => new Set(TASK_TEMPLATES_BY_AGE.elementary_low.map((t) => t.title))
+    () => getInitialSelectedTitles(TASK_TEMPLATES_BY_AGE.elementary_low, existingTitles)
   );
   const [repeatDaysMap, setRepeatDaysMap] = useState<Record<string, number[]>>(
     () =>
@@ -32,10 +46,12 @@ export default function TemplateImportSection({ childId, onImported, onCancel }:
   );
   const [loading, setLoading] = useState(false);
 
+  const existingSet = new Set(existingTitles);
+
   function handleAgeGroupChange(group: AgeGroup) {
     setSelectedAgeGroup(group);
     const templates = TASK_TEMPLATES_BY_AGE[group];
-    setSelectedTitles(new Set(templates.map((t) => t.title)));
+    setSelectedTitles(getInitialSelectedTitles(templates, existingTitles));
     setRepeatDaysMap(
       Object.fromEntries(templates.map((t) => [t.title, DEFAULT_REPEAT_DAYS]))
     );
@@ -62,7 +78,9 @@ export default function TemplateImportSection({ childId, onImported, onCancel }:
   }
 
   function selectAll() {
-    setSelectedTitles(new Set(TASK_TEMPLATES_BY_AGE[selectedAgeGroup].map((t) => t.title)));
+    setSelectedTitles(
+      getInitialSelectedTitles(TASK_TEMPLATES_BY_AGE[selectedAgeGroup], existingTitles)
+    );
   }
 
   function deselectAll() {
@@ -125,7 +143,7 @@ export default function TemplateImportSection({ childId, onImported, onCancel }:
           onClick={selectAll}
           className="text-[11px] text-quest-dim hover:text-quest-text underline"
         >
-          すべて選択
+          未追加をすべて選択
         </button>
         <span className="text-quest-dim/30 text-[11px]">|</span>
         <button
@@ -140,6 +158,7 @@ export default function TemplateImportSection({ childId, onImported, onCancel }:
       <div className="flex flex-col gap-2 mb-5">
         {templates.map((tpl) => {
           const cat = CATEGORY_LABEL[tpl.category];
+          const isExisting = existingSet.has(tpl.title);
           const isChecked = selectedTitles.has(tpl.title);
           const days = repeatDaysMap[tpl.title] ?? DEFAULT_REPEAT_DAYS;
           return (
@@ -163,7 +182,13 @@ export default function TemplateImportSection({ childId, onImported, onCancel }:
                 >
                   {cat.emoji} {tpl.title}
                 </label>
-                <span className="text-[10px] text-quest-dim ml-auto">{cat.name}</span>
+                <span className="text-[10px] text-quest-dim">{cat.name}</span>
+                {isExisting && (
+                  <span className="text-[9px] text-green-400 border border-green-400/30 rounded px-1 ml-auto shrink-0">
+                    作成済
+                  </span>
+                )}
+                {!isExisting && <span className="ml-auto" />}
               </div>
               {isChecked && (
                 <div className="flex gap-1 ml-6">
