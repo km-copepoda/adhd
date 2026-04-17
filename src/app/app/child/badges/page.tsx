@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { sortAndFilterBadges, type BadgeData, type BadgeFilter } from "@/lib/badgeFilter";
+import { sortAndFilterBadges, isBadgeNew, type BadgeData, type BadgeFilter } from "@/lib/badgeFilter";
 
 type BadgesResponse = {
   badges: BadgeData[];
@@ -16,9 +16,8 @@ export default function BadgesPage() {
   const [data, setData] = useState<BadgesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BadgeFilter>("all");
-  const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
-  const fetchBadges = (isInitial = false) => {
+  const fetchBadges = () => {
     fetch("/api/badges")
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -26,13 +25,6 @@ export default function BadgesPage() {
       })
       .then((d: BadgesResponse) => {
         setData(d);
-        if (d.newlyUnlocked.length > 0) {
-          setNewIds(prev => new Set([...prev, ...d.newlyUnlocked]));
-          // 初回ロード時に新着があれば自動的に「新着」フィルターを選択
-          if (isInitial) {
-            setFilter("new");
-          }
-        }
         // 訪問時点の解除数を記録してBottomNavバッジをクリア
         try {
           localStorage.setItem("lastSeenBadgeUnlockedCount", String(d.unlockedCount));
@@ -43,12 +35,12 @@ export default function BadgesPage() {
   };
 
   useEffect(() => {
-    fetchBadges(true);
+    fetchBadges();
 
     const supabase = createClient();
     const channel = supabase
       .channel("badge-changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, () => fetchBadges())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, fetchBadges)
       .subscribe();
 
     const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
@@ -72,16 +64,13 @@ export default function BadgesPage() {
     );
   }
 
-  // badgesにisNewを反映してからsortAndFilterBadgesに渡す
-  const badgesWithNew = data.badges.map(b => ({ ...b, isNew: newIds.has(b.id) }));
+  // 当日 JST に解除されたバッジを isNew=true にして先頭へソート
+  const badgesWithNew = data.badges.map(b => ({ ...b, isNew: isBadgeNew(b.unlockedAt) }));
   const filtered = sortAndFilterBadges(badgesWithNew, filter);
 
   const pct = Math.round((data.unlockedCount / data.totalCount) * 100);
-  const hasNew = newIds.size > 0;
 
-  type FilterOption = { value: BadgeFilter; label: string };
-  const filterOptions: FilterOption[] = [
-    ...(hasNew ? [{ value: "new" as BadgeFilter, label: `🆕 新着 ${newIds.size}` }] : []),
+  const filterOptions: { value: BadgeFilter; label: string }[] = [
     { value: "all", label: "すべて" },
     { value: "unlocked", label: "解除済み" },
     { value: "locked", label: "未解除" },
@@ -114,12 +103,8 @@ export default function BadgesPage() {
               onClick={() => setFilter(value)}
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                 filter === value
-                  ? value === "new"
-                    ? "bg-quest-gold text-quest-bg border-quest-gold font-bold animate-pulse"
-                    : "bg-quest-gold text-quest-bg border-quest-gold font-bold"
-                  : value === "new"
-                    ? "border-quest-gold text-quest-gold hover:bg-quest-gold/10 font-semibold"
-                    : "border-quest-border text-quest-dim hover:text-quest-text"
+                  ? "bg-quest-gold text-quest-bg border-quest-gold font-bold"
+                  : "border-quest-border text-quest-dim hover:text-quest-text"
               }`}
             >
               {label}
@@ -137,9 +122,7 @@ export default function BadgesPage() {
 
       {filtered.length === 0 && (
         <div className="text-center text-quest-dim text-sm py-12">
-          {filter === "unlocked" ? "まだ解除した実績がありません"
-            : filter === "new" ? "新しい実績はありません"
-            : "すべて解除済みです！"}
+          {filter === "unlocked" ? "まだ解除した実績がありません" : "すべて解除済みです！"}
         </div>
       )}
     </div>
