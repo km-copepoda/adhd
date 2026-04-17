@@ -10,7 +10,7 @@ import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount } from "@/lib/questProgress";
-import { findNewlyStampedApproval } from "@/lib/stampCelebration";
+import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 import { shouldShowReportHint } from "@/lib/quest-hint";
 
 type Quest = {
@@ -53,9 +53,10 @@ export default function QuestsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
-  const [stampCelebration, setStampCelebration] = useState<{ stamp: string; questTitle: string } | null>(null);
+  const [stampQueue, setStampQueue] = useState<StampCelebration[]>([]);
   const [reportHintDismissed, setReportHintDismissed] = useState(false);
   const questsRef = useRef<Quest[]>([]);
+  const refreshControllerRef = useRef<AbortController | null>(null);
 
   // 離脱時にクエスト状態を保存（別画面から戻った時のスタンプ祝福検知用）
   useEffect(() => {
@@ -127,13 +128,24 @@ export default function QuestsPage() {
   }
 
   async function refreshQuests() {
-    const res = await fetch("/api/quests/today");
-    if (!res.ok) return;
-    const newQuests: Quest[] = await res.json();
-    const celebration = findNewlyStampedApproval(questsRef.current, newQuests);
-    if (celebration) setStampCelebration(celebration);
-    questsRef.current = newQuests;
-    setQuests(newQuests);
+    // 前の進行中リクエストをキャンセルして最新結果だけを使う（race condition 防止）
+    refreshControllerRef.current?.abort();
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
+    try {
+      const res = await fetch("/api/quests/today", { signal: controller.signal });
+      if (!res.ok) return;
+      const newQuests: Quest[] = await res.json();
+      if (controller.signal.aborted) return;
+      const newCelebrations = findNewlyStampedApprovals(questsRef.current, newQuests);
+      if (newCelebrations.length > 0) {
+        setStampQueue((prev) => [...prev, ...newCelebrations]);
+      }
+      questsRef.current = newQuests;
+      setQuests(newQuests);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+    }
   }
 
   async function fetchQuests() {
@@ -147,8 +159,8 @@ export default function QuestsPage() {
       if (stored) {
         try {
           const prev = JSON.parse(stored);
-          const celebration = findNewlyStampedApproval(prev, loaded);
-          if (celebration) setStampCelebration(celebration);
+          const newCelebrations = findNewlyStampedApprovals(prev, loaded);
+          if (newCelebrations.length > 0) setStampQueue(newCelebrations);
         } catch { /* ignore */ }
         sessionStorage.removeItem("prevQuestStates");
       }
@@ -596,20 +608,23 @@ export default function QuestsPage() {
         />
       )}
 
-      {/* スタンプ祝福オーバーレイ */}
-      {stampCelebration && (
+      {/* スタンプ祝福オーバーレイ（キュー先頭を表示し、閉じると次へ） */}
+      {stampQueue.length > 0 && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70"
-          onClick={() => setStampCelebration(null)}
+          onClick={() => setStampQueue((prev) => prev.slice(1))}
         >
           <div className="flex flex-col items-center gap-4 select-none">
             <div className="text-[96px] animate-stamp-pop">
-              {stampCelebration.stamp}
+              {stampQueue[0].stamp}
             </div>
             <div className="text-center">
               <p className="text-white font-bold text-xl">承認されたよ！</p>
-              <p className="text-white/70 text-sm mt-1">「{stampCelebration.questTitle}」</p>
+              <p className="text-white/70 text-sm mt-1">「{stampQueue[0].questTitle}」</p>
             </div>
+            {stampQueue.length > 1 && (
+              <p className="text-white/60 text-xs">あと{stampQueue.length - 1}件の承認があるよ</p>
+            )}
             <p className="text-white/40 text-xs mt-2">タップで閉じる</p>
           </div>
         </div>
