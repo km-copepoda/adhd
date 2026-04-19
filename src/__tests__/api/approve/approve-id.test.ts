@@ -91,6 +91,46 @@ describe("POST /api/approve/[id]", () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
+  it("SKIPPED済みのクエストで400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      id: "q-skipped",
+      status: "SKIPPED",
+      date: new Date("2026-03-13"),
+      childId: "child-1",
+      templateId: "tpl-1",
+      template: { category: "STUDY", createdBy: "PARENT" },
+      child: { id: "child-1" },
+    } as any);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-skipped", { action: "approve" }),
+      makeParams("q-skipped"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("REJECTED（差し戻し中）のクエストで400を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      id: "q-rejected",
+      status: "REJECTED",
+      date: new Date("2026-03-13"),
+      childId: "child-1",
+      templateId: "tpl-1",
+      template: { category: "STUDY", createdBy: "PARENT" },
+      child: { id: "child-1" },
+    } as any);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-rejected", { action: "approve" }),
+      makeParams("q-rejected"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
   // ── 承認 ──────────────────────────────────
 
   describe("action: approve", () => {
