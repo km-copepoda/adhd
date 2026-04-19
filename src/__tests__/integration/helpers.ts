@@ -84,12 +84,16 @@ export async function seedQuestForDate(
   date: Date,
   status: string = "PENDING",
 ) {
+  const template = await prisma.taskTemplate.findUniqueOrThrow({ where: { id: templateId } });
   return prisma.questInstance.create({
     data: {
       templateId,
       childId,
       date,
       status: status as any,
+      snapshotTitle: template.title,
+      snapshotEmoji: template.emoji,
+      snapshotCategory: template.category,
     },
   });
 }

@@ -109,9 +109,9 @@ model QuestInstance {
   deadlineBonusEarned Boolean   @default(false)
   rejectionReason     String?
   approvalStamp       String?
-  snapshotTitle    String?
-  snapshotEmoji    String?
-  snapshotCategory Category?
+  snapshotTitle    String
+  snapshotEmoji    String
+  snapshotCategory Category
   templateId       String
   template   TaskTemplate @relation(fields: [templateId], references: [id])
   childId    String

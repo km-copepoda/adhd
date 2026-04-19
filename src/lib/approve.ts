@@ -12,7 +12,7 @@ type QuestWithRelations = {
   templateId: string;
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
-  snapshotCategory?: "STUDY" | "STAMINA" | "LIFE" | null;
+  snapshotCategory: "STUDY" | "STAMINA" | "LIFE";
   template: {
     id: string;
     category: "STUDY" | "STAMINA" | "LIFE";
