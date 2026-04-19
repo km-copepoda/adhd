@@ -41,7 +41,7 @@ export async function POST(
 
   // プレビューXP計算（承認時に確定するが、報告時に暫定表示用）
   const effectiveDeadlineBonus = deadlineBonusEarned ?? quest.deadlineBonusEarned;
-  const category = quest.template.category;
+  const category = quest.snapshotCategory ?? quest.template.category;
   let xp = 1;
   if (effectiveDeadlineBonus) xp++;
   if (quest.template.photoBonus && photoUrl) xp++;
@@ -66,9 +66,10 @@ export async function POST(
     });
     if (parent) {
       const childName = user.monsterName ?? user.name ?? "子供";
+      const questTitle = quest.snapshotTitle ?? quest.template.title;
       await sendPushToParent(parent.id, {
         title: "✅ クエスト報告",
-        body: `${childName}が「${quest.template.title}」を完了しました`,
+        body: `${childName}が「${questTitle}」を完了しました`,
         url: "/app/parent/approve",
       });
     }

@@ -31,5 +31,13 @@ export async function GET() {
     orderBy: { reportedAt: "desc" },
   });
 
-  return NextResponse.json(quests);
+  return NextResponse.json(quests.map((q) => ({
+    ...q,
+    template: {
+      ...q.template,
+      title: q.snapshotTitle ?? q.template.title,
+      emoji: q.snapshotEmoji ?? q.template.emoji,
+      category: q.snapshotCategory ?? q.template.category,
+    },
+  })));
 }

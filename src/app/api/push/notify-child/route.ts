@@ -57,6 +57,9 @@ export async function POST(request: Request) {
           templateId: template.id,
           childId,
           date: today,
+          snapshotTitle: template.title,
+          snapshotEmoji: template.emoji,
+          snapshotCategory: template.category,
         },
       })
     )
@@ -71,9 +74,10 @@ export async function POST(request: Request) {
     if (!quest) {
       return NextResponse.json({ error: "対象のクエストが見つかりません" }, { status: 404 });
     }
+    const questTitle = quest.snapshotTitle ?? quest.template.title;
     await sendPushToChild(childId, {
       title: "⏰ リマインド",
-      body: `「${quest.template.title}」がまだ終わってないよ！`,
+      body: `「${questTitle}」がまだ終わってないよ！`,
       url: "/app/child/quests",
     });
   } else {
@@ -85,7 +89,7 @@ export async function POST(request: Request) {
     if (pendingQuests.length === 0) {
       return NextResponse.json({ error: "未完了のクエストがありません" }, { status: 400 });
     }
-    const taskNames = pendingQuests.map((q) => q.template.title).join("、");
+    const taskNames = pendingQuests.map((q) => q.snapshotTitle ?? q.template.title).join("、");
     await sendPushToChild(childId, {
       title: "⏰ リマインド",
       body: `${taskNames}がまだ終わってないよ！`,

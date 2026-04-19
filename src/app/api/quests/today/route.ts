@@ -46,6 +46,9 @@ export async function GET() {
           templateId: template.id,
           childId: user.id,
           date: today,
+          snapshotTitle: template.title,
+          snapshotEmoji: template.emoji,
+          snapshotCategory: template.category,
         },
       })
     )
@@ -79,5 +82,14 @@ export async function GET() {
   });
 
   const hasDeadline = !!user.reportDeadlineTime;
-  return NextResponse.json(quests.map((q) => ({ ...q, hasDeadline })));
+  return NextResponse.json(quests.map((q) => ({
+    ...q,
+    hasDeadline,
+    template: {
+      ...q.template,
+      title: q.snapshotTitle ?? q.template.title,
+      emoji: q.snapshotEmoji ?? q.template.emoji,
+      category: q.snapshotCategory ?? q.template.category,
+    },
+  })));
 }

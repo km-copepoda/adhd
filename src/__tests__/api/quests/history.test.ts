@@ -74,6 +74,36 @@ describe("GET /api/quests/history", () => {
     );
   });
 
+  it("snapshotTitleがある場合、レスポンスのtemplate.titleにスナップショットを使用すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      {
+        id: "q1",
+        status: "APPROVED",
+        date: new Date("2026-03-12"),
+        approvedAt: new Date("2026-03-12T10:00:00"),
+        comment: null,
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        snapshotTitle: "宿題（旧名）",
+        snapshotEmoji: "📖",
+        snapshotCategory: "LIFE",
+        templateId: "tpl-1",
+        childId: "child-1",
+        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        template: { title: "宿題（新名）", emoji: "📚", category: "STUDY", isActive: true, photoBonus: false },
+      },
+    ] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    const res = await GET(makeRequest({ date: "2026-03-12" }));
+    const json = await res.json();
+
+    expect(json[0].template.title).toBe("宿題（旧名）");
+    expect(json[0].template.emoji).toBe("📖");
+    expect(json[0].template.category).toBe("LIFE");
+  });
+
   it("APPROVEDクエストをそのまま返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.questInstance.findMany.mockResolvedValue([
