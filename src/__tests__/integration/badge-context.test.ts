@@ -114,6 +114,9 @@ describe("バッジコンテキスト計算の正確性", () => {
                 approvedAt: new Date(),
                 photoUrl: "https://example.com/photo.jpg",
                 deadlineBonusEarned: true,
+                snapshotTitle: task.title,
+                snapshotEmoji: task.emoji,
+                snapshotCategory: task.category,
             },
         });
 
