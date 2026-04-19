@@ -86,7 +86,12 @@ export async function GET(request: NextRequest) {
         deadlineBonusEarned: i.deadlineBonusEarned,
         photoUrl: i.photoUrl,
         child: i.child,
-        template: i.template,
+        template: {
+          ...i.template,
+          title: i.snapshotTitle ?? i.template.title,
+          emoji: i.snapshotEmoji ?? i.template.emoji,
+          category: i.snapshotCategory ?? i.template.category,
+        },
       })),
     ...uncoveredTemplates.map((t) => ({
       id: null,

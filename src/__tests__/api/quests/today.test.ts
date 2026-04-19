@@ -59,6 +59,80 @@ describe("GET /api/quests/today", () => {
     expect(json[0].template.title).toBe("宿題");
   });
 
+  it("upsertのcreateブロックにスナップショットフィールドが含まれること", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00"));
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+
+    const templates = [
+      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [4], isTemporary: false },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await GET();
+
+    expect(mockPrisma.questInstance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          snapshotTitle: "宿題",
+          snapshotEmoji: "📚",
+          snapshotCategory: "STUDY",
+        }),
+      })
+    );
+  });
+
+  it("snapshotTitleがある場合、レスポンスのtemplate.titleにスナップショットを使用すること", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00"));
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+
+    const quests = [
+      {
+        id: "q1",
+        snapshotTitle: "宿題（旧名）",
+        snapshotEmoji: "📖",
+        snapshotCategory: "LIFE",
+        template: { id: "tpl-1", title: "宿題（新名）", emoji: "📚", category: "STUDY" },
+      },
+    ];
+    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].template.title).toBe("宿題（旧名）");
+    expect(json[0].template.emoji).toBe("📖");
+    expect(json[0].template.category).toBe("LIFE");
+  });
+
+  it("スナップショットがnullの場合、template.titleにフォールバックすること", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00"));
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+
+    const quests = [
+      {
+        id: "q1",
+        snapshotTitle: null,
+        snapshotEmoji: null,
+        snapshotCategory: null,
+        template: { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY" },
+      },
+    ];
+    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].template.title).toBe("宿題");
+    expect(json[0].template.emoji).toBe("📚");
+    expect(json[0].template.category).toBe("STUDY");
+  });
+
   it("テンプレートごとにupsertで重複クエストを防止すること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 

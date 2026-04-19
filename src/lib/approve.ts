@@ -12,6 +12,7 @@ type QuestWithRelations = {
   templateId: string;
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
+  snapshotCategory?: "STUDY" | "STAMINA" | "LIFE" | null;
   template: {
     id: string;
     category: "STUDY" | "STAMINA" | "LIFE";
@@ -45,7 +46,7 @@ type FreshChildData = {
 
 export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
   const xp = calculateQuestXP(quest);
-  const category = quest.template.category;
+  const category = quest.snapshotCategory ?? quest.template.category;
 
   // 最新のchildデータをDBから取得（stale dataによるポイント上書きを防ぐ）
   const child = await prisma.user.findUnique({

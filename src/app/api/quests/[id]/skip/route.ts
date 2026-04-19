@@ -48,9 +48,10 @@ export async function POST(
     });
     if (parent) {
       const childName = user.monsterName ?? user.name ?? "子供";
+      const questTitle = quest.snapshotTitle ?? quest.template.title;
       await sendPushToParent(parent.id, {
         title: "😴 スキップ申請",
-        body: `${childName}が「${quest.template.title}」のスキップを申請しました`,
+        body: `${childName}が「${questTitle}」のスキップを申請しました`,
         url: "/app/parent/approve",
       });
     }

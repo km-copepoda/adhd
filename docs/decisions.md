@@ -390,6 +390,19 @@
 - 15%（約7回に1回）は「実感できる可能性」としてコレクション意欲につながる
 - 20%だと努力差が小さくなり「どうせランダム」感が出るため15%が最適
 
+## 2026-04-19: QuestInstance にタスク名スナップショットを追加
+
+### 決定内容
+- `QuestInstance` に `snapshotTitle String?`, `snapshotEmoji String?`, `snapshotCategory Category?` を追加
+- QuestInstance 作成時（`quests/today` upsert および `push/notify-child` upsert）にテンプレートの値をコピーして保存
+- API レスポンス（`quests/today`, `quests/history`, `quests/completed-today`）では `snapshotTitle ?? template.title` の形でスナップショット優先・テンプレートフォールバック
+- 承認・報告・スキップのロジック（`approve.ts`, `report/route.ts`, `skip/route.ts`）でも同様にスナップショット優先でカテゴリ・タイトルを参照
+- 既存レコードはスナップショットが null → テンプレート値にフォールバックするため後方互換
+
+### 理由
+- タスク名を変更すると過去のクエスト履歴の表示名まで変わってしまうバグがあった
+- カテゴリもスナップショット化することで、承認時の XP 付与先カテゴリが変更前の分類を正しく保持する
+
 ---
 
 ## 2026-03-29: 報告期限をファミリー単位から子供単位に変更
