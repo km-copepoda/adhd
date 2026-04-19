@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ========== Title ========== -->
+    <mxCell id="title" value="QuestBoard システム構成図" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="520" y="20" width="400" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- ========== Zone: クライアント ========== -->
+    <mxCell id="zone-client" value="クライアント（ブラウザ）" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.lean_mapping.electronic_info_flow_edge;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="40" y="80" width="400" height="480" as="geometry" />
+    </mxCell>
+
+    <!-- 親ブラウザ -->
+    <mxCell id="parent-browser" value="&lt;b&gt;親のブラウザ&lt;/b&gt;&lt;br&gt;/app/parent/*&lt;br&gt;タスク管理・承認センター&lt;br&gt;ファミリー管理・完了一覧&lt;br&gt;履歴・ヒートマップ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="70" y="130" width="160" height="110" as="geometry" />
+    </mxCell>
+
+    <!-- 子ブラウザ -->
+    <mxCell id="child-browser" value="&lt;b&gt;子どものブラウザ&lt;/b&gt;&lt;br&gt;/app/child/*&lt;br&gt;クエスト一覧・モンスター育成&lt;br&gt;図鑑・実績バッジ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="250" y="130" width="160" height="110" as="geometry" />
+    </mxCell>
+
+    <!-- Service Worker -->
+    <mxCell id="sw" value="&lt;b&gt;Service Worker&lt;/b&gt;&lt;br&gt;PWA キャッシュ&lt;br&gt;Web Push 受信&lt;br&gt;バックグラウンド通知" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="140" y="380" width="170" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Supabase Realtime (client) -->
+    <mxCell id="realtime-client" value="&lt;b&gt;Supabase Realtime&lt;/b&gt;&lt;br&gt;WebSocket 購読&lt;br&gt;承認待ち件数・バッジ通知&lt;br&gt;クエスト状態更新" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="70" y="270" width="170" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Supabase Storage Upload (client) -->
+    <mxCell id="storage-upload" value="&lt;b&gt;写真直接アップロード&lt;/b&gt;&lt;br&gt;Supabase Storage へ&lt;br&gt;クライアントサイドから直接&lt;br&gt;(API を経由しない)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="255" y="270" width="160" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- ========== Zone: Vercel (Next.js) ========== -->
+    <mxCell id="zone-vercel" value="Vercel / Next.js 16 (App Router)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.lean_mapping.electronic_info_flow_edge;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontStyle=1;verticalAlign=top;fontColor=#333333;" vertex="1" parent="1">
+      <mxGeometry x="490" y="80" width="500" height="680" as="geometry" />
+    </mxCell>
+
+    <!-- proxy.ts (Middleware) -->
+    <mxCell id="middleware" value="&lt;b&gt;proxy.ts (Middleware)&lt;/b&gt;&lt;br&gt;Supabase SSR セッション更新&lt;br&gt;ロールベースリダイレクト&lt;br&gt;公開ルート除外" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="610" y="130" width="200" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Pages -->
+    <mxCell id="pages" value="&lt;b&gt;Pages (RSC / Client)&lt;/b&gt;&lt;br&gt;/app/parent/* — 親画面&lt;br&gt;/app/child/* — 子供画面&lt;br&gt;/ — LP (公開)&lt;br&gt;/login — ログイン選択" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="520" y="240" width="185" height="110" as="geometry" />
+    </mxCell>
+
+    <!-- API Routes -->
+    <mxCell id="api-routes" value="&lt;b&gt;API Routes&lt;/b&gt;&lt;br&gt;/api/auth/* — 認証&lt;br&gt;/api/tasks/* — タスク CRUD&lt;br&gt;/api/quests/* — クエスト操作&lt;br&gt;/api/approve/* — 承認&lt;br&gt;/api/streak/* — ストリーク&lt;br&gt;/api/badges — バッジ&lt;br&gt;/api/push/* — プッシュ通知&lt;br&gt;/api/family/* — ファミリー&lt;br&gt;/api/rebirth — 転生&lt;br&gt;/api/cron/auto-approve — 自動承認" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="720" y="240" width="200" height="220" as="geometry" />
+    </mxCell>
+
+    <!-- src/lib/ -->
+    <mxCell id="lib" value="&lt;b&gt;src/lib/&lt;/b&gt;&lt;br&gt;approve.ts — 承認ロジック集約&lt;br&gt;evolution.ts — 進化確率計算&lt;br&gt;monsters.ts — モンスターテーブル&lt;br&gt;badges.ts / badges.data.ts&lt;br&gt;streak.ts / loginStreak.ts&lt;br&gt;xp.ts — XP計算&lt;br&gt;date.ts — JST日付ユーティリティ&lt;br&gt;push.ts — Web Push送信&lt;br&gt;auth.ts — 認証ヘルパー" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="520" y="370" width="200" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- Prisma ORM -->
+    <mxCell id="prisma" value="&lt;b&gt;Prisma ORM&lt;/b&gt;&lt;br&gt;型安全なDBアクセス&lt;br&gt;コネクションプール管理&lt;br&gt;(DIRECT_URL / DATABASE_URL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="730" y="490" width="180" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Vercel Cron -->
+    <mxCell id="cron" value="&lt;b&gt;Vercel Cron&lt;/b&gt;&lt;br&gt;毎日 UTC 15:00 (JST 0:00)&lt;br&gt;自動承認バッチ実行&lt;br&gt;(CRON_SECRET で保護)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="610" y="620" width="190" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- ========== Zone: Supabase ========== -->
+    <mxCell id="zone-supabase" value="Supabase (Self-hosted / Cloud)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.lean_mapping.electronic_info_flow_edge;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="1040" y="80" width="360" height="480" as="geometry" />
+    </mxCell>
+
+    <!-- Supabase Auth -->
+    <mxCell id="supabase-auth" value="&lt;b&gt;Supabase Auth&lt;/b&gt;&lt;br&gt;親: メール + パスワード&lt;br&gt;子ども: 匿名認証 (Anonymous)&lt;br&gt;SSR セッション管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1060" y="130" width="175" height="100" as="geometry" />
+    </mxCell>
+
+    <!-- Supabase Realtime -->
+    <mxCell id="supabase-realtime" value="&lt;b&gt;Supabase Realtime&lt;/b&gt;&lt;br&gt;PostgreSQL CDC&lt;br&gt;QuestInstance 変更通知&lt;br&gt;UserBadge 解除通知&lt;br&gt;RLS ポリシー + publication 設定" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1245" y="130" width="130" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- Supabase Storage -->
+    <mxCell id="supabase-storage" value="&lt;b&gt;Supabase Storage&lt;/b&gt;&lt;br&gt;バケット: quest-photos (public)&lt;br&gt;クエスト写真を保存&lt;br&gt;RLS ポリシー設定済み" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1060" y="250" width="175" height="100" as="geometry" />
+    </mxCell>
+
+    <!-- PostgreSQL -->
+    <mxCell id="postgres" value="&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;Family / User / TaskTemplate&lt;br&gt;QuestInstance / Streak&lt;br&gt;UserBadge / PushSubscription&lt;br&gt;DB日付規約: JST → UTC 0:00保存" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1080" y="380" width="190" height="130" as="geometry" />
+    </mxCell>
+
+    <!-- ========== Zone: 外部サービス ========== -->
+    <mxCell id="zone-external" value="外部サービス" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.lean_mapping.electronic_info_flow_edge;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;fontStyle=1;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="1040" y="600" width="360" height="160" as="geometry" />
+    </mxCell>
+
+    <!-- Web Push Service -->
+    <mxCell id="push-service" value="&lt;b&gt;Web Push Service&lt;/b&gt;&lt;br&gt;(FCM / APNs など OS依存)&lt;br&gt;VAPID 認証&lt;br&gt;親→子・子→親 通知配信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1070" y="640" width="175" height="100" as="geometry" />
+    </mxCell>
+
+    <!-- ========== Arrows ========== -->
+
+    <!-- 親ブラウザ ↔ Next.js -->
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="parent-browser" target="middleware" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- 子ブラウザ ↔ Next.js -->
+    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="child-browser" target="middleware" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- middleware → pages -->
+    <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="middleware" target="pages" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- pages → api-routes -->
+    <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="pages" target="api-routes" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- api-routes → lib -->
+    <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="api-routes" target="lib" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- lib → prisma -->
+    <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="lib" target="prisma" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- prisma → postgres -->
+    <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" edge="1" source="prisma" target="postgres" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- middleware → supabase-auth -->
+    <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" edge="1" source="middleware" target="supabase-auth" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- api-routes → supabase-auth -->
+    <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" edge="1" source="api-routes" target="supabase-auth" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- realtime-client ↔ supabase-realtime -->
+    <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;startArrow=block;dashed=1;strokeColor=#9673a6;" edge="1" source="realtime-client" target="supabase-realtime" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- storage-upload → supabase-storage -->
+    <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#d79b00;" edge="1" source="storage-upload" target="supabase-storage" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- lib → push-service (push送信) -->
+    <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#d79b00;dashed=1;" edge="1" source="lib" target="push-service" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- push-service → SW (通知受信) -->
+    <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;" edge="1" source="push-service" target="sw" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- SW → 親/子ブラウザ -->
+    <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;" edge="1" source="sw" target="parent-browser" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;" edge="1" source="sw" target="child-browser" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- cron → api-routes (auto-approve) -->
+    <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;" edge="1" source="cron" target="api-routes" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- supabase-realtime → realtime-client (CDC通知) -->
+    <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#9673a6;dashed=1;" edge="1" source="supabase-realtime" target="realtime-client" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ========== Legend ========== -->
+    <mxCell id="legend-title" value="凡例" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="600" width="60" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="leg1" value="HTTPS リクエスト" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#000000;" edge="1" parent="1">
+      <mxGeometry x="60" y="640" width="120" height="20" as="geometry">
+        <Array as="points" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="leg1-src" value="" style="point;x=0;y=0;" vertex="1" connectable="0" parent="leg1">
+      <mxGeometry x="-0.9" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+    </mxCell>
+    <mxCell id="leg2" value="WebSocket (Realtime)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#9673a6;dashed=1;" edge="1" parent="1">
+      <mxGeometry x="60" y="670" width="160" height="20" as="geometry">
+        <Array as="points" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="leg3" value="Web Push 通知" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#b85450;" edge="1" parent="1">
+      <mxGeometry x="60" y="700" width="120" height="20" as="geometry">
+        <Array as="points" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="leg4" value="直接 Storage アップロード" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#d79b00;" edge="1" parent="1">
+      <mxGeometry x="60" y="730" width="180" height="20" as="geometry">
+        <Array as="points" />
+      </mxGeometry>
+    </mxCell>
+
+  </root>
+</mxGraphModel>
