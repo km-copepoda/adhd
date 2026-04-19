@@ -35,8 +35,9 @@ export async function GET(request: Request) {
       child: {
         select: {
           id: true,
-          side: true,
           evolutionStage: true,
+          evolutionPath: true,
+          collectedPaths: true,
           studyPt: true,
           staminaPt: true,
           lifePt: true,
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
       await approveSkipQuestInstance(quest);
       skipped++;
     } else {
-      await approveQuestInstance(quest as any);
+      await approveQuestInstance(quest);
       approved++;
     }
   }
