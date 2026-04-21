@@ -8,6 +8,7 @@ import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import MonsterImageModal from "@/components/MonsterImageModal";
 import { getZukanStageLabel } from "@/lib/zukanStageLabel";
+import { getS3Aura } from "@/lib/s3Aura";
 
 type ZukanData = {
   side: string | null;
@@ -103,6 +104,12 @@ export default function ZukanPage() {
 
   return (
     <div className="px-4 pt-6 pb-24">
+      <style>{`
+        @keyframes s3-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
       {/* ── ヘッダー ── */}
       <h1 className="font-serif text-quest-gold text-xl tracking-widest mb-1 text-center">
         📖 モンスター図鑑
@@ -266,16 +273,36 @@ export default function ZukanPage() {
                         const isS3Collected = collected.has(s3);
                         // Lv: monsterLevels に記録があればその値、収集済みだが記録なし（旧データ）は 1
                         const lv = monsterLevels[s3] ?? (isS3Collected ? 1 : 0);
+                        const aura = isS3Collected ? getS3Aura(lv) : null;
                         return (
                           <div
                             key={s3}
                             className={`flex flex-col items-center gap-1 rounded-lg p-1${isS3Collected ? " cursor-pointer active:opacity-80" : ""}`}
                             style={{
+                              position: "relative",
+                              overflow: "hidden",
                               background: "linear-gradient(160deg, #1e1a2e, #1a1829)",
-                              border: `1px solid ${isS3Collected ? "rgba(139,92,246,0.35)" : "#3d3450"}`,
+                              border: aura
+                                ? `${aura.borderWidth}px solid rgba(${aura.r},${aura.g},${aura.b},${aura.borderAlpha})`
+                                : `1px solid ${isS3Collected ? "rgba(139,92,246,0.35)" : "#3d3450"}`,
+                              boxShadow: aura?.glow
+                                ? `0 0 8px rgba(${aura.r},${aura.g},${aura.b},0.4)`
+                                : undefined,
                             }}
                             onClick={isS3Collected ? () => openModal(m3.image, m3.name, s3) : undefined}
                           >
+                            {/* ::before 相当：レベルオーラ背景 */}
+                            {aura && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  background: `rgba(${aura.r},${aura.g},${aura.b},${aura.bgAlpha})`,
+                                  animation: aura.pulse ? "s3-pulse 3s ease-in-out infinite" : undefined,
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            )}
                             <PathChips path={s3} size="sm" />
                             <Image
                               src={isS3Collected ? m3.image : shadowPath(m3.image)}
@@ -292,11 +319,9 @@ export default function ZukanPage() {
                                 style={{
                                   fontSize: 8,
                                   fontWeight: "bold",
-                                  color: lv >= 5 ? "#fbbf24"
-                                       : lv === 4 ? "#fb923c"
-                                       : lv === 3 ? "#60a5fa"
-                                       : lv === 2 ? "#a78bfa"
-                                       : "#9ca3af",
+                                  color: aura
+                                    ? `rgba(${aura.r},${aura.g},${aura.b},1)`
+                                    : "#9ca3af",
                                   letterSpacing: "0.05em",
                                 }}
                               >
