@@ -24,6 +24,7 @@ type Task = {
   isActive: boolean;
   createdBy: string;
   photoBonus: boolean;
+  carryOver: boolean;
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
@@ -43,6 +44,7 @@ const defaultForm = (childId: string): FormData => ({
   repeatDays: [1, 2, 3, 4, 5] as number[],
   targetDate: "",
   photoBonus: false,
+  carryOver: false,
   assignedChildId: childId,
 });
 
@@ -123,6 +125,7 @@ export default function TasksPage() {
           repeatDays: form.repeatDays,
           isTemporary: false,
           photoBonus: form.photoBonus,
+          carryOver: form.carryOver,
           assignedChildId: form.assignedChildId,
         };
 
@@ -174,6 +177,7 @@ export default function TasksPage() {
       repeatDays: task.repeatDays,
       targetDate: task.targetDate ? task.targetDate.slice(0, 10) : "",
       photoBonus: task.photoBonus,
+      carryOver: task.carryOver,
       assignedChildId: task.assignedChildId || "",
     });
     setFormMode(task.isTemporary ? "temporary" : "regular");

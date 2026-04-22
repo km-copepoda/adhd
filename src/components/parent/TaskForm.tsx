@@ -17,6 +17,7 @@ type FormData = {
   repeatDays: number[];
   targetDate: string;
   photoBonus: boolean;
+  carryOver: boolean;
   assignedChildId: string;
 };
 
@@ -190,6 +191,28 @@ export default function TaskForm({
           />
         </button>
       </div>
+
+      {/* Carry-over toggle (通常タスクのみ) */}
+      {formMode === "regular" && (
+        <div className="flex items-center justify-between mb-4 bg-quest-bg rounded-lg px-3 py-2.5">
+          <div className="flex-1 min-w-0">
+            <p className="text-quest-text text-sm">🔁 未完了を翌日に持ち越す</p>
+            <p className="text-quest-dim text-[11px] mt-0.5">ONにすると忘れたタスクが翌日以降も表示される</p>
+          </div>
+          <button
+            onClick={() => onFormChange((f) => ({ ...f, carryOver: !f.carryOver }))}
+            className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ml-3 overflow-hidden ${
+              form.carryOver ? "bg-quest-gold" : "bg-quest-border"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                form.carryOver ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
+      )}
 
       {/* Regular: repeat days / Temporary: target date */}
       {formMode === "regular" ? (
