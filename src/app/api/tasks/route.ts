@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       // 子供が作成した通常タスクは申請日を記録（日付をまたいでも当日のみ表示するため）
       requestedDate: !isTemporary && user.role === "CHILD" ? todayDate : null,
       photoBonus: body.photoBonus === true,
+      carryOver: user.role === "PARENT" && body.carryOver === true,
       createdBy: user.role,
       originalCreatedBy: user.role,
       familyId: user.familyId,

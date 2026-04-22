@@ -185,6 +185,87 @@ describe("GET /api/quests/today", () => {
     });
   });
 
+  describe("carryOver（持ち越し）機能", () => {
+    it("carryOver=true のタスクで前日の PENDING が存在する場合、upsert をスキップすること", async () => {
+      vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
+
+      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+
+      const templates = [
+        { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      ];
+      mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+      // 前日の PENDING インスタンスが存在する
+      mockPrisma.questInstance.findFirst.mockResolvedValue({ id: "q-old", status: "PENDING" } as any);
+      mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+      await GET();
+
+      // 既存 PENDING があるのでこの日の upsert は行わない
+      expect(mockPrisma.questInstance.upsert).not.toHaveBeenCalled();
+    });
+
+    it("carryOver=true のタスクで PENDING が存在しない場合、通常通り upsert すること", async () => {
+      vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
+
+      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+
+      const templates = [
+        { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      ];
+      mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+      // PENDING インスタンスなし
+      mockPrisma.questInstance.findFirst.mockResolvedValue(null);
+      mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+      await GET();
+
+      expect(mockPrisma.questInstance.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it("carryOver=false のタスクは PENDING があっても通常通り upsert すること", async () => {
+      vi.setSystemTime(new Date("2026-03-13T09:00:00"));
+
+      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+
+      const templates = [
+        { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: false },
+      ];
+      mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+      mockPrisma.questInstance.findFirst.mockResolvedValue(null); // carryOver=false なので呼ばれない想定
+      mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+      await GET();
+
+      expect(mockPrisma.questInstance.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.questInstance.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    it("最終 findMany は today の通常クエストと carryOver PENDING の両方を含む OR 条件を使うこと", async () => {
+      vi.setSystemTime(new Date("2026-03-13T09:00:00"));
+
+      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+      await GET();
+
+      const call = mockPrisma.questInstance.findMany.mock.calls[0][0];
+      expect(call.where).toEqual(
+        expect.objectContaining({
+          childId: "child-1",
+          OR: expect.arrayContaining([
+            expect.objectContaining({ date: new Date("2026-03-13T00:00:00Z") }),
+            expect.objectContaining({ status: "PENDING", template: expect.objectContaining({ carryOver: true }) }),
+          ]),
+        })
+      );
+    });
+  });
+
   it("一時タスクはtargetDate=今日の条件でのみ取得されること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 
@@ -209,7 +290,7 @@ describe("GET /api/quests/today", () => {
     );
   });
   
-  if("JST深夜（UTCは前日）でもJST基準の日付でリクエストを生成すること", async () => {
+  it("JST深夜（UTCは前日）でもJST基準の日付でリクエストを生成すること", async () => {
     // JST 2026-03-12 01:00 = UTC 2026-03-11 16:00
     vi.setSystemTime(new Date("2026-03-11T16:00:00Z"));
     

@@ -90,6 +90,7 @@ model TaskTemplate {
   family           Family          @relation(fields: [familyId], references: [id])
   photoBonus          Boolean         @default(false)
   originalCreatedBy   Role            @default(PARENT)
+  carryOver           Boolean         @default(false)
   assignedChildId  String?
   assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests           QuestInstance[]
