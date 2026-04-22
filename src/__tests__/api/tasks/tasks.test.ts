@@ -175,6 +175,7 @@ describe("POST /api/tasks", () => {
         targetDate: null,
         requestedDate: null,
         photoBonus: false,
+        carryOver: false,
         createdBy: "PARENT",
         originalCreatedBy: "PARENT",
         familyId: "fam-1",
