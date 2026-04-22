@@ -8,7 +8,7 @@ export async function GET() {
   if (!user || !user.familyId) {
     return NextResponse.json([]);
   }
-  
+
   const today = todayJST();
   const dayOfWeek = dayOfWeekJST();
 
@@ -30,9 +30,27 @@ export async function GET() {
     },
   });
 
-  // Create quest instances for today if they don't exist (parallel)
+  // carryOver タスクは既存 PENDING がある場合 upsert をスキップ（1インスタンス保証）
+  const carryOverTemplates = templates.filter((t) => (t as any).carryOver);
+  const normalTemplates = templates.filter((t) => !(t as any).carryOver);
+
+  const carryOverChecks = await Promise.all(
+    carryOverTemplates.map(async (template) => {
+      const existing = await prisma.questInstance.findFirst({
+        where: { templateId: template.id, childId: user.id, status: "PENDING" },
+      });
+      return { template, hasPending: !!existing };
+    })
+  );
+
+  // 通常テンプレート + PENDING がない carryOver テンプレートのみ upsert
+  const templatesToUpsert = [
+    ...normalTemplates,
+    ...carryOverChecks.filter((c) => !c.hasPending).map((c) => c.template),
+  ];
+
   await Promise.all(
-    templates.map((template) =>
+    templatesToUpsert.map((template) =>
       prisma.questInstance.upsert({
         where: {
           templateId_childId_date: {
@@ -54,12 +72,14 @@ export async function GET() {
     )
   );
 
-  // Fetch all today's quests (active templates only)
+  // 今日のクエスト + carryOver の過去 PENDING を一括取得
   const quests = await prisma.questInstance.findMany({
     where: {
       childId: user.id,
-      date: today,
-      template: { isActive: true },
+      OR: [
+        { date: today, template: { isActive: true } },
+        { status: "PENDING", template: { isActive: true, carryOver: true } },
+      ],
     },
     include: {
       template: {
@@ -71,6 +91,7 @@ export async function GET() {
           isTemporary: true,
           createdBy: true,
           photoBonus: true,
+          carryOver: true,
           taskStreaks: {
             where: { childId: user.id },
             select: { currentStreak: true, bestStreak: true },

@@ -26,6 +26,7 @@ export async function PUT(
       category: body.category,
       repeatDays: body.repeatDays,
       photoBonus: body.photoBonus,
+      carryOver: body.carryOver,
     },
   });
 

@@ -98,6 +98,7 @@ interface TaskTemplateFixture {
   isActive: boolean;
   familyId: string;
   photoBonus: boolean;
+  carryOver: boolean;
   assignedChildId: string | null;
   quests?: QuestInstanceFixture[];
 }
@@ -116,6 +117,7 @@ export function taskTemplate(overrides?: Partial<TaskTemplateFixture>): TaskTemp
     isActive: true,
     familyId: "fam-1",
     photoBonus: false,
+    carryOver: false,
     assignedChildId: "child-1",
     ...overrides,
   };
