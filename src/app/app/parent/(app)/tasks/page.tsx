@@ -307,6 +307,12 @@ export default function TasksPage() {
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
                             <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
+                            {task.photoBonus && (
+                              <span title="写真添付あり" className="text-quest-gold/70">📷</span>
+                            )}
+                            {task.carryOver && (
+                              <span title="未完了を翌日に持ち越す" className="text-blue-400/70">🔁</span>
+                            )}
                             {task.isTemporary ? (
                               <span className="text-amber-400/70">一時</span>
                             ) : (
@@ -385,6 +391,12 @@ export default function TasksPage() {
                           <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             <span>{cat.emoji} {cat.name}</span>
                             <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
+                            {task.photoBonus && (
+                              <span title="写真添付あり" className="text-quest-gold/70">📷</span>
+                            )}
+                            {task.carryOver && (
+                              <span title="未完了を翌日に持ち越す" className="text-blue-400/70">🔁</span>
+                            )}
                           </div>
                           <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             {DAY_LABELS.map((label, i) => (
@@ -451,6 +463,9 @@ export default function TasksPage() {
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
                             <span>{cat.emoji} {cat.name}</span>
                             <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
+                            {task.photoBonus && (
+                              <span title="写真添付あり" className="text-quest-gold/70">📷</span>
+                            )}
                             <span className="text-amber-400/70">📅 {dateStr}</span>
                           </div>
                         </div>
