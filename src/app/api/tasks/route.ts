@@ -73,11 +73,32 @@ export async function GET() {
     }
   }
 
+  // carryOver=true タスクの「過去から持ち越し中のPENDING」を検出（親画面で未完了放置を可視化するため）
+  const carryOverTaskIds = tasks.filter((t) => (t as { carryOver?: boolean }).carryOver).map((t) => t.id);
+  const carryOverPending = carryOverTaskIds.length > 0
+    ? await prisma.questInstance.findMany({
+        where: {
+          templateId: { in: carryOverTaskIds },
+          status: "PENDING",
+          date: { lt: today },
+        },
+        select: { templateId: true, date: true },
+        orderBy: { date: "asc" },
+      })
+    : [];
+  const oldestPendingMap = new Map<string, Date>();
+  for (const q of carryOverPending) {
+    if (!oldestPendingMap.has(q.templateId) && q.date) {
+      oldestPendingMap.set(q.templateId, q.date);
+    }
+  }
+
   return NextResponse.json(
     tasks.map((t) => ({
       ...t,
       completedToday: completedSet.has(t.id),
       lastSkippedDate: lastSkippedMap.get(t.id) ?? null,
+      oldestCarryOverPendingDate: oldestPendingMap.get(t.id) ?? null,
     }))
   );
 }
