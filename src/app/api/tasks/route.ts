@@ -54,7 +54,32 @@ export async function GET() {
   });
   const completedSet = new Set(completedQuests.map((q) => q.templateId));
 
-  return NextResponse.json(tasks.map((t) => ({ ...t, completedToday: completedSet.has(t.id) })));
+  // 直近7日間のSKIPPEDを取得（該当曜日でない日にも親がスキップに気づけるよう、タスクカードにバッジ表示するため）
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  const recentSkipped = await prisma.questInstance.findMany({
+    where: {
+      templateId: { in: taskIds },
+      status: "SKIPPED",
+      date: { gte: sevenDaysAgo, lte: today },
+    },
+    select: { templateId: true, date: true },
+    orderBy: { date: "desc" },
+  });
+  const lastSkippedMap = new Map<string, Date>();
+  for (const q of recentSkipped) {
+    if (!lastSkippedMap.has(q.templateId) && q.date) {
+      lastSkippedMap.set(q.templateId, q.date);
+    }
+  }
+
+  return NextResponse.json(
+    tasks.map((t) => ({
+      ...t,
+      completedToday: completedSet.has(t.id),
+      lastSkippedDate: lastSkippedMap.get(t.id) ?? null,
+    }))
+  );
 }
 
 export async function POST(request: Request) {

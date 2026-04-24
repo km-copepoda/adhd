@@ -42,8 +42,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      { ...tasks[0], completedToday: false },
-      { ...tasks[1], completedToday: false },
+      { ...tasks[0], completedToday: false, lastSkippedDate: null },
+      { ...tasks[1], completedToday: false, lastSkippedDate: null },
     ]);
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
       where: { familyId: "fam-1", isActive: true },
@@ -73,8 +73,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      { ...tasks[0], completedToday: true },
-      { ...tasks[1], completedToday: false },
+      { ...tasks[0], completedToday: true, lastSkippedDate: null },
+      { ...tasks[1], completedToday: false, lastSkippedDate: null },
     ]);
     const expectedToday = new Date("2026-03-18T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
@@ -100,6 +100,74 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json[0].completedToday).toBe(true);
+  });
+
+  it("直近SKIPPEDがあるタスクには lastSkippedDate が設定されること", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [
+      { id: "t1", title: "宿題", isActive: true },
+      { id: "t2", title: "運動", isActive: true },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const skippedDate = new Date("2026-03-15T00:00:00Z");
+    // 1回目: 今日のAPPROVED/SKIPPED（空）
+    // 2回目: 直近SKIPPED（t1のみ3日前）
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: skippedDate }] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].lastSkippedDate).toBe(skippedDate.toISOString());
+    expect(json[1].lastSkippedDate).toBeNull();
+  });
+
+  it("直近SKIPPEDクエリは過去7日間・SKIPPEDのみに限定されること", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [{ id: "t1", title: "宿題", isActive: true }];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await GET();
+
+    const sevenDaysAgo = new Date("2026-03-11T00:00:00Z");
+    const today = new Date("2026-03-18T00:00:00Z");
+    expect(mockPrisma.questInstance.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          templateId: { in: ["t1"] },
+          status: "SKIPPED",
+          date: { gte: sevenDaysAgo, lte: today },
+        }),
+      })
+    );
+  });
+
+  it("同じテンプレートに複数のSKIPPEDがある場合、最新の日付を返すこと", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [{ id: "t1", title: "宿題", isActive: true }];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const recent = new Date("2026-03-17T00:00:00Z");
+    const older = new Date("2026-03-13T00:00:00Z");
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      // orderBy: date desc を前提に、先頭が最新
+      .mockResolvedValueOnce([
+        { templateId: "t1", date: recent },
+        { templateId: "t1", date: older },
+      ] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].lastSkippedDate).toBe(recent.toISOString());
   });
 
   it("親がアクセスした時、ファミリー内の各子供について ensureTodayQuests が呼ばれること", async () => {
