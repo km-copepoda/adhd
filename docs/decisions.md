@@ -416,6 +416,18 @@
 - ADHD 特性上タスクを忘れること自体は避けられないため、タスクを消失させるより「まだやれる」状態を維持する方がモチベーション継続に有効
 - スキップ機能（子供が「やらない」と意思表示）とは役割が明確に異なるため、別フラグで管理
 
+## 2026-04-24: QuestInstance 生成ロジックを `ensureTodayQuests` に集約し、親画面アクセス時も materialize する
+
+### 決定内容
+- `quests/today` の「今日のテンプレート抽出 + carryOver PENDING チェック + upsert」ロジックを `src/lib/quests.ts` の `ensureTodayQuests({ childId, familyId })` に切り出し
+- `GET /api/tasks`（親画面）でも、family 内の各 CHILD に対して `ensureTodayQuests` を呼ぶようにした
+- 結果、子供が一度もアプリを開かなくても、親が管理画面を開いたタイミングで今日の QuestInstance が生成される
+
+### 理由
+- `carryOver` は「前日の PENDING を翌日に見せる」仕組みであり、そもそも前日に QuestInstance が作られていないと機能しない（pull 型設計の盲点）
+- cron を導入せず実装コストを抑えるため、「親もしくは子のいずれかがアクセスした時点で materialize」に方針決定
+- 共有ヘルパー化により `/api/tasks` と `/api/quests/today` の両方で整合性を保てる
+
 ---
 
 ## 2026-03-29: 報告期限をファミリー単位から子供単位に変更

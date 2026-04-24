@@ -10,6 +10,8 @@ const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // ensureTodayQuests が user.findMany を呼ぶ。デフォルトでは子供なし（no-op）。
+  mockPrisma.user.findMany.mockResolvedValue([] as any);
 });
 
 describe("GET /api/tasks", () => {
@@ -98,6 +100,54 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json[0].completedToday).toBe(true);
+  });
+
+  it("親がアクセスした時、ファミリー内の各子供について ensureTodayQuests が呼ばれること", async () => {
+    // 2026-03-12 は木曜 (day=4)
+    vi.setSystemTime(new Date("2026-03-12T09:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+    // ファミリーの子供を2人返す
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: "child-1" },
+      { id: "child-2" },
+    ] as any);
+
+    // ensureTodayQuests が child-1 の今日のテンプレートを返す想定
+    // child-2 の呼び出しではテンプレートなし
+    mockPrisma.taskTemplate.findMany.mockImplementation(((args: any) => {
+      if (args?.where?.assignedChildId === "child-1") {
+        return Promise.resolve([
+          { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [4], isTemporary: false, carryOver: false },
+        ] as any);
+      }
+      if (args?.where?.assignedChildId === "child-2") {
+        return Promise.resolve([] as any);
+      }
+      // 親画面のタスク一覧取得
+      return Promise.resolve([] as any);
+    }) as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await GET();
+
+    // 子供一覧を取得していること
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ familyId: "fam-1", role: "CHILD" }),
+      })
+    );
+
+    // child-1 用に upsert が呼ばれていること（ensureTodayQuests 経由）
+    expect(mockPrisma.questInstance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          templateId: "tpl-1",
+          childId: "child-1",
+        }),
+      })
+    );
   });
 });
 

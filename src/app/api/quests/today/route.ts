@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { todayJST, dayOfWeekJST } from "@/lib/date";
+import { todayJST } from "@/lib/date";
+import { ensureTodayQuests } from "@/lib/quests";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -10,67 +11,8 @@ export async function GET() {
   }
 
   const today = todayJST();
-  const dayOfWeek = dayOfWeekJST();
 
-  // Get active templates for today (regular + temporary) assigned to this child
-  const templates = await prisma.taskTemplate.findMany({
-    where: {
-      familyId: user.familyId,
-      assignedChildId: user.id,
-      isActive: true,
-      OR: [
-        // 承認済み通常タスク: 今日の曜日に対応
-        { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
-        // 未承認の子供タスク: 申請日（requestedDate）が今日かつ今日の曜日に対応
-        // → 日付をまたいでも申請日以外に表示されない
-        { isTemporary: false, createdBy: "CHILD", requestedDate: today, repeatDays: { has: dayOfWeek } },
-        // 一時タスク: targetDate が今日
-        { isTemporary: true, targetDate: today },
-      ],
-    },
-  });
-
-  // carryOver タスクは既存 PENDING がある場合 upsert をスキップ（1インスタンス保証）
-  const carryOverTemplates = templates.filter((t) => (t as any).carryOver);
-  const normalTemplates = templates.filter((t) => !(t as any).carryOver);
-
-  const carryOverChecks = await Promise.all(
-    carryOverTemplates.map(async (template) => {
-      const existing = await prisma.questInstance.findFirst({
-        where: { templateId: template.id, childId: user.id, status: "PENDING" },
-      });
-      return { template, hasPending: !!existing };
-    })
-  );
-
-  // 通常テンプレート + PENDING がない carryOver テンプレートのみ upsert
-  const templatesToUpsert = [
-    ...normalTemplates,
-    ...carryOverChecks.filter((c) => !c.hasPending).map((c) => c.template),
-  ];
-
-  await Promise.all(
-    templatesToUpsert.map((template) =>
-      prisma.questInstance.upsert({
-        where: {
-          templateId_childId_date: {
-            templateId: template.id,
-            childId: user.id,
-            date: today,
-          },
-        },
-        update: {},
-        create: {
-          templateId: template.id,
-          childId: user.id,
-          date: today,
-          snapshotTitle: template.title,
-          snapshotEmoji: template.emoji,
-          snapshotCategory: template.category,
-        },
-      })
-    )
-  );
+  await ensureTodayQuests({ childId: user.id, familyId: user.familyId });
 
   // 今日のクエスト + carryOver の過去 PENDING を一括取得
   const quests = await prisma.questInstance.findMany({
