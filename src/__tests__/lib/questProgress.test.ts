@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { computeQuestSuccessDisplay, computeCompletedCount, computeRemainingCount } from "@/lib/questProgress";
+import {
+  computeQuestSuccessDisplay,
+  computeCompletedCount,
+  computeRemainingCount,
+  sortQuestsByCompletion,
+} from "@/lib/questProgress";
 
 describe("computeQuestSuccessDisplay", () => {
   it("completed が 1、total が 1 のとき allDone になる（2/1 にならない）", () => {
@@ -89,5 +94,59 @@ describe("computeRemainingCount", () => {
   it("computeCompletedCount + computeRemainingCount = total になる", () => {
     const quests = [q("PENDING"), q("REPORTED"), q("APPROVED"), q("REJECTED"), q("SKIPPED"), q("SKIP_REPORTED")];
     expect(computeCompletedCount(quests) + computeRemainingCount(quests)).toBe(quests.length);
+  });
+});
+
+describe("sortQuestsByCompletion", () => {
+  const q = (id: string, status: string) => ({ id, status });
+
+  it("未完了(PENDING/REJECTED)を上に、完了(REPORTED/APPROVED/SKIP_REPORTED/SKIPPED)を下に並べる", () => {
+    const quests = [
+      q("a", "APPROVED"),
+      q("b", "PENDING"),
+      q("c", "SKIPPED"),
+      q("d", "REJECTED"),
+      q("e", "REPORTED"),
+      q("f", "PENDING"),
+      q("g", "SKIP_REPORTED"),
+    ];
+    const sorted = sortQuestsByCompletion(quests);
+    const ids = sorted.map((qu) => qu.id);
+    // 未完了が前、完了が後ろ
+    expect(ids.slice(0, 3)).toEqual(["b", "d", "f"]);
+    expect(ids.slice(3).sort()).toEqual(["a", "c", "e", "g"]);
+  });
+
+  it("同じグループ内では元の順序を保つ（安定ソート）", () => {
+    const quests = [
+      q("a", "PENDING"),
+      q("b", "APPROVED"),
+      q("c", "REJECTED"),
+      q("d", "REPORTED"),
+      q("e", "PENDING"),
+    ];
+    const sorted = sortQuestsByCompletion(quests);
+    expect(sorted.map((qu) => qu.id)).toEqual(["a", "c", "e", "b", "d"]);
+  });
+
+  it("空配列は空配列を返す", () => {
+    expect(sortQuestsByCompletion([])).toEqual([]);
+  });
+
+  it("全部未完了のとき順序は変わらない", () => {
+    const quests = [q("a", "PENDING"), q("b", "REJECTED"), q("c", "PENDING")];
+    expect(sortQuestsByCompletion(quests).map((qu) => qu.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("全部完了のとき順序は変わらない", () => {
+    const quests = [q("a", "APPROVED"), q("b", "REPORTED"), q("c", "SKIPPED")];
+    expect(sortQuestsByCompletion(quests).map((qu) => qu.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("元の配列を変更しない（非破壊）", () => {
+    const quests = [q("a", "APPROVED"), q("b", "PENDING")];
+    const original = [...quests];
+    sortQuestsByCompletion(quests);
+    expect(quests).toEqual(original);
   });
 });

@@ -23,6 +23,18 @@ export function computeRemainingCount(quests: { status: string }[]): number {
 }
 
 /**
+ * 未完了（PENDING/REJECTED）を上に、完了（REPORTED/APPROVED/SKIP_REPORTED/SKIPPED）を下に並べ替える。
+ * 同じグループ内では元の順序を保つ（安定ソート）。
+ */
+export function sortQuestsByCompletion<T extends { status: string }>(quests: T[]): T[] {
+  return [...quests].sort((a, b) => {
+    const aDone = COMPLETED_STATUSES.has(a.status) ? 1 : 0;
+    const bDone = COMPLETED_STATUSES.has(b.status) ? 1 : 0;
+    return aDone - bDone;
+  });
+}
+
+/**
  * クエスト完了報告後の成功画面に表示する進捗情報を計算する。
  *
  * NOTE: completedCount は refreshQuests() 完了後の値を受け取る。

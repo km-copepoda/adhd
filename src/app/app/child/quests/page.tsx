@@ -9,7 +9,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
-import { computeCompletedCount } from "@/lib/questProgress";
+import { computeCompletedCount, sortQuestsByCompletion } from "@/lib/questProgress";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 import { shouldShowReportHint } from "@/lib/quest-hint";
 
@@ -231,6 +231,7 @@ export default function QuestsPage() {
   }
 
   const completedCount = computeCompletedCount(quests);
+  const sortedQuests = sortQuestsByCompletion(quests);
 
   const provisionalPt = quests
     .filter((q) => q.status === "REPORTED")
@@ -464,7 +465,7 @@ export default function QuestsPage() {
               上の「タスクを追加」か、ギルドマスター（親）に作ってもらおう！
             </p>
           )}
-          {quests.map((quest) => {
+          {sortedQuests.map((quest) => {
             const cat = CATEGORY_LABEL[quest.template.category];
             let xp = 1;
             if (quest.deadlineBonusEarned) xp++;
