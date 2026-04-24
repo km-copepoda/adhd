@@ -29,7 +29,20 @@ type Task = {
   assignedChild: { id: string; monsterName: string | null } | null;
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
   completedToday: boolean;
+  lastSkippedDate: string | null;
 };
+
+function formatSkipBadge(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const skip = new Date(dateStr);
+  const today = new Date();
+  const skipDay = Date.UTC(skip.getUTCFullYear(), skip.getUTCMonth(), skip.getUTCDate());
+  const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const diffDays = Math.round((todayDay - skipDay) / (24 * 60 * 60 * 1000));
+  if (diffDays <= 0) return "今日スキップ";
+  if (diffDays === 1) return "昨日スキップ";
+  return `${diffDays}日前スキップ`;
+}
 
 type Child = {
   id: string;
@@ -385,6 +398,14 @@ export default function TasksPage() {
                             {!task.completedToday && streak >= 1 && (
                               <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
                                 🔥{streak}日
+                              </span>
+                            )}
+                            {task.lastSkippedDate && (
+                              <span
+                                title={`直近のスキップ: ${new Date(task.lastSkippedDate).toLocaleDateString("ja-JP")}`}
+                                className="text-[9px] text-orange-300 bg-orange-400/10 border border-orange-400/40 rounded px-1 shrink-0 mt-0.5"
+                              >
+                                ⏭ {formatSkipBadge(task.lastSkippedDate)}
                               </span>
                             )}
                           </div>
