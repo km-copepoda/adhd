@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { todayJST } from "@/lib/date";
+import { ensureTodayQuests } from "@/lib/quests";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -18,6 +19,16 @@ export async function GET() {
     });
     return NextResponse.json(tasks);
   }
+
+  // PARENT: 子供が画面を開いていなくても今日のクエストを materialize しておく。
+  // （carryOver フラグ付きタスクの「忘れた→翌日持ち越し」が、子供が一度もアクセスしなくても機能するように）
+  const children = await prisma.user.findMany({
+    where: { familyId: user.familyId, role: "CHILD" },
+    select: { id: true },
+  });
+  await Promise.all(
+    children.map((c) => ensureTodayQuests({ childId: c.id, familyId: user.familyId! }))
+  );
 
   // PARENT: return all family tasks with assignedChild info
   const tasks = await prisma.taskTemplate.findMany({
