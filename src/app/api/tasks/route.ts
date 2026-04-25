@@ -75,21 +75,40 @@ export async function GET() {
 
   // carryOver=true タスクの「過去から持ち越し中のPENDING」を検出（親画面で未完了放置を可視化するため）
   const carryOverTaskIds = tasks.filter((t) => (t as { carryOver?: boolean }).carryOver).map((t) => t.id);
-  const carryOverPending = carryOverTaskIds.length > 0
-    ? await prisma.questInstance.findMany({
-        where: {
-          templateId: { in: carryOverTaskIds },
-          status: "PENDING",
-          date: { lt: today },
-        },
-        select: { templateId: true, date: true },
-        orderBy: { date: "asc" },
-      })
-    : [];
   const oldestPendingMap = new Map<string, Date>();
-  for (const q of carryOverPending) {
-    if (!oldestPendingMap.has(q.templateId) && q.date) {
-      oldestPendingMap.set(q.templateId, q.date);
+  if (carryOverTaskIds.length > 0) {
+    const carryOverPending = await prisma.questInstance.findMany({
+      where: {
+        templateId: { in: carryOverTaskIds },
+        status: "PENDING",
+        date: { lt: today },
+      },
+      select: { templateId: true, date: true },
+      orderBy: { date: "asc" },
+    });
+    // 直近の APPROVED/SKIPPED より古い PENDING は stale データとして無視する
+    // （carryOver を後から ON にした等で、完了済みより古い PENDING が DB に残っているケース）
+    const latestSettled = await prisma.questInstance.findMany({
+      where: {
+        templateId: { in: carryOverTaskIds },
+        status: { in: ["APPROVED", "SKIPPED"] },
+      },
+      select: { templateId: true, date: true },
+      orderBy: { date: "desc" },
+    });
+    const latestSettledMap = new Map<string, Date>();
+    for (const q of latestSettled) {
+      if (!latestSettledMap.has(q.templateId) && q.date) {
+        latestSettledMap.set(q.templateId, q.date);
+      }
+    }
+    for (const q of carryOverPending) {
+      if (!q.date) continue;
+      const settled = latestSettledMap.get(q.templateId);
+      if (settled && q.date <= settled) continue;
+      if (!oldestPendingMap.has(q.templateId)) {
+        oldestPendingMap.set(q.templateId, q.date);
+      }
     }
   }
 

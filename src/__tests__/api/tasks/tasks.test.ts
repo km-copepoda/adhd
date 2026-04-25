@@ -183,16 +183,65 @@ describe("GET /api/tasks", () => {
     // 1回目: 今日のAPPROVED/SKIPPED（空）
     // 2回目: 直近SKIPPED（空）
     // 3回目: 過去のcarryOver PENDING
+    // 4回目: 直近settled（無し）
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
-      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any);
+      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any)
+      .mockResolvedValueOnce([] as any);
 
     const res = await GET();
     const json = await res.json();
 
     expect(json[0].oldestCarryOverPendingDate).toBe(oldPending.toISOString());
     expect(json[1].oldestCarryOverPendingDate).toBeNull();
+  });
+
+  it("直近の APPROVED より古い PENDING は無視されること（stale データ対策）", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true }];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const stalePending = new Date("2026-03-11T00:00:00Z"); // 7日前 (古い PENDING、stale)
+    const approvedDate = new Date("2026-03-13T00:00:00Z"); // 5日前 (完了)
+    const realPending = new Date("2026-03-15T00:00:00Z"); // 3日前 (本物の carryOver)
+
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([
+        { templateId: "t1", date: stalePending },
+        { templateId: "t1", date: realPending },
+      ] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: approvedDate }] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    // stale を飛ばして realPending が採用される
+    expect(json[0].oldestCarryOverPendingDate).toBe(realPending.toISOString());
+  });
+
+  it("PENDING がすべて settled より古い場合は null になること", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true }];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const stalePending = new Date("2026-03-11T00:00:00Z"); // 7日前
+    const approvedDate = new Date("2026-03-15T00:00:00Z"); // 3日前 (PENDING より新しい)
+
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: stalePending }] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: approvedDate }] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].oldestCarryOverPendingDate).toBeNull();
   });
 
   it("carryOver=false のタスクは carryOver PENDING クエリの対象外", async () => {
@@ -235,7 +284,8 @@ describe("GET /api/tasks", () => {
       .mockResolvedValueOnce([
         { templateId: "t1", date: oldest },
         { templateId: "t1", date: newer },
-      ] as any);
+      ] as any)
+      .mockResolvedValueOnce([] as any); // 直近settled なし
 
     const res = await GET();
     const json = await res.json();
