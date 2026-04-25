@@ -42,8 +42,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      { ...tasks[0], completedToday: false, lastSkippedDate: null },
-      { ...tasks[1], completedToday: false, lastSkippedDate: null },
+      { ...tasks[0], completedToday: false, lastSkippedDate: null, oldestCarryOverPendingDate: null },
+      { ...tasks[1], completedToday: false, lastSkippedDate: null, oldestCarryOverPendingDate: null },
     ]);
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
       where: { familyId: "fam-1", isActive: true },
@@ -73,8 +73,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      { ...tasks[0], completedToday: true, lastSkippedDate: null },
-      { ...tasks[1], completedToday: false, lastSkippedDate: null },
+      { ...tasks[0], completedToday: true, lastSkippedDate: null, oldestCarryOverPendingDate: null },
+      { ...tasks[1], completedToday: false, lastSkippedDate: null, oldestCarryOverPendingDate: null },
     ]);
     const expectedToday = new Date("2026-03-18T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
@@ -168,6 +168,79 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json[0].lastSkippedDate).toBe(recent.toISOString());
+  });
+
+  it("carryOver=true のタスクに過去のPENDINGがある場合、oldestCarryOverPendingDate が設定されること", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [
+      { id: "t1", title: "宿題", isActive: true, carryOver: true },
+      { id: "t2", title: "運動", isActive: true, carryOver: false },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const oldPending = new Date("2026-03-15T00:00:00Z");
+    // 1回目: 今日のAPPROVED/SKIPPED（空）
+    // 2回目: 直近SKIPPED（空）
+    // 3回目: 過去のcarryOver PENDING
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].oldestCarryOverPendingDate).toBe(oldPending.toISOString());
+    expect(json[1].oldestCarryOverPendingDate).toBeNull();
+  });
+
+  it("carryOver=false のタスクは carryOver PENDING クエリの対象外", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [
+      { id: "t1", title: "宿題", isActive: true, carryOver: false },
+      { id: "t2", title: "運動", isActive: true, carryOver: true },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await GET();
+
+    const today = new Date("2026-03-18T00:00:00Z");
+    expect(mockPrisma.questInstance.findMany).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          templateId: { in: ["t2"] },
+          status: "PENDING",
+          date: { lt: today },
+        }),
+      })
+    );
+  });
+
+  it("同じテンプレートに複数のcarryOver PENDINGがある場合、最古の日付を返すこと", async () => {
+    vi.setSystemTime(new Date("2026-03-18T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true }];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const oldest = new Date("2026-03-13T00:00:00Z");
+    const newer = new Date("2026-03-16T00:00:00Z");
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      // orderBy: date asc を前提に、先頭が最古
+      .mockResolvedValueOnce([
+        { templateId: "t1", date: oldest },
+        { templateId: "t1", date: newer },
+      ] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json[0].oldestCarryOverPendingDate).toBe(oldest.toISOString());
   });
 
   it("親がアクセスした時、ファミリー内の各子供について ensureTodayQuests が呼ばれること", async () => {

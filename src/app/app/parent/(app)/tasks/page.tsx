@@ -30,18 +30,31 @@ type Task = {
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
   completedToday: boolean;
   lastSkippedDate: string | null;
+  oldestCarryOverPendingDate: string | null;
 };
+
+function daysSince(dateStr: string): number {
+  const past = new Date(dateStr);
+  const today = new Date();
+  const pastDay = Date.UTC(past.getUTCFullYear(), past.getUTCMonth(), past.getUTCDate());
+  const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  return Math.round((todayDay - pastDay) / (24 * 60 * 60 * 1000));
+}
 
 function formatSkipBadge(dateStr: string | null): string | null {
   if (!dateStr) return null;
-  const skip = new Date(dateStr);
-  const today = new Date();
-  const skipDay = Date.UTC(skip.getUTCFullYear(), skip.getUTCMonth(), skip.getUTCDate());
-  const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const diffDays = Math.round((todayDay - skipDay) / (24 * 60 * 60 * 1000));
+  const diffDays = daysSince(dateStr);
   if (diffDays <= 0) return "今日スキップ";
   if (diffDays === 1) return "昨日スキップ";
   return `${diffDays}日前スキップ`;
+}
+
+function formatPendingCarryBadge(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  const diffDays = daysSince(dateStr);
+  if (diffDays <= 0) return null; // 未来or今日はバッジ不要（今日は通常表示）
+  if (diffDays === 1) return "昨日から未完了";
+  return `${diffDays}日間未完了`;
 }
 
 type Child = {
@@ -406,6 +419,14 @@ export default function TasksPage() {
                                 className="text-[9px] text-orange-300 bg-orange-400/10 border border-orange-400/40 rounded px-1 shrink-0 mt-0.5"
                               >
                                 ⏭ {formatSkipBadge(task.lastSkippedDate)}
+                              </span>
+                            )}
+                            {formatPendingCarryBadge(task.oldestCarryOverPendingDate) && (
+                              <span
+                                title={`最古の未完了: ${new Date(task.oldestCarryOverPendingDate!).toLocaleDateString("ja-JP")}`}
+                                className="text-[9px] text-red-300 bg-red-400/10 border border-red-400/40 rounded px-1 shrink-0 mt-0.5"
+                              >
+                                🔁 {formatPendingCarryBadge(task.oldestCarryOverPendingDate)}
                               </span>
                             )}
                           </div>
