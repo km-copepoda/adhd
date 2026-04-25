@@ -179,6 +179,7 @@ export default function TasksPage() {
   async function handleDelete(id: string) {
     if (!confirm("このタスクを削除しますか？")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    notifyApprovalsUpdated();
     fetchTasks();
   }
 
