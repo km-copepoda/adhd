@@ -16,6 +16,7 @@ const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | 
   { href: "/app/child/monster", emoji: "🐣", label: "育成", badgeKey: "monster" },
   { href: "/app/child/zukan", emoji: "📖", label: "図鑑", badgeKey: "zukan" },
   { href: "/app/child/badges", emoji: "🏅", label: "実績", badgeKey: "badges" },
+  { href: "/app/child/gathering", emoji: "🏕️", label: "あつまり" },
 ];
 
 export default function BottomNav() {

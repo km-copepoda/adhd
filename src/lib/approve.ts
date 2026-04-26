@@ -4,6 +4,8 @@ import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import { checkAndUnlockBadges } from "@/lib/badges";
 import { log } from "@/lib/logger";
 import { calculateQuestXP } from "@/lib/xp";
+import { getMonsterStage } from "@/lib/monsters";
+import { triggerMonsterEvolvedLog, triggerBadgeLog } from "@/lib/bulletinLog";
 
 type QuestWithRelations = {
   id: string;
@@ -42,6 +44,7 @@ type FreshChildData = {
   lifePt: number;
   rebirthPending: boolean;
   rebirthEggBonus: string | null;
+  side: string | null;
 };
 
 export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
@@ -62,6 +65,7 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
       lifePt: true,
       rebirthPending: true,
       rebirthEggBonus: true,
+      side: true,
     },
   }) as FreshChildData | null;
   if (!child) throw new Error(`Child ${quest.childId} not found`);
@@ -131,6 +135,8 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
           stage: evolution.newStage,
           path: evolution.newPath,
         });
+        const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.side ?? null);
+        triggerMonsterEvolvedLog(quest.childId, evolvedMonster?.name ?? evolution.newPath).catch(() => {});
       }
       await prisma.user.update({
         where: { id: quest.childId },
@@ -159,10 +165,14 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
     await recordTaskStreak(quest.templateId, quest.childId, quest.date);
   }
 
-  // バッジ解除チェック（エラーが出ても承認フロー全体には影響させない）
-  checkAndUnlockBadges(quest.childId).catch(err =>
-    log.error("Badge check failed", { childId: quest.childId, err }),
-  );
+  // バッジ解除チェック + 掲示板ログ（fire-and-forget）
+  checkAndUnlockBadges(quest.childId)
+    .then((newBadges) => {
+      for (const badge of newBadges) {
+        triggerBadgeLog(quest.childId, badge.name).catch(() => {});
+      }
+    })
+    .catch(err => log.error("Badge check failed", { childId: quest.childId, err }));
 }
 
 export async function approveSkipQuestInstance(quest: Pick<QuestWithRelations, "id" | "childId" | "date">): Promise<void> {

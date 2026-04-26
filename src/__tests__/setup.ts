@@ -58,6 +58,25 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       delete: vi.fn(),
     },
+    userBadge: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    gatheringGroup: {
+      upsert: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    gatheringMember: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
+    bulletinLog: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+    },
   },
 }));
 

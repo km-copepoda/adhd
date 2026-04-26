@@ -11,6 +11,7 @@ const tabs = [
   { href: "/app/parent/approve", emoji: "✅", label: "承認", badgeKey: "approvals" as const },
   { href: "/app/parent/completed", emoji: "🏆", label: "完了" },
   { href: "/app/parent/history", emoji: "📅", label: "履歴" },
+  { href: "/app/parent/gathering", emoji: "🏕️", label: "あつまり" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "家族" },
 ] as const;
 
