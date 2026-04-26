@@ -69,6 +69,8 @@ model User {
   assignedTasks       TaskTemplate[]     @relation("AssignedTasks")
   pushSubscriptions   PushSubscription[]
   badges              UserBadge[]
+  gatheringMember     GatheringMember?
+  bulletinLogs        BulletinLog[]
   createdAt           DateTime           @default(now())
 
   @@unique([familyId, childCode])
@@ -175,4 +177,57 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+}
+
+enum GatheringLocationType {
+  PARK             // 公園 max10
+  COMMUNITY_CENTER // 児童館 max30
+  SCHOOL           // 校庭 max50
+}
+
+enum BulletinLogType {
+  TASK_STARTED
+  TASK_PROGRESS_25
+  TASK_PROGRESS_50
+  TASK_PROGRESS_75
+  TASK_COMPLETE
+  BADGE_UNLOCKED
+  STREAK_TITLE
+  MONSTER_EVOLVED
+  MONSTER_REBORN
+}
+
+model GatheringGroup {
+  id         String                @id @default(cuid())
+  location   GatheringLocationType
+  secretWord String
+  members    GatheringMember[]
+  logs       BulletinLog[]
+  createdAt  DateTime              @default(now())
+
+  @@unique([location, secretWord])
+}
+
+model GatheringMember {
+  id       String         @id @default(cuid())
+  groupId  String
+  group    GatheringGroup @relation(fields: [groupId], references: [id])
+  childId  String         @unique
+  child    User           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  joinedAt DateTime       @default(now())
+}
+
+model BulletinLog {
+  id        String          @id @default(cuid())
+  groupId   String
+  group     GatheringGroup  @relation(fields: [groupId], references: [id])
+  childId   String
+  child     User            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  type      BulletinLogType
+  message   String
+  date      DateTime        @db.Date
+  createdAt DateTime        @default(now())
+
+  @@unique([groupId, childId, type, date])
+  @@index([groupId, createdAt])
 }

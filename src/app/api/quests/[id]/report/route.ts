@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
+import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 
 export async function POST(
   request: Request,
@@ -74,6 +75,9 @@ export async function POST(
       });
     }
   }
+
+  // 掲示板ログ（fire-and-forget）
+  triggerTaskProgressLog(user.id).catch(() => {});
 
   rlog.info("Quest reported", { questId: id, childId: user.id, xp, category });
   return NextResponse.json({ ok: true, xpAdded: xp, category });

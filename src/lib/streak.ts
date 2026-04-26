@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
-import { getNewMilestoneBonus, distributeBonus } from "@/lib/streakMilestones";
+import { getNewMilestoneBonus, distributeBonus, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { log } from "@/lib/logger";
+import { triggerStreakTitleLog } from "@/lib/bulletinLog";
 
 /**
  * クエスト承認時にストリークを記録・更新する。
@@ -138,6 +139,11 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
       }
 
       log.info("Streak milestone bonus", { childId, newStreak, bonus });
+      // 新しく達成したマイルストーン称号を掲示板に流す（fire-and-forget）
+      const newTitles = STREAK_MILESTONES.filter(m => m.days > oldStreak && m.days <= newStreak);
+      for (const m of newTitles) {
+        triggerStreakTitleLog(childId, m.title).catch(() => {});
+      }
     }
   }
 }

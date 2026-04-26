@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { triggerMonsterRebornLog } from "@/lib/bulletinLog";
 
 const VALID_EGG_TYPES = ["NORMAL", "STUDY", "STAMINA", "LIFE"] as const;
 
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
       usedEggBonuses: JSON.stringify(newUsed),
     },
   });
+
+  // 転生ログ（fire-and-forget）
+  const eggLabel: Record<string, string> = { NORMAL: "ふつう", STUDY: "べんきょう", STAMINA: "たいりょく", LIFE: "せいかつ" };
+  triggerMonsterRebornLog(user.id, eggLabel[eggType] ?? eggType).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

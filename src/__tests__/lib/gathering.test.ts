@@ -1,0 +1,165 @@
+import { describe, it, expect } from "vitest";
+import {
+  normalizeSecretWord,
+  buildBulletinMessage,
+  getProgressMilestones,
+  LOCATION_CAPACITY,
+} from "@/lib/gathering";
+
+// ─── normalizeSecretWord ──────────────────────────────────────────────────────
+describe("normalizeSecretWord", () => {
+  it("ひらがなをカタカナに変換する", () => {
+    expect(normalizeSecretWord("ぱーく")).toBe("パーク");
+  });
+
+  it("英字を大文字に変換する", () => {
+    expect(normalizeSecretWord("park")).toBe("PARK");
+  });
+
+  it("混在（ひらがな+英字）を正規化する", () => {
+    expect(normalizeSecretWord("れいんbow")).toBe("レインBOW");
+  });
+
+  it("10文字を超えた場合は切り捨てる", () => {
+    const result = normalizeSecretWord("あいうえおかきくけこさ");
+    expect(result.length).toBe(10);
+    expect(result).toBe("アイウエオカキクケコ");
+  });
+
+  it("前後の空白をトリムする", () => {
+    expect(normalizeSecretWord("  ぱーく  ")).toBe("パーク");
+  });
+
+  it("カタカナはそのまま維持する", () => {
+    expect(normalizeSecretWord("パーク")).toBe("パーク");
+  });
+
+  it("空文字列を返す", () => {
+    expect(normalizeSecretWord("")).toBe("");
+  });
+
+  it("空白のみは空文字列になる", () => {
+    expect(normalizeSecretWord("   ")).toBe("");
+  });
+});
+
+// ─── LOCATION_CAPACITY ───────────────────────────────────────────────────────
+describe("LOCATION_CAPACITY", () => {
+  it("公園は10人", () => { expect(LOCATION_CAPACITY.PARK).toBe(10); });
+  it("児童館は30人", () => { expect(LOCATION_CAPACITY.COMMUNITY_CENTER).toBe(30); });
+  it("校庭は50人", () => { expect(LOCATION_CAPACITY.SCHOOL).toBe(50); });
+});
+
+// ─── getProgressMilestones ────────────────────────────────────────────────────
+describe("getProgressMilestones", () => {
+  it("0件完了時は空配列", () => {
+    expect(getProgressMilestones(0, 4)).toEqual([]);
+  });
+
+  it("total=0時は空配列", () => {
+    expect(getProgressMilestones(0, 0)).toEqual([]);
+  });
+
+  it("1件完了（1/4=25%）: TASK_STARTED + TASK_PROGRESS_25", () => {
+    const m = getProgressMilestones(1, 4);
+    expect(m).toContain("TASK_STARTED");
+    expect(m).toContain("TASK_PROGRESS_25");
+    expect(m).not.toContain("TASK_PROGRESS_50");
+  });
+
+  it("2件完了（2/4=50%）: 25%と50%を含む", () => {
+    const m = getProgressMilestones(2, 4);
+    expect(m).toContain("TASK_PROGRESS_25");
+    expect(m).toContain("TASK_PROGRESS_50");
+    expect(m).not.toContain("TASK_PROGRESS_75");
+  });
+
+  it("3件完了（3/4=75%）: 75%を含む", () => {
+    const m = getProgressMilestones(3, 4);
+    expect(m).toContain("TASK_PROGRESS_75");
+    expect(m).not.toContain("TASK_COMPLETE");
+  });
+
+  it("4件完了（4/4=100%）: 全マイルストーンを含む", () => {
+    const m = getProgressMilestones(4, 4);
+    expect(m).toContain("TASK_STARTED");
+    expect(m).toContain("TASK_PROGRESS_25");
+    expect(m).toContain("TASK_PROGRESS_50");
+    expect(m).toContain("TASK_PROGRESS_75");
+    expect(m).toContain("TASK_COMPLETE");
+  });
+
+  it("1/1=100%でも全マイルストーンが発火する", () => {
+    const m = getProgressMilestones(1, 1);
+    expect(m).toContain("TASK_STARTED");
+    expect(m).toContain("TASK_COMPLETE");
+  });
+
+  it("境界値: 1/4=25%ちょうどでTASK_PROGRESS_25が発火する", () => {
+    expect(getProgressMilestones(1, 4)).toContain("TASK_PROGRESS_25");
+  });
+
+  it("境界値: done/total が25%未満（1/5=20%）は25%発火しない", () => {
+    const m = getProgressMilestones(1, 5);
+    expect(m).toContain("TASK_STARTED");
+    expect(m).not.toContain("TASK_PROGRESS_25");
+  });
+});
+
+// ─── buildBulletinMessage ─────────────────────────────────────────────────────
+describe("buildBulletinMessage", () => {
+  it("TASK_STARTED: 名前を含むメッセージを返す", () => {
+    const msg = buildBulletinMessage("TASK_STARTED", "たろう");
+    expect(msg).toContain("たろう");
+    expect(msg).toContain("スタート");
+  });
+
+  it("TASK_PROGRESS_25: 頑張っているメッセージ", () => {
+    const msg = buildBulletinMessage("TASK_PROGRESS_25", "はなこ");
+    expect(msg).toContain("はなこ");
+    expect(msg).toContain("頑張");
+  });
+
+  it("TASK_PROGRESS_50: 夢中メッセージ", () => {
+    const msg = buildBulletinMessage("TASK_PROGRESS_50", "けんた");
+    expect(msg).toContain("夢中");
+  });
+
+  it("TASK_PROGRESS_75: もうすぐメッセージ", () => {
+    const msg = buildBulletinMessage("TASK_PROGRESS_75", "さくら");
+    expect(msg).toContain("もうすぐ");
+  });
+
+  it("TASK_COMPLETE: やりとげたメッセージ", () => {
+    const msg = buildBulletinMessage("TASK_COMPLETE", "りく");
+    expect(msg).toContain("やりとげた");
+  });
+
+  it("BADGE_UNLOCKED: バッジ名を含む", () => {
+    const msg = buildBulletinMessage("BADGE_UNLOCKED", "あおい", "はじめの一歩");
+    expect(msg).toContain("はじめの一歩");
+    expect(msg).toContain("バッジ");
+  });
+
+  it("STREAK_TITLE: 称号名を含む", () => {
+    const msg = buildBulletinMessage("STREAK_TITLE", "ゆい", "一週間の戦士");
+    expect(msg).toContain("一週間の戦士");
+    expect(msg).toContain("称号");
+  });
+
+  it("MONSTER_EVOLVED: モンスター名を含む", () => {
+    const msg = buildBulletinMessage("MONSTER_EVOLVED", "こうた", "フレアドラゴン");
+    expect(msg).toContain("フレアドラゴン");
+    expect(msg).toContain("進化");
+  });
+
+  it("MONSTER_REBORN: 転生メッセージ", () => {
+    const msg = buildBulletinMessage("MONSTER_REBORN", "みな", "べんきょう");
+    expect(msg).toContain("べんきょう");
+    expect(msg).toContain("転生");
+  });
+
+  it("不明なtypeは空文字を返す", () => {
+    expect(buildBulletinMessage("UNKNOWN_TYPE", "だれか")).toBe("");
+  });
+});
