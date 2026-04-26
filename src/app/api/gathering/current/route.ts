@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { LOCATION_LABEL, LOCATION_EMOJI, LOCATION_CAPACITY, type GatheringLocationType } from "@/lib/gathering";
+import { getMonsterStage } from "@/lib/monsters";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -29,7 +30,24 @@ export async function GET(request: Request) {
     where: { childId },
     include: {
       group: {
-        include: { _count: { select: { members: true } } },
+        include: {
+          _count: { select: { members: true } },
+          members: {
+            include: {
+              child: {
+                select: {
+                  id: true,
+                  name: true,
+                  monsterName: true,
+                  evolutionStage: true,
+                  evolutionPath: true,
+                  side: true,
+                },
+              },
+            },
+            orderBy: { joinedAt: "asc" },
+          },
+        },
       },
     },
   });
@@ -37,6 +55,30 @@ export async function GET(request: Request) {
   if (!member) return NextResponse.json(null);
 
   const loc = member.group.location as GatheringLocationType;
+
+  type MemberRow = {
+    child: {
+      id: string;
+      name: string | null;
+      monsterName: string | null;
+      evolutionStage: number;
+      evolutionPath: string;
+      side: string | null;
+    };
+  };
+
+  const members = (member.group.members as MemberRow[]).map((m) => {
+    const monster = getMonsterStage(m.child.evolutionStage, m.child.evolutionPath, m.child.side);
+    return {
+      id: m.child.id,
+      name: m.child.name ?? "なまえなし",
+      monsterName: m.child.monsterName ?? monster.name,
+      monsterImage: monster.image,
+      evolutionStage: m.child.evolutionStage,
+      isMe: user.role === "CHILD" && m.child.id === user.id,
+    };
+  });
+
   return NextResponse.json({
     groupId: member.group.id,
     location: loc,
@@ -45,5 +87,6 @@ export async function GET(request: Request) {
     secretWord: member.group.secretWord,
     memberCount: member.group._count.members,
     capacity: LOCATION_CAPACITY[loc],
+    members,
   });
 }

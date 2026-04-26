@@ -4,6 +4,16 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { LOCATION_LABEL, LOCATION_EMOJI, LOCATION_CAPACITY, normalizeSecretWord, type GatheringLocationType } from "@/lib/gathering";
+import GatheringMemberList from "@/components/GatheringMemberList";
+
+type Member = {
+  id: string;
+  name: string;
+  monsterName: string;
+  monsterImage: string;
+  evolutionStage: number;
+  isMe: boolean;
+};
 
 type GroupInfo = {
   groupId: string;
@@ -13,6 +23,7 @@ type GroupInfo = {
   secretWord: string;
   memberCount: number;
   capacity: number;
+  members: Member[];
 };
 
 type LogEntry = {
@@ -222,6 +233,9 @@ export default function GatheringPage() {
                 {leaving ? "…" : "ぬける"}
               </button>
             </div>
+
+            {/* なかま一覧 */}
+            <GatheringMemberList members={group.members} />
 
             {/* 掲示板 */}
             <div className="bg-quest-card border border-quest-border rounded-xl p-4">
