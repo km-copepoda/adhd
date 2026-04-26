@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
+import { todayStringJST, isVisibleTemporaryTask, isTaskStreakActive } from "@/lib/date";
 import { xpRangeLabel } from "@/lib/xpRange";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
 import SetupGuideBanner from "@/components/SetupGuideBanner";
@@ -27,7 +27,7 @@ type Task = {
   carryOver: boolean;
   assignedChildId: string | null;
   assignedChild: { id: string; monsterName: string | null } | null;
-  taskStreaks: { childId: string; currentStreak: number; bestStreak: number }[];
+  taskStreaks: { childId: string; currentStreak: number; bestStreak: number; lastAchievedDate: string | null }[];
   completedToday: boolean;
   lastSkippedDate: string | null;
   oldestCarryOverPendingDate: string | null;
@@ -388,7 +388,10 @@ export default function TasksPage() {
                 <div className="flex flex-col gap-2">
                   {regular.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
-                    const streak = (task.taskStreaks ?? []).find((s) => s.childId === child.id)?.currentStreak ?? 0;
+                    const streakEntry = (task.taskStreaks ?? []).find((s) => s.childId === child.id);
+                    const streak = isTaskStreakActive(streakEntry?.lastAchievedDate ?? null)
+                      ? (streakEntry?.currentStreak ?? 0)
+                      : 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);
                     const assignedChild = children.find(c => c.id === task.assignedChildId);
                     return (

@@ -100,6 +100,20 @@ export function getDeadlineDisplay(
   return { minutesLeft, urgency };
 }
 
+/**
+ * lastAchievedDate が今日または昨日（JST）であればストリーク有効と判定する。
+ * @param lastAchievedDate @db.Date 形式の文字列 or null
+ * @param todayStr テスト用オーバーライド。省略時は todayStringJST() を使用
+ */
+export function isTaskStreakActive(lastAchievedDate: string | null, todayStr?: string): boolean {
+  if (!lastAchievedDate) return false;
+  const today = todayStr ?? todayStringJST();
+  const todayDate = new Date(today + "T00:00:00Z");
+  const yesterdayStr = new Date(todayDate.getTime() - 86400000).toISOString().slice(0, 10);
+  const lastStr = lastAchievedDate.slice(0, 10);
+  return lastStr === today || lastStr === yesterdayStr;
+}
+
 /** 期限切れでない表示可能な一時タスクかどうか */
 export function isVisibleTemporaryTask(
   task: { isTemporary: boolean; createdBy: string; completedToday: boolean; targetDate: string | null },
