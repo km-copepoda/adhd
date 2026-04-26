@@ -54,7 +54,9 @@ export default function QuestsPage() {
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [stampQueue, setStampQueue] = useState<StampCelebration[]>([]);
-  const [reportHintDismissed, setReportHintDismissed] = useState(false);
+  const [reportHintDismissed, setReportHintDismissed] = useState(
+    () => typeof window !== "undefined" && !!localStorage.getItem("quest-report-hint-seen"),
+  );
   const questsRef = useRef<Quest[]>([]);
   const refreshControllerRef = useRef<AbortController | null>(null);
 
@@ -165,6 +167,10 @@ export default function QuestsPage() {
         sessionStorage.removeItem("prevQuestStates");
       }
 
+      if (loaded.some((q) => q.status !== "PENDING")) {
+        localStorage.setItem("quest-report-hint-seen", "1");
+        setReportHintDismissed(true);
+      }
       questsRef.current = loaded;
       setQuests(loaded);
     }
@@ -439,6 +445,7 @@ export default function QuestsPage() {
           hasQuests: quests.length > 0,
           anyReported: quests.some((q) => q.status !== "PENDING"),
           hasSeen: reportHintDismissed,
+          hasEverReported: reportHintDismissed,
         }) && (
           <div className="mb-3 bg-quest-gold/10 border border-quest-gold/30 rounded-xl px-4 py-3 flex items-start gap-3">
             <span className="text-xl shrink-0">👆</span>
@@ -447,7 +454,7 @@ export default function QuestsPage() {
               <p className="text-quest-dim text-[10px] mt-0.5">完了したらタスクをタップ → コメントや写真を添付して報告 → 親が承認するとXPがもらえるよ</p>
             </div>
             <button
-              onClick={() => setReportHintDismissed(true)}
+              onClick={() => { localStorage.setItem("quest-report-hint-seen", "1"); setReportHintDismissed(true); }}
               className="text-quest-dim/60 text-sm leading-none shrink-0"
               aria-label="ヒントを閉じる"
             >
