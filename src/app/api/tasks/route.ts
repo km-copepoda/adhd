@@ -36,7 +36,7 @@ export async function GET() {
     include: {
       assignedChild: { select: { id: true, monsterName: true } },
       taskStreaks: {
-        select: { childId: true, currentStreak: true, bestStreak: true },
+        select: { childId: true, currentStreak: true, bestStreak: true, lastAchievedDate: true },
       },
     },
     orderBy: { createdAt: "desc" },
