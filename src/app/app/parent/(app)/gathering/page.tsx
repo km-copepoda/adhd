@@ -5,8 +5,18 @@ import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import type { GatheringLocationType } from "@/lib/gathering";
 import { LOCATION_LABEL, LOCATION_EMOJI, LOCATION_CAPACITY } from "@/lib/gathering";
+import GatheringMemberList from "@/components/GatheringMemberList";
 
 type Child = { id: string; name: string; monsterName: string | null };
+
+type Member = {
+  id: string;
+  name: string;
+  monsterName: string;
+  monsterImage: string;
+  evolutionStage: number;
+  isMe: boolean;
+};
 
 type GroupInfo = {
   groupId: string;
@@ -16,6 +26,7 @@ type GroupInfo = {
   secretWord: string;
   memberCount: number;
   capacity: number;
+  members: Member[];
 };
 
 type LogEntry = {
@@ -167,6 +178,9 @@ export default function ParentGatheringPage() {
               </div>
             </div>
           </div>
+
+          {/* なかま一覧 */}
+          <GatheringMemberList members={group.members} />
 
           {/* 掲示板 */}
           <div className="bg-quest-card border border-quest-border rounded-xl p-4">
