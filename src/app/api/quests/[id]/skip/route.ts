@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
+import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 
 export async function POST(
   request: Request,
@@ -56,6 +57,9 @@ export async function POST(
       });
     }
   }
+
+  // 掲示板ログ（fire-and-forget） — スキップも「done」扱いなので進捗を再評価する
+  triggerTaskProgressLog(user.id).catch(() => {});
 
   rlog.info("Skip requested", { questId: id, childId: user.id });
   return NextResponse.json({ ok: true });
