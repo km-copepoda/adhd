@@ -1,3 +1,5 @@
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## 🛠 Cline 開発フロー規約 (MUST)
 
 Clineがタスク（Kanban）に着手する際は、以下のステップを厳守すること。
