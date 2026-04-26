@@ -49,6 +49,7 @@ export default function TaskForm({
   onCancel,
 }: Props) {
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>("elementary_low");
+  const [showTemplates, setShowTemplates] = useState(false);
 
   function toggleDay(day: number) {
     onFormChange((f) => ({
@@ -97,46 +98,57 @@ export default function TaskForm({
           : `${childName} にタスクを追加`}
       </h3>
 
-      {/* Template picker */}
+      {/* Template picker (collapsible) */}
       {!editingId && (
         <div className="mb-4">
-          <label className="block text-quest-dim text-xs mb-2 tracking-wider">テンプレートから選択</label>
-          {/* Age group tabs */}
-          <div className="flex gap-1 mb-2 overflow-x-auto">
-            {AGE_GROUPS.map((group) => (
-              <button
-                key={group}
-                onClick={() => setSelectedAgeGroup(group)}
-                className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                  selectedAgeGroup === group
-                    ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
-                    : "text-quest-dim border border-quest-border hover:text-quest-text"
-                }`}
-              >
-                {AGE_GROUP_LABEL[group]}
-              </button>
-            ))}
-          </div>
-          {/* Template grid */}
-          <div className="grid grid-cols-2 gap-1.5">
-            {templates.map((tpl) => {
-              const cat = CATEGORY_LABEL[tpl.category];
-              const isSelected = form.title === tpl.title && form.category === tpl.category;
-              return (
-                <button
-                  key={`${tpl.category}-${tpl.title}`}
-                  onClick={() => onFormChange((f) => ({ ...f, title: tpl.title, category: tpl.category }))}
-                  className={`text-left px-3 py-2 rounded-lg text-xs border transition-colors ${
-                    isSelected
-                      ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
-                      : "border-quest-border text-quest-dim hover:border-quest-gold/20 hover:text-quest-text"
-                  }`}
-                >
-                  {cat.emoji} {tpl.title}
-                </button>
-              );
-            })}
-          </div>
+          <button
+            onClick={() => setShowTemplates((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border border-quest-border text-quest-dim hover:border-quest-gold/30 hover:text-quest-text transition-colors"
+            aria-expanded={showTemplates}
+          >
+            <span>📋 テンプレートから選ぶ</span>
+            <span className="text-[10px]">{showTemplates ? "▲ 閉じる" : "▼ 開く"}</span>
+          </button>
+          {showTemplates && (
+            <div className="mt-2">
+              {/* Age group tabs */}
+              <div className="flex gap-1 mb-2 overflow-x-auto">
+                {AGE_GROUPS.map((group) => (
+                  <button
+                    key={group}
+                    onClick={() => setSelectedAgeGroup(group)}
+                    className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                      selectedAgeGroup === group
+                        ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
+                        : "text-quest-dim border border-quest-border hover:text-quest-text"
+                    }`}
+                  >
+                    {AGE_GROUP_LABEL[group]}
+                  </button>
+                ))}
+              </div>
+              {/* Template grid */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {templates.map((tpl) => {
+                  const cat = CATEGORY_LABEL[tpl.category];
+                  const isSelected = form.title === tpl.title && form.category === tpl.category;
+                  return (
+                    <button
+                      key={`${tpl.category}-${tpl.title}`}
+                      onClick={() => onFormChange((f) => ({ ...f, title: tpl.title, category: tpl.category }))}
+                      className={`text-left px-3 py-2 rounded-lg text-xs border transition-colors ${
+                        isSelected
+                          ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
+                          : "border-quest-border text-quest-dim hover:border-quest-gold/20 hover:text-quest-text"
+                      }`}
+                    >
+                      {cat.emoji} {tpl.title}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

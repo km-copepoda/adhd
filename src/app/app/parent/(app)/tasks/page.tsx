@@ -77,6 +77,7 @@ const defaultForm = (childId: string): FormData => ({
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // openChildId: どの子供のフォームが開いているか
   const [openChildId, setOpenChildId] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export default function TasksPage() {
       const data = await res.json();
       const kids = (data.members || []).filter((m: { role: string }) => m.role === "CHILD");
       setChildren(kids);
+      setSelectedChildId((prev) => prev ?? (kids[0]?.id ?? null));
     }
   }
 
@@ -244,7 +246,38 @@ export default function TasksPage() {
         </p>
       )}
 
-      {children.map((child) => {
+      {/* 子供セレクター（2人以上の場合のみ表示） */}
+      {children.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          {children.map((child) => {
+            const name = child.monsterName || "名前未設定";
+            return (
+              <button
+                key={child.id}
+                onClick={() => {
+                  setSelectedChildId(child.id);
+                  // 別の子供に切り替えたらフォームを閉じる
+                  setOpenChildId(null);
+                  setImportChildId(null);
+                  setEditingId(null);
+                }}
+                className={[
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
+                  selectedChildId === child.id
+                    ? "bg-quest-gold/15 border border-quest-gold text-quest-gold"
+                    : "bg-quest-card border border-quest-border text-quest-dim hover:text-quest-text",
+                ].join(" ")}
+              >
+                🧒 {name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {children
+        .filter((c) => selectedChildId === null || c.id === selectedChildId)
+        .map((child) => {
         const name = child.monsterName || "名前未設定";
         const { pending, regular, temporary } = tasksForChild(child.id);
         const isOpen = openChildId === child.id;
