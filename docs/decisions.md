@@ -432,6 +432,7 @@
   - 転生: `/api/rebirth` の卵選択完了時にログ
 - `BulletinLog` の unique は `[groupId, childId, type, date]`。**同一ユーザが同日に同じ種別を2回以上ログしても2件目以降は黙殺される設計**（同じバッジ・同じ進化は同日2回起きない想定 + 進捗マイルストーン再評価の冪等性）。`writeBulletinLog` 側は `try/catch` で unique 違反を握りつぶす
 - 直近4日分（`LOG_RETENTION_DAYS = 4`）のみクライアントへ返却。古いログはトラブル材料になり得るため意図的に表示しない
+- 掲示板に書き込む識別子は **`monsterName ?? name` の順で優先**。本名（`name`）はグループ外（他ファミリー）に晒さない。両方 null の場合はログをスキップ（`getDisplayName` が null を返したら return）
 - 親画面 `/app/parent/gathering` から、参加中の子供のグループ掲示板を読み取り専用で閲覧可（子供セレクター付き）
 - リアルタイム更新は `BulletinLog` を `supabase_realtime` publication に追加し、子供画面・親画面とも `postgres_changes` で INSERT を購読
 

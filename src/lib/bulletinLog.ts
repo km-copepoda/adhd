@@ -12,15 +12,27 @@ async function getChildGroupId(childId: string): Promise<string | null> {
   return member?.groupId ?? null;
 }
 
+/**
+ * 掲示板に表示する識別子を取得。
+ * monsterName を優先（プライバシー: 本名はグループ外に晒さない）。両方 null なら null。
+ */
+async function getDisplayName(childId: string): Promise<string | null> {
+  const child = await prisma.user.findUnique({
+    where: { id: childId },
+    select: { name: true, monsterName: true },
+  });
+  return child?.monsterName ?? child?.name ?? null;
+}
+
 /** 掲示板ログを1件書き込む（unique制約で重複は無視） */
 async function writeBulletinLog(
   groupId: string,
   childId: string,
-  childName: string,
+  displayName: string,
   type: BulletinLogType,
   extra?: string,
 ): Promise<void> {
-  const message = buildBulletinMessage(type, childName, extra);
+  const message = buildBulletinMessage(type, displayName, extra);
   if (!message) return;
   const date = todayJST();
   try {
@@ -38,11 +50,8 @@ export async function triggerTaskProgressLog(childId: string): Promise<void> {
     const groupId = await getChildGroupId(childId);
     if (!groupId) return;
 
-    const child = await prisma.user.findUnique({
-      where: { id: childId },
-      select: { name: true },
-    });
-    if (!child?.name) return;
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
 
     const today = todayJST();
 
@@ -63,7 +72,7 @@ export async function triggerTaskProgressLog(childId: string): Promise<void> {
 
     const milestones = getProgressMilestones(done, total);
     for (const type of milestones) {
-      await writeBulletinLog(groupId, childId, child.name, type);
+      await writeBulletinLog(groupId, childId, displayName, type);
     }
   } catch (err) {
     log.error("triggerTaskProgressLog failed", { childId, err });
@@ -75,9 +84,9 @@ export async function triggerBadgeLog(childId: string, badgeName: string): Promi
   try {
     const groupId = await getChildGroupId(childId);
     if (!groupId) return;
-    const child = await prisma.user.findUnique({ where: { id: childId }, select: { name: true } });
-    if (!child?.name) return;
-    await writeBulletinLog(groupId, childId, child.name, "BADGE_UNLOCKED", badgeName);
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
+    await writeBulletinLog(groupId, childId, displayName, "BADGE_UNLOCKED", badgeName);
   } catch (err) {
     log.error("triggerBadgeLog failed", { childId, err });
   }
@@ -88,9 +97,9 @@ export async function triggerStreakTitleLog(childId: string, title: string): Pro
   try {
     const groupId = await getChildGroupId(childId);
     if (!groupId) return;
-    const child = await prisma.user.findUnique({ where: { id: childId }, select: { name: true } });
-    if (!child?.name) return;
-    await writeBulletinLog(groupId, childId, child.name, "STREAK_TITLE", title);
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
+    await writeBulletinLog(groupId, childId, displayName, "STREAK_TITLE", title);
   } catch (err) {
     log.error("triggerStreakTitleLog failed", { childId, err });
   }
@@ -101,9 +110,9 @@ export async function triggerMonsterEvolvedLog(childId: string, monsterName: str
   try {
     const groupId = await getChildGroupId(childId);
     if (!groupId) return;
-    const child = await prisma.user.findUnique({ where: { id: childId }, select: { name: true } });
-    if (!child?.name) return;
-    await writeBulletinLog(groupId, childId, child.name, "MONSTER_EVOLVED", monsterName);
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
+    await writeBulletinLog(groupId, childId, displayName, "MONSTER_EVOLVED", monsterName);
   } catch (err) {
     log.error("triggerMonsterEvolvedLog failed", { childId, err });
   }
@@ -114,9 +123,9 @@ export async function triggerMonsterRebornLog(childId: string, eggType: string):
   try {
     const groupId = await getChildGroupId(childId);
     if (!groupId) return;
-    const child = await prisma.user.findUnique({ where: { id: childId }, select: { name: true } });
-    if (!child?.name) return;
-    await writeBulletinLog(groupId, childId, child.name, "MONSTER_REBORN", eggType);
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
+    await writeBulletinLog(groupId, childId, displayName, "MONSTER_REBORN", eggType);
   } catch (err) {
     log.error("triggerMonsterRebornLog failed", { childId, err });
   }
