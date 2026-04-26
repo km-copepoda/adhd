@@ -1,0 +1,8 @@
+# Project Rules for Cline
+
+- **Workflow**: 
+  1. Check for `.env`. If missing, `cp .env.example .env`.
+  2. Create a new branch for every task. Never work on `main` or `master` directly.
+  3. **TDD is Mandatory**: Always write a test in `src/__tests__/` before any implementation. Run `npm test` and ensure it fails first.
+- **Next.js Entry**: Middleware must be `src/proxy.ts`.
+- **Logic**: Use `src/lib/approve.ts` for any approval flows.
