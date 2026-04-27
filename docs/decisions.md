@@ -416,6 +416,19 @@
 - ADHD 特性上タスクを忘れること自体は避けられないため、タスクを消失させるより「まだやれる」状態を維持する方がモチベーション継続に有効
 - スキップ機能（子供が「やらない」と意思表示）とは役割が明確に異なるため、別フラグで管理
 
+## 2026-04-27: carryOver 後付け ON で浮上する stale クエストを REJECTED に自動降格
+
+### 決定内容
+- `src/lib/quests.ts` に `cleanupStaleCarryOverInstances({ childId, templates })` を追加
+- carryOver=true テンプレートについて「直近 APPROVED/SKIPPED より日付が古い PENDING / REPORTED / SKIP_REPORTED」を `status=REJECTED, rejectionReason="STALE_CARRYOVER_CLEANUP"` に一括変換
+- `ensureTodayQuests`（子供 quests/today・親 tasks 経由）と `GET /api/approve/pending` の双方から呼び出す遅延クリーンアップ方式
+- 直近 APPROVED/SKIPPED が無いテンプレートは判定不能のため対象外（ensureTodayQuests の 1 インスタンス保証で新規発生は防がれる）
+
+### 理由
+- carryOver=false で運用していたタスクで日付別に積もった過去 PENDING が、carryOver を後から ON にした瞬間に `quests/today` の `OR: [{ date: today }, { status: PENDING, template: { carryOver: true } }]` で全件浮上し、子供がまとめて報告 → 親の承認待ちが大量発生するバグの恒久対策
+- 3d1f3df では親管理画面の「持ち越し中バッジ」表示のみ stale を除外していたが、データ自体と他画面（子供のクエスト一覧・親の承認待ち）には反映されていなかった
+- 過去データを REJECTED に降格する形を取るのは、REJECTED は `date < today` なら子供の今日のリストに出現しないため副作用が無く、履歴上も「却下」として説明可能（rejectionReason で由来を識別可）
+
 ## 2026-04-24: QuestInstance 生成ロジックを `ensureTodayQuests` に集約し、親画面アクセス時も materialize する
 
 ### 決定内容

@@ -12,6 +12,13 @@ beforeEach(() => {
 });
 
 describe("GET /api/approve/pending", () => {
+  beforeEach(() => {
+    // ensureTodayQuests / cleanup が呼ぶデフォルトのモック
+    mockPrisma.user.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+  });
+
   it("未認証の場合、空配列を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
     const res = await GET();
@@ -28,6 +35,35 @@ describe("GET /api/approve/pending", () => {
     mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
     const res = await GET();
     expect(await res.json()).toEqual([]);
+  });
+
+  it("親アクセス時にファミリーの carryOver タスクの stale クリーンアップが走ること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+    // ファミリーの子供
+    mockPrisma.user.findMany.mockResolvedValue([{ id: "child-1" }] as any);
+    // 子供の carryOver タスク
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([
+      { id: "tpl-1", carryOver: true },
+    ] as any);
+    // 直近 APPROVED が存在 → cleanup が updateMany を呼ぶ
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { templateId: "tpl-1", date: new Date("2026-03-13T00:00:00Z") },
+    ] as any);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
+
+    await GET();
+
+    expect(mockPrisma.questInstance.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: { in: ["PENDING", "REPORTED", "SKIP_REPORTED"] },
+        }),
+        data: expect.objectContaining({ status: "REJECTED" }),
+      })
+    );
   });
 
   it("PARENTがREPORTEDとSKIP_REPORTEDのクエストを取得できること", async () => {

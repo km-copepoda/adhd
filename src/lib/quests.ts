@@ -2,6 +2,54 @@ import { prisma } from "@/lib/prisma";
 import { todayJST, dayOfWeekJST } from "@/lib/date";
 
 /**
+ * carryOver=true のテンプレートで「直近 APPROVED/SKIPPED より古い未処理クエスト」を REJECTED に降格する。
+ *
+ * carryOver を後から ON にした際、過去の生き残り PENDING/REPORTED が
+ * 「未完了の持ち越し」として再浮上してしまうバグの遅延クリーンアップ。
+ */
+export async function cleanupStaleCarryOverInstances(params: {
+  childId: string;
+  templates: Array<{ id: string; carryOver?: boolean }>;
+}): Promise<void> {
+  const { childId, templates } = params;
+  const carryOverIds = templates.filter((t) => t.carryOver).map((t) => t.id);
+  if (carryOverIds.length === 0) return;
+
+  const settled = await prisma.questInstance.findMany({
+    where: {
+      templateId: { in: carryOverIds },
+      childId,
+      status: { in: ["APPROVED", "SKIPPED"] },
+    },
+    select: { templateId: true, date: true },
+    orderBy: { date: "desc" },
+  });
+
+  const latestSettledMap = new Map<string, Date>();
+  for (const q of settled) {
+    if (!q.date) continue;
+    if (!latestSettledMap.has(q.templateId)) {
+      latestSettledMap.set(q.templateId, q.date);
+    }
+  }
+
+  for (const [templateId, latestDate] of latestSettledMap) {
+    await prisma.questInstance.updateMany({
+      where: {
+        templateId,
+        childId,
+        status: { in: ["PENDING", "REPORTED", "SKIP_REPORTED"] },
+        date: { lt: latestDate },
+      },
+      data: {
+        status: "REJECTED",
+        rejectionReason: "STALE_CARRYOVER_CLEANUP",
+      },
+    });
+  }
+}
+
+/**
  * 指定した子供の「今日」の QuestInstance を materialize する。
  *
  * - 通常タスク: 今日の曜日に該当する repeatDays を持つテンプレートを upsert
@@ -35,6 +83,9 @@ export async function ensureTodayQuests(params: {
   });
 
   if (templates.length === 0) return;
+
+  // carryOver タスクの stale データを先にクリーンアップしてから 1 インスタンス保証ロジックに進む
+  await cleanupStaleCarryOverInstances({ childId, templates });
 
   // carryOver タスクは既存 PENDING がある場合 upsert をスキップ（1インスタンス保証）
   const carryOverTemplates = templates.filter((t) => (t as any).carryOver);
