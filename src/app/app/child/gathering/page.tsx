@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { LOCATION_LABEL, LOCATION_EMOJI, LOCATION_CAPACITY, normalizeSecretWord, type GatheringLocationType } from "@/lib/gathering";
 import GatheringMemberList from "@/components/GatheringMemberList";
+import GatheringBoard from "@/components/GatheringBoard";
 
 type Member = {
   id: string;
@@ -26,38 +26,10 @@ type GroupInfo = {
   members: Member[];
 };
 
-type LogEntry = {
-  id: string;
-  message: string;
-  type: string;
-  createdAt: string;
-};
-
 const LOCATIONS: GatheringLocationType[] = ["PARK", "COMMUNITY_CENTER", "SCHOOL"];
-
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const mo = d.getMonth() + 1;
-  const day = d.getDate();
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) return `${h}:${m}`;
-  return `${mo}/${day} ${h}:${m}`;
-}
-
-function logEmoji(type: string) {
-  if (type.startsWith("TASK")) return "⚔️";
-  if (type === "BADGE_UNLOCKED") return "🏅";
-  if (type === "STREAK_TITLE") return "🔥";
-  if (type === "MONSTER_EVOLVED") return "✨";
-  if (type === "MONSTER_REBORN") return "🥚";
-  return "📢";
-}
 
 export default function GatheringPage() {
   const [group, setGroup] = useState<GroupInfo | null | undefined>(undefined);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -67,8 +39,6 @@ export default function GatheringPage() {
   const [selectedLocation, setSelectedLocation] = useState<GatheringLocationType>("PARK");
   const [secretWord, setSecretWord] = useState("");
 
-  const logsEndRef = useRef<HTMLDivElement>(null);
-
   async function fetchGroup() {
     const res = await fetch("/api/gathering/current");
     const data = res.ok ? await res.json() : null;
@@ -76,40 +46,12 @@ export default function GatheringPage() {
     return data as GroupInfo | null;
   }
 
-  async function fetchLogs() {
-    const res = await fetch("/api/gathering/board");
-    if (res.ok) setLogs(await res.json());
-  }
-
   useEffect(() => {
     (async () => {
-      const g = await fetchGroup();
-      if (g) await fetchLogs();
+      await fetchGroup();
       setLoading(false);
     })();
   }, []);
-
-  // Supabase Realtime でログをリアルタイム更新
-  useEffect(() => {
-    if (!group) return;
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`bulletin-${group.groupId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "BulletinLog", filter: `groupId=eq.${group.groupId}` },
-        (payload) => {
-          setLogs((prev) => [payload.new as LogEntry, ...prev]);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [group?.groupId]);
-
-  // ログ更新時に先頭にスクロール
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
 
   async function handleJoin() {
     setError(null);
@@ -124,8 +66,7 @@ export default function GatheringPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "参加できませんでした"); return; }
-      const g = await fetchGroup();
-      if (g) await fetchLogs();
+      await fetchGroup();
     } finally {
       setJoining(false);
     }
@@ -136,7 +77,6 @@ export default function GatheringPage() {
     try {
       await fetch("/api/gathering/leave", { method: "POST" });
       setGroup(null);
-      setLogs([]);
     } finally {
       setLeaving(false);
     }
@@ -237,28 +177,8 @@ export default function GatheringPage() {
             {/* なかま一覧 */}
             <GatheringMemberList members={group.members} />
 
-            {/* 掲示板 */}
-            <div className="bg-quest-card border border-quest-border rounded-xl p-4">
-              <h2 className="text-sm font-bold mb-3 text-quest-dim">📋 けいじばん</h2>
-              {logs.length === 0 ? (
-                <p className="text-quest-dim/60 text-xs text-center py-6">
-                  まだ書き込みはないよ<br />クエストをこなすと自動でログが流れるよ！
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                  <div ref={logsEndRef} />
-                  {logs.map((entry) => (
-                    <div key={entry.id} className="flex gap-2 items-start text-sm">
-                      <span className="text-base leading-snug flex-shrink-0">{logEmoji(entry.type)}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="leading-snug">{entry.message}</p>
-                        <p className="text-[10px] text-quest-dim/60 mt-0.5">{formatTime(entry.createdAt)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* 掲示板（日付タブ付き） */}
+            <GatheringBoard groupId={group.groupId} />
           </>
         )}
       </div>

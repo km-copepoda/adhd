@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import type { GatheringLocationType } from "@/lib/gathering";
 import { LOCATION_LABEL, LOCATION_EMOJI, LOCATION_CAPACITY } from "@/lib/gathering";
 import GatheringMemberList from "@/components/GatheringMemberList";
+import GatheringBoard from "@/components/GatheringBoard";
 
 type Child = { id: string; name: string; monsterName: string | null };
 
@@ -29,40 +29,11 @@ type GroupInfo = {
   members: Member[];
 };
 
-type LogEntry = {
-  id: string;
-  message: string;
-  type: string;
-  createdAt: string;
-};
-
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const mo = d.getMonth() + 1;
-  const day = d.getDate();
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) return `${h}:${m}`;
-  return `${mo}/${day} ${h}:${m}`;
-}
-
-function logEmoji(type: string) {
-  if (type.startsWith("TASK")) return "⚔️";
-  if (type === "BADGE_UNLOCKED") return "🏅";
-  if (type === "STREAK_TITLE") return "🔥";
-  if (type === "MONSTER_EVOLVED") return "✨";
-  if (type === "MONSTER_REBORN") return "🥚";
-  return "📢";
-}
-
 export default function ParentGatheringPage() {
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [group, setGroup] = useState<GroupInfo | null | undefined>(undefined);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
 
   // 子供一覧を取得
   useEffect(() => {
@@ -82,51 +53,18 @@ export default function ParentGatheringPage() {
       });
   }, []);
 
-  // 子供が変わったらグループ・ログを取得
+  // 子供が変わったらグループを取得
   useEffect(() => {
     if (!selectedChildId) return;
     setLoading(true);
     setGroup(undefined);
-    setLogs([]);
-
-    // 既存チャンネルを解除
-    if (channelRef.current) {
-      const supabase = createClient();
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
 
     (async () => {
       const res = await fetch(`/api/gathering/current?childId=${selectedChildId}`);
       const g: GroupInfo | null = res.ok ? await res.json() : null;
       setGroup(g);
-
-      if (g) {
-        const logsRes = await fetch(`/api/gathering/board?childId=${selectedChildId}`);
-        if (logsRes.ok) setLogs(await logsRes.json());
-
-        // Realtime 購読
-        const supabase = createClient();
-        const channel = supabase
-          .channel(`parent-bulletin-${g.groupId}`)
-          .on(
-            "postgres_changes",
-            { event: "INSERT", schema: "public", table: "BulletinLog", filter: `groupId=eq.${g.groupId}` },
-            (payload) => { setLogs((prev) => [payload.new as LogEntry, ...prev]); },
-          )
-          .subscribe();
-        channelRef.current = channel;
-      }
       setLoading(false);
     })();
-
-    return () => {
-      if (channelRef.current) {
-        const supabase = createClient();
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
   }, [selectedChildId]);
 
   return (
@@ -161,7 +99,7 @@ export default function ParentGatheringPage() {
         </div>
       )}
 
-      {!loading && group && (
+      {!loading && group && selectedChildId && (
         <>
           {/* グループ情報 */}
           <div className="bg-quest-card border border-quest-border rounded-xl p-4 mb-4">
@@ -182,25 +120,8 @@ export default function ParentGatheringPage() {
           {/* なかま一覧 */}
           <GatheringMemberList members={group.members} />
 
-          {/* 掲示板 */}
-          <div className="bg-quest-card border border-quest-border rounded-xl p-4">
-            <h2 className="text-sm font-bold mb-3 text-quest-dim">📋 けいじばん</h2>
-            {logs.length === 0 ? (
-              <p className="text-quest-dim/60 text-xs text-center py-6">まだログはありません</p>
-            ) : (
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                {logs.map((entry) => (
-                  <div key={entry.id} className="flex gap-2 items-start text-sm">
-                    <span className="text-base leading-snug flex-shrink-0">{logEmoji(entry.type)}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="leading-snug">{entry.message}</p>
-                      <p className="text-[10px] text-quest-dim/60 mt-0.5">{formatTime(entry.createdAt)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* 掲示板（日付タブ付き） */}
+          <GatheringBoard groupId={group.groupId} childId={selectedChildId} />
         </>
       )}
     </div>

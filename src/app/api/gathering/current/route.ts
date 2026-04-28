@@ -69,10 +69,11 @@ export async function GET(request: Request) {
 
   const members = (member.group.members as MemberRow[]).map((m) => {
     const monster = getMonsterStage(m.child.evolutionStage, m.child.evolutionPath, m.child.side);
+    const monsterName = m.child.monsterName ?? monster.name;
     return {
       id: m.child.id,
-      name: m.child.name ?? "なまえなし",
-      monsterName: m.child.monsterName ?? monster.name,
+      name: m.child.name ?? monsterName,
+      monsterName,
       monsterImage: monster.image,
       evolutionStage: m.child.evolutionStage,
       isMe: user.role === "CHILD" && m.child.id === user.id,

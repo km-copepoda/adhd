@@ -83,6 +83,67 @@ describe("GET /api/gathering/current", () => {
     expect(other.monsterImage).toContain("light");
   });
 
+  it("子供: name=null かつ monsterName あり → name は monsterName にフォールバック", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: {
+        id: "g-1",
+        location: "PARK",
+        secretWord: "テスト",
+        _count: { members: 1 },
+        members: [
+          {
+            child: {
+              id: "child-1",
+              name: null,
+              monsterName: "ドラちゃん",
+              evolutionStage: 2,
+              evolutionPath: "STUDY",
+              side: "DARK",
+            },
+          },
+        ],
+      },
+    } as never);
+
+    const res = await GET(makeGetRequest("/api/gathering/current"));
+    const data = await res.json();
+    expect(data.members[0].name).toBe("ドラちゃん");
+  });
+
+  it("子供: name=null かつ monsterName=null → name はモンスター種族名にフォールバック ('なまえなし' は使わない)", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: {
+        id: "g-1",
+        location: "PARK",
+        secretWord: "テスト",
+        _count: { members: 1 },
+        members: [
+          {
+            child: {
+              id: "child-1",
+              name: null,
+              monsterName: null,
+              evolutionStage: 0,
+              evolutionPath: "",
+              side: "DARK",
+            },
+          },
+        ],
+      },
+    } as never);
+
+    const res = await GET(makeGetRequest("/api/gathering/current"));
+    const data = await res.json();
+    expect(data.members[0].name).not.toBe("なまえなし");
+    expect(data.members[0].name).toBe(data.members[0].monsterName);
+    expect(typeof data.members[0].name).toBe("string");
+    expect(data.members[0].name.length).toBeGreaterThan(0);
+  });
+
   it("親: childId未指定はnull", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as never);
     const res = await GET(makeGetRequest("/api/gathering/current"));
