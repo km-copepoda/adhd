@@ -61,6 +61,50 @@ export function buildBulletinMessage(
 
 export type BulletinLogType = "TASK_STARTED" | "TASK_PROGRESS_25" | "TASK_PROGRESS_50" | "TASK_PROGRESS_75" | "TASK_COMPLETE" | "BADGE_UNLOCKED" | "STREAK_TITLE" | "MONSTER_EVOLVED" | "MONSTER_REBORN";
 
+/** 掲示板ログ種別ごとの絵文字（ADHD向け視覚的差別化） */
+const BULLETIN_LOG_EMOJI: Record<string, string> = {
+  TASK_STARTED: "🚀",
+  TASK_PROGRESS_25: "🌱",
+  TASK_PROGRESS_50: "💪",
+  TASK_PROGRESS_75: "⚡",
+  TASK_COMPLETE: "🎉",
+  BADGE_UNLOCKED: "🏅",
+  STREAK_TITLE: "👑",
+  MONSTER_EVOLVED: "🌟",
+  MONSTER_REBORN: "🐣",
+};
+
+export function getBulletinLogEmoji(type: string): string {
+  return BULLETIN_LOG_EMOJI[type] ?? "📢";
+}
+
+/** Date / ISO文字列を JST 基準の "YYYY-MM-DD" に正規化
+ * BulletinLog.date は @db.Date（JST規約: JST日付を UTC 0:00 として保存）なので、
+ * UTC 表現の年月日をそのまま取り出せば JST の日付となる
+ */
+function toJstDateStr(d: string | Date): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toISOString().slice(0, 10);
+}
+
+export type BulletinLogGroup<T> = { dateStr: string; logs: T[] };
+
+/** 掲示板ログを date でグループ化（日付降順、各グループ内は入力順を維持） */
+export function groupBulletinLogsByDate<T extends { date: string | Date }>(
+  logs: T[],
+): BulletinLogGroup<T>[] {
+  const map = new Map<string, T[]>();
+  for (const log of logs) {
+    const key = toJstDateStr(log.date);
+    const arr = map.get(key);
+    if (arr) arr.push(log);
+    else map.set(key, [log]);
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => (a > b ? -1 : a < b ? 1 : 0))
+    .map(([dateStr, logs]) => ({ dateStr, logs }));
+}
+
 /** タスク進捗のマイルストーン判定（達成したtype一覧を返す） */
 export function getProgressMilestones(
   done: number,

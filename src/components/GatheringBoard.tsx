@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getBulletinLogEmoji, groupBulletinLogsByDate } from "@/lib/gathering";
 
 type LogEntry = {
   id: string;
   message: string;
   type: string;
+  date: string;
   createdAt: string;
 };
 
@@ -16,20 +18,6 @@ type Props = {
   childId?: string;
 };
 
-const TAB_DAYS_AGO = [0, 1, 2, 3] as const;
-
-function tabLabel(daysAgo: number): string {
-  if (daysAgo === 0) return "きょう";
-  return `${daysAgo}日前`;
-}
-
-/** JST の (今日 - daysAgo) を "YYYY-MM-DD" で返す */
-function jstDateString(daysAgo: number): string {
-  const jstNow = new Date(Date.now() + 9 * 3600000);
-  const target = new Date(jstNow.getTime() - daysAgo * 86400000);
-  return target.toISOString().slice(0, 10);
-}
-
 function formatTime(iso: string) {
   const d = new Date(iso);
   const h = String(d.getHours()).padStart(2, "0");
@@ -37,37 +25,42 @@ function formatTime(iso: string) {
   return `${h}:${m}`;
 }
 
-function logEmoji(type: string) {
-  if (type.startsWith("TASK")) return "⚔️";
-  if (type === "BADGE_UNLOCKED") return "🏅";
-  if (type === "STREAK_TITLE") return "🔥";
-  if (type === "MONSTER_EVOLVED") return "✨";
-  if (type === "MONSTER_REBORN") return "🥚";
-  return "📢";
+/** "YYYY-MM-DD" → "M/D（曜）" */
+const WEEKDAY = ["日", "月", "火", "水", "木", "金", "土"];
+function formatDateHeading(dateStr: string, todayStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const wd = WEEKDAY[date.getUTCDay()];
+  const base = `${m}/${d}（${wd}）`;
+  if (dateStr === todayStr) return `${base}・きょう`;
+  return base;
+}
+
+/** JSTの今日を "YYYY-MM-DD" で返す */
+function todayStringJST(): string {
+  const jstNow = new Date(Date.now() + 9 * 3600000);
+  return jstNow.toISOString().slice(0, 10);
 }
 
 export default function GatheringBoard({ groupId, childId }: Props) {
-  const [activeDaysAgo, setActiveDaysAgo] = useState<number>(0);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const todayStr = jstDateString(0);
+  const todayStr = todayStringJST();
 
-  async function fetchLogs(daysAgo: number) {
+  async function fetchLogs() {
     const params = new URLSearchParams();
-    params.set("date", jstDateString(daysAgo));
     if (childId) params.set("childId", childId);
-    const res = await fetch(`/api/gathering/board?${params.toString()}`);
+    const qs = params.toString();
+    const res = await fetch(`/api/gathering/board${qs ? `?${qs}` : ""}`);
     if (res.ok) setLogs(await res.json());
   }
 
-  // タブ切替時にログ再取得
   useEffect(() => {
-    fetchLogs(activeDaysAgo);
+    fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDaysAgo, groupId, childId]);
+  }, [groupId, childId]);
 
-  // Realtime: 「きょう」タブの時のみ INSERT を購読
+  // Realtime: 新しい今日のログを購読
   useEffect(() => {
-    if (activeDaysAgo !== 0) return;
     const supabase = createClient();
     const channel = supabase
       .channel(`bulletin-${groupId}-${childId ?? "self"}`)
@@ -75,58 +68,43 @@ export default function GatheringBoard({ groupId, childId }: Props) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "BulletinLog", filter: `groupId=eq.${groupId}` },
         (payload) => {
-          const entry = payload.new as LogEntry & { date?: string };
-          // 今日分のみ画面に追加（万一 date が今日でなければ無視）
-          if (!entry.date || entry.date.slice(0, 10) === todayStr) {
-            setLogs((prev) => [entry, ...prev]);
-          }
+          const entry = payload.new as LogEntry;
+          setLogs((prev) => [entry, ...prev]);
         },
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [activeDaysAgo, groupId, childId, todayStr]);
+  }, [groupId, childId]);
+
+  const groups = groupBulletinLogsByDate(logs);
 
   return (
     <div className="bg-quest-card border border-quest-border rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-quest-dim">📋 けいじばん</h2>
-      </div>
-
-      {/* 日付タブ */}
-      <div className="flex gap-1 mb-3 overflow-x-auto" role="tablist" aria-label="日付">
-        {TAB_DAYS_AGO.map((d) => (
-          <button
-            key={d}
-            role="tab"
-            aria-selected={activeDaysAgo === d}
-            onClick={() => setActiveDaysAgo(d)}
-            className={`flex-1 px-2 py-1 rounded-md text-xs border transition-colors whitespace-nowrap ${
-              activeDaysAgo === d
-                ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
-                : "border-quest-border text-quest-dim hover:border-quest-gold/50"
-            }`}
-          >
-            {tabLabel(d)}
-          </button>
-        ))}
-      </div>
+      <h2 className="text-sm font-bold mb-3 text-quest-dim">📋 けいじばん（直近4日）</h2>
 
       {logs.length === 0 ? (
         <p className="text-quest-dim/60 text-xs text-center py-6">
-          {activeDaysAgo === 0
-            ? "きょうはまだ書き込みがないよ"
-            : "この日の書き込みはないよ"}
+          まだ書き込みはないよ<br />クエストをこなすと自動でログが流れるよ！
         </p>
       ) : (
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-          {logs.map((entry) => (
-            <div key={entry.id} className="flex gap-2 items-start text-sm">
-              <span className="text-base leading-snug flex-shrink-0">{logEmoji(entry.type)}</span>
-              <div className="flex-1 min-w-0">
-                <p className="leading-snug">{entry.message}</p>
-                <p className="text-[10px] text-quest-dim/60 mt-0.5">{formatTime(entry.createdAt)}</p>
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          {groups.map((g) => (
+            <section key={g.dateStr}>
+              <h3 className="sticky top-0 bg-quest-card text-[11px] font-bold text-quest-gold/80 border-b border-quest-border/60 pb-1 mb-2">
+                {formatDateHeading(g.dateStr, todayStr)}の掲示板
+              </h3>
+              <div className="space-y-2">
+                {g.logs.map((entry) => (
+                  <div key={entry.id} className="flex gap-2 items-start text-sm">
+                    <span className="text-base leading-snug flex-shrink-0">{getBulletinLogEmoji(entry.type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="leading-snug">{entry.message}</p>
+                      <p className="text-[10px] text-quest-dim/60 mt-0.5">{formatTime(entry.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}

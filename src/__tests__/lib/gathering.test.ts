@@ -3,6 +3,8 @@ import {
   normalizeSecretWord,
   buildBulletinMessage,
   getProgressMilestones,
+  getBulletinLogEmoji,
+  groupBulletinLogsByDate,
   LOCATION_CAPACITY,
 } from "@/lib/gathering";
 
@@ -161,5 +163,90 @@ describe("buildBulletinMessage", () => {
 
   it("不明なtypeは空文字を返す", () => {
     expect(buildBulletinMessage("UNKNOWN_TYPE", "だれか")).toBe("");
+  });
+});
+
+// ─── getBulletinLogEmoji ──────────────────────────────────────────────────────
+describe("getBulletinLogEmoji", () => {
+  it("TASK_* は種類ごとに別の絵文字を返す（重複なし）", () => {
+    const emojis = [
+      getBulletinLogEmoji("TASK_STARTED"),
+      getBulletinLogEmoji("TASK_PROGRESS_25"),
+      getBulletinLogEmoji("TASK_PROGRESS_50"),
+      getBulletinLogEmoji("TASK_PROGRESS_75"),
+      getBulletinLogEmoji("TASK_COMPLETE"),
+    ];
+    expect(new Set(emojis).size).toBe(5);
+    // ⚔️ 一色だった旧仕様には戻さない
+    expect(emojis).not.toContain("⚔️");
+  });
+
+  it("TASK_STARTED → 🚀（スタート）", () => {
+    expect(getBulletinLogEmoji("TASK_STARTED")).toBe("🚀");
+  });
+
+  it("TASK_PROGRESS_25 → 🌱", () => {
+    expect(getBulletinLogEmoji("TASK_PROGRESS_25")).toBe("🌱");
+  });
+
+  it("TASK_PROGRESS_50 → 💪", () => {
+    expect(getBulletinLogEmoji("TASK_PROGRESS_50")).toBe("💪");
+  });
+
+  it("TASK_PROGRESS_75 → ⚡", () => {
+    expect(getBulletinLogEmoji("TASK_PROGRESS_75")).toBe("⚡");
+  });
+
+  it("TASK_COMPLETE → 🎉", () => {
+    expect(getBulletinLogEmoji("TASK_COMPLETE")).toBe("🎉");
+  });
+
+  it("BADGE_UNLOCKED → 🏅", () => {
+    expect(getBulletinLogEmoji("BADGE_UNLOCKED")).toBe("🏅");
+  });
+
+  it("STREAK_TITLE → 👑（称号は王冠）", () => {
+    expect(getBulletinLogEmoji("STREAK_TITLE")).toBe("👑");
+  });
+
+  it("MONSTER_EVOLVED → 🌟", () => {
+    expect(getBulletinLogEmoji("MONSTER_EVOLVED")).toBe("🌟");
+  });
+
+  it("MONSTER_REBORN → 🐣", () => {
+    expect(getBulletinLogEmoji("MONSTER_REBORN")).toBe("🐣");
+  });
+
+  it("不明なtypeはデフォルト絵文字を返す", () => {
+    const emoji = getBulletinLogEmoji("UNKNOWN_TYPE");
+    expect(typeof emoji).toBe("string");
+    expect(emoji.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── groupBulletinLogsByDate ──────────────────────────────────────────────────
+describe("groupBulletinLogsByDate", () => {
+  it("同じ日のログをまとめる（日付降順 → ログは入力順を維持）", () => {
+    const logs = [
+      { id: "a", date: "2026-04-28T00:00:00.000Z" },
+      { id: "b", date: "2026-04-28T00:00:00.000Z" },
+      { id: "c", date: "2026-04-27T00:00:00.000Z" },
+    ];
+    const groups = groupBulletinLogsByDate(logs);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].dateStr).toBe("2026-04-28");
+    expect(groups[0].logs.map((l) => l.id)).toEqual(["a", "b"]);
+    expect(groups[1].dateStr).toBe("2026-04-27");
+    expect(groups[1].logs.map((l) => l.id)).toEqual(["c"]);
+  });
+
+  it("空配列は空配列を返す", () => {
+    expect(groupBulletinLogsByDate([])).toEqual([]);
+  });
+
+  it("Date型を渡しても YYYY-MM-DD 文字列に正規化される", () => {
+    const logs = [{ id: "x", date: new Date(Date.UTC(2026, 3, 28)) }];
+    const groups = groupBulletinLogsByDate(logs);
+    expect(groups[0].dateStr).toBe("2026-04-28");
   });
 });
