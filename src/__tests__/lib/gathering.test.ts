@@ -5,6 +5,7 @@ import {
   getProgressMilestones,
   getBulletinLogEmoji,
   groupBulletinLogsByDate,
+  formatBulletinDateHeading,
   LOCATION_CAPACITY,
 } from "@/lib/gathering";
 
@@ -248,5 +249,28 @@ describe("groupBulletinLogsByDate", () => {
     const logs = [{ id: "x", date: new Date(Date.UTC(2026, 3, 28)) }];
     const groups = groupBulletinLogsByDate(logs);
     expect(groups[0].dateStr).toBe("2026-04-28");
+  });
+});
+
+// ─── formatBulletinDateHeading ────────────────────────────────────────────────
+describe("formatBulletinDateHeading", () => {
+  it("M/D（曜）の掲示板 を返す（火曜）", () => {
+    // 2026-04-28 は火曜日
+    expect(formatBulletinDateHeading("2026-04-28")).toBe("4/28（火）の掲示板");
+  });
+
+  it("M/D（曜）の掲示板 を返す（月曜）", () => {
+    // 2026-04-27 は月曜日
+    expect(formatBulletinDateHeading("2026-04-27")).toBe("4/27（月）の掲示板");
+  });
+
+  it("M/D（曜）の掲示板 を返す（日曜）", () => {
+    // 2026-04-26 は日曜日
+    expect(formatBulletinDateHeading("2026-04-26")).toBe("4/26（日）の掲示板");
+  });
+
+  it("月初・月またぎを正しくフォーマットする", () => {
+    // 2026-05-01 は金曜日
+    expect(formatBulletinDateHeading("2026-05-01")).toBe("5/1（金）の掲示板");
   });
 });

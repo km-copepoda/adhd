@@ -105,6 +105,15 @@ export function groupBulletinLogsByDate<T extends { date: string | Date }>(
     .map(([dateStr, logs]) => ({ dateStr, logs }));
 }
 
+/** "YYYY-MM-DD" を「M/D（曜）の掲示板」に整形（掲示板カードの見出し用） */
+const WEEKDAY_LABEL = ["日", "月", "火", "水", "木", "金", "土"];
+export function formatBulletinDateHeading(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const wd = WEEKDAY_LABEL[date.getUTCDay()];
+  return `${m}/${d}（${wd}）の掲示板`;
+}
+
 /** タスク進捗のマイルストーン判定（達成したtype一覧を返す） */
 export function getProgressMilestones(
   done: number,
