@@ -225,9 +225,12 @@ model BulletinLog {
   child     User            @relation(fields: [childId], references: [id], onDelete: Cascade)
   type      BulletinLogType
   message   String
+  /// 同 type 内のサブ識別子（バッジ名・称号・進化先モンスター名・卵タイプなど）。
+  /// 同日に別バッジを複数解除した場合の重複回避に使う。TASK_* は "" 固定で従来通り冪等。
+  key       String          @default("")
   date      DateTime        @db.Date
   createdAt DateTime        @default(now())
 
-  @@unique([groupId, childId, type, date])
+  @@unique([groupId, childId, type, date, key])
   @@index([groupId, createdAt])
 }

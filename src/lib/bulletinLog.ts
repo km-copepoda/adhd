@@ -35,9 +35,13 @@ async function writeBulletinLog(
   const message = buildBulletinMessage(type, displayName, extra);
   if (!message) return;
   const date = todayJST();
+  // unique は (groupId, childId, type, date, key)。同日に別バッジ・別進化先を複数件
+  // 書き込めるよう、type のサブ識別子（バッジ名・称号・モンスター名・卵タイプ）を key に入れる。
+  // TASK_* は extra を使わないため key="" で従来通り冪等。
+  const key = extra ?? "";
   try {
     await prisma.bulletinLog.create({
-      data: { groupId, childId, type, message, date },
+      data: { groupId, childId, type, message, key, date },
     });
   } catch {
     // unique制約違反（重複）は無視

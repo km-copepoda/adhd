@@ -136,4 +136,51 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
 
     expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
   });
+
+  it("triggerBadgeLog: data.key にバッジ名をセット（同日に別バッジ複数件を許可するため）", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    await triggerBadgeLog("child-1", "はじめの一歩");
+    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    expect(call.data.key).toBe("はじめの一歩");
+  });
+
+  it("triggerStreakTitleLog: data.key に称号名をセット", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    await triggerStreakTitleLog("child-1", "一週間の戦士");
+    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    expect(call.data.key).toBe("一週間の戦士");
+  });
+
+  it("triggerMonsterEvolvedLog: data.key に進化先モンスター名をセット", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    await triggerMonsterEvolvedLog("child-1", "フレアドラゴン");
+    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    expect(call.data.key).toBe("フレアドラゴン");
+  });
+
+  it("triggerMonsterRebornLog: data.key に卵タイプをセット", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    await triggerMonsterRebornLog("child-1", "べんきょう");
+    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    expect(call.data.key).toBe("べんきょう");
+  });
+});
+
+describe("triggerTaskProgressLog: key", () => {
+  it("data.key は空文字（同日マイルストーン重複は引き続き禁止）", async () => {
+    mockPrisma.gatheringMember.findUnique.mockResolvedValue({ groupId: "g-1" } as never);
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    mockPrisma.questInstance.count
+      .mockResolvedValueOnce(4 as never) // total
+      .mockResolvedValueOnce(1 as never); // done (TASK_STARTED only)
+    mockPrisma.bulletinLog.create.mockResolvedValue({} as never);
+
+    await triggerTaskProgressLog("child-1");
+
+    expect(mockPrisma.bulletinLog.create).toHaveBeenCalled();
+    const calls = mockPrisma.bulletinLog.create.mock.calls as Array<[{ data: { key: string } }]>;
+    for (const [arg] of calls) {
+      expect(arg.data.key).toBe("");
+    }
+  });
 });
