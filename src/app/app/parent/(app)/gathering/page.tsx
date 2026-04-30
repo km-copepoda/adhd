@@ -69,22 +69,23 @@ export default function ParentGatheringPage() {
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-24">
-      <h1 className="text-xl font-bold mb-4">🏕️ あつまり（親の確認）</h1>
+      <h1 className="text-xl font-bold mb-4">🏕️ ギルド（親の確認）</h1>
 
-      {/* 子供セレクター */}
+      {/* 子供セレクター（2人以上の場合のみ表示） */}
       {children.length > 1 && (
-        <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
           {children.map((c) => (
             <button
               key={c.id}
               onClick={() => setSelectedChildId(c.id)}
-              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+              className={[
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
                 selectedChildId === c.id
-                  ? "border-quest-gold bg-quest-gold/10 text-quest-gold"
-                  : "border-quest-border text-quest-dim hover:border-quest-gold/50"
-              }`}
+                  ? "bg-quest-gold/15 border border-quest-gold text-quest-gold"
+                  : "bg-quest-card border border-quest-border text-quest-dim hover:text-quest-text",
+              ].join(" ")}
             >
-              {c.name}
+              🧒 {c.monsterName || c.name}
             </button>
           ))}
         </div>
