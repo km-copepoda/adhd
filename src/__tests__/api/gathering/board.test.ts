@@ -51,19 +51,24 @@ describe("GET /api/gathering/board", () => {
   it("子供: date=YYYY-MM-DDで指定日のログのみ返す", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as never);
     vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({ groupId: "g-1" } as never);
+
+    // 2日前（直近4日のretention窓内）を相対日付で生成
+    const targetDate = new Date(todayJST().getTime() - 2 * 86400000);
+    const dateStr = targetDate.toISOString().slice(0, 10);
+
     vi.mocked(prisma.bulletinLog.findMany).mockResolvedValue([
-      { id: "log-2", groupId: "g-1", childId: "child-1", type: "BADGE_UNLOCKED", message: "太郎はバッジを手に入れた！", date: new Date("2026-04-25"), createdAt: new Date("2026-04-25T10:00:00Z") },
+      { id: "log-2", groupId: "g-1", childId: "child-1", type: "BADGE_UNLOCKED", message: "太郎はバッジを手に入れた！", date: targetDate, createdAt: new Date(targetDate.getTime() + 10 * 3600 * 1000) },
     ] as never);
 
-    const res = await GET(makeGetRequest("/api/gathering/board?date=2026-04-25"));
+    const res = await GET(makeGetRequest(`/api/gathering/board?date=${dateStr}`));
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data).toHaveLength(1);
 
     const call = vi.mocked(prisma.bulletinLog.findMany).mock.calls[0][0]!;
     const where = call.where as { date: Date };
-    // JSTの2026-04-25は UTC 2026-04-25T00:00:00Z として保存される (todayJST規約)
-    expect(where.date.toISOString().slice(0, 10)).toBe("2026-04-25");
+    // JST日付は UTC 0:00 として保存される (todayJST規約)
+    expect(where.date.toISOString().slice(0, 10)).toBe(dateStr);
   });
 
   it("子供: dateが4日より前は空配列(古いログは取得不可)", async () => {

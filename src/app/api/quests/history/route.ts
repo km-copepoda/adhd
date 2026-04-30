@@ -71,10 +71,12 @@ export async function GET(request: NextRequest) {
   );
 
   // Build response
-  // 削除済みテンプレート（isActive=false）はAPPROVEDのみ表示、それ以外は除外
+  // 削除済みテンプレート（isActive=false）は親が確定済みアクション（APPROVED/SKIPPED）のみ履歴に残す
   const result = [
     ...instances
-      .filter((i) => i.template.isActive || i.status === "APPROVED")
+      .filter(
+        (i) => i.template.isActive || i.status === "APPROVED" || i.status === "SKIPPED"
+      )
       .map((i) => ({
         id: i.id,
         status: (i.status === "APPROVED" || i.status === "SKIPPED"
