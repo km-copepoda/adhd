@@ -345,7 +345,7 @@ describe("GET /api/quests/history", () => {
     expect(json[0].status).toBe("APPROVED");
   });
 
-  it("削除済みテンプレート（isActive:false）のSKIPPEDクエストは表示しないこと", async () => {
+  it("削除済みテンプレート（isActive:false）のSKIPPEDクエストも表示すること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.questInstance.findMany.mockResolvedValue([
       {
@@ -365,7 +365,9 @@ describe("GET /api/quests/history", () => {
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
 
-    expect(json).toHaveLength(0);
+    expect(json).toHaveLength(1);
+    expect(json[0].status).toBe("SKIPPED");
+    expect(json[0].id).toBe("q-skipped-deleted");
   });
 
   it("削除済みテンプレート（isActive:false）のPENDINGクエストは表示しないこと", async () => {
