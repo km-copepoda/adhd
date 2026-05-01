@@ -29,7 +29,7 @@ export default function Sidebar() {
     <aside className="hidden md:flex w-56 bg-quest-card border-r border-quest-border min-h-dvh p-4 flex-col">
       <div className="mb-8">
         <h1 className="font-serif text-quest-gold text-xl tracking-wider">⚔ QuestBoard</h1>
-        <p className="text-quest-dim text-xs mt-1">ギルドマスター管理画面</p>
+        <p className="text-quest-dim text-xs mt-1">管理画面</p>
       </div>
       <nav className="flex flex-col gap-1">
         {links.map((link) => {

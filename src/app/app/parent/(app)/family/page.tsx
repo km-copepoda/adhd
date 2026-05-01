@@ -281,7 +281,7 @@ export default function FamilyPage() {
                   {member.monsterName || member.name || "未設定"}
                 </p>
                 <p className="text-[10px] text-quest-dim">
-                  {member.role === "PARENT" ? "ギルドマスター" : (
+                  {member.role === "PARENT" ? "管理者" : (
                     <>
                       冒険者
                       {member.side === "LIGHT" && <span className="ml-1 text-pink-400">🌸 かわいい</span>}

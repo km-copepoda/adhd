@@ -19,7 +19,7 @@ export default function Home() {
           href="/app/parent/login"
           className="text-center text-quest-dim text-sm border border-quest-border rounded-xl py-3 hover:border-quest-gold/30 transition-colors"
         >
-          👨‍👩‍👧 ギルドマスター（保護者）はこちら
+          👨‍👩‍👧 管理者（保護者）はこちら
         </Link>
         <InstallPrompt />
       </div>

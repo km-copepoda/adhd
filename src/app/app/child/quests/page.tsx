@@ -469,7 +469,7 @@ export default function QuestsPage() {
             <p className="text-quest-dim text-sm text-center py-12">
               今日のクエストはまだないよ。
               <br />
-              上の「タスクを追加」か、ギルドマスター（親）に作ってもらおう！
+              上の「タスクを追加」か、管理者（親）に作ってもらおう！
             </p>
           )}
           {sortedQuests.map((quest) => {

@@ -19,7 +19,7 @@ test.describe("S14: アカウント登録フォーム", () => {
   });
 
   test("登録フォームが正しく表示される", async ({ page }) => {
-    await expect(page.getByText("ギルドマスター アカウント作成")).toBeVisible();
+    await expect(page.getByText("管理者 アカウント作成")).toBeVisible();
     await expect(page.locator('input[placeholder="メールアドレス"]')).toBeVisible();
     await expect(page.locator('input[placeholder="パスワード（6文字以上）"]')).toBeVisible();
     await expect(page.getByRole("button", { name: /アカウントを作成/ })).toBeVisible();

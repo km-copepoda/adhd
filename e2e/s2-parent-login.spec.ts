@@ -13,7 +13,7 @@ test.describe("S2: 親ログイン", () => {
 
   test("ログインフォームが表示される", async ({ page }) => {
     await expect(page.getByRole("heading", { name: /QuestBoard/i })).toBeVisible();
-    await expect(page.getByText("ギルドマスター ログイン")).toBeVisible();
+    await expect(page.getByText("管理者 ログイン")).toBeVisible();
     await expect(page.locator('input[placeholder="メールアドレス"]')).toBeVisible();
     await expect(page.locator('input[placeholder="パスワード"]')).toBeVisible();
     await expect(page.getByRole("button", { name: /ログイン/ })).toBeVisible();

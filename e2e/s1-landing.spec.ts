@@ -16,7 +16,7 @@ test.describe("S1: ランディングページ", () => {
     test("タイトルと主要要素が表示される", async ({ page }) => {
       await expect(page.getByRole("heading", { name: /QuestBoard/i })).toBeVisible();
       await expect(page.getByRole("link", { name: /ぼうけんをはじめる/ })).toBeVisible();
-      await expect(page.getByRole("link", { name: /ギルドマスター/ })).toBeVisible();
+      await expect(page.getByRole("link", { name: /管理者/ })).toBeVisible();
     });
 
     test("子供ボタンから /app/child/login に遷移する", async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe("S1: ランディングページ", () => {
     });
 
     test("親ボタンから /app/parent/login に遷移する", async ({ page }) => {
-      await page.click('a:has-text("ギルドマスター")');
+      await page.click('a:has-text("管理者")');
       await expect(page).toHaveURL(/\/app\/parent\/login/);
     });
   });

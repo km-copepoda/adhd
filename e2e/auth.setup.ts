@@ -34,7 +34,7 @@ setup("create QA account and child", async ({ page, browser }) => {
 
   // 1. アカウント新規登録
   await page.goto("/app/register");
-  await expect(page.getByText("ギルドマスター アカウント作成")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText("管理者 アカウント作成")).toBeVisible({ timeout: 15000 });
   await page.fill('input[placeholder="メールアドレス"]', email);
   await page.fill('input[placeholder="パスワード（6文字以上）"]', password);
   await page.click('button:has-text("アカウントを作成")');

@@ -46,4 +46,9 @@ describe("親 Sidebar リンク", () => {
     expect(screen.queryByText("ギルド")).toBeNull();
     expect(screen.queryByText("あつまり")).toBeNull();
   });
+
+  it("サブタイトルに「ギルドマスター」が残っていない", () => {
+    render(<Sidebar />);
+    expect(screen.queryByText(/ギルドマスター/)).toBeNull();
+  });
 });

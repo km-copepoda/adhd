@@ -40,7 +40,7 @@ export default function LoginPage() {
       <h1 className="font-serif text-quest-gold text-2xl tracking-wider mb-2">
         ⚔ QuestBoard
       </h1>
-      <p className="text-quest-dim text-sm mb-8">ギルドマスター ログイン</p>
+      <p className="text-quest-dim text-sm mb-8">管理者 ログイン</p>
 
       <form onSubmit={handleSubmit} className="w-full max-w-xs flex flex-col gap-3">
         <input
