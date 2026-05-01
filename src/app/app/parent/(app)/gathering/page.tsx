@@ -69,7 +69,7 @@ export default function ParentGatheringPage() {
 
   return (
     <div className="max-w-md mx-auto px-4 pt-6 pb-24">
-      <h1 className="text-xl font-bold mb-4">🏕️ ギルド（親の確認）</h1>
+      <h1 className="text-xl font-bold mb-4">🏕️ ひろば（親の確認）</h1>
 
       {/* 子供セレクター（2人以上の場合のみ表示） */}
       {children.length > 1 && (

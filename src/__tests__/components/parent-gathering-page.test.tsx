@@ -22,7 +22,7 @@ vi.mock("@/components/GatheringBoard", () => ({
 
 import ParentGatheringPage from "@/app/app/parent/(app)/gathering/page";
 
-describe("親 ギルド画面 (旧あつまり)", () => {
+describe("親 ひろば画面 (旧ギルド／旧あつまり)", () => {
   beforeEach(() => {
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes("/api/family/code")) {
@@ -48,10 +48,12 @@ describe("親 ギルド画面 (旧あつまり)", () => {
     vi.restoreAllMocks();
   });
 
-  it("h1 が「ギルド」を含む", async () => {
+  it("h1 が「ひろば」を含む（旧ギルド）", async () => {
     render(<ParentGatheringPage />);
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("ギルド");
+      const text = screen.getByRole("heading", { level: 1 }).textContent ?? "";
+      expect(text).toContain("ひろば");
+      expect(text).not.toContain("ギルド");
     });
   });
 

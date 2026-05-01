@@ -11,6 +11,7 @@ const links = [
   { href: "/app/parent/approve", emoji: "✅", label: "承認", badgeKey: "approvals" as const },
   { href: "/app/parent/completed", emoji: "🏆", label: "今日の完了" },
   { href: "/app/parent/history", emoji: "📅", label: "過去の記録" },
+  { href: "/app/parent/gathering", emoji: "🏕️", label: "ひろば" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "ファミリー" },
 ] as const;
 

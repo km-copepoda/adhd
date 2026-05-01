@@ -87,7 +87,7 @@ export default function GatheringPage() {
   return (
     <div className="min-h-screen bg-quest-bg text-quest-text pb-24">
       <div className="max-w-md mx-auto px-4 pt-6">
-        <h1 className="text-xl font-bold mb-4">🏕️ ギルド</h1>
+        <h1 className="text-xl font-bold mb-4">🏕️ ひろば</h1>
 
         {group === null && (
           /* 参加フォーム */

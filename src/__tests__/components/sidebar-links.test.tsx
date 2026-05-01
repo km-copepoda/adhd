@@ -24,8 +24,7 @@ vi.mock("@/components/parent/PushSubscriber", () => ({
   default: () => <div />,
 }));
 
-import ParentBottomNav from "@/components/parent/ParentBottomNav";
-import BottomNav from "@/components/child/BottomNav";
+import Sidebar from "@/components/parent/Sidebar";
 
 beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({
@@ -34,20 +33,16 @@ beforeEach(() => {
   }) as unknown as typeof fetch;
 });
 
-describe("BottomNav ラベル", () => {
-  it("親 BottomNav に「ひろば」が含まれる（旧ギルド／旧あつまり）", () => {
-    render(<ParentBottomNav />);
-    expect(screen.getByText("ひろば")).toBeTruthy();
-    expect(screen.queryByText("ギルド")).toBeNull();
-    expect(screen.queryByText("あつまり")).toBeNull();
+describe("親 Sidebar リンク", () => {
+  it("「ひろば」リンクが /app/parent/gathering に向けて存在する", () => {
+    render(<Sidebar />);
+    const link = screen.getByRole("link", { name: /ひろば/ });
+    expect(link).toBeTruthy();
+    expect(link.getAttribute("href")).toBe("/app/parent/gathering");
   });
 
-  it("子 BottomNav に「ひろば」が含まれる（旧ギルド／旧あつまり）", () => {
-    vi.doMock("next/navigation", () => ({
-      usePathname: () => "/app/child/quests",
-    }));
-    render(<BottomNav />);
-    expect(screen.getByText("ひろば")).toBeTruthy();
+  it("旧称「ギルド」「あつまり」はサイドバーに残っていない", () => {
+    render(<Sidebar />);
     expect(screen.queryByText("ギルド")).toBeNull();
     expect(screen.queryByText("あつまり")).toBeNull();
   });
