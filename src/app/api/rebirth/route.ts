@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { triggerMonsterRebornLog } from "@/lib/bulletinLog";
@@ -49,9 +49,9 @@ export async function POST(request: Request) {
     },
   });
 
-  // 転生ログ（fire-and-forget）
+  // 転生ログ — after() でレスポンス送信後に実行（サーバレスで取りこぼさないため）
   const eggLabel: Record<string, string> = { NORMAL: "ふつう", STUDY: "べんきょう", STAMINA: "たいりょく", LIFE: "せいかつ" };
-  triggerMonsterRebornLog(user.id, eggLabel[eggType] ?? eggType).catch(() => {});
+  after(() => triggerMonsterRebornLog(user.id, eggLabel[eggType] ?? eggType).catch(() => {}));
 
   return NextResponse.json({ ok: true });
 }

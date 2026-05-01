@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
@@ -136,7 +137,8 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
           path: evolution.newPath,
         });
         const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.side ?? null);
-        triggerMonsterEvolvedLog(quest.childId, evolvedMonster?.name ?? evolution.newPath).catch(() => {});
+        const evolvedName = evolvedMonster?.name ?? evolution.newPath;
+        after(() => triggerMonsterEvolvedLog(quest.childId, evolvedName).catch(() => {}));
       }
       await prisma.user.update({
         where: { id: quest.childId },
@@ -165,14 +167,16 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
     await recordTaskStreak(quest.templateId, quest.childId, quest.date);
   }
 
-  // バッジ解除チェック + 掲示板ログ（fire-and-forget）
-  checkAndUnlockBadges(quest.childId)
-    .then((newBadges) => {
-      for (const badge of newBadges) {
-        triggerBadgeLog(quest.childId, badge.name).catch(() => {});
-      }
-    })
-    .catch(err => log.error("Badge check failed", { childId: quest.childId, err }));
+  // バッジ解除チェック + 掲示板ログ — レスポンス送信後に after() で実行
+  after(() =>
+    checkAndUnlockBadges(quest.childId)
+      .then((newBadges) => {
+        for (const badge of newBadges) {
+          triggerBadgeLog(quest.childId, badge.name).catch(() => {});
+        }
+      })
+      .catch(err => log.error("Badge check failed", { childId: quest.childId, err })),
+  );
 }
 
 export async function approveSkipQuestInstance(quest: Pick<QuestWithRelations, "id" | "childId" | "date">): Promise<void> {

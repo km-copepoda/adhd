@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
@@ -76,8 +76,8 @@ export async function POST(
     }
   }
 
-  // 掲示板ログ（fire-and-forget）
-  triggerTaskProgressLog(user.id).catch(() => {});
+  // 掲示板ログ — レスポンス送信後に実行（サーバレスで取りこぼさないため after() を使う）
+  after(() => triggerTaskProgressLog(user.id).catch(() => {}));
 
   rlog.info("Quest reported", { questId: id, childId: user.id, xp, category });
   return NextResponse.json({ ok: true, xpAdded: xp, category });

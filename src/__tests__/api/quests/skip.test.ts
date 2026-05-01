@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { after } from "next/server";
 import { POST } from "@/app/api/quests/[id]/skip/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -13,6 +14,7 @@ vi.mock("@/lib/bulletinLog", () => ({
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
+const mockAfter = vi.mocked(after);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -113,5 +115,18 @@ describe("POST /api/quests/[id]/skip", () => {
 
     await POST(makeSkipRequest(), makeParams("q2"));
     expect(mockTriggerTaskProgressLog).not.toHaveBeenCalled();
+  });
+
+  it("掲示板ログは next/server の after() 経由でスケジュールされる（fire-and-forget だとサーバレスで取りこぼされる）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q1", status: "PENDING" }) as any,
+    );
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    await POST(makeSkipRequest({ comment: "ねむい" }), makeParams("q1"));
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockTriggerTaskProgressLog).toHaveBeenCalledWith("child-1");
   });
 });

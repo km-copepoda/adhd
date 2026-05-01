@@ -95,3 +95,13 @@ vi.mock("@/lib/push", () => ({
   sendPushToParent: vi.fn(),
   sendPushToChild: vi.fn(),
 }));
+
+// next/server.after は Vercel ランタイムでレスポンス送信後にコールバックを実行する。
+// テスト環境では request scope が無いと throw するため、コールバックを即時呼ぶモックに置き換える。
+vi.mock("next/server", async () => {
+  const actual = await vi.importActual<typeof import("next/server")>("next/server");
+  return {
+    ...actual,
+    after: vi.fn((fn: () => unknown) => fn()),
+  };
+});

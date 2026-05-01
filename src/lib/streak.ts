@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
 import { getNewMilestoneBonus, distributeBonus, STREAK_MILESTONES } from "@/lib/streakMilestones";
@@ -139,10 +140,10 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
       }
 
       log.info("Streak milestone bonus", { childId, newStreak, bonus });
-      // 新しく達成したマイルストーン称号を掲示板に流す（fire-and-forget）
+      // 新しく達成したマイルストーン称号を掲示板に流す — after() でレスポンス後実行
       const newTitles = STREAK_MILESTONES.filter(m => m.days > oldStreak && m.days <= newStreak);
       for (const m of newTitles) {
-        triggerStreakTitleLog(childId, m.title).catch(() => {});
+        after(() => triggerStreakTitleLog(childId, m.title).catch(() => {}));
       }
     }
   }

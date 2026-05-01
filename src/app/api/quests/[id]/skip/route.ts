@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
@@ -58,8 +58,8 @@ export async function POST(
     }
   }
 
-  // 掲示板ログ（fire-and-forget） — スキップも「done」扱いなので進捗を再評価する
-  triggerTaskProgressLog(user.id).catch(() => {});
+  // 掲示板ログ — スキップも「done」扱いなので進捗を再評価する。after() でレスポンス後実行
+  after(() => triggerTaskProgressLog(user.id).catch(() => {}));
 
   rlog.info("Skip requested", { questId: id, childId: user.id });
   return NextResponse.json({ ok: true });

@@ -1,12 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { after } from "next/server";
 import { POST } from "@/app/api/quests/[id]/report/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { makeRequest, makeParams } from "../../helpers/request";
 import { childUser } from "../../helpers/fixtures";
 
+vi.mock("@/lib/bulletinLog", () => ({
+  triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+const mockAfter = vi.mocked(after);
+const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -258,5 +266,19 @@ describe("POST /api/quests/[id]/report", () => {
     const json = await res.json();
     expect(json.ok).toBe(true);
     expect(json.xpAdded).toBe(1); // 写真なしなのでボーナスなし
+  });
+
+  it("掲示板ログは next/server の after() 経由でスケジュールされる（fire-and-forget だとサーバレスで取りこぼされる）", async () => {
+    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    await POST(
+      makeRequest("/api/quests/q1/report", { comment: "100%達成" }),
+      makeParams("q1"),
+    );
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockTriggerTaskProgressLog).toHaveBeenCalledWith("child-1");
   });
 });

@@ -531,3 +531,18 @@
 - 旧仕様は「同じバッジ・同じ進化は同日2回起きない想定」で同日同 type を1件に絞っていたが、**異なるバッジを同日に複数解除した場合まで unique 違反で握りつぶされ、掲示板に1件しか残らないバグ**になっていた
 - `key` を unique に含めることで「同日に別バッジを複数件残す」「同日に異なる進化を複数件残す」が可能になり、掲示板の達成感フィードバックが正確になる
 - TASK_* は `key=""` 固定なので、進捗マイルストーン再評価の冪等性は維持される
+
+## 2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え
+
+### 決定内容
+- 2026-04-26 で「fire-and-forget でログ」と決めていた `triggerXxxLog` 呼び出しをすべて `after(() => trigger().catch(() => {}))` に変更
+- 影響箇所: `src/app/api/quests/[id]/report/route.ts`、`src/app/api/quests/[id]/skip/route.ts`、`src/app/api/rebirth/route.ts`、`src/lib/approve.ts`（`triggerMonsterEvolvedLog` / `triggerBadgeLog`）、`src/lib/streak.ts`（`triggerStreakTitleLog`）
+
+### 理由
+- Vercel など Serverless Functions は **レスポンスを返した瞬間に関数インスタンスが停止する**ため、`trigger().catch(() => {})` の Promise が完了しないことがあった
+- 「タスクを全部終わらせたのに掲示板に 100% 完了メッセージが来ないことがある」という症状の再発防止
+- `after()` は Next.js 15+ の標準 API で、レスポンス送信後にコールバックを確実に走らせる正規手段
+
+### やってはいけないこと
+- 新規に `triggerXxxLog(...).catch(() => {})` を書かない。必ず `after(() => triggerXxxLog(...).catch(() => {}))` で包む
+- `await triggerXxxLog(...)` でレスポンスをブロックしない（ユーザ操作のレイテンシが伸びる）
