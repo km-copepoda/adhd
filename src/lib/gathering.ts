@@ -129,3 +129,29 @@ export function getProgressMilestones(
   if (pct >= 100) milestones.push("TASK_COMPLETE");
   return milestones;
 }
+
+// ─── スタンプ（エールを送る）機能 ─────────────────────────────────────────────
+
+export type StampProgressStatus = "NOT_STARTED" | "IN_PROGRESS" | "DONE";
+
+/** スタンプ受信側の当日進捗状態を判定。
+ * done/total の定義は getProgressMilestones と同じ
+ * （REPORTED + SKIP_REPORTED + APPROVED + SKIPPED の合計を done として渡す）。
+ */
+export function getStampProgressStatus(done: number, total: number): StampProgressStatus {
+  if (total === 0 || done === 0) return "NOT_STARTED";
+  if (done >= total) return "DONE";
+  return "IN_PROGRESS";
+}
+
+/** スタンプ受信時の表示メッセージ。タスク名や数値は含めない（プライバシー方針）。 */
+export function buildStampMessage(senderName: string, status: StampProgressStatus): string {
+  switch (status) {
+    case "NOT_STARTED":
+      return `${senderName}からエール！スタートのきっかけにしよう！`;
+    case "IN_PROGRESS":
+      return `${senderName}からエール！その調子、いっしょに頑張ろう！`;
+    case "DONE":
+      return `${senderName}からエール！今日のがんばり、最高だね！`;
+  }
+}
