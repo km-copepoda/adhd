@@ -7,6 +7,8 @@ import {
   groupBulletinLogsByDate,
   formatBulletinDateHeading,
   LOCATION_CAPACITY,
+  getStampProgressStatus,
+  buildStampMessage,
 } from "@/lib/gathering";
 
 // ─── normalizeSecretWord ──────────────────────────────────────────────────────
@@ -272,5 +274,64 @@ describe("formatBulletinDateHeading", () => {
   it("月初・月またぎを正しくフォーマットする", () => {
     // 2026-05-01 は金曜日
     expect(formatBulletinDateHeading("2026-05-01")).toBe("5/1（金）の掲示板");
+  });
+});
+
+// ─── getStampProgressStatus ──────────────────────────────────────────────────
+describe("getStampProgressStatus", () => {
+  it("total=0 は NOT_STARTED（タスクが無い日も未着手扱い）", () => {
+    expect(getStampProgressStatus(0, 0)).toBe("NOT_STARTED");
+  });
+
+  it("done=0 は NOT_STARTED", () => {
+    expect(getStampProgressStatus(0, 3)).toBe("NOT_STARTED");
+  });
+
+  it("0 < done < total は IN_PROGRESS", () => {
+    expect(getStampProgressStatus(1, 3)).toBe("IN_PROGRESS");
+    expect(getStampProgressStatus(2, 3)).toBe("IN_PROGRESS");
+  });
+
+  it("done === total は DONE（境界値）", () => {
+    expect(getStampProgressStatus(3, 3)).toBe("DONE");
+    expect(getStampProgressStatus(1, 1)).toBe("DONE");
+  });
+
+  it("done > total はあり得ない想定だが DONE として扱う（防御的）", () => {
+    expect(getStampProgressStatus(5, 3)).toBe("DONE");
+  });
+});
+
+// ─── buildStampMessage ────────────────────────────────────────────────────────
+describe("buildStampMessage", () => {
+  it("NOT_STARTED: 送信者名 + スタートを促すメッセージ", () => {
+    const msg = buildStampMessage("たろう", "NOT_STARTED");
+    expect(msg).toContain("たろう");
+    expect(msg).toContain("エール");
+  });
+
+  it("IN_PROGRESS: 送信者名 + 継続を励ますメッセージ", () => {
+    const msg = buildStampMessage("はなこ", "IN_PROGRESS");
+    expect(msg).toContain("はなこ");
+    expect(msg).toContain("エール");
+  });
+
+  it("DONE: 送信者名 + 達成を称えるメッセージ", () => {
+    const msg = buildStampMessage("けんた", "DONE");
+    expect(msg).toContain("けんた");
+    expect(msg).toContain("エール");
+  });
+
+  it("3つの状態でメッセージが全て異なる", () => {
+    const a = buildStampMessage("X", "NOT_STARTED");
+    const b = buildStampMessage("X", "IN_PROGRESS");
+    const c = buildStampMessage("X", "DONE");
+    expect(new Set([a, b, c]).size).toBe(3);
+  });
+
+  it("メッセージにタスク名や数値などの具体情報を含めない（プライバシー方針）", () => {
+    const msg = buildStampMessage("たろう", "IN_PROGRESS");
+    // 数字（半角・全角）が含まれないこと
+    expect(msg).not.toMatch(/[0-9０-９]/);
   });
 });

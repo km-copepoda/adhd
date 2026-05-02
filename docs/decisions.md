@@ -532,6 +532,7 @@
 - `key` を unique に含めることで「同日に別バッジを複数件残す」「同日に異なる進化を複数件残す」が可能になり、掲示板の達成感フィードバックが正確になる
 - TASK_* は `key=""` 固定なので、進捗マイルストーン再評価の冪等性は維持される
 
+<<<<<<< HEAD
 ## 2026-05-02: main ブランチへのマージ元を develop のみに制限（GitHub Actions）
 
 ### 決定内容
@@ -544,6 +545,28 @@
 
 ### やってはいけないこと
 - 例外的に `feature/*` から直接 `main` にマージしようとして本ワークフローを無効化する（必要なら `develop` に一旦マージして fast-forward する）
+
+## 2026-05-02: ひろば「エールを送る」スタンプ機能の導入
+
+### 決定内容
+- グループ参加中の子供が、グループ全員に「エールを送る」スタンプを 1日1回 押せる機能を追加
+- 新テーブル `Stamp { id, groupId, senderId, date(@db.Date), createdAt }` + `@@unique([senderId, date])` で1日1回制約を担保
+- API `POST /api/gathering/stamp`（CHILD のみ）: グループ全メンバー（送信者除く）に対し、各受信者の **当日進捗** を判定して個別メッセージを生成し Web Push 配信
+- API `GET /api/gathering/stamp/today`: 自分が今日送信済みかどうかを返す（UI のボタン disabled 制御用）
+- 進捗状態 `NOT_STARTED | IN_PROGRESS | DONE` は `src/lib/gathering.ts` の純粋関数 `getStampProgressStatus(done, total)` で判定（既存 `getProgressMilestones` と同じ完了系定義: `REPORTED + SKIP_REPORTED + APPROVED + SKIPPED`）。`rebirthPending` 状態は判定に影響しない
+- メッセージ生成は同じく純粋関数 `buildStampMessage(senderName, status)`
+- リアルタイム配送: `Stamp` を `supabase_realtime` publication に追加し、子供クライアントは `groupId=eq.{自グループ}` で INSERT 購読 → 自分のクエスト配列から `getStampProgressStatus` を計算してトースト表示
+- Web Push もサーバ側で同じ判定をして個別文面で送信（`sendPushToChild` 流用）
+- **掲示板（BulletinLog）には記録しない** — トラブル時の長期残存を避けるためと、4日経過で消えると意図がぼやけるため
+
+### 既存方針との関係
+- 2026-04-26「子供アクションでの掲示板書き込みAPIを追加しない」の趣旨は **自由文によるトラブル防止**。プリセット文言のスタンプは趣旨内のため例外として `Stamp` API のみ追加
+- 「掲示板にタスク名を載せない」は維持（メッセージは「スタートのきっかけにしよう」「その調子！」等の抽象表現のみ）
+
+### やってはいけないこと
+- スタンプ送信を掲示板（`BulletinLog`）に書き込む（仕様上、受信ログは残さない）
+- スタンプを通じた自由文・写真などの送信機能を追加する（自由文禁止の趣旨に反する）
+- メッセージ文言にタスク名・具体的な進捗数値を含める（プライバシー）
 
 ## 2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え
 

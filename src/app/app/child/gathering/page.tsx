@@ -5,6 +5,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { LOCATION_LABEL, LOCATION_EMOJI, LOCATION_CAPACITY, normalizeSecretWord, type GatheringLocationType } from "@/lib/gathering";
 import GatheringMemberList from "@/components/GatheringMemberList";
 import GatheringBoard from "@/components/GatheringBoard";
+import GatheringStampPanel from "@/components/child/GatheringStampPanel";
 
 type Member = {
   id: string;
@@ -176,6 +177,12 @@ export default function GatheringPage() {
 
             {/* なかま一覧 */}
             <GatheringMemberList members={group.members} />
+
+            {/* エールを送る */}
+            <GatheringStampPanel
+              groupId={group.groupId}
+              members={group.members.map((m) => ({ id: m.id, monsterName: m.monsterName, isMe: m.isMe }))}
+            />
 
             {/* 掲示板（日付タブ付き） */}
             <GatheringBoard groupId={group.groupId} />
