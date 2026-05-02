@@ -532,6 +532,19 @@
 - `key` を unique に含めることで「同日に別バッジを複数件残す」「同日に異なる進化を複数件残す」が可能になり、掲示板の達成感フィードバックが正確になる
 - TASK_* は `key=""` 固定なので、進捗マイルストーン再評価の冪等性は維持される
 
+## 2026-05-02: main ブランチへのマージ元を develop のみに制限（GitHub Actions）
+
+### 決定内容
+- `.github/workflows/restrict-main-merge.yml` を追加し、`main` への PR は `head_ref === "develop"` でない場合に必ず fail させる
+- GitHub の Branch protection rule で本ワークフローを `main` の Required status check に設定して強制する（リポジトリ管理者が UI 側で実施）
+
+### 理由
+- `feature/*` や `hotfix/*` から直接 `main` にマージされるとリリース履歴が乱れ、`develop` を通して統合する運用が崩れる
+- GitHub には「マージ元ブランチを限定する」標準オプションが無いため、Actions のチェック + Required status check で実現する
+
+### やってはいけないこと
+- 例外的に `feature/*` から直接 `main` にマージしようとして本ワークフローを無効化する（必要なら `develop` に一旦マージして fast-forward する）
+
 ## 2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え
 
 ### 決定内容

@@ -1,0 +1,21 @@
+name: Restrict main branch merges
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify source branch is develop
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD_REF" != "develop" ]; then
+            echo "::error::main へのマージは develop ブランチからのみ許可されています。"
+            echo "::error::Source branch: $HEAD_REF"
+            exit 1
+          fi
+          echo "Source branch is develop. OK."
