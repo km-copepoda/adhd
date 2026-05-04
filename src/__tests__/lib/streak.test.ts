@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { recordDailyAchievement } from "@/lib/streak";
+import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
 import { childUser, streak } from "../helpers/fixtures";
 
+vi.mock("@/lib/bulletinLog", () => ({
+  triggerMonsterEvolvedLog: vi.fn().mockResolvedValue(undefined),
+  triggerBadgeLog: vi.fn().mockResolvedValue(undefined),
+  triggerStreakTitleLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockPrisma = vi.mocked(prisma);
+const mockTriggerMonsterEvolvedLog = vi.mocked(triggerMonsterEvolvedLog);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -252,5 +260,57 @@ describe("recordDailyAchievement", () => {
     expect(updateData.evolutionStage).toBe(2);
 
     vi.restoreAllMocks();
+  });
+
+  it("マイルストーンボーナスで進化した場合、triggerMonsterEvolvedLog が呼ばれる（掲示板書き込み）", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+    const yesterday = new Date("2026-03-12");
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({
+        studyPt: 4, staminaPt: 3, lifePt: 2,
+        evolutionStage: 1,
+        evolutionPath: "STUDY",
+        collectedPaths: '["STUDY"]',
+        monsterLevels: "{}",
+      }) as any);
+    mockCounts(1, 3);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordDailyAchievement("child-1", today);
+    await new Promise((r) => setImmediate(r));
+
+    expect(mockTriggerMonsterEvolvedLog).toHaveBeenCalledTimes(1);
+    expect(mockTriggerMonsterEvolvedLog.mock.calls[0][0]).toBe("child-1");
+    expect(typeof mockTriggerMonsterEvolvedLog.mock.calls[0][1]).toBe("string");
+
+    vi.restoreAllMocks();
+  });
+
+  it("マイルストーンボーナスで進化しなかった場合、triggerMonsterEvolvedLog は呼ばれない", async () => {
+    const yesterday = new Date("2026-03-12");
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({
+        studyPt: 0, staminaPt: 0, lifePt: 0,
+        evolutionStage: 2,
+        evolutionPath: "STUDY_STAMINA",
+        collectedPaths: '["STUDY","STUDY_STAMINA"]',
+      }) as any);
+    mockCounts(1, 3);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordDailyAchievement("child-1", today);
+    await new Promise((r) => setImmediate(r));
+
+    expect(mockTriggerMonsterEvolvedLog).not.toHaveBeenCalled();
   });
 });
