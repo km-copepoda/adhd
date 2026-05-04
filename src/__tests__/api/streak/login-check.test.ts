@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { checkAndUnlockBadges } from "@/lib/badges";
+import { triggerBadgeLog } from "@/lib/bulletinLog";
 import { POST } from "@/app/api/streak/login-check/route";
 import { childUser, streak, parentUser } from "../../helpers/fixtures";
 
@@ -8,8 +10,14 @@ vi.mock("@/lib/badges", () => ({
   checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/lib/bulletinLog", () => ({
+  triggerBadgeLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+const mockCheckAndUnlockBadges = vi.mocked(checkAndUnlockBadges);
+const mockTriggerBadgeLog = vi.mocked(triggerBadgeLog);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -68,5 +76,22 @@ describe("POST /api/streak/login-check", () => {
     expect(res.status).toBe(200);
     expect(json.loginStreak).toBe(10);
     expect(json.bonusGranted).toBe(1);
+  });
+
+  it("ログインで新規解除されたバッジを掲示板に流すこと（triggerBadgeLog 呼び出し）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 0, loginBestStreak: 0, lastLoginDate: null }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockCheckAndUnlockBadges.mockResolvedValue([
+      { id: "login_14", name: "2週間ログイン", emoji: "🌿", description: "ログインストリーク14日" },
+    ]);
+
+    await POST();
+    // after() は setup.ts で即時実行モック化されているので await は不要
+    await new Promise((r) => setImmediate(r));
+
+    expect(mockTriggerBadgeLog).toHaveBeenCalledWith("child-1", "2週間ログイン");
   });
 });
