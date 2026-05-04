@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { recordLoginActivity } from "@/lib/loginStreak";
 import { checkAndUnlockBadges } from "@/lib/badges";
+import { triggerBadgeLog } from "@/lib/bulletinLog";
 import { todayJST } from "@/lib/date";
-import { routeLogger } from "@/lib/logger";
+import { routeLogger, log } from "@/lib/logger";
 
 export async function POST() {
   const rlog = routeLogger("POST", "/api/streak/login-check");
@@ -21,8 +22,16 @@ export async function POST() {
     rlog.info("Login streak bonus granted", { userId: user.id, streak: result.loginStreak, bonus: result.bonusGranted });
   }
 
-  // バッジ解除チェック（ログイン系バッジを確認）
-  checkAndUnlockBadges(user.id).catch(() => {});
+  // バッジ解除チェック + 掲示板ログ — レスポンス送信後に after() で実行
+  after(() =>
+    checkAndUnlockBadges(user.id)
+      .then((newBadges) => {
+        for (const badge of newBadges) {
+          triggerBadgeLog(user.id, badge.name).catch(() => {});
+        }
+      })
+      .catch((err) => log.error("Badge check failed", { childId: user.id, err })),
+  );
 
   return NextResponse.json(result);
 }
