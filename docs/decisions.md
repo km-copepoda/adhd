@@ -602,3 +602,23 @@
 ### やってはいけないこと
 - 新規に `triggerXxxLog(...).catch(() => {})` を書かない。必ず `after(() => triggerXxxLog(...).catch(() => {}))` で包む
 - `await triggerXxxLog(...)` でレスポンスをブロックしない（ユーザ操作のレイテンシが伸びる）
+
+## 2026-05-05: エール Push を DONE 受信者にスキップし、ひろばマウント時に未読再生
+
+### 決定内容
+- `POST /api/gathering/stamp`: 受信側ごとに当日進捗を判定し、`status === "DONE"` のときは `sendPushToChild` をスキップする。`Stamp` 行作成と Realtime 配信は変更なし
+- 新規 `GET /api/gathering/stamps/received-today`: 自グループで自分宛・本日着の Stamp 一覧（自分送信は除外）を返却。レスポンス `{ stamps: [{ id, senderId, senderName }] }`
+- `GatheringStampPanel` マウント時に `received-today` を取得し、`localStorage["gathering:seenStampIds"]`（直近100件保持）に未保存のIDのみトーストで再生。Realtime 受信時も seenIds に追加して二重表示を防ぐ
+- DONE 判定はサーバ側 Push 配信とクライアント表示で同じ `getStampProgressStatus` を共有
+
+### 理由
+- 当日のクエストを全部終わらせている子に Push を飛ばすと、集中を切らさず終わらせた直後に通知音で割り込む UX 問題があった
+- 一方 Push を完全停止だけだと、Realtime チャンネル subscribe 前に届いた Stamp に DONE の子が気づけず「DONE の子だけ社会的フィードバックを失う」という別問題が生まれる
+- ひろばページのマウント時に過去 Stamp を再生することで、`Stamp` 行を「OS 通知＋Realtime＋次回ページ訪問時の補完」の三段配送に拡張し、DONE 受信者の体験を毀損せずに通知音だけ抑制できる
+- 既読管理を localStorage にとどめたのは、当日4件以下の低頻度アクションで別端末ログイン時の重複表示が許容範囲だったため。`StampReceipt` テーブル追加はオーバーキル
+- 2026-05-02 で決めた「個別メッセージで Push 配信」の例外条項として位置付け（自由文・タスク名露出などの禁止事項は維持）
+
+### やってはいけないこと
+- DONE 判定をクライアント側だけに置く（Push を抑制するためにサーバ側判定が必要）
+- DONE 受信時に Realtime トーストや未読再生まで止める（ページを開いている／開いた人は気づける状態を維持する）
+- localStorage の seenIds を無制限に肥大化させる（直近100件で trim、当日4日経過で API レスポンス側からも消える）

@@ -76,6 +76,9 @@ export async function POST(_request: Request) {
           },
         });
         const status = getStampProgressStatus(done, total);
+        // 受信側が今日のクエストを全部終わらせている場合は OS Push を抑制する。
+        // Realtime トーストは流す（ひろばを開いたタイミングで未読として復元される）。
+        if (status === "DONE") return;
         const body = buildStampMessage(senderName, status);
         await sendPushToChild(recipientId, {
           title: "エールが届いたよ！",

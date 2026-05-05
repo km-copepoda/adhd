@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { buildStampMessage, getStampProgressStatus } from "@/lib/gathering";
+import { buildStampMessage, getStampProgressStatus, type StampProgressStatus } from "@/lib/gathering";
 
 type Member = {
   id: string;
@@ -20,6 +20,43 @@ type ToastEntry = { id: string; message: string };
 type StampRow = { id: string; groupId: string; senderId: string; date: string };
 
 const TOAST_DURATION_MS = 5000;
+const SEEN_KEY = "gathering:seenStampIds";
+const SEEN_MAX = 100;
+
+function readSeenIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as unknown;
+    return new Set(Array.isArray(arr) ? (arr as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function addSeenIds(ids: string[]) {
+  if (typeof window === "undefined" || ids.length === 0) return;
+  const set = readSeenIds();
+  for (const id of ids) set.add(id);
+  const trimmed = Array.from(set).slice(-SEEN_MAX);
+  window.localStorage.setItem(SEEN_KEY, JSON.stringify(trimmed));
+}
+
+async function fetchOwnProgressStatus(): Promise<StampProgressStatus> {
+  try {
+    const res = await fetch("/api/quests/today");
+    if (!res.ok) return "NOT_STARTED";
+    const quests: Array<{ status: string }> = await res.json();
+    const total = quests.length;
+    const done = quests.filter((q) =>
+      ["REPORTED", "SKIP_REPORTED", "APPROVED", "SKIPPED"].includes(q.status),
+    ).length;
+    return getStampProgressStatus(done, total);
+  } catch {
+    return "NOT_STARTED";
+  }
+}
 
 export default function GatheringStampPanel({ groupId, members }: Props) {
   const [sentToday, setSentToday] = useState<boolean | null>(null);
@@ -52,6 +89,40 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
     }, TOAST_DURATION_MS);
   }, []);
 
+  // マウント時: 当日届いた未読エールをトーストで再生する。
+  // Push を抑制した DONE 状態の受信者でも、ひろばを開いたタイミングでここで気づける。
+  useEffect(() => {
+    if (!me) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/gathering/stamps/received-today");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          stamps: Array<{ id: string; senderId: string; senderName: string }>;
+        };
+        if (cancelled || data.stamps.length === 0) return;
+
+        const seen = readSeenIds();
+        const unseen = data.stamps.filter((s) => !seen.has(s.id));
+        // 既読化は「全件」（既に既読のものは no-op）。これで古いID混入を防ぐ
+        addSeenIds(data.stamps.map((s) => s.id));
+
+        if (unseen.length === 0) return;
+        const status = await fetchOwnProgressStatus();
+        if (cancelled) return;
+        for (const s of unseen) {
+          showToast(buildStampMessage(s.senderName, status));
+        }
+      } catch {
+        // 失敗時は黙って終了（次回マウントで再試行）
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [me, showToast]);
+
   // Realtime: 同じグループの Stamp INSERT を購読
   useEffect(() => {
     if (!me) return;
@@ -64,27 +135,13 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
         async (payload) => {
           const row = payload.new as StampRow;
           if (row.senderId === me.id) return; // 自分が送ったものはスキップ
+          if (readSeenIds().has(row.id)) return; // マウント再生で既に表示済み
 
           const sender = members.find((m) => m.id === row.senderId);
           const senderName = sender?.monsterName ?? "なかま";
-
-          // 自分の当日進捗を取得 → 状態判定 → メッセージ生成
-          try {
-            const res = await fetch("/api/quests/today");
-            if (!res.ok) {
-              showToast(buildStampMessage(senderName, "NOT_STARTED"));
-              return;
-            }
-            const quests: Array<{ status: string }> = await res.json();
-            const total = quests.length;
-            const done = quests.filter((q) =>
-              ["REPORTED", "SKIP_REPORTED", "APPROVED", "SKIPPED"].includes(q.status),
-            ).length;
-            const status = getStampProgressStatus(done, total);
-            showToast(buildStampMessage(senderName, status));
-          } catch {
-            showToast(buildStampMessage(senderName, "NOT_STARTED"));
-          }
+          const status = await fetchOwnProgressStatus();
+          showToast(buildStampMessage(senderName, status));
+          addSeenIds([row.id]);
         },
       )
       .subscribe();

@@ -106,6 +106,60 @@ describe("POST /api/gathering/stamp", () => {
     expect(payload.title).toBeTruthy();
   });
 
+  it("受信者の進捗が DONE のときは Push を送らない（IN_PROGRESS には送る）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1", monsterName: "ドラゴン" }) as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: {
+        members: [
+          { childId: "child-1" }, // 送信者
+          { childId: "child-2" }, // DONE
+          { childId: "child-3" }, // IN_PROGRESS
+        ],
+      },
+    } as never);
+    vi.mocked(prisma.stamp.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.stamp.create).mockResolvedValue({ id: "s-1" } as never);
+    // 各 childId ごとに total/done を返す
+    vi.mocked(prisma.questInstance.count).mockImplementation((args: never) => {
+      const a = args as { where: { childId: string; status?: unknown } };
+      const isDoneCount = !!a.where.status;
+      if (a.where.childId === "child-2") {
+        return Promise.resolve(isDoneCount ? 3 : 3) as never; // DONE
+      }
+      if (a.where.childId === "child-3") {
+        return Promise.resolve(isDoneCount ? 1 : 3) as never; // IN_PROGRESS
+      }
+      return Promise.resolve(0) as never;
+    });
+
+    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    expect(res.status).toBe(200);
+
+    const pushedIds = mockSendPush.mock.calls.map((c) => c[0]);
+    // child-3 (IN_PROGRESS) には送る、 child-2 (DONE) には送らない
+    expect(pushedIds).toContain("child-3");
+    expect(pushedIds).not.toContain("child-2");
+  });
+
+  it("受信者の進捗が NOT_STARTED のときは Push を送る", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1", monsterName: "ドラゴン" }) as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: { members: [{ childId: "child-1" }, { childId: "child-2" }] },
+    } as never);
+    vi.mocked(prisma.stamp.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.stamp.create).mockResolvedValue({ id: "s-1" } as never);
+    // total=3, done=0 → NOT_STARTED
+    vi.mocked(prisma.questInstance.count)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(0);
+
+    await POST(makeRequest("/api/gathering/stamp", {}));
+    expect(mockSendPush).toHaveBeenCalledTimes(1);
+    expect(mockSendPush.mock.calls[0][0]).toBe("child-2");
+  });
+
   it("ユニーク制約違反（race condition）でも409にフォールバック", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as never);
     vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
