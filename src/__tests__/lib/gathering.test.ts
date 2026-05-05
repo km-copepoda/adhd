@@ -6,6 +6,8 @@ import {
   getBulletinLogEmoji,
   groupBulletinLogsByDate,
   formatBulletinDateHeading,
+  coalesceTaskProgress,
+  coalesceBurst,
   LOCATION_CAPACITY,
   getStampProgressStatus,
   buildStampMessage,
@@ -251,6 +253,186 @@ describe("groupBulletinLogsByDate", () => {
     const logs = [{ id: "x", date: new Date(Date.UTC(2026, 3, 28)) }];
     const groups = groupBulletinLogsByDate(logs);
     expect(groups[0].dateStr).toBe("2026-04-28");
+  });
+});
+
+// ─── coalesceTaskProgress ─────────────────────────────────────────────────────
+// 同じ子供・同じ日の TASK_* イベント（START/PROGRESS_25/50/75/COMPLETE）は
+// 入力の先頭（=最新）1件のみを残し、古いものは除外する。
+// 入力は API レスポンスと同じ「date desc, createdAt desc」順を仮定。
+describe("coalesceTaskProgress", () => {
+  it("空配列はそのまま空配列を返す", () => {
+    expect(coalesceTaskProgress([])).toEqual([]);
+  });
+
+  it("非TASKログ（バッジ等）は素通しする", () => {
+    const logs = [
+      { id: "b1", childId: "c1", type: "BADGE_UNLOCKED", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T08:20:00.000Z" },
+      { id: "e1", childId: "c1", type: "MONSTER_EVOLVED", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T08:20:00.000Z" },
+    ];
+    expect(coalesceTaskProgress(logs).map((l) => l.id)).toEqual(["b1", "e1"]);
+  });
+
+  it("同じ子供・同じ日のTASK_*は最新1件のみ残す（先頭優先）", () => {
+    const logs = [
+      { id: "t-latest", childId: "c1", type: "TASK_PROGRESS_75", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T22:38:00.000Z" },
+      { id: "t-mid",    childId: "c1", type: "TASK_PROGRESS_50", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T18:10:00.000Z" },
+      { id: "t-old",    childId: "c1", type: "TASK_STARTED",     date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T09:00:00.000Z" },
+    ];
+    const out = coalesceTaskProgress(logs);
+    expect(out.map((l) => l.id)).toEqual(["t-latest"]);
+  });
+
+  it("子供が異なれば別個に残す", () => {
+    const logs = [
+      { id: "t-c1", childId: "c1", type: "TASK_PROGRESS_50", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T20:00:00.000Z" },
+      { id: "t-c2", childId: "c2", type: "TASK_PROGRESS_25", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T18:00:00.000Z" },
+    ];
+    const out = coalesceTaskProgress(logs);
+    expect(out.map((l) => l.id).sort()).toEqual(["t-c1", "t-c2"]);
+  });
+
+  it("日付が異なれば別個に残す", () => {
+    const logs = [
+      { id: "t-may4", childId: "c1", type: "TASK_PROGRESS_50", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T20:00:00.000Z" },
+      { id: "t-may3", childId: "c1", type: "TASK_COMPLETE",    date: "2026-05-03T00:00:00.000Z", createdAt: "2026-05-03T22:00:00.000Z" },
+    ];
+    const out = coalesceTaskProgress(logs);
+    expect(out.map((l) => l.id).sort()).toEqual(["t-may3", "t-may4"]);
+  });
+
+  it("TASK_*とバッジが混在しても、TASK_*の重複だけ間引かれる", () => {
+    const logs = [
+      { id: "b1",       childId: "c1", type: "BADGE_UNLOCKED",   date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T08:20:01.000Z" },
+      { id: "t-latest", childId: "c1", type: "TASK_PROGRESS_75", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T22:38:00.000Z" },
+      { id: "t-old",    childId: "c1", type: "TASK_STARTED",     date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T09:00:00.000Z" },
+    ];
+    const out = coalesceTaskProgress(logs);
+    expect(out.map((l) => l.id)).toEqual(["b1", "t-latest"]);
+  });
+
+  it("入力順（date desc, createdAt desc）を維持する", () => {
+    const logs = [
+      { id: "t-may4", childId: "c1", type: "TASK_PROGRESS_75", date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T22:00:00.000Z" },
+      { id: "b-may4", childId: "c1", type: "BADGE_UNLOCKED",   date: "2026-05-04T00:00:00.000Z", createdAt: "2026-05-04T18:00:00.000Z" },
+      { id: "t-may3", childId: "c1", type: "TASK_COMPLETE",    date: "2026-05-03T00:00:00.000Z", createdAt: "2026-05-03T22:00:00.000Z" },
+    ];
+    const out = coalesceTaskProgress(logs);
+    expect(out.map((l) => l.id)).toEqual(["t-may4", "b-may4", "t-may3"]);
+  });
+});
+
+// ─── coalesceBurst ────────────────────────────────────────────────────────────
+// 同じ (childId, type) のログが時間窓（既定5分）以内に連続した場合、1件にまとめる。
+// 戻り値の各要素は { primary, items } 形式（items.length===1 は単発、>1 はバースト）。
+describe("coalesceBurst", () => {
+  const base = (over: Partial<{ id: string; childId: string; type: string; createdAt: string; date: string }>) => ({
+    id: "x",
+    childId: "c1",
+    type: "BADGE_UNLOCKED",
+    date: "2026-05-04T00:00:00.000Z",
+    createdAt: "2026-05-04T08:20:00.000Z",
+    ...over,
+  });
+
+  it("空配列は空配列を返す", () => {
+    expect(coalesceBurst([])).toEqual([]);
+  });
+
+  it("単発ログは items.length===1 の CondensedLogEntry にラップする", () => {
+    const out = coalesceBurst([base({ id: "a" })]);
+    expect(out).toHaveLength(1);
+    expect(out[0].primary.id).toBe("a");
+    expect(out[0].items).toHaveLength(1);
+    expect(out[0].items[0].id).toBe("a");
+  });
+
+  it("同 childId+type が時間窓内に並んだら1件に束ねる（primary は最新=先頭）", () => {
+    const logs = [
+      base({ id: "b3", createdAt: "2026-05-04T08:20:30.000Z" }),
+      base({ id: "b2", createdAt: "2026-05-04T08:20:15.000Z" }),
+      base({ id: "b1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(1);
+    expect(out[0].primary.id).toBe("b3");
+    expect(out[0].items.map((i) => i.id)).toEqual(["b3", "b2", "b1"]);
+  });
+
+  it("同 childId+type でも時間窓を超えたら別エントリ", () => {
+    const logs = [
+      base({ id: "b2", createdAt: "2026-05-04T08:30:00.000Z" }), // 10分後 → 別
+      base({ id: "b1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(2);
+    expect(out[0].primary.id).toBe("b2");
+    expect(out[1].primary.id).toBe("b1");
+  });
+
+  it("type が異なれば束ねない", () => {
+    const logs = [
+      base({ id: "e1", type: "MONSTER_EVOLVED", createdAt: "2026-05-04T08:20:30.000Z" }),
+      base({ id: "b1", type: "BADGE_UNLOCKED",  createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(2);
+    expect(out.map((g) => g.primary.id)).toEqual(["e1", "b1"]);
+  });
+
+  it("childId が異なれば束ねない（同 type・同時刻でも）", () => {
+    const logs = [
+      base({ id: "b-c2", childId: "c2", createdAt: "2026-05-04T08:20:30.000Z" }),
+      base({ id: "b-c1", childId: "c1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(2);
+  });
+
+  it("入力の時系列降順を出力でも維持する（束ね後のエントリも降順）", () => {
+    const logs = [
+      base({ id: "later",  createdAt: "2026-05-04T16:00:00.000Z", type: "MONSTER_EVOLVED" }),
+      base({ id: "burst3", createdAt: "2026-05-04T08:20:30.000Z" }),
+      base({ id: "burst2", createdAt: "2026-05-04T08:20:15.000Z" }),
+      base({ id: "burst1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(2);
+    expect(out[0].primary.id).toBe("later");
+    expect(out[1].primary.id).toBe("burst3");
+    expect(out[1].items).toHaveLength(3);
+  });
+
+  it("境界値: 時間窓ちょうど5分は同一バーストに含める", () => {
+    const logs = [
+      base({ id: "b2", createdAt: "2026-05-04T08:25:00.000Z" }), // ちょうど5分後
+      base({ id: "b1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(1);
+    expect(out[0].items).toHaveLength(2);
+  });
+
+  it("windowMs を渡して時間窓を上書きできる", () => {
+    const logs = [
+      base({ id: "b2", createdAt: "2026-05-04T08:21:00.000Z" }), // 1分後
+      base({ id: "b1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    // 30秒窓では別エントリ
+    const out = coalesceBurst(logs, 30_000);
+    expect(out).toHaveLength(2);
+  });
+
+  it("バースト判定は連続要素間の差分で行う（最初と最後の差ではない）", () => {
+    // 5分窓で 0:00 → 0:04 → 0:08 と並ぶ場合、隣接差は4分なので全て1バーストに含まれる
+    const logs = [
+      base({ id: "b3", createdAt: "2026-05-04T08:28:00.000Z" }),
+      base({ id: "b2", createdAt: "2026-05-04T08:24:00.000Z" }),
+      base({ id: "b1", createdAt: "2026-05-04T08:20:00.000Z" }),
+    ];
+    const out = coalesceBurst(logs);
+    expect(out).toHaveLength(1);
+    expect(out[0].items.map((i) => i.id)).toEqual(["b3", "b2", "b1"]);
   });
 });
 

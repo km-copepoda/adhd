@@ -6,10 +6,13 @@ import {
   getBulletinLogEmoji,
   groupBulletinLogsByDate,
   formatBulletinDateHeading,
+  coalesceTaskProgress,
+  coalesceBurst,
 } from "@/lib/gathering";
 
 type LogEntry = {
   id: string;
+  childId: string;
   message: string;
   type: string;
   date: string;
@@ -62,7 +65,11 @@ export default function GatheringBoard({ groupId, childId }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [groupId, childId]);
 
-  const groups = groupBulletinLogsByDate(logs);
+  // 日付グルーピング → 同一子供・同日のTASK_*間引き → 同(子供,種別)バーストの束ね
+  const renderedGroups = groupBulletinLogsByDate(logs).map((g) => ({
+    dateStr: g.dateStr,
+    entries: coalesceBurst(coalesceTaskProgress(g.logs)),
+  }));
 
   if (logs.length === 0) {
     return (
@@ -76,7 +83,7 @@ export default function GatheringBoard({ groupId, childId }: Props) {
 
   return (
     <div className="space-y-3">
-      {groups.map((g) => (
+      {renderedGroups.map((g) => (
         <section
           key={g.dateStr}
           className="bg-quest-card border border-quest-border rounded-xl p-4"
@@ -85,14 +92,23 @@ export default function GatheringBoard({ groupId, childId }: Props) {
             📋 {formatBulletinDateHeading(g.dateStr)}
           </h2>
           <div className="space-y-2">
-            {g.logs.map((entry) => (
-              <div key={entry.id} className="flex gap-2 items-start text-sm">
+            {g.entries.map(({ primary, items }) => (
+              <div key={primary.id} className="flex gap-2 items-start text-sm">
                 <span className="text-base leading-snug flex-shrink-0">
-                  {getBulletinLogEmoji(entry.type)}
+                  {getBulletinLogEmoji(primary.type)}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="leading-snug">{entry.message}</p>
-                  <p className="text-[10px] text-quest-dim/60 mt-0.5">{formatTime(entry.createdAt)}</p>
+                  <p className="leading-snug">
+                    {primary.message}
+                    {items.length > 1 && (
+                      <span className="ml-1 text-xs font-bold text-quest-gold/80">
+                        ×{items.length}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-quest-dim/60 mt-0.5">
+                    {formatTime(primary.createdAt)}
+                  </p>
                 </div>
               </div>
             ))}
