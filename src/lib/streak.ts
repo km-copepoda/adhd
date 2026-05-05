@@ -1,9 +1,10 @@
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
+import { getMonsterStage } from "@/lib/monsters";
 import { getNewMilestoneBonus, distributeBonus, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { log } from "@/lib/logger";
-import { triggerStreakTitleLog } from "@/lib/bulletinLog";
+import { triggerStreakTitleLog, triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
 
 /**
  * クエスト承認時にストリークを記録・更新する。
@@ -122,6 +123,9 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
             if (evolution.newStage === 3) {
               monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
             }
+            const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, latestChild.side ?? null);
+            const evolvedName = evolvedMonster?.name ?? evolution.newPath;
+            after(() => triggerMonsterEvolvedLog(childId, evolvedName).catch(() => {}));
           }
 
           await prisma.user.update({

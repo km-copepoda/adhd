@@ -1,5 +1,8 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
+import { getMonsterStage } from "@/lib/monsters";
+import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
 import { log } from "@/lib/logger";
 
 export interface LoginActivityResult {
@@ -125,6 +128,9 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
       if (evolution.newStage === 3) {
         monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
       }
+      const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.side ?? null);
+      const evolvedName = evolvedMonster?.name ?? evolution.newPath;
+      after(() => triggerMonsterEvolvedLog(childId, evolvedName).catch(() => {}));
     }
 
     await prisma.user.update({
