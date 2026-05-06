@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ALL_BADGES, checkAndUnlockBadges } from "@/lib/badges";
+import { triggerBadgeLog } from "@/lib/bulletinLog";
 
 /**
  * GET /api/badges
@@ -16,6 +17,15 @@ export async function GET() {
 
   // 新規バッジ解除チェック（ページロード時に自動実行）
   const newlyUnlocked = await checkAndUnlockBadges(user.id);
+
+  // 新規解除されたバッジを掲示板に流す（レスポンス送信後に実行）
+  if (newlyUnlocked.length > 0) {
+    after(() => {
+      for (const badge of newlyUnlocked) {
+        triggerBadgeLog(user.id, badge.name).catch(() => {});
+      }
+    });
+  }
 
   // 解除済みバッジ一覧を取得
   const unlockedRecords = await prisma.userBadge.findMany({

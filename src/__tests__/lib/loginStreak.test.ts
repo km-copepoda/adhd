@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { recordLoginActivity } from "@/lib/loginStreak";
+import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
 import { childUser, streak } from "../helpers/fixtures";
 
+vi.mock("@/lib/bulletinLog", () => ({
+  triggerMonsterEvolvedLog: vi.fn().mockResolvedValue(undefined),
+  triggerBadgeLog: vi.fn().mockResolvedValue(undefined),
+  triggerStreakTitleLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockPrisma = vi.mocked(prisma);
+const mockTriggerMonsterEvolvedLog = vi.mocked(triggerMonsterEvolvedLog);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -218,5 +226,75 @@ describe("recordLoginActivity", () => {
     expect(updateData.evolutionStage).toBe(2);
 
     vi.restoreAllMocks();
+  });
+
+  it("ボーナスで進化した場合、triggerMonsterEvolvedLog が呼ばれる（掲示板書き込み）", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+    const yesterday = new Date("2026-03-28");
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 1,
+        evolutionPath: "STUDY",
+        studyPt: 4, staminaPt: 3, lifePt: 2,
+        collectedPaths: '["STUDY"]',
+        monsterLevels: "{}",
+      }) as any,
+    );
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordLoginActivity("child-1", today);
+    await new Promise((r) => setImmediate(r));
+
+    expect(mockTriggerMonsterEvolvedLog).toHaveBeenCalledTimes(1);
+    expect(mockTriggerMonsterEvolvedLog.mock.calls[0][0]).toBe("child-1");
+    // 進化先のモンスター名 or パス文字列が渡されること
+    expect(typeof mockTriggerMonsterEvolvedLog.mock.calls[0][1]).toBe("string");
+
+    vi.restoreAllMocks();
+  });
+
+  it("ボーナスで進化しなかった場合、triggerMonsterEvolvedLog は呼ばれない", async () => {
+    const yesterday = new Date("2026-03-28");
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    // 進化が発動しない範囲: stage1, 合計2+1=3pt < 10
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 0, staminaPt: 1, lifePt: 1 }) as any,
+    );
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordLoginActivity("child-1", today);
+    await new Promise((r) => setImmediate(r));
+
+    expect(mockTriggerMonsterEvolvedLog).not.toHaveBeenCalled();
+  });
+
+  it("rebirthPending中のボーナスでは進化しないので triggerMonsterEvolvedLog は呼ばれない", async () => {
+    const yesterday = new Date("2026-03-28");
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+    );
+    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 3,
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        studyPt: 15, staminaPt: 2, lifePt: 2,
+        rebirthPending: true,
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+      }) as any,
+    );
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await recordLoginActivity("child-1", today);
+    await new Promise((r) => setImmediate(r));
+
+    expect(mockTriggerMonsterEvolvedLog).not.toHaveBeenCalled();
   });
 });

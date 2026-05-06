@@ -532,6 +532,61 @@
 - `key` を unique に含めることで「同日に別バッジを複数件残す」「同日に異なる進化を複数件残す」が可能になり、掲示板の達成感フィードバックが正確になる
 - TASK_* は `key=""` 固定なので、進捗マイルストーン再評価の冪等性は維持される
 
+## 2026-05-02: main ブランチへのマージ元を develop のみに制限（GitHub Actions）
+
+### 決定内容
+- `.github/workflows/restrict-main-merge.yml` を追加し、`main` への PR は `head_ref === "develop"` でない場合に必ず fail させる
+- GitHub の Branch protection rule で本ワークフローを `main` の Required status check に設定して強制する（リポジトリ管理者が UI 側で実施）
+
+### 理由
+- `feature/*` や `hotfix/*` から直接 `main` にマージされるとリリース履歴が乱れ、`develop` を通して統合する運用が崩れる
+- GitHub には「マージ元ブランチを限定する」標準オプションが無いため、Actions のチェック + Required status check で実現する
+
+### やってはいけないこと
+- 例外的に `feature/*` から直接 `main` にマージしようとして本ワークフローを無効化する（必要なら `develop` に一旦マージして fast-forward する）
+
+## 2026-05-02: ひろば「エールを送る」スタンプ機能の導入
+
+### 決定内容
+- グループ参加中の子供が、グループ全員に「エールを送る」スタンプを 1日1回 押せる機能を追加
+- 新テーブル `Stamp { id, groupId, senderId, date(@db.Date), createdAt }` + `@@unique([senderId, date])` で1日1回制約を担保
+- API `POST /api/gathering/stamp`（CHILD のみ）: グループ全メンバー（送信者除く）に対し、各受信者の **当日進捗** を判定して個別メッセージを生成し Web Push 配信
+- API `GET /api/gathering/stamp/today`: 自分が今日送信済みかどうかを返す（UI のボタン disabled 制御用）
+- 進捗状態 `NOT_STARTED | IN_PROGRESS | DONE` は `src/lib/gathering.ts` の純粋関数 `getStampProgressStatus(done, total)` で判定（既存 `getProgressMilestones` と同じ完了系定義: `REPORTED + SKIP_REPORTED + APPROVED + SKIPPED`）。`rebirthPending` 状態は判定に影響しない
+- メッセージ生成は同じく純粋関数 `buildStampMessage(senderName, status)`
+- リアルタイム配送: `Stamp` を `supabase_realtime` publication に追加し、子供クライアントは `groupId=eq.{自グループ}` で INSERT 購読 → 自分のクエスト配列から `getStampProgressStatus` を計算してトースト表示
+- Web Push もサーバ側で同じ判定をして個別文面で送信（`sendPushToChild` 流用）
+- **掲示板（BulletinLog）には記録しない** — トラブル時の長期残存を避けるためと、4日経過で消えると意図がぼやけるため
+
+### 既存方針との関係
+- 2026-04-26「子供アクションでの掲示板書き込みAPIを追加しない」の趣旨は **自由文によるトラブル防止**。プリセット文言のスタンプは趣旨内のため例外として `Stamp` API のみ追加
+- 「掲示板にタスク名を載せない」は維持（メッセージは「スタートのきっかけにしよう」「その調子！」等の抽象表現のみ）
+
+### やってはいけないこと
+- スタンプ送信を掲示板（`BulletinLog`）に書き込む（仕様上、受信ログは残さない）
+- スタンプを通じた自由文・写真などの送信機能を追加する（自由文禁止の趣旨に反する）
+- メッセージ文言にタスク名・具体的な進捗数値を含める（プライバシー）
+
+## 2026-05-05: 掲示板の表示時集約（TASK_*の最新だけ・同種別バーストは束ね）
+
+### 決定内容
+- `BulletinLog` のスキーマ・API・保存ロジックは変更せず、**クライアント表示時のみ**ログを集約する
+- 集約は `src/lib/gathering.ts` の純粋関数2つで実装:
+  - `coalesceTaskProgress(logs)`: 同一 (childId, dateStr) の `TASK_STARTED/PROGRESS_25/50/75/COMPLETE` は最新1件のみ表示。途中段階の縦積みを排除（入力は `date desc, createdAt desc` 順を仮定し、最初に出現したものを採用）
+  - `coalesceBurst(logs, windowMs=300_000)`: 同一 (childId, type) が **隣接要素間 ≤5分** で並んだ場合、1エントリ `{ primary, items }` に束ねる。複数バッジを同時取得した際の縦伸びを抑える
+- `<GatheringBoard>` は `groupBulletinLogsByDate` → `coalesceTaskProgress` → `coalesceBurst` の順に適用し、`items.length > 1` なら primary メッセージ末尾に `×N` を付記
+- 表示時集約のみのため、DB ログは正確な時系列で残り、unique 制約 `(groupId, childId, type, date, key)` の整合性は無影響
+
+### 理由
+- 同じ子供の連続バッジ取得（同一承認で複数解除など）と、TASK_*の途中マイルストーン（START/25/50/75/COMPLETE）が重なって**画面が縦に大きく伸びる**問題があり、「他のなかまの頑張りを眺める」社会的フィードバックの目的が逆に損なわれていた
+- スキーマや API を変えずに表示ロジックだけで解消できるため、2026-04-26 の「書き込みは完全自動」「直近4日分のみ表示」「タスク名は載せない」方針はすべてそのまま維持
+- 2026-04-28 で確立した「1スクロールで時系列の流れを追う」設計とも整合（タブ復活ではなく、同種別バーストを1行に圧縮するだけ）
+
+### やってはいけないこと
+- API レスポンス段階で集約しない（DBログは正確な時系列を保つ。集約はクライアント表示時のみ）
+- バースト束ねの時間窓を ms 単位で大きく取りすぎない（独立した2回の達成が同一バーストに混ざると体験が損なわれる）
+- TASK_* の最新1件残しは「同 childId + 同日」単位で行う（子供が違う／日付が違う場合は独立して残す）
+
 ## 2026-05-06: LP に PAIN POINTS / BEFORE-AFTER / FAQ セクションを追加し ADHD 親への訴求を強化
 
 ### 決定内容
@@ -561,3 +616,23 @@
 ### やってはいけないこと
 - 新規に `triggerXxxLog(...).catch(() => {})` を書かない。必ず `after(() => triggerXxxLog(...).catch(() => {}))` で包む
 - `await triggerXxxLog(...)` でレスポンスをブロックしない（ユーザ操作のレイテンシが伸びる）
+
+## 2026-05-05: エール Push を DONE 受信者にスキップし、ひろばマウント時に未読再生
+
+### 決定内容
+- `POST /api/gathering/stamp`: 受信側ごとに当日進捗を判定し、`status === "DONE"` のときは `sendPushToChild` をスキップする。`Stamp` 行作成と Realtime 配信は変更なし
+- 新規 `GET /api/gathering/stamps/received-today`: 自グループで自分宛・本日着の Stamp 一覧（自分送信は除外）を返却。レスポンス `{ stamps: [{ id, senderId, senderName }] }`
+- `GatheringStampPanel` マウント時に `received-today` を取得し、`localStorage["gathering:seenStampIds"]`（直近100件保持）に未保存のIDのみトーストで再生。Realtime 受信時も seenIds に追加して二重表示を防ぐ
+- DONE 判定はサーバ側 Push 配信とクライアント表示で同じ `getStampProgressStatus` を共有
+
+### 理由
+- 当日のクエストを全部終わらせている子に Push を飛ばすと、集中を切らさず終わらせた直後に通知音で割り込む UX 問題があった
+- 一方 Push を完全停止だけだと、Realtime チャンネル subscribe 前に届いた Stamp に DONE の子が気づけず「DONE の子だけ社会的フィードバックを失う」という別問題が生まれる
+- ひろばページのマウント時に過去 Stamp を再生することで、`Stamp` 行を「OS 通知＋Realtime＋次回ページ訪問時の補完」の三段配送に拡張し、DONE 受信者の体験を毀損せずに通知音だけ抑制できる
+- 既読管理を localStorage にとどめたのは、当日4件以下の低頻度アクションで別端末ログイン時の重複表示が許容範囲だったため。`StampReceipt` テーブル追加はオーバーキル
+- 2026-05-02 で決めた「個別メッセージで Push 配信」の例外条項として位置付け（自由文・タスク名露出などの禁止事項は維持）
+
+### やってはいけないこと
+- DONE 判定をクライアント側だけに置く（Push を抑制するためにサーバ側判定が必要）
+- DONE 受信時に Realtime トーストや未読再生まで止める（ページを開いている／開いた人は気づける状態を維持する）
+- localStorage の seenIds を無制限に肥大化させる（直近100件で trim、当日4日経過で API レスポンス側からも消える）

@@ -71,6 +71,7 @@ model User {
   badges              UserBadge[]
   gatheringMember     GatheringMember?
   bulletinLogs        BulletinLog[]
+  sentStamps          Stamp[]
   createdAt           DateTime           @default(now())
 
   @@unique([familyId, childCode])
@@ -203,9 +204,26 @@ model GatheringGroup {
   secretWord String
   members    GatheringMember[]
   logs       BulletinLog[]
+  stamps     Stamp[]
   createdAt  DateTime              @default(now())
 
   @@unique([location, secretWord])
+}
+
+/// グループ参加中の子供が「エールを送る」ために 1日1回 INSERT するレコード。
+/// 受信ログは別テーブルに残さない（Realtime + Push でその場限りの通知）。
+model Stamp {
+  id        String         @id @default(cuid())
+  groupId   String
+  group     GatheringGroup @relation(fields: [groupId], references: [id])
+  senderId  String
+  sender    User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  date      DateTime       @db.Date
+  createdAt DateTime       @default(now())
+
+  /// 1日1回制約（同じ送信者が同日複数回押せない）
+  @@unique([senderId, date])
+  @@index([groupId, createdAt])
 }
 
 model GatheringMember {
