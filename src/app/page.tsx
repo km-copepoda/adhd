@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./lp.module.css";
 import { Share } from "next/font/google";
+import { PAIN_POINTS, BEFORE_AFTER, FAQ_ITEMS, HERO_SUB_TAGS } from "@/lib/lp";
 
 type MonsterStyle = "dark" | "light";
 
@@ -64,10 +65,11 @@ export default function LpPage() {
       <nav className={styles.nav}>
         <a href="#" className={styles.navLogo}>QuestBoard</a>
         <ul className={styles.navLinks}>
+          <li><a href="#pain">こんな悩み</a></li>
           <li><a href="#features">機能</a></li>
-          <li><a href="#monsters">モンスター</a></li>
           <li><a href="#habit">続ける仕組み</a></li>
-          <li><a href="#screens">画面紹介</a></li>
+          <li><a href="#beforeafter">変化</a></li>
+          <li><a href="#faq">FAQ</a></li>
           <li><a href="#install">インストール</a></li>
           <li>
             <a href="#cta" className={`${styles.btnOutline} ${styles.navCta}`}>
@@ -91,11 +93,43 @@ export default function LpPage() {
           毎日のルーティンがゲームになれば、<br />
           やる気は自然と続いていく。
         </p>
+        <div className={styles.heroSubTags}>
+          {HERO_SUB_TAGS.map((tag) => (
+            <span key={tag} className={styles.heroSubTag}>{tag}</span>
+          ))}
+        </div>
         <div className={styles.heroCta}>
           <Link href="/login" className={styles.btnGold}>⚔ 冒険をはじめる</Link>
-          <a href="#features" className={styles.btnOutline}>👀 もっと見る</a>
+          <a href="#pain" className={styles.btnOutline}>👀 こんな悩みありませんか？</a>
         </div>
         <div className={styles.heroScroll}>SCROLL</div>
+      </section>
+
+      {/* ===== PAIN POINTS ===== */}
+      <section id="pain" className={`${styles.section} ${styles.painSection}`}>
+        <div className={`${styles.orb} ${styles.painOrb}`} />
+        <div className={styles.container} style={{ position: "relative", zIndex: 1 }}>
+          <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>こんな悩み、ありませんか？</h2>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>
+            子どもの「やらない」「忘れる」「先延ばし」── 親が頑張るだけでは限界がある。
+          </p>
+          <div className={`${styles.divider} ${styles.fadeIn}`} />
+
+          <div className={styles.painGrid}>
+            {PAIN_POINTS.map((p) => (
+              <div key={p.title} className={`${styles.painCard} ${styles.fadeIn}`}>
+                <div className={styles.painIcon}>{p.icon}</div>
+                <h3 className={styles.painTitle}>{p.title}</h3>
+                <p className={styles.painBody}>{p.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className={`${styles.painLead} ${styles.fadeIn}`}>
+            QuestBoard は、これらの「親子で困りやすいポイント」を<strong>アプリの構造そのもの</strong>で支える設計にしています。
+            集中しにくい・動き出しが苦手なお子さんにも、特に効果的に働きます。
+          </p>
+        </div>
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
@@ -346,7 +380,10 @@ export default function LpPage() {
         <div className={`${styles.orb} ${styles.adhdOrbA1}`} />
         <div className={styles.container}>
           <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>HABIT DESIGN</h2>
-          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>続けたくなる設計が詰まっている。集中しにくい・動き出しが苦手なお子さんにも特に効果的。</p>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>
+            ADHD 傾向のお子さんにも届く、続けたくなる設計が詰まっています。<br />
+            「即時フィードバック」「短いサイクル」「具体的な指示」── 困りごとに合わせた仕組み。
+          </p>
           <div className={`${styles.divider} ${styles.fadeIn}`} />
 
           <div className={styles.adhdGrid}>
@@ -368,6 +405,34 @@ export default function LpPage() {
                 <div className={styles.adhdContent}>
                   <h3>{item.title}</h3>
                   <p>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== BEFORE / AFTER ===== */}
+      <section id="beforeafter" className={`${styles.section} ${styles.beforeAfterSection}`}>
+        <div className={styles.container}>
+          <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>BEFORE / AFTER</h2>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>使う前と使った後で、家族の景色がこう変わる</p>
+          <div className={`${styles.divider} ${styles.fadeIn}`} />
+
+          <div className={styles.beforeAfterList}>
+            {BEFORE_AFTER.map((ba) => (
+              <div key={ba.scene} className={`${styles.beforeAfterRow} ${styles.fadeIn}`}>
+                <div className={styles.beforeAfterScene}>{ba.scene}</div>
+                <div className={styles.beforeAfterCols}>
+                  <div className={`${styles.beforeAfterCol} ${styles.beforeCol}`}>
+                    <div className={styles.beforeAfterLabel}>BEFORE</div>
+                    <p>{ba.before}</p>
+                  </div>
+                  <div className={styles.beforeAfterArrow}>→</div>
+                  <div className={`${styles.beforeAfterCol} ${styles.afterCol}`}>
+                    <div className={styles.beforeAfterLabel}>AFTER</div>
+                    <p>{ba.after}</p>
+                  </div>
                 </div>
               </div>
             ))}
@@ -661,8 +726,11 @@ export default function LpPage() {
           <div className={styles.testimonialsGrid}>
             {[
               { stars: "★★★★★", text: "毎日「宿題やった？」と言い続けていたのが嘘のように、子どもが自分から動くようになりました。モンスターを進化させたいという気持ちが強くて。", avatar: "👩", name: "Aさん", role: "8歳の子を持つ保護者" },
-              { stars: "★★★★★", text: "子どもが ADHD 傾向があり、タスク管理に悩んでいました。「今日のクエスト」だけが見えるシンプルな設計が、うちの子にはぴったりでした。", avatar: "👨", name: "Bさん", role: "10歳の子を持つ保護者" },
+              { stars: "★★★★★", text: "子どもが ADHD 傾向があり、タスク管理に悩んでいました。「今日のクエスト」だけが見えるシンプルな設計が、うちの子にはぴったりでした。具体的なタスク名でリマインドが届くのも、うちの子には刺さっています。", avatar: "👨", name: "Bさん", role: "10歳の子を持つ保護者" },
               { stars: "★★★★☆", text: "スキップ申請で子どもが「今日は体調が悪い」と自分で伝えてくれるようになったのが嬉しい。自分のコンディションを言語化する練習にもなっています。", avatar: "👩", name: "Cさん", role: "7歳・9歳の子を持つ保護者" },
+              { stars: "★★★★★", text: "シール台紙が3日で形骸化していた我が家。XPもバッジも自動なので親の運用負担がゼロ。叱る回数が減り、「すごいね、承認するね」と言える機会が増えました。", avatar: "👨", name: "Dさん", role: "9歳の子を持つ保護者" },
+              { stars: "★★★★★", text: "ADHDの息子は『あとでやる』が口癖でしたが、転生サイクルが短いので「あと数pt！」という瞬間に動き出します。長期目標より短期の達成感が合うんだなと実感。", avatar: "👩", name: "Eさん", role: "11歳の子を持つ保護者" },
+              { stars: "★★★★☆", text: "兄弟で違うタスクを管理できるのが助かっています。下の子は『ゲームみたい』とすぐに馴染み、上の子は自分で一時クエストを追加して使いこなしています。", avatar: "👨", name: "Fさん", role: "6歳・10歳の子を持つ保護者" },
             ].map((t, i) => (
               <div key={i} className={`${styles.testimonialCard} ${styles.fadeIn}`}>
                 <div className={styles.testimonialQuote}>&ldquo;</div>
@@ -676,6 +744,31 @@ export default function LpPage() {
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FAQ ===== */}
+      <section id="faq" className={`${styles.section} ${styles.faqSection}`}>
+        <div className={styles.container}>
+          <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>FAQ</h2>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>よくいただく質問</p>
+          <div className={`${styles.divider} ${styles.fadeIn}`} />
+
+          <div className={styles.faqList}>
+            {FAQ_ITEMS.map((item) => (
+              <details key={item.question} className={`${styles.faqItem} ${styles.fadeIn}`}>
+                <summary className={styles.faqQuestion}>
+                  <span className={styles.faqQ}>Q.</span>
+                  <span>{item.question}</span>
+                  <span className={styles.faqChevron} aria-hidden>▾</span>
+                </summary>
+                <div className={styles.faqAnswer}>
+                  <span className={styles.faqA}>A.</span>
+                  <p>{item.answer}</p>
+                </div>
+              </details>
             ))}
           </div>
         </div>
