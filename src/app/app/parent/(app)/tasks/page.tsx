@@ -427,6 +427,8 @@ export default function TasksPage() {
                       : 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);
                     const assignedChild = children.find(c => c.id === task.assignedChildId);
+                    const carryLabel = formatPendingCarryBadge(task.oldestCarryOverPendingDate);
+                    const hasBadges = task.completedToday || streak >= 1 || task.lastSkippedDate || carryLabel;
                     return (
                       <div
                         key={task.id}
@@ -438,35 +440,37 @@ export default function TasksPage() {
                       >
                         <div className={`text-2xl ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-1.5">
-                            <p className={`text-sm font-medium break-all ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
-                            {task.completedToday && (
-                              <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1 shrink-0 mt-0.5">
-                                ✓ 完了
-                              </span>
-                            )}
-                            {!task.completedToday && streak >= 1 && (
-                              <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1 shrink-0">
-                                🔥{streak}日
-                              </span>
-                            )}
-                            {task.lastSkippedDate && (
-                              <span
-                                title={`直近のスキップ: ${new Date(task.lastSkippedDate).toLocaleDateString("ja-JP")}`}
-                                className="text-[9px] text-orange-300 bg-orange-400/10 border border-orange-400/40 rounded px-1 shrink-0 mt-0.5"
-                              >
-                                ⏭ {formatSkipBadge(task.lastSkippedDate)}
-                              </span>
-                            )}
-                            {formatPendingCarryBadge(task.oldestCarryOverPendingDate) && (
-                              <span
-                                title={`最古の未完了: ${new Date(task.oldestCarryOverPendingDate!).toLocaleDateString("ja-JP")}`}
-                                className="text-[9px] text-red-300 bg-red-400/10 border border-red-400/40 rounded px-1 shrink-0 mt-0.5"
-                              >
-                                🔁 {formatPendingCarryBadge(task.oldestCarryOverPendingDate)}
-                              </span>
-                            )}
-                          </div>
+                          {hasBadges && (
+                            <div className="flex flex-wrap items-center gap-1 mb-1">
+                              {task.completedToday && (
+                                <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1">
+                                  ✓ 完了
+                                </span>
+                              )}
+                              {!task.completedToday && streak >= 1 && (
+                                <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1">
+                                  🔥{streak}日
+                                </span>
+                              )}
+                              {task.lastSkippedDate && (
+                                <span
+                                  title={`直近のスキップ: ${new Date(task.lastSkippedDate).toLocaleDateString("ja-JP")}`}
+                                  className="text-[9px] text-orange-300 bg-orange-400/10 border border-orange-400/40 rounded px-1"
+                                >
+                                  ⏭ {formatSkipBadge(task.lastSkippedDate)}
+                                </span>
+                              )}
+                              {carryLabel && (
+                                <span
+                                  title={`最古の未完了: ${new Date(task.oldestCarryOverPendingDate!).toLocaleDateString("ja-JP")}`}
+                                  className="text-[9px] text-red-300 bg-red-400/10 border border-red-400/40 rounded px-1"
+                                >
+                                  🔁 {carryLabel}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <p className={`text-sm font-medium break-all ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
                           <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
                             <span>{cat.emoji} {cat.name}</span>
                             <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
