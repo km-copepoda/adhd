@@ -91,12 +91,54 @@ describe("ログアウト後のリダイレクト先", () => {
     });
   });
 
-  it("子 BottomNav: ログアウト後に /login にリダイレクトする", async () => {
+  it("子 BottomNav: 確認ダイアログでOKを押すと /login にリダイレクトする", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<BottomNav />);
     const btn = screen.getByText("ログアウト").closest("button")!;
     fireEvent.click(btn);
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
     await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalledTimes(1);
       expect((window.location as unknown as { href: string }).href).toBe("/login");
     });
+    confirmSpy.mockRestore();
+  });
+});
+
+describe("子 BottomNav: 誤タップ防止の確認ダイアログ", () => {
+  beforeEach(() => {
+    vi.stubGlobal("location", { href: "" });
+    mockSignOut.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("確認ダイアログでキャンセルした場合、signOut もリダイレクトもしない", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<BottomNav />);
+    const btn = screen.getByText("ログアウト").closest("button")!;
+    fireEvent.click(btn);
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    // キャンセル時はsignOutを呼ばない
+    expect(mockSignOut).not.toHaveBeenCalled();
+    // 念のため、非同期処理を待ってもリダイレクトしないことを確認
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect((window.location as unknown as { href: string }).href).toBe("");
+    confirmSpy.mockRestore();
+  });
+
+  it("ログアウトボタン押下時にconfirmが呼ばれる（メッセージ確認）", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<BottomNav />);
+    const btn = screen.getByText("ログアウト").closest("button")!;
+    fireEvent.click(btn);
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    // 子供向けの分かりやすいメッセージであること（"ログアウト" の文字を含む）
+    const message = String(confirmSpy.mock.calls[0][0]);
+    expect(message).toContain("ログアウト");
+    confirmSpy.mockRestore();
   });
 });
