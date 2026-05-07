@@ -4,7 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./lp.module.css";
 import { Share } from "next/font/google";
-import { PAIN_POINTS, BEFORE_AFTER, FAQ_ITEMS, HERO_SUB_TAGS } from "@/lib/lp";
+import {
+  PAIN_POINTS,
+  BEFORE_AFTER,
+  FAQ_ITEMS,
+  HERO_SUB_TAGS,
+  HIROBA_FEATURES,
+  CHEER_FEATURE,
+  HIROBA_PRIVACY_NOTES,
+} from "@/lib/lp";
 
 type MonsterStyle = "dark" | "light";
 
@@ -67,6 +75,7 @@ export default function LpPage() {
         <ul className={styles.navLinks}>
           <li><a href="#pain">こんな悩み</a></li>
           <li><a href="#features">機能</a></li>
+          <li><a href="#hiroba">ひろば</a></li>
           <li><a href="#habit">続ける仕組み</a></li>
           <li><a href="#beforeafter">変化</a></li>
           <li><a href="#faq">FAQ</a></li>
@@ -371,6 +380,63 @@ export default function LpPage() {
               <span>🥚</span>
               <span>卵 1 + (stage1 <strong>3</strong> + stage2 <strong>9</strong> + stage3 <strong>27</strong>) × 2スタイル = 合計<strong>79</strong>種</span>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== HIROBA & CHEER ===== */}
+      <section id="hiroba" className={`${styles.section} ${styles.hirobaSection}`}>
+        <div className={`${styles.orb} ${styles.hirobaOrb1}`} />
+        <div className={`${styles.orb} ${styles.hirobaOrb2}`} />
+        <div className={styles.container} style={{ position: "relative", zIndex: 1 }}>
+          <h2 className={`${styles.sectionHeading} ${styles.fadeIn}`}>HIROBA</h2>
+          <p className={`${styles.sectionSub} ${styles.fadeIn}`}>
+            「自分だけが頑張ってる」感じを、なかまの存在で和らげる場所
+          </p>
+          <div className={`${styles.divider} ${styles.fadeIn}`} />
+
+          <div className={styles.hirobaGrid}>
+            {HIROBA_FEATURES.map((f) => (
+              <div key={f.title} className={`${styles.hirobaCard} ${styles.fadeIn}`}>
+                <div className={styles.hirobaIcon}>{f.icon}</div>
+                <h3 className={styles.hirobaTitle}>{f.title}</h3>
+                <p className={styles.hirobaBody}>{f.body}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* CHEER（エール）スポットライト */}
+          <div className={`${styles.cheerSpotlight} ${styles.fadeIn}`}>
+            <div className={styles.cheerHeader}>
+              <span className={styles.cheerIcon} aria-hidden>{CHEER_FEATURE.icon}</span>
+              <div>
+                <h3 className={styles.cheerTitle}>{CHEER_FEATURE.title}</h3>
+                <p className={styles.cheerSubTitle}>{CHEER_FEATURE.subTitle}</p>
+              </div>
+              <span className={styles.cheerBadge}>1日1回</span>
+            </div>
+            <p className={styles.cheerBody}>{CHEER_FEATURE.body}</p>
+            <ul className={styles.cheerBullets}>
+              {CHEER_FEATURE.bullets.map((b) => (
+                <li key={b} className={styles.cheerBullet}>
+                  <span className={styles.cheerBulletMark} aria-hidden>✓</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* プライバシー */}
+          <div className={`${styles.privacyBox} ${styles.fadeIn}`}>
+            <div className={styles.privacyTitle}>
+              <span aria-hidden>🛡</span>
+              <span>親が安心して使わせられるプライバシー設計</span>
+            </div>
+            <ul className={styles.privacyList}>
+              {HIROBA_PRIVACY_NOTES.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
