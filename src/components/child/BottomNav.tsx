@@ -155,6 +155,7 @@ export default function BottomNav() {
   if (!shouldShowBottomNav(pathname ?? "")) return null;
 
   async function handleLogout() {
+    if (!confirm("ログアウトするとさいしょの画面にもどるよ。本当にログアウトする？")) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = "/login";
