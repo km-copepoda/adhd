@@ -4,11 +4,17 @@ import { GET as GET_TODAY } from "@/app/api/gathering/stamp/today/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToChild } from "@/lib/push";
+import { triggerStampSentLog } from "@/lib/bulletinLog";
 import { makeRequest } from "../../helpers/request";
 import { childUser, parentUser } from "../../helpers/fixtures";
 
+vi.mock("@/lib/bulletinLog", () => ({
+  triggerStampSentLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockSendPush = vi.mocked(sendPushToChild);
+const mockTriggerStampSentLog = vi.mocked(triggerStampSentLog);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -174,6 +180,50 @@ describe("POST /api/gathering/stamp", () => {
 
     const res = await POST(makeRequest("/api/gathering/stamp", {}));
     expect(res.status).toBe(409);
+  });
+
+  it("正常系: 掲示板ログ（STAMP_SENT）も書き込む", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1", monsterName: "ドラゴン" }) as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: { members: [{ childId: "child-1" }, { childId: "child-2" }] },
+    } as never);
+    vi.mocked(prisma.stamp.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.stamp.create).mockResolvedValue({ id: "s-1" } as never);
+    vi.mocked(prisma.questInstance.count).mockResolvedValue(0);
+
+    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    expect(res.status).toBe(200);
+
+    expect(mockTriggerStampSentLog).toHaveBeenCalledTimes(1);
+    expect(mockTriggerStampSentLog).toHaveBeenCalledWith("child-1");
+  });
+
+  it("ユニーク違反で409を返した場合は掲示板ログを書き込まない", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: { members: [{ childId: "child-1" }] },
+    } as never);
+    vi.mocked(prisma.stamp.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.stamp.create).mockRejectedValue(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+
+    await POST(makeRequest("/api/gathering/stamp", {}));
+    expect(mockTriggerStampSentLog).not.toHaveBeenCalled();
+  });
+
+  it("既に送信済みで409を返した場合は掲示板ログを書き込まない", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as never);
+    vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
+      groupId: "g-1",
+      group: { members: [] },
+    } as never);
+    vi.mocked(prisma.stamp.findUnique).mockResolvedValue({ id: "s-1" } as never);
+
+    await POST(makeRequest("/api/gathering/stamp", {}));
+    expect(mockTriggerStampSentLog).not.toHaveBeenCalled();
   });
 });
 

@@ -166,6 +166,13 @@ describe("buildBulletinMessage", () => {
     expect(msg).toContain("転生");
   });
 
+  it("STAMP_SENT: みんなにエールを送ったメッセージ", () => {
+    const msg = buildBulletinMessage("STAMP_SENT", "ドラゴン");
+    expect(msg).toContain("ドラゴン");
+    expect(msg).toContain("みんな");
+    expect(msg).toContain("エール");
+  });
+
   it("不明なtypeは空文字を返す", () => {
     expect(buildBulletinMessage("UNKNOWN_TYPE", "だれか")).toBe("");
   });
@@ -220,6 +227,10 @@ describe("getBulletinLogEmoji", () => {
 
   it("MONSTER_REBORN → 🐣", () => {
     expect(getBulletinLogEmoji("MONSTER_REBORN")).toBe("🐣");
+  });
+
+  it("STAMP_SENT → 📣（メガホン: みんなへの呼びかけ）", () => {
+    expect(getBulletinLogEmoji("STAMP_SENT")).toBe("📣");
   });
 
   it("不明なtypeはデフォルト絵文字を返す", () => {

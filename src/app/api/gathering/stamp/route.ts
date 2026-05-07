@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { todayJST } from "@/lib/date";
 import { sendPushToChild } from "@/lib/push";
 import { buildStampMessage, getStampProgressStatus } from "@/lib/gathering";
+import { triggerStampSentLog } from "@/lib/bulletinLog";
 import { log } from "@/lib/logger";
 
 /**
@@ -55,6 +56,10 @@ export async function POST(_request: Request) {
     }
     throw err;
   }
+
+  // 掲示板（BulletinLog）にも書き込む。レスポンス送信後の after() で実行し、
+  // 失敗してもユーザ操作のレイテンシ・成功応答に影響を与えない。
+  after(() => triggerStampSentLog(user.id).catch(() => {}));
 
   const senderName = user.monsterName ?? user.name ?? "なかま";
 

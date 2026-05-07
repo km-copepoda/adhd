@@ -196,6 +196,7 @@ enum BulletinLogType {
   STREAK_TITLE
   MONSTER_EVOLVED
   MONSTER_REBORN
+  STAMP_SENT
 }
 
 model GatheringGroup {

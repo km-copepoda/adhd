@@ -5,6 +5,7 @@ import {
   triggerStreakTitleLog,
   triggerMonsterEvolvedLog,
   triggerMonsterRebornLog,
+  triggerStampSentLog,
 } from "@/lib/bulletinLog";
 import { prisma } from "@/lib/prisma";
 
@@ -163,6 +164,53 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
     await triggerMonsterRebornLog("child-1", "べんきょう");
     const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
     expect(call.data.key).toBe("べんきょう");
+  });
+});
+
+describe("triggerStampSentLog", () => {
+  beforeEach(() => {
+    mockPrisma.gatheringMember.findUnique.mockResolvedValue({ groupId: "g-1" } as never);
+    mockPrisma.bulletinLog.create.mockResolvedValue({} as never);
+  });
+
+  it("グループ未参加なら何も書き込まない", async () => {
+    mockPrisma.gatheringMember.findUnique.mockResolvedValue(null);
+    await triggerStampSentLog("child-1");
+    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+  });
+
+  it("name と monsterName が両方 null なら書き込まない", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: null } as never);
+    await triggerStampSentLog("child-1");
+    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+  });
+
+  it("monsterName を優先して STAMP_SENT を書き込む", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: "鈴木太郎", monsterName: "ドラゴン" } as never);
+    await triggerStampSentLog("child-1");
+    expect(mockPrisma.bulletinLog.create).toHaveBeenCalledTimes(1);
+    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as {
+      data: { type: string; message: string; key: string };
+    };
+    expect(call.data.type).toBe("STAMP_SENT");
+    expect(call.data.message).toContain("ドラゴン");
+    expect(call.data.message).not.toContain("鈴木太郎");
+    expect(call.data.message).toContain("エール");
+  });
+
+  it("data.key は \"エール\" 固定（同日1回制約は Stamp 側で担保済みなので key で衝突は起きない）", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    await triggerStampSentLog("child-1");
+    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    expect(call.data.key).toBe("エール");
+  });
+
+  it("unique 違反は握りつぶす（同日に2回 trigger されても例外を投げない）", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, monsterName: "ドラゴン" } as never);
+    mockPrisma.bulletinLog.create.mockRejectedValueOnce(
+      Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
+    );
+    await expect(triggerStampSentLog("child-1")).resolves.not.toThrow();
   });
 });
 
