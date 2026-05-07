@@ -54,12 +54,14 @@ export function buildBulletinMessage(
       return `${childName}のモンスターが${extra}に進化した！`;
     case "MONSTER_REBORN":
       return `${childName}のモンスターが転生して${extra}の卵になった！`;
+    case "STAMP_SENT":
+      return `${childName}がみんなにエールを送ったよ！`;
     default:
       return "";
   }
 }
 
-export type BulletinLogType = "TASK_STARTED" | "TASK_PROGRESS_25" | "TASK_PROGRESS_50" | "TASK_PROGRESS_75" | "TASK_COMPLETE" | "BADGE_UNLOCKED" | "STREAK_TITLE" | "MONSTER_EVOLVED" | "MONSTER_REBORN";
+export type BulletinLogType = "TASK_STARTED" | "TASK_PROGRESS_25" | "TASK_PROGRESS_50" | "TASK_PROGRESS_75" | "TASK_COMPLETE" | "BADGE_UNLOCKED" | "STREAK_TITLE" | "MONSTER_EVOLVED" | "MONSTER_REBORN" | "STAMP_SENT";
 
 /** 掲示板ログ種別ごとの絵文字（ADHD向け視覚的差別化） */
 const BULLETIN_LOG_EMOJI: Record<string, string> = {
@@ -72,6 +74,7 @@ const BULLETIN_LOG_EMOJI: Record<string, string> = {
   STREAK_TITLE: "👑",
   MONSTER_EVOLVED: "🌟",
   MONSTER_REBORN: "🐣",
+  STAMP_SENT: "📣",
 };
 
 export function getBulletinLogEmoji(type: string): string {

@@ -134,3 +134,18 @@ export async function triggerMonsterRebornLog(childId: string, eggType: string):
     log.error("triggerMonsterRebornLog failed", { childId, err });
   }
 }
+
+/** エール送信ログをトリガー（POST /api/gathering/stamp 成功時に呼ぶ）。
+ * 1日1回制約は Stamp 側の @@unique([senderId, date]) で担保済みのため、
+ * key="エール" 固定で BulletinLog の unique と衝突しない。 */
+export async function triggerStampSentLog(childId: string): Promise<void> {
+  try {
+    const groupId = await getChildGroupId(childId);
+    if (!groupId) return;
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
+    await writeBulletinLog(groupId, childId, displayName, "STAMP_SENT", "エール");
+  } catch (err) {
+    log.error("triggerStampSentLog failed", { childId, err });
+  }
+}
