@@ -776,6 +776,306 @@ export default function LpPage() {
                 </div>
               </div>
             </div>
+
+            {/* 子ども: 図鑑 */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>📖 子ども — 図鑑</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`}>
+                  <div className={styles.sHeader}>
+                    <div className={styles.sTitle}>ZUKAN</div>
+                    <div className={styles.sXp}>🐣 7 / 79</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {[
+                      { tag: "学力系", color: "var(--study)" },
+                      { tag: "体力系", color: "var(--stamina)" },
+                      { tag: "生活系", color: "var(--life)" },
+                    ].map((t) => (
+                      <span key={t.tag} style={{ fontSize: 9, color: t.color, border: `1px solid ${t.color}`, borderRadius: 12, padding: "2px 8px", opacity: 0.85 }}>{t.tag}</span>
+                    ))}
+                  </div>
+                  <div className={styles.sSectionLabel}>進化ライン（学力系）</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", padding: "6px 0" }}>
+                    {[
+                      { src: "/monsters/dark/STUDY_ラーン.webp", name: "ラーン", got: true, fallback: "📚" },
+                      { src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", name: "ライブラ", got: true, fallback: "📖" },
+                      { src: undefined, name: "?", got: false, fallback: "?" },
+                    ].map((m, i, arr) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                          {m.src ? (
+                            <MonsterImg src={m.src} alt={m.name} fallback={m.fallback} style={{ width: 50, height: 50, objectFit: "contain", filter: m.got ? "none" : "grayscale(1) brightness(0.5)" }} />
+                          ) : (
+                            <div style={{ width: 50, height: 50, background: "var(--border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.4 }}><span style={{ fontSize: 22 }}>?</span></div>
+                          )}
+                          <div style={{ fontSize: 8, color: m.got ? "var(--gold)" : "var(--dim)" }}>{m.got ? m.name : "？？？"}</div>
+                        </div>
+                        {i < arr.length - 1 && <span style={{ color: "var(--dim)", fontSize: 12 }}>›</span>}
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.sSectionLabel}>コレクション</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
+                    {[
+                      { src: "/monsters/dark/STUDY_ラーン.webp", got: true, fb: "📚" },
+                      { src: "/monsters/dark/STAMINA_ガル.webp", got: true, fb: "💪" },
+                      { src: "/monsters/dark/LIFE_リフィ.webp", got: true, fb: "🌿" },
+                      { src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", got: true, fb: "📖" },
+                      { src: undefined, got: false, fb: "?" },
+                      { src: undefined, got: false, fb: "?" },
+                      { src: undefined, got: false, fb: "?" },
+                      { src: undefined, got: false, fb: "?" },
+                    ].map((m, i) => (
+                      <div key={i} style={{ background: m.got ? "var(--card2)" : "var(--border)", border: `1px solid ${m.got ? "rgba(240,192,64,0.2)" : "var(--border)"}`, borderRadius: 8, padding: 4, aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", opacity: m.got ? 1 : 0.35 }}>
+                        {m.got && m.src ? (
+                          <MonsterImg src={m.src} alt="" fallback={m.fb} style={{ width: 32, height: 32, objectFit: "contain" }} />
+                        ) : (
+                          <span style={{ fontSize: 14 }}>{m.fb}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 9, color: "var(--dim)", textAlign: "center", marginTop: 4 }}>転生してもっと集めよう</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 子ども: ひろば掲示板 */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>📣 子ども — ひろば掲示板</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`}>
+                  <div className={styles.sHeader}>
+                    <div className={styles.sTitle}>HIROBA</div>
+                    <div className={styles.sXp}>🌳 公園 12人</div>
+                  </div>
+                  <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>🤝</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 9, color: "var(--dim)" }}>あいことば</div>
+                      <div style={{ fontSize: 11, color: "var(--gold)", letterSpacing: 1 }}>サクラ</div>
+                    </div>
+                    <button type="button" style={{ background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.4)", color: "var(--evolve)", fontSize: 9, padding: "5px 10px", borderRadius: 8 }}>📣 エール</button>
+                  </div>
+                  <div className={styles.sSectionLabel}>5/7（木）の掲示板 ・きょう</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {[
+                      { emo: "🎉", text: "ライブラは今日のクエストをすべてやりとげた！", time: "今" },
+                      { emo: "📣", text: "ラーンがみんなにエールを送ったよ！", time: "5分前" },
+                      { emo: "🏅", text: "ガル は新しいバッジ「3日連続」を手に入れた！", time: "10分前" },
+                      { emo: "💪", text: "リフィは夢中でクエストをこなしている！", time: "30分前" },
+                      { emo: "🌟", text: "ラーンのモンスターがライブラに進化した！", time: "1時間前" },
+                    ].map((e, i) => (
+                      <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", fontSize: 10 }}>
+                        <span style={{ fontSize: 14, flexShrink: 0 }}>{e.emo}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: "var(--text)", lineHeight: 1.3 }}>{e.text}</div>
+                          <div style={{ fontSize: 8, color: "var(--dim)", marginTop: 1 }}>{e.time}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 9, color: "var(--dim)", textAlign: "center", marginTop: 4 }}>5/6（水）の掲示板 ▾</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 親: タスク管理 */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>📋 親 — タスク管理</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`}>
+                  <div className={styles.sHeader}>
+                    <div className={styles.sTitle}>TASKS</div>
+                    <div className={styles.sXp}>👧 もも</div>
+                  </div>
+                  <button type="button" style={{ background: "rgba(240,192,64,0.1)", border: "1px dashed rgba(240,192,64,0.4)", color: "var(--gold)", fontSize: 10, padding: 8, borderRadius: 10, cursor: "pointer" }}>＋ 新しいタスクを追加</button>
+                  <div className={styles.sSectionLabel}>くりかえしタスク</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {[
+                      { icon: "🌿", iconCls: styles.iconLife, name: "歯磨きをする", days: "毎日", photo: false },
+                      { icon: "📚", iconCls: styles.iconStudy, name: "宿題をする", days: "月火水木金", photo: true },
+                      { icon: "💪", iconCls: styles.iconStamina, name: "なわとび", days: "火木土", photo: false },
+                      { icon: "🌿", iconCls: styles.iconLife, name: "おてつだい", days: "毎日", photo: false },
+                    ].map((t, i) => (
+                      <div key={i} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                        <div className={`${styles.sQuestIcon} ${t.iconCls}`}>{t.icon}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, color: "var(--text)" }}>{t.name}</div>
+                          <div style={{ fontSize: 8, color: "var(--dim)" }}>{t.days}{t.photo && " ・写真ボーナス📸"}</div>
+                        </div>
+                        <button type="button" style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--dim)", fontSize: 9, padding: "3px 6px", borderRadius: 6 }}>編集</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.sSectionLabel}>子からの申請（1）</div>
+                  <div style={{ background: "rgba(240,192,64,0.08)", border: "1px solid rgba(240,192,64,0.3)", borderRadius: 10, padding: 8 }}>
+                    <div style={{ fontSize: 10, color: "var(--gold)" }}>📚 図書館で本を読む</div>
+                    <div style={{ fontSize: 8, color: "var(--dim)", marginTop: 2 }}>もも が追加 ・承認待ち</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 子ども: ストリーク履歴 */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>🔥 子ども — ストリーク履歴</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`}>
+                  <div className={styles.sHeader}>
+                    <div className={styles.sTitle}>STREAK</div>
+                    <div className={styles.sXp}>👑 一週間の戦士</div>
+                  </div>
+                  <div className={styles.sStreak}>
+                    <div className={styles.sStreakIcon}>🔥</div>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <div className={styles.sStreakNum}>7</div>
+                      <div className={styles.sStreakLabel}>日連続クリア中</div>
+                    </div>
+                    <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                      <div style={{ fontSize: 10, color: "var(--gold)" }}>ベスト 14日</div>
+                      <div style={{ fontSize: 9, color: "var(--dim)" }}>今月 22/30日</div>
+                    </div>
+                  </div>
+                  <div className={styles.sSectionLabel}>達成カレンダー（5月）</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+                    {["月","火","水","木","金","土","日"].map((d) => (
+                      <div key={d} style={{ fontSize: 8, color: "var(--dim)", textAlign: "center" }}>{d}</div>
+                    ))}
+                    {Array.from({ length: 30 }).map((_, i) => {
+                      const v = [1, 1, 0.6, 1, 1, 0.3, 1, 1, 1, 1, 0.6, 0, 1, 1, 1, 1, 1, 0.3, 1, 1, 1, 1, 1, 1, 1, 1, 0.6, 1, 1, 1][i] ?? 0;
+                      const bg = v === 1 ? "var(--gold)" : v >= 0.6 ? "rgba(240,192,64,0.5)" : v >= 0.3 ? "rgba(240,192,64,0.2)" : "var(--card2)";
+                      return (
+                        <div key={i} style={{ aspectRatio: "1", background: bg, borderRadius: 3, border: "1px solid var(--border)" }} />
+                      );
+                    })}
+                  </div>
+                  <div className={styles.sSectionLabel}>マイルストーン</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {[
+                      { t: "3日連続", got: true },
+                      { t: "7日連続 🎉一週間の戦士", got: true },
+                      { t: "14日連続", got: false, near: true },
+                      { t: "30日連続", got: false, near: false },
+                    ].map((m) => (
+                      <div key={m.t} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: m.got ? "var(--gold)" : m.near ? "var(--text)" : "var(--dim)" }}>
+                        <span>{m.got ? "✓" : "○"}</span>
+                        <span>{m.t}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 親: メンバー管理 */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>👨‍👩‍👧‍👦 親 — メンバー管理</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`}>
+                  <div className={styles.sHeader}>
+                    <div className={styles.sTitle}>FAMILY</div>
+                    <div className={styles.sXp}>👨‍👩‍👧‍👦 4名</div>
+                  </div>
+                  <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: 10 }}>
+                    <div style={{ fontSize: 9, color: "var(--dim)" }}>ファミリーコード</div>
+                    <div style={{ fontSize: 16, color: "var(--gold)", letterSpacing: 4, fontFamily: "var(--font-cinzel), serif", textAlign: "center", padding: "4px 0" }}>QX7-8H4</div>
+                    <button type="button" style={{ width: "100%", background: "rgba(240,192,64,0.1)", border: "1px solid rgba(240,192,64,0.3)", color: "var(--gold)", fontSize: 9, padding: 5, borderRadius: 6 }}>📋 コピーして共有</button>
+                  </div>
+                  <div className={styles.sSectionLabel}>子ども（2名）</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {[
+                      { avatar: "👧", name: "もも", age: 8, deadline: "20:00", monster: "ライブラ", src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", fb: "📖" },
+                      { avatar: "👦", name: "はる", age: 10, deadline: "21:00", monster: "ガル", src: "/monsters/dark/STAMINA_ガル.webp", fb: "💪" },
+                    ].map((c) => (
+                      <div key={c.name} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                        <MonsterImg src={c.src} alt={c.monster} fallback={c.fb} style={{ width: 36, height: 36, objectFit: "contain" }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, color: "var(--text)" }}>{c.name} <span style={{ fontSize: 9, color: "var(--dim)" }}>({c.age}歳)</span></div>
+                          <div style={{ fontSize: 8, color: "var(--dim)" }}>報告期限 {c.deadline} ・{c.monster}</div>
+                        </div>
+                        <button type="button" style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--dim)", fontSize: 9, padding: "3px 6px", borderRadius: 6 }}>設定</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.sSectionLabel}>親（2名）</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[{ a: "👩", n: "ママ" }, { a: "👨", n: "パパ" }].map((p) => (
+                      <div key={p.n} style={{ flex: 1, background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, textAlign: "center" }}>
+                        <div style={{ fontSize: 18 }}>{p.a}</div>
+                        <div style={{ fontSize: 9, color: "var(--dim)" }}>{p.n}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 進化カットイン */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>🌟 進化カットイン</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`} style={{ background: "radial-gradient(circle at 50% 40%, rgba(240,192,64,0.25), rgba(0,0,0,0.95) 70%)", justifyContent: "center", alignItems: "center", overflow: "hidden", position: "relative" }}>
+                  {/* 放射状のキラキラ */}
+                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+                    {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+                      <div key={deg} style={{ position: "absolute", top: "50%", left: "50%", width: 2, height: 120, background: "linear-gradient(to bottom, rgba(240,192,64,0.6), transparent)", transformOrigin: "top center", transform: `translate(-50%, -10px) rotate(${deg}deg)` }} />
+                    ))}
+                  </div>
+                  <div style={{ fontFamily: "var(--font-cinzel), serif", fontSize: 14, color: "var(--gold)", letterSpacing: 4, marginBottom: 10, textShadow: "0 0 20px rgba(240,192,64,0.8)" }}>EVOLUTION</div>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle, rgba(240,192,64,0.4), transparent 70%)", filter: "blur(20px)" }} />
+                    <MonsterImg
+                      src="/monsters/dark/STUDY_STUDY_ライブラ.webp"
+                      alt="ライブラ"
+                      fallback="📖"
+                      style={{ width: 130, height: 130, objectFit: "contain", animation: "float 3s ease-in-out infinite", filter: "drop-shadow(0 0 30px rgba(240,192,64,0.9))", position: "relative", zIndex: 1 }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 22, color: "var(--gold)", fontWeight: 700, textShadow: "0 0 14px rgba(240,192,64,0.7)", margin: "10px 0 4px" }}>進化した！</div>
+                  <div style={{ fontSize: 14, color: "var(--text)", letterSpacing: 1 }}>ラーン → <span style={{ color: "var(--gold)" }}>ライブラ</span></div>
+                  <div style={{ fontSize: 9, color: "var(--dim)", marginTop: 6 }}>stage 2 / 学力系</div>
+                  <button type="button" style={{ marginTop: 16, background: "rgba(240,192,64,0.15)", border: "1px solid rgba(240,192,64,0.5)", color: "var(--gold)", fontSize: 10, padding: "6px 18px", borderRadius: 20, letterSpacing: 1 }}>つづける</button>
+                </div>
+              </div>
+            </div>
+
+            {/* ログイン画面 */}
+            <div className={`${styles.phoneWrap} ${styles.fadeIn}`}>
+              <div className={styles.phoneLabel}>🔐 ログイン画面</div>
+              <div className={`${styles.phone} ${styles.phoneLarge}`}>
+                <div className={`${styles.screen} ${styles.screenLarge}`} style={{ justifyContent: "center", alignItems: "center", gap: 14 }}>
+                  <div style={{ fontFamily: "var(--font-cinzel), serif", fontSize: 18, color: "var(--gold)", letterSpacing: 4, textAlign: "center" }}>QUEST<br />BOARD</div>
+                  <div style={{ fontSize: 9, color: "var(--dim)", letterSpacing: 2, textAlign: "center", marginTop: -8 }}>～ クエストでひびを冒険に ～</div>
+                  <div style={{ width: "100%", padding: "12px 0" }}>
+                    <div style={{ fontSize: 10, color: "var(--dim)", textAlign: "center", marginBottom: 10 }}>あなたの役割を選んでね</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <button type="button" style={{ background: "linear-gradient(135deg, rgba(167,139,250,0.2), rgba(167,139,250,0.05))", border: "1px solid rgba(167,139,250,0.5)", color: "var(--evolve)", fontSize: 12, padding: 12, borderRadius: 12, display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 24 }}>👧</span>
+                        <div style={{ flex: 1, textAlign: "left" }}>
+                          <div style={{ fontWeight: 600 }}>子ども ログイン</div>
+                          <div style={{ fontSize: 8, color: "var(--dim)", marginTop: 2 }}>クエストにいどむ！</div>
+                        </div>
+                        <span style={{ color: "var(--evolve)" }}>›</span>
+                      </button>
+                      <button type="button" style={{ background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", fontSize: 12, padding: 12, borderRadius: 12, display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                        <span style={{ fontSize: 24 }}>👨‍👩‍👧</span>
+                        <div style={{ flex: 1, textAlign: "left" }}>
+                          <div style={{ fontWeight: 600 }}>親 ログイン</div>
+                          <div style={{ fontSize: 8, color: "var(--dim)", marginTop: 2 }}>子のがんばりを見守る</div>
+                        </div>
+                        <span style={{ color: "var(--dim)" }}>›</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 9, color: "var(--dim)", textAlign: "center", borderTop: "1px solid var(--border)", paddingTop: 10, width: "100%" }}>
+                    親アカウント新規登録は<br />
+                    <span style={{ color: "var(--gold)" }}>＋ こちら</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
