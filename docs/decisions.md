@@ -675,3 +675,22 @@
 - エール送信のメッセージにタスク名・具体的な進捗数値を含める（プライバシー）
 - `key` を空文字 `""` にする（Stamp 側の1日1回制約と意味的に重複させない。`"エール"` 固定で読みやすさを維持）
 - 既存の Push 抑制ロジック（DONE 受信者へは送らない / 2026-05-05 決定）を掲示板書き込みにも適用する（掲示板は全員に対する「送った事実」のフィードバックなので、受信側の進捗で間引かない）
+
+## 2026-05-09: ひろば なかま一覧の表示識別子を `monsterName` + `speciesName` の2軸に再構成し API から `name` を除去
+
+### 決定内容
+- `GET /api/gathering/current` の `members[]` から `name`（本名フォールバック）フィールドを削除
+- `members[]` は `id / monsterName / speciesName / monsterImage / evolutionStage / isMe` のみを返す
+  - `monsterName`: `User.monsterName ?? <種族名>`（既存通り。スタンプ送信文言にも流用）
+  - `speciesName`: `getMonsterStage().name`（種族名固定）
+- `<GatheringMemberList>` の表示は **上=`monsterName`（太字）／下=`speciesName`（薄字）** とし、両者が同一文字列のときは下ラベルを非表示にして重複表示を防ぐ
+- 2026-04-28「参加メンバー一覧の `name` フォールバックを `name ?? monsterName ?? <種族名>` に変更」のうち `name` 経路を **撤回**
+
+### 理由
+- 実装上 CHILD ロールの `User.name` をセットするコードパスが存在せず（親登録のみ `name = email の @ 前`）、CHILD は常に `name = null`。旧 API の `name = m.child.name ?? monsterName` は CHILD では常に `monsterName` に潰れ、上下ラベルが必ず同じ文字列になる表示バグの構造的原因だった
+- 2026-04-26 の「本名 (`name`) はグループ外（他ファミリー）に晒さない」プライバシー方針と整合。API レスポンス自体に `name` を含めないことで、誤って本名が露出する経路を構造的にゼロにする
+- なかま一覧の「上=愛称／下=種族名」の2軸は、スタンプ・掲示板で既に確立した `monsterName` 優先表示と一貫し、種族名表示でコレクション要素（種族の多様さ）も視認できる
+
+### やってはいけないこと
+- `/api/gathering/current` の `members[]` に `name`（本名フォールバック含む）を再追加する
+- `<GatheringMemberList>` で `monsterName` と `speciesName` のどちらか片方しか表示しない（重複時の片方非表示は許容、ただし両者が異なる場合は両方表示）
