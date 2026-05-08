@@ -76,11 +76,17 @@ describe("GET /api/gathering/current", () => {
     expect(me.name).toBe("太郎");
     expect(me.isMe).toBe(true);
     expect(me.monsterImage).toContain("STUDY_STUDY");
+    // speciesName は種族名（getMonsterStage の name）で、name とは独立した値
+    expect(typeof me.speciesName).toBe("string");
+    expect(me.speciesName.length).toBeGreaterThan(0);
+    expect(me.speciesName).not.toBe(me.name); // "太郎" ≠ 種族名
 
     const other = data.members.find((m: { id: string }) => m.id === "child-2");
     expect(other.isMe).toBe(false);
     expect(other.monsterImage).toContain("egg.webp");
     expect(other.monsterImage).toContain("light");
+    expect(typeof other.speciesName).toBe("string");
+    expect(other.speciesName.length).toBeGreaterThan(0);
   });
 
   it("子供: name=null かつ monsterName あり → name は monsterName にフォールバック", async () => {

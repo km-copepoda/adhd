@@ -11,6 +11,7 @@ type Member = {
   id: string;
   name: string;
   monsterName: string;
+  speciesName: string;
   monsterImage: string;
   evolutionStage: number;
   isMe: boolean;

@@ -74,6 +74,7 @@ export async function GET(request: Request) {
       id: m.child.id,
       name: m.child.name ?? monsterName,
       monsterName,
+      speciesName: monster.name,
       monsterImage: monster.image,
       evolutionStage: m.child.evolutionStage,
       isMe: user.role === "CHILD" && m.child.id === user.id,
