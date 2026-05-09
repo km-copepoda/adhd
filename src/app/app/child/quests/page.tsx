@@ -9,7 +9,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
-import { computeCompletedCount, sortQuestsByCompletion } from "@/lib/questProgress";
+import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
+import { IDLE_DAYS_THRESHOLD, DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 import { shouldShowReportHint } from "@/lib/quest-hint";
 
@@ -23,6 +24,8 @@ type Quest = {
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
   hasDeadline: boolean;
+  idleDays: number;
+  declaredToday: boolean;
   template: {
     id: string;
     title: string;
@@ -237,7 +240,27 @@ export default function QuestsPage() {
   }
 
   const completedCount = computeCompletedCount(quests);
-  const sortedQuests = sortQuestsByCompletion(quests);
+  const sortedQuests = sortQuestsForDeclaration(quests);
+
+  async function handleDeclare(questId: string) {
+    // 楽観的更新: 即座に declaredToday=true にする
+    setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, declaredToday: true } : q)));
+    questsRef.current = questsRef.current.map((q) =>
+      q.id === questId ? { ...q, declaredToday: true } : q,
+    );
+    try {
+      const res = await fetch(`/api/quests/${questId}/declare`, { method: "POST" });
+      if (!res.ok) {
+        // 失敗したら戻す
+        setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, declaredToday: false } : q)));
+        questsRef.current = questsRef.current.map((q) =>
+          q.id === questId ? { ...q, declaredToday: false } : q,
+        );
+      }
+    } catch {
+      setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, declaredToday: false } : q)));
+    }
+  }
 
   const provisionalPt = quests
     .filter((q) => q.status === "REPORTED")
@@ -245,6 +268,7 @@ export default function QuestsPage() {
       let xp = 1;
       if (q.deadlineBonusEarned) xp++;
       if (q.template.photoBonus && q.photoUrl) xp++;
+      if (q.declaredToday) xp += DECLARATION_BONUS_XP;
       return sum + xp;
     }, 0);
 
@@ -254,6 +278,7 @@ export default function QuestsPage() {
       let xp = 1;
       if (q.deadlineBonusEarned) xp++;
       if (q.template.photoBonus && q.photoUrl) xp++;
+      if (q.declaredToday) xp += DECLARATION_BONUS_XP;
       return sum + xp;
     }, 0);
 
@@ -477,6 +502,7 @@ export default function QuestsPage() {
             let xp = 1;
             if (quest.deadlineBonusEarned) xp++;
             if (quest.template.photoBonus && quest.photoUrl) xp++;
+            if (quest.declaredToday) xp += DECLARATION_BONUS_XP;
             const isTemporary = quest.template.isTemporary;
             const taskStreak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
             const isApproved = quest.status === "APPROVED";
@@ -485,6 +511,10 @@ export default function QuestsPage() {
             const isSkipReported = quest.status === "SKIP_REPORTED";
             const isRejected = quest.status === "REJECTED";
             const isDone = isApproved || isReported || isSkipped || isSkipReported;
+            const isIdleEligible =
+              !isDone &&
+              (quest.status === "PENDING" || quest.status === "REJECTED") &&
+              quest.idleDays >= IDLE_DAYS_THRESHOLD;
 
             return (
               <div key={quest.id}>
@@ -585,6 +615,38 @@ export default function QuestsPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* 「今日やる宣言」 — 3日以上アイドルなタスクにだけ表示 */}
+                {isIdleEligible && (
+                  <div className="bg-quest-card border border-quest-gold/30 border-t-0 rounded-b-xl px-4 py-3 flex items-center gap-2">
+                    <span className="text-xl shrink-0">⏰</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-quest-gold/80 font-medium">
+                        {quest.idleDays}日やってないよ
+                      </p>
+                      <p className="text-[10px] text-quest-dim mt-0.5">
+                        {quest.declaredToday
+                          ? `今日やるって決めたね！完了で +${DECLARATION_BONUS_XP}XPボーナス`
+                          : "「今日やる」って決めると、完了したときボーナスがもらえる"}
+                      </p>
+                    </div>
+                    {quest.declaredToday ? (
+                      <span className="text-[10px] text-quest-gold border border-quest-gold/40 rounded-lg px-2 py-1 shrink-0 bg-quest-gold/10">
+                        ✓ 宣言済み
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeclare(quest.id);
+                        }}
+                        className="text-[10px] text-quest-gold border border-quest-gold/40 rounded-lg px-2 py-1 shrink-0 hover:bg-quest-gold/10 active:scale-95 transition-all"
+                      >
+                        今日やる（完了で +{DECLARATION_BONUS_XP}）
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* 差し戻し理由バナー */}
                 {isRejected && quest.rejectionReason && (

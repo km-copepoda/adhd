@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { todayJST } from "@/lib/date";
 import { ensureTodayQuests } from "@/lib/quests";
+import { getIdleDays } from "@/lib/declaration";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -34,6 +35,7 @@ export async function GET() {
           createdBy: true,
           photoBonus: true,
           carryOver: true,
+          createdAt: true,
           taskStreaks: {
             where: { childId: user.id },
             select: { currentStreak: true, bestStreak: true },
@@ -44,15 +46,48 @@ export async function GET() {
     orderBy: { template: { createdAt: "asc" } },
   });
 
+  // 「今日やる宣言」用の集計: 各テンプレートの最終 APPROVED + 当日宣言の有無
+  const templateIds = Array.from(new Set(quests.map((q) => q.templateId)));
+  const [lastApprovedRows, declarationsToday] = await Promise.all([
+    templateIds.length
+      ? prisma.questInstance.groupBy({
+          by: ["templateId"],
+          where: { childId: user.id, templateId: { in: templateIds }, status: "APPROVED" },
+          _max: { approvedAt: true },
+        })
+      : Promise.resolve([] as { templateId: string; _max: { approvedAt: Date | null } }[]),
+    templateIds.length
+      ? prisma.questDeclaration.findMany({
+          where: { childId: user.id, date: today, templateId: { in: templateIds } },
+          select: { templateId: true },
+        })
+      : Promise.resolve([] as { templateId: string }[]),
+  ]);
+
+  const lastApprovedByTemplate = new Map<string, Date | null>(
+    lastApprovedRows.map((r) => [r.templateId, r._max.approvedAt]),
+  );
+  const declaredTemplateIds = new Set(declarationsToday.map((d) => d.templateId));
+
   const hasDeadline = !!user.reportDeadlineTime;
-  return NextResponse.json(quests.map((q) => ({
-    ...q,
-    hasDeadline,
-    template: {
-      ...q.template,
-      title: q.snapshotTitle ?? q.template.title,
-      emoji: q.snapshotEmoji ?? q.template.emoji,
-      category: q.snapshotCategory ?? q.template.category,
-    },
-  })));
+  return NextResponse.json(quests.map((q) => {
+    const lastApprovedAt = lastApprovedByTemplate.get(q.templateId) ?? null;
+    const idleDays = getIdleDays({
+      today,
+      lastApprovedAt,
+      templateCreatedAt: q.template.createdAt,
+    });
+    return {
+      ...q,
+      hasDeadline,
+      idleDays,
+      declaredToday: declaredTemplateIds.has(q.templateId),
+      template: {
+        ...q.template,
+        title: q.snapshotTitle ?? q.template.title,
+        emoji: q.snapshotEmoji ?? q.template.emoji,
+        category: q.snapshotCategory ?? q.template.category,
+      },
+    };
+  }));
 }

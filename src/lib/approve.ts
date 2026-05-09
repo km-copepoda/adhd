@@ -7,10 +7,13 @@ import { log } from "@/lib/logger";
 import { calculateQuestXP } from "@/lib/xp";
 import { getMonsterStage } from "@/lib/monsters";
 import { triggerMonsterEvolvedLog, triggerBadgeLog } from "@/lib/bulletinLog";
+import { DECLARATION_BONUS_XP } from "@/lib/declaration";
+import { todayJST, jstDateOf } from "@/lib/date";
 
 type QuestWithRelations = {
   id: string;
   date: Date;
+  reportedAt?: Date | null;
   childId: string;
   templateId: string;
   deadlineBonusEarned: boolean;
@@ -49,7 +52,22 @@ type FreshChildData = {
 };
 
 export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
-  const xp = calculateQuestXP(quest);
+  const baseXp = calculateQuestXP(quest);
+
+  // 「今日やる宣言ボーナス」: 報告日（JST）に対応する宣言があれば +1
+  const reportedDate = quest.reportedAt ? jstDateOf(quest.reportedAt) : todayJST();
+  const declaration = await prisma.questDeclaration.findUnique({
+    where: {
+      templateId_childId_date: {
+        templateId: quest.templateId,
+        childId: quest.childId,
+        date: reportedDate,
+      },
+    },
+  });
+  const declarationBonus = declaration ? DECLARATION_BONUS_XP : 0;
+
+  const xp = baseXp + declarationBonus;
   const category = quest.snapshotCategory ?? quest.template.category;
 
   // 最新のchildデータをDBから取得（stale dataによるポイント上書きを防ぐ）
