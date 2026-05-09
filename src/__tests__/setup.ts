@@ -39,6 +39,7 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       count: vi.fn(),
       deleteMany: vi.fn(),
+      groupBy: vi.fn().mockResolvedValue([]),
     },
     streak: {
       findUnique: vi.fn(),
@@ -82,6 +83,14 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
+    },
+    questDeclaration: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));

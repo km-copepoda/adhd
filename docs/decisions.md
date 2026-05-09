@@ -694,3 +694,26 @@
 ### やってはいけないこと
 - `/api/gathering/current` の `members[]` に `name`（本名フォールバック含む）を再追加する
 - `<GatheringMemberList>` で `monsterName` と `speciesName` のどちらか片方しか表示しない（重複時の片方非表示は許容、ただし両者が異なる場合は両方表示）
+
+## 2026-05-09: 「今日やる宣言ボーナス」の導入（放置タスク回避向け）
+
+### 決定内容
+- 3 日以上アイドル状態（最終 APPROVED から JST 換算で 3 日以上経過、または一度も APPROVED されていない場合は `template.createdAt` から 3 日以上経過）の今日のクエストに対して、子供画面で「今日やる」ボタンを表示する
+- ボタンを押した事実だけを `QuestDeclaration { templateId, childId, date(@db.Date) }` に記録（unique `(templateId, childId, date)`）。XP もペナルティもこの時点では発生しない
+- 同じ日のうちに当該クエストが APPROVED まで到達した場合、`approveQuestInstance` が `reportedAt` の JST 日付に対応する宣言を検索して、見つかれば `+DECLARATION_BONUS_XP (=1)` を加算する。carryOver タスクでも `quest.date` ではなく `reportedAt` 基準で照合するためマッチする
+- 放置カウンタのリセット条件は **APPROVED のみ**（spec: 「スキップまたは未完了」両方を放置として扱う）。SKIPPED/SKIP_REPORTED/REPORTED/REJECTED/PENDING はカウンタを増やすだけ
+- ボタンの表示対象ステータスは PENDING / REJECTED のみ（既に今日アクション済みの REPORTED/APPROVED/SKIPPED/SKIP_REPORTED には出さない）
+- 子供画面では `sortQuestsForDeclaration` で「アイドル未完了 → その他未完了 → 完了済み」の順に並び替えて、放置タスクが画面上部に来るようにする
+- 純粋関数（`getIdleDays`, `isEligibleForDeclaration`, `IDLE_DAYS_THRESHOLD`, `DECLARATION_BONUS_XP`, `sortQuestsForDeclaration`）は `src/lib/declaration.ts` と `src/lib/questProgress.ts` に分離してテスト容易にした
+
+### 理由
+- 得意なタスクだけ消化して苦手なタスクが永続的に放置されるパターン（ADHD 特性: 開始の神経回路が発火しづらい）への対策。放置タスクが目に入る状態を毎日作りつつ、操作ステップ追加・宣言ノルマ・親通知のいずれも増やさず「ペナルティなしのリマインド + 実行したら報われる」設計にまとめる
+- XP 上乗せは「宣言だけして完了しない」形骸化を防ぐため、宣言と完了のコンボでのみ発火させる（spec: 宣言だけは 0pt）
+- 放置判定の基準を「最終 APPROVED からの JST 日付差」に統一することで、carryOver タスクも非 carryOver タスクも同じ式で扱える（前者は instance.date が古いまま APPROVED されるため `approvedAt` ベースが必須）
+
+### やってはいけないこと
+- 宣言だけで XP を付与する（spec の形骸化防止条項）
+- 宣言したのに未完了だった場合にペナルティ（XP 減・ストリーク折れ・親通知など）を発動する（spec のノーリスク条項）
+- ボタン表示条件を「1 日 1 つに制限」する（spec: 自然と数が絞られるため不要）
+- 宣言処理を承認フローの `await` で直列に組み込む（既存の `after()` 方針には反しないが、宣言ボーナス分の XP は承認時点で確定させたいので findUnique は同期的に呼ぶのが正しい）
+- 放置カウンタのリセットを SKIPPED で行う（spec: スキップは放置として扱う）

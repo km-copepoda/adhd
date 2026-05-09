@@ -47,7 +47,7 @@ describe("GET /api/quests/today", () => {
         templateId: "tpl-1",
         childId: "child-1",
         status: "PENDING",
-        template: { id: "tpl-1", title: "宿題" },
+        template: { id: "tpl-1", title: "宿題", createdAt: new Date("2026-03-12T00:00:00Z") },
       },
     ];
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
@@ -95,7 +95,7 @@ describe("GET /api/quests/today", () => {
         snapshotTitle: "宿題（旧名）",
         snapshotEmoji: "📖",
         snapshotCategory: "LIFE",
-        template: { id: "tpl-1", title: "宿題（新名）", emoji: "📚", category: "STUDY" },
+        template: { id: "tpl-1", title: "宿題（新名）", emoji: "📚", category: "STUDY", createdAt: new Date("2026-03-12T00:00:00Z") },
       },
     ];
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
@@ -120,7 +120,7 @@ describe("GET /api/quests/today", () => {
         snapshotTitle: null,
         snapshotEmoji: null,
         snapshotCategory: null,
-        template: { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY" },
+        template: { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", createdAt: new Date("2026-03-12T00:00:00Z") },
       },
     ];
     mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
@@ -290,6 +290,69 @@ describe("GET /api/quests/today", () => {
     );
   });
   
+  describe("今日やる宣言: idleDays / declaredToday", () => {
+    it("最終APPROVEDが3日以上前なら idleDays >= 3 を返す", async () => {
+      vi.setSystemTime(new Date("2026-05-09T09:00:00")); // JST 5/9
+      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+      const quests = [
+        {
+          id: "q1",
+          templateId: "tpl-stale",
+          childId: "child-1",
+          status: "PENDING",
+          snapshotTitle: "練習",
+          snapshotEmoji: "🎹",
+          snapshotCategory: "LIFE",
+          template: {
+            id: "tpl-stale",
+            title: "練習",
+            emoji: "🎹",
+            category: "LIFE",
+            createdAt: new Date("2026-04-01T00:00:00Z"),
+          },
+        },
+      ];
+      mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+      // 4日前の APPROVED
+      mockPrisma.questInstance.groupBy.mockResolvedValue([
+        { templateId: "tpl-stale", _max: { approvedAt: new Date("2026-05-05T05:00:00Z") } },
+      ] as any);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([] as any);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json[0].idleDays).toBeGreaterThanOrEqual(3);
+      expect(json[0].declaredToday).toBe(false);
+    });
+
+    it("当日の宣言レコードがあれば declaredToday=true", async () => {
+      vi.setSystemTime(new Date("2026-05-09T09:00:00"));
+      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+      const quests = [
+        {
+          id: "q1",
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: "PENDING",
+          template: { id: "tpl-1", title: "練習", emoji: "🎹", category: "LIFE", createdAt: new Date("2026-04-01T00:00:00Z") },
+        },
+      ];
+      mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+      mockPrisma.questInstance.groupBy.mockResolvedValue([] as any);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([{ templateId: "tpl-1" }] as any);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json[0].declaredToday).toBe(true);
+    });
+  });
+
   it("JST深夜（UTCは前日）でもJST基準の日付でリクエストを生成すること", async () => {
     // JST 2026-03-12 01:00 = UTC 2026-03-11 16:00
     vi.setSystemTime(new Date("2026-03-11T16:00:00Z"));

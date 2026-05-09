@@ -25,6 +25,12 @@ export function todayJST(): Date {
   return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate()));
 }
 
+/** 任意の Date を JST 日付（UTC 0時表現、@db.Date と同じ形）に正規化する */
+export function jstDateOf(d: Date): Date {
+  const jst = new Date(d.getTime() + JST_OFFSET_MS);
+  return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate()));
+}
+
 /** JST での今日の曜日（0=Sun ... 6=Sat）*/
 export function dayOfWeekJST(): number {
   return jstNow().getUTCDay();

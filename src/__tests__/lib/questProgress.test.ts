@@ -4,6 +4,7 @@ import {
   computeCompletedCount,
   computeRemainingCount,
   sortQuestsByCompletion,
+  sortQuestsForDeclaration,
 } from "@/lib/questProgress";
 
 describe("computeQuestSuccessDisplay", () => {
@@ -147,6 +148,44 @@ describe("sortQuestsByCompletion", () => {
     const quests = [q("a", "APPROVED"), q("b", "PENDING")];
     const original = [...quests];
     sortQuestsByCompletion(quests);
+    expect(quests).toEqual(original);
+  });
+});
+
+describe("sortQuestsForDeclaration", () => {
+  const q = (id: string, status: string, idleDays = 0) => ({ id, status, idleDays });
+
+  it("idle (idleDays>=3 かつ未完了) を最上段に、その他未完了→完了の順に並べる", () => {
+    const quests = [
+      q("done1", "APPROVED", 0),
+      q("normal1", "PENDING", 0),
+      q("idle1", "PENDING", 5),
+      q("done2", "SKIPPED", 0),
+      q("normal2", "REJECTED", 1),
+      q("idle2", "REJECTED", 3),
+    ];
+    const sorted = sortQuestsForDeclaration(quests);
+    expect(sorted.map((x) => x.id)).toEqual(["idle1", "idle2", "normal1", "normal2", "done1", "done2"]);
+  });
+
+  it("既に完了したクエストは idleDays が高くても下段に置く", () => {
+    const quests = [
+      q("done-stale", "APPROVED", 10),
+      q("idle", "PENDING", 5),
+      q("normal", "PENDING", 0),
+    ];
+    const sorted = sortQuestsForDeclaration(quests);
+    expect(sorted.map((x) => x.id)).toEqual(["idle", "normal", "done-stale"]);
+  });
+
+  it("空配列は空配列を返す", () => {
+    expect(sortQuestsForDeclaration([])).toEqual([]);
+  });
+
+  it("元の配列を変更しない（非破壊）", () => {
+    const quests = [q("a", "APPROVED", 0), q("b", "PENDING", 5)];
+    const original = [...quests];
+    sortQuestsForDeclaration(quests);
     expect(quests).toEqual(original);
   });
 });

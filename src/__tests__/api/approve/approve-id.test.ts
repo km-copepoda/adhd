@@ -23,6 +23,8 @@ const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 宣言ボーナス: 既定では宣言なし（テスト毎に上書き可能）
+  mockPrisma.questDeclaration.findUnique.mockResolvedValue(null);
 });
 
 describe("POST /api/approve/[id]", () => {
@@ -439,6 +441,98 @@ describe("POST /api/approve/[id]", () => {
       await POST(makeRequest("/api/approve/q3", { action: "approve" }), makeParams("q3"));
 
       expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
+    });
+
+    it("宣言済みタスク承認時、+1XPボーナスが付与されること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-decl",
+        status: "REPORTED",
+        date: new Date("2026-05-09"),
+        reportedAt: new Date("2026-05-09T05:00:00Z"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { category: "STUDY", createdBy: "PARENT", photoBonus: false, isTemporary: false },
+        child: childData,
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
+      // reportedAt の JST日付（2026-05-09）に対する宣言レコードあり
+      mockPrisma.questDeclaration.findUnique.mockResolvedValue({
+        id: "decl-1",
+        templateId: "tpl-1",
+        childId: "child-1",
+        date: new Date("2026-05-09"),
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      await POST(makeRequest("/api/approve/q-decl", { action: "approve" }), makeParams("q-decl"));
+
+      // 基本1pt + 宣言ボーナス1pt = 2pt
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "child-1" },
+        data: expect.objectContaining({ studyPt: 2 }),
+      });
+    });
+
+    it("宣言なしのタスク承認時はボーナスなし（基本のみ）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-no-decl",
+        status: "REPORTED",
+        date: new Date("2026-05-09"),
+        reportedAt: new Date("2026-05-09T05:00:00Z"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        template: { category: "STUDY", createdBy: "PARENT", photoBonus: false, isTemporary: false },
+        child: childData,
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
+      mockPrisma.questDeclaration.findUnique.mockResolvedValue(null);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      await POST(makeRequest("/api/approve/q-no-decl", { action: "approve" }), makeParams("q-no-decl"));
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "child-1" },
+        data: expect.objectContaining({ studyPt: 1 }),
+      });
+    });
+
+    it("宣言あり + deadlineBonus + photoBonus を全部加算（最大4pt）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const childData = { id: "child-1", evolutionPath: "", evolutionStage: 1, studyPt: 0, staminaPt: 0, lifePt: 0, collectedPaths: "[]" };
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-decl-all",
+        status: "REPORTED",
+        date: new Date("2026-05-09"),
+        reportedAt: new Date("2026-05-09T05:00:00Z"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        deadlineBonusEarned: true,
+        photoUrl: "https://example.com/p.jpg",
+        template: { category: "LIFE", createdBy: "PARENT", photoBonus: true, isTemporary: false },
+        child: childData,
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childData as any);
+      mockPrisma.questDeclaration.findUnique.mockResolvedValue({ id: "decl-2" } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      await POST(makeRequest("/api/approve/q-decl-all", { action: "approve" }), makeParams("q-decl-all"));
+
+      // 1 + 1 (deadline) + 1 (photo) + 1 (declaration) = 4
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "child-1" },
+        data: expect.objectContaining({ lifePt: 4 }),
+      });
     });
 
     it("転生条件達成時にrebirthPending=trueをセットしstageをリセットしないこと", async () => {
