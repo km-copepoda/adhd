@@ -10,7 +10,7 @@ import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
-import { IDLE_DAYS_THRESHOLD, DECLARATION_BONUS_XP } from "@/lib/declaration";
+import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 import { shouldShowReportHint } from "@/lib/quest-hint";
 
@@ -25,6 +25,7 @@ type Quest = {
   photoUrl: string | null;
   hasDeadline: boolean;
   idleDays: number;
+  eligibleForDeclaration: boolean;
   declaredToday: boolean;
   template: {
     id: string;
@@ -511,10 +512,7 @@ export default function QuestsPage() {
             const isSkipReported = quest.status === "SKIP_REPORTED";
             const isRejected = quest.status === "REJECTED";
             const isDone = isApproved || isReported || isSkipped || isSkipReported;
-            const isIdleEligible =
-              !isDone &&
-              (quest.status === "PENDING" || quest.status === "REJECTED") &&
-              quest.idleDays >= IDLE_DAYS_THRESHOLD;
+            const isIdleEligible = !isDone && quest.eligibleForDeclaration;
 
             return (
               <div key={quest.id}>

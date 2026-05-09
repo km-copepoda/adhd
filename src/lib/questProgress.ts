@@ -37,24 +37,19 @@ export function sortQuestsByCompletion<T extends { status: string }>(quests: T[]
 /**
  * 「今日やる宣言」用の並び替え。
  *
- * 1. idle（idleDays >= 3 かつ未完了）— 一番上に来て放置タスクが目に入る
+ * 1. eligibleForDeclaration=true（= 放置中の未完了）— 放置タスクが目に入る
  * 2. その他の未完了（PENDING/REJECTED）
  * 3. 完了済み（REPORTED/APPROVED/SKIP_REPORTED/SKIPPED）
  *
  * 各グループ内は元の順序を保つ（安定ソート）。
  */
-import { IDLE_DAYS_THRESHOLD } from "@/lib/declaration";
-
-export function sortQuestsForDeclaration<T extends { status: string; idleDays: number }>(quests: T[]): T[] {
-  return [...quests].sort((a, b) => {
-    return rank(a) - rank(b);
-  });
+export function sortQuestsForDeclaration<T extends { status: string; eligibleForDeclaration: boolean }>(quests: T[]): T[] {
+  return [...quests].sort((a, b) => rank(a) - rank(b));
 }
 
-function rank(q: { status: string; idleDays: number }): number {
-  const isDone = COMPLETED_STATUSES.has(q.status);
-  if (isDone) return 2;
-  if (q.idleDays >= IDLE_DAYS_THRESHOLD) return 0;
+function rank(q: { status: string; eligibleForDeclaration: boolean }): number {
+  if (COMPLETED_STATUSES.has(q.status)) return 2;
+  if (q.eligibleForDeclaration) return 0;
   return 1;
 }
 

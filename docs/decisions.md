@@ -698,3 +698,23 @@
 - ボタン表示条件を「1 日 1 つに制限」する（spec: 自然と数が絞られるため不要）
 - 宣言処理を承認フローの `await` で直列に組み込む（既存の `after()` 方針には反しないが、宣言ボーナス分の XP は承認時点で確定させたいので findUnique は同期的に呼ぶのが正しい）
 - 放置カウンタのリセットを SKIPPED で行う（spec: スキップは放置として扱う）
+
+## 2026-05-09 (改): 「今日やる宣言」の放置判定を「直近 N 出現の連続非 APPROVED 数」に変更
+
+### 決定内容
+- 同日の決定 (上記) で導入したアイドル判定基準を **暦日数ベース** から **「直近 N 出現の連鎖長」ベース** に変更
+- `getMissedExposureCount({ allInstances, today, carryOver })`:
+  - 通常タスク: date 降順の `QuestInstance` を上から走査し、最初の `APPROVED` までの非 APPROVED 件数を返す（今日のインスタンスも含む）
+  - carryOver タスク: 連鎖最古の非 APPROVED `instance.date` から today までの暦日数（inclusive）を返す（carryOver は instance が増殖しないため）
+- 閾値定数も `IDLE_DAYS_THRESHOLD` → `IDLE_EXPOSURE_THRESHOLD` (= 3) に改名
+- API レスポンスは表示用に `idleDays`（最終 APPROVED からの暦日差）と判定結果 `eligibleForDeclaration` を分けて返す
+- `/api/quests/today` の per-template 集計を `groupBy` から `findMany take=30 desc` ベースに切り替え（連鎖長の計算には個別の status 履歴が必要）
+
+### 理由
+- 旧仕様（暦日数 ≥ 3）では **週次タスクで 1 回スキップしただけで翌週いきなりボタンが出る** 過剰反応バグがあった。子供は週に 1 回しか機会がないのに、1 回の見送りで毎週リマインドされるのは spec の「ペナルティなし・ノーリスク」の趣旨に反する
+- 新仕様（出現連鎖 ≥ 3）なら週次は 3 週連続見送り、毎日タスクは 3 日連続見送りでボタンが出るので「タスクの粒度に対して連続 3 回放置」という直感に揃う
+- carryOver は `instance` が日をまたいで残るため出現が増えない。同じ概念を「instance.date 以来の暦日」で代替し、毎日見える状態が 3 日続いたら発火、と整合させた
+- 表示用 `idleDays`（暦日）は別フィールドに切り出し、判定（`eligibleForDeclaration`）は出現連鎖、UI の「最後にやったのは X 日前」は暦日を使えるように分離した
+
+### 関連既知の問題（未対応）
+- `recordTaskStreak` / `isTaskStreakActive` (`src/lib/streak.ts`, `src/lib/date.ts`) も「today/yesterday の暦日連続」で判定しているため、**週次タスクをきちんと毎週完了しても TaskStreak が常に 1 にリセットされる** 同種のバグを抱えている。本決定の対象外として別チケットで扱う

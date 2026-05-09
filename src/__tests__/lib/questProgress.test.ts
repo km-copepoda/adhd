@@ -153,29 +153,33 @@ describe("sortQuestsByCompletion", () => {
 });
 
 describe("sortQuestsForDeclaration", () => {
-  const q = (id: string, status: string, idleDays = 0) => ({ id, status, idleDays });
+  const q = (id: string, status: string, eligibleForDeclaration = false) => ({
+    id,
+    status,
+    eligibleForDeclaration,
+  });
 
-  it("idle (idleDays>=3 かつ未完了) を最上段に、その他未完了→完了の順に並べる", () => {
+  it("eligibleForDeclaration=true（=放置中の未完了）を最上段、その他未完了→完了の順に並べる", () => {
     const quests = [
-      q("done1", "APPROVED", 0),
-      q("normal1", "PENDING", 0),
-      q("idle1", "PENDING", 5),
-      q("done2", "SKIPPED", 0),
-      q("normal2", "REJECTED", 1),
-      q("idle2", "REJECTED", 3),
+      q("done1", "APPROVED", false),
+      q("normal1", "PENDING", false),
+      q("idle1", "PENDING", true),
+      q("done2", "SKIPPED", false),
+      q("normal2", "REJECTED", false),
+      q("idle2", "REJECTED", true),
     ];
     const sorted = sortQuestsForDeclaration(quests);
     expect(sorted.map((x) => x.id)).toEqual(["idle1", "idle2", "normal1", "normal2", "done1", "done2"]);
   });
 
-  it("既に完了したクエストは idleDays が高くても下段に置く", () => {
+  it("完了済みは eligibleForDeclaration が誤って true でも下段（status 優先）", () => {
     const quests = [
-      q("done-stale", "APPROVED", 10),
-      q("idle", "PENDING", 5),
-      q("normal", "PENDING", 0),
+      q("done", "APPROVED", true),
+      q("idle", "PENDING", true),
+      q("normal", "PENDING", false),
     ];
     const sorted = sortQuestsForDeclaration(quests);
-    expect(sorted.map((x) => x.id)).toEqual(["idle", "normal", "done-stale"]);
+    expect(sorted.map((x) => x.id)).toEqual(["idle", "normal", "done"]);
   });
 
   it("空配列は空配列を返す", () => {
@@ -183,7 +187,7 @@ describe("sortQuestsForDeclaration", () => {
   });
 
   it("元の配列を変更しない（非破壊）", () => {
-    const quests = [q("a", "APPROVED", 0), q("b", "PENDING", 5)];
+    const quests = [q("a", "APPROVED", false), q("b", "PENDING", true)];
     const original = [...quests];
     sortQuestsForDeclaration(quests);
     expect(quests).toEqual(original);

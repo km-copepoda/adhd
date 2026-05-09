@@ -3,7 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { todayJST } from "@/lib/date";
 import { ensureTodayQuests } from "@/lib/quests";
-import { getIdleDays } from "@/lib/declaration";
+import {
+  getIdleCalendarDays,
+  getMissedExposureCount,
+  isEligibleForDeclaration,
+} from "@/lib/declaration";
+
+// 連鎖判定に使う lookback 件数（週次 30 週分）
+const INSTANCE_LOOKBACK_LIMIT = 30;
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -46,16 +53,19 @@ export async function GET() {
     orderBy: { template: { createdAt: "asc" } },
   });
 
-  // 「今日やる宣言」用の集計: 各テンプレートの最終 APPROVED + 当日宣言の有無
+  // 「今日やる宣言」用の集計: 各テンプレートの直近 N インスタンス + 当日宣言の有無
   const templateIds = Array.from(new Set(quests.map((q) => q.templateId)));
-  const [lastApprovedRows, declarationsToday] = await Promise.all([
-    templateIds.length
-      ? prisma.questInstance.groupBy({
-          by: ["templateId"],
-          where: { childId: user.id, templateId: { in: templateIds }, status: "APPROVED" },
-          _max: { approvedAt: true },
-        })
-      : Promise.resolve([] as { templateId: string; _max: { approvedAt: Date | null } }[]),
+  const [instancesByTemplate, declarationsToday] = await Promise.all([
+    Promise.all(
+      templateIds.map((tid) =>
+        prisma.questInstance.findMany({
+          where: { templateId: tid, childId: user.id },
+          orderBy: { date: "desc" },
+          take: INSTANCE_LOOKBACK_LIMIT,
+          select: { date: true, status: true, approvedAt: true },
+        }),
+      ),
+    ),
     templateIds.length
       ? prisma.questDeclaration.findMany({
           where: { childId: user.id, date: today, templateId: { in: templateIds } },
@@ -64,30 +74,53 @@ export async function GET() {
       : Promise.resolve([] as { templateId: string }[]),
   ]);
 
-  const lastApprovedByTemplate = new Map<string, Date | null>(
-    lastApprovedRows.map((r) => [r.templateId, r._max.approvedAt]),
+  const instancesMap = new Map<string, { date: Date; status: string; approvedAt: Date | null }[]>(
+    templateIds.map((tid, i) => [tid, instancesByTemplate[i]]),
   );
   const declaredTemplateIds = new Set(declarationsToday.map((d) => d.templateId));
 
   const hasDeadline = !!user.reportDeadlineTime;
-  return NextResponse.json(quests.map((q) => {
-    const lastApprovedAt = lastApprovedByTemplate.get(q.templateId) ?? null;
-    const idleDays = getIdleDays({
-      today,
-      lastApprovedAt,
-      templateCreatedAt: q.template.createdAt,
-    });
-    return {
-      ...q,
-      hasDeadline,
-      idleDays,
-      declaredToday: declaredTemplateIds.has(q.templateId),
-      template: {
-        ...q.template,
-        title: q.snapshotTitle ?? q.template.title,
-        emoji: q.snapshotEmoji ?? q.template.emoji,
-        category: q.snapshotCategory ?? q.template.category,
-      },
-    };
-  }));
+  return NextResponse.json(
+    quests.map((q) => {
+      const allInstances = (instancesMap.get(q.templateId) ?? []).map((i) => ({
+        date: i.date,
+        status: i.status as
+          | "PENDING"
+          | "REPORTED"
+          | "APPROVED"
+          | "REJECTED"
+          | "SKIPPED"
+          | "SKIP_REPORTED",
+      }));
+      const lastApprovedAt =
+        instancesMap.get(q.templateId)?.find((i) => i.status === "APPROVED")?.approvedAt ?? null;
+      const idleDays = getIdleCalendarDays({
+        today,
+        lastApprovedAt,
+        templateCreatedAt: q.template.createdAt,
+      });
+      const missedExposures = getMissedExposureCount({
+        allInstances,
+        today,
+        carryOver: !!q.template.carryOver,
+      });
+      const eligibleForDeclaration = isEligibleForDeclaration({
+        missedExposures,
+        status: q.status,
+      });
+      return {
+        ...q,
+        hasDeadline,
+        idleDays,
+        eligibleForDeclaration,
+        declaredToday: declaredTemplateIds.has(q.templateId),
+        template: {
+          ...q.template,
+          title: q.snapshotTitle ?? q.template.title,
+          emoji: q.snapshotEmoji ?? q.template.emoji,
+          category: q.snapshotCategory ?? q.template.category,
+        },
+      };
+    }),
+  );
 }
