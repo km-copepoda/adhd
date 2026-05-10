@@ -33,6 +33,7 @@ const baseQuest = {
     category: "STUDY" as const,
     createdBy: "PARENT" as const,
     isTemporary: false,
+    repeatDays: [1, 2, 3, 4, 5],
   },
   child: {
     id: "child-1",
@@ -115,7 +116,7 @@ describe("approveQuestInstance", () => {
     await approveQuestInstance(baseQuest as any);
 
     expect(mockRecordDailyAchievement).toHaveBeenCalledWith("child-1", baseQuest.date);
-    expect(mockRecordTaskStreak).toHaveBeenCalledWith("tpl-1", "child-1", baseQuest.date);
+    expect(mockRecordTaskStreak).toHaveBeenCalledWith("tpl-1", "child-1", baseQuest.date, [1, 2, 3, 4, 5]);
   });
 
   it("一時タスクはタスク別ストリークを記録しないこと", async () => {
