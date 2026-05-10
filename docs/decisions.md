@@ -652,6 +652,25 @@
 - DONE 受信時に Realtime トーストや未読再生まで止める（ページを開いている／開いた人は気づける状態を維持する）
 - localStorage の seenIds を無制限に肥大化させる（直近100件で trim、当日4日経過で API レスポンス側からも消える）
 
+## 2026-05-10: TaskStreak / isTaskStreakActive を repeatDays ベースの「前回出現日からの連続性」で判定
+
+### 決定内容
+- `src/lib/date.ts` に純粋関数 `previousScheduledDate(repeatDays, today): Date | null` を追加（today より厳密に過去で `repeatDays` に含まれる曜日のうち最も近い日付を返す。直近7日のみ走査）
+- `isTaskStreakActive` のシグネチャを `(repeatDays, lastAchievedDate, todayStr?)` に変更し、判定を「`lastAchievedDate >= previousScheduledDate(repeatDays, today)`」に置き換え（`repeatDays` が空のとき / `lastAchievedDate` が null のときは false）
+- `recordTaskStreak` のシグネチャを `(taskId, childId, questDate, repeatDays)` に変更し、連続加算条件を「`lastAchievedDate === previousScheduledDate(repeatDays, questDate)`」に変更（旧: 暦日上の昨日固定）
+- `src/lib/approve.ts` の `QuestWithRelations.template` に `repeatDays: number[]` を追加し、`recordTaskStreak` 呼び出しに渡す
+- 親タスク管理画面（`src/app/app/parent/(app)/tasks/page.tsx`）の `isTaskStreakActive` 呼び出しに `task.repeatDays` を渡す
+
+### 理由
+- 旧実装は「暦日上の昨日に達成したか」だけで判定していたため、月水金タスク（`repeatDays=[1,3,5]`）では金曜完了 → 土曜時点では active のまま、日曜になるとストリークが切れる扱いになっていた
+- 実際の運用では「次の予定日（月曜）を逃すまではストリーク継続」が直感に合う。週末や休曜日を「無視」して、予定日同士の連続性を見るのが正しい
+- 例: 月水金で金曜→月曜の連続完了は streak +1、月曜を逃して水曜に達成した場合は 1 にリセット（best は保持）
+
+### やってはいけないこと
+- `recordTaskStreak` を `repeatDays` 引数なしで呼ぶ（type error にしてある）
+- `isTaskStreakActive(lastAchievedDate, today)` の旧2引数シグネチャで呼ぶ（同上）
+- `previousScheduledDate` を別ファイルに重複実装する（`src/lib/date.ts` に集約）
+
 ## 2026-05-07: エール送信を掲示板（BulletinLog）にも記録する（2026-05-02 の禁止条項を撤回）
 
 ### 決定内容

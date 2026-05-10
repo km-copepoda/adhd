@@ -422,7 +422,7 @@ export default function TasksPage() {
                   {regular.map((task) => {
                     const cat = CATEGORY_LABEL[task.category];
                     const streakEntry = (task.taskStreaks ?? []).find((s) => s.childId === child.id);
-                    const streak = isTaskStreakActive(streakEntry?.lastAchievedDate ?? null)
+                    const streak = isTaskStreakActive(task.repeatDays, streakEntry?.lastAchievedDate ?? null)
                       ? (streakEntry?.currentStreak ?? 0)
                       : 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);

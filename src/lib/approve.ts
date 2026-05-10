@@ -22,6 +22,7 @@ type QuestWithRelations = {
     photoBonus: boolean;
     createdBy: "PARENT" | "CHILD";
     isTemporary: boolean;
+    repeatDays: number[];
   };
   child: {
     id: string;
@@ -164,7 +165,7 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
 
   await recordDailyAchievement(quest.childId, quest.date);
   if (!quest.template.isTemporary) {
-    await recordTaskStreak(quest.templateId, quest.childId, quest.date);
+    await recordTaskStreak(quest.templateId, quest.childId, quest.date, quest.template.repeatDays);
   }
 
   // バッジ解除チェック + 掲示板ログ — レスポンス送信後に after() で実行
