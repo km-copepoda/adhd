@@ -675,3 +675,53 @@
 - エール送信のメッセージにタスク名・具体的な進捗数値を含める（プライバシー）
 - `key` を空文字 `""` にする（Stamp 側の1日1回制約と意味的に重複させない。`"エール"` 固定で読みやすさを維持）
 - 既存の Push 抑制ロジック（DONE 受信者へは送らない / 2026-05-05 決定）を掲示板書き込みにも適用する（掲示板は全員に対する「送った事実」のフィードバックなので、受信側の進捗で間引かない）
+
+## 2026-05-11: 親画面に「子供モード（child-view）」を導入（親が子供端末を持たない家庭向けの代理操作）
+
+### 決定内容
+- 親セッションのまま子供の画面を閲覧・操作できる「子供モード」を `/app/parent/child-view/*` 配下に追加
+- ルーティング:
+  - `/app/parent/child-view`               — 子供セレクター（家族内の CHILD 一覧から選択）
+  - `/app/parent/child-view/[childId]/quests`  — クエスト一覧＋代理報告
+  - `/app/parent/child-view/[childId]/monster` — 育成（読み取り専用）
+  - `/app/parent/child-view/[childId]/badges`  — 実績（読み取り専用）
+  - `/app/parent/child-view/[childId]/zukan`   — 図鑑（読み取り専用）
+  - **`/app/parent/child-view` は親の `(app)` グループの外に置く**（Sidebar / ParentBottomNav の親ナビは表示しない）
+- 代理報告の仕様:
+  - 親が子供モードからタスクを「報告」した瞬間に **REPORTED を経由せず一気に APPROVED に確定**する
+  - `src/lib/approve.ts` の `approveQuestInstance` をそのまま呼ぶ（XP付与・進化チェック・ストリーク更新・バッジチェックが全部走る）
+  - `deadlineBonusEarned` は通常の `POST /api/quests/[id]/report` と同じルール（子供の `reportDeadlineTime` と現在時刻で判定）
+  - `approvalStamp` は親が選んだスタンプを許可、未指定でも可
+  - 子供本人による報告との区別は **付けない**（履歴・掲示板上は通常の達成と同一に扱う）
+- API:
+  - 新規エンドポイントは `/api/parent/child-view/*` 配下に集約し、すべて **PARENT ロール限定 + `childId` が同一 family の CHILD であることを検証**
+  - `GET /api/parent/child-view/children` — 家族内の CHILD 一覧
+  - `GET /api/parent/child-view/quests/today?childId=X`
+  - `POST /api/parent/child-view/quests/[id]/report-approve` — 代理報告→即承認
+  - `GET /api/parent/child-view/monster-status?childId=X`
+  - `GET /api/parent/child-view/badges?childId=X`
+  - 検証ロジックは `src/lib/parentChildView.ts` の `resolveTargetChild(parent, childId)` に集約（family ownership + role チェック）
+- 子供画面で動いていた以下の **副作用は子供モードでは無効化**（親セッションでの誤発火を防ぐため）:
+  - `PushSubscriber`（子供の Push 購読が親端末に紐づくのを防ぐ）
+  - `LoginStreakChecker`（モード切替だけでログインボーナスが付与されないように）
+  - `BadgeUnlockToast`（子供画面以外で解除トーストを出さない）
+  - Supabase Realtime 購読（親モードでは onload + 手動リロードのみ）
+- BottomNav は **子供モード専用の派生コンポーネント** `ChildViewBottomNav` を新設し、リンク先を `/app/parent/child-view/[childId]/{quests,monster,zukan,badges}` に差し替える（既存 `BottomNav` は変更しない）
+- 既存子供 API（`/api/quests/today` 等）は **触らない**。親モードはあくまで別エンドポイント経由で参照する
+
+### 理由
+- 親端末しか持たない家庭でも、子供のタスク達成体験（XP・進化・バッジ・図鑑）を提供したい
+- 既存子供 API のロールチェックを緩めると影響範囲が大きく、テスト負債と回帰リスクを抱える。**並走する別経路を新設**する方が境界が明確
+- 親が代理で報告した直後に APPROVED にするのは、「親自身が見届けて報告している」という前提が成立しているため REPORTED→APPROVED の二段階に意味がない（承認待ちが溜まるだけ）
+- 子供モードからは Push / LoginStreak / Realtime を一切起動しないことで、「親がモードを切り替えただけで子供向けの副作用が走る」事故を構造的に防ぐ
+
+### やってはいけないこと
+- 既存 `/api/quests/[id]/report` を PARENT ロールで受け付けるよう緩和する（**禁止**: 別経路 `/api/parent/child-view/quests/[id]/report-approve` を必ず使う）
+- 子供モードページに `PushSubscriber` / `LoginStreakChecker` / `BadgeUnlockToast` / `BulletinLog` などの Realtime 購読を載せる
+- `resolveTargetChild` を経由せずに `prisma.user.findUnique({ id: childId })` で直接子供を引いて操作する（family 跨ぎの読み取り事故が起きる）
+- 代理報告フローで `approveQuestInstance` を経由せず、直接 `prisma.questInstance.update({ status: "APPROVED" })` を書く（XP付与・進化チェック・バッジチェック・掲示板ログが全部すっぽ抜ける）
+- 代理報告に固有の `createdBy` 識別やスタンプ強制（履歴上は通常の達成と同一に扱う方針）
+
+### MVP スコープ外（フェーズ B 以降）
+- ひろば（gathering）の子供モード表示 — Realtime / Stamp 配送が絡むため別途設計
+- 代理スキップ申請（`SKIP_REPORTED → SKIPPED`）— 必要なら同じ「即 SKIPPED」パターンで追加可能だが、初期は対応しない
