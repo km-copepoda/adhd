@@ -25,6 +25,12 @@ export function todayJST(): Date {
   return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate()));
 }
 
+/** 任意の Date を JST 日付（UTC 0時表現、@db.Date と同じ形）に正規化する */
+export function jstDateOf(d: Date): Date {
+  const jst = new Date(d.getTime() + JST_OFFSET_MS);
+  return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate()));
+}
+
 /** JST での今日の曜日（0=Sun ... 6=Sat）*/
 export function dayOfWeekJST(): number {
   return jstNow().getUTCDay();
@@ -101,17 +107,41 @@ export function getDeadlineDisplay(
 }
 
 /**
- * lastAchievedDate が今日または昨日（JST）であればストリーク有効と判定する。
+ * today より厳密に過去の、repeatDays に含まれる曜日の最も近い日付を返す。
+ * 直近7日のみ走査するので、repeatDays が空または無効な場合は null。
+ * @param repeatDays 0=Sun..6=Sat の配列
+ * @param today UTC 0:00 正規化済みの Date
+ */
+export function previousScheduledDate(repeatDays: number[], today: Date): Date | null {
+  if (repeatDays.length === 0) return null;
+  for (let i = 1; i <= 7; i++) {
+    const candidate = new Date(today.getTime() - i * 86400000);
+    if (repeatDays.includes(candidate.getUTCDay())) return candidate;
+  }
+  return null;
+}
+
+/**
+ * テンプレートの repeatDays を踏まえ、「前回出現日からの連続性」が保たれているかを判定する。
+ * 例: 月水金タスクで金曜完了 → 土日も active のまま、次の月曜を逃して火曜になった時点で inactive。
+ * @param repeatDays 0=Sun..6=Sat の配列
  * @param lastAchievedDate @db.Date 形式の文字列 or null
  * @param todayStr テスト用オーバーライド。省略時は todayStringJST() を使用
  */
-export function isTaskStreakActive(lastAchievedDate: string | null, todayStr?: string): boolean {
+export function isTaskStreakActive(
+  repeatDays: number[],
+  lastAchievedDate: string | null,
+  todayStr?: string,
+): boolean {
   if (!lastAchievedDate) return false;
+  if (repeatDays.length === 0) return false;
   const today = todayStr ?? todayStringJST();
   const todayDate = new Date(today + "T00:00:00Z");
-  const yesterdayStr = new Date(todayDate.getTime() - 86400000).toISOString().slice(0, 10);
+  const prev = previousScheduledDate(repeatDays, todayDate);
+  if (!prev) return false;
+  const prevStr = prev.toISOString().slice(0, 10);
   const lastStr = lastAchievedDate.slice(0, 10);
-  return lastStr === today || lastStr === yesterdayStr;
+  return lastStr >= prevStr;
 }
 
 /** 期限切れでない表示可能な一時タスクかどうか */

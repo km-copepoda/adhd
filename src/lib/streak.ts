@@ -5,6 +5,7 @@ import { getMonsterStage } from "@/lib/monsters";
 import { getNewMilestoneBonus, distributeBonus, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { log } from "@/lib/logger";
 import { triggerStreakTitleLog, triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
+import { previousScheduledDate } from "@/lib/date";
 
 /**
  * クエスト承認時にストリークを記録・更新する。
@@ -156,8 +157,15 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
 /**
  * クエスト承認時にタスク別ストリークを記録・更新する。
  * スキップは算入しない（APPROVEDのみ）。
+ * repeatDays を踏まえ、「前回出現予定日」と一致した完了であれば連続として +1 する。
+ * 例: 月水金 (repeatDays=[1,3,5]) で金曜→月曜は連続扱い（週末は無視）。
  */
-export async function recordTaskStreak(taskId: string, childId: string, questDate: Date) {
+export async function recordTaskStreak(
+  taskId: string,
+  childId: string,
+  questDate: Date,
+  repeatDays: number[],
+) {
   const streak = await prisma.taskStreak.upsert({
     where: { taskId_childId: { taskId, childId } },
     create: { taskId, childId, currentStreak: 0, bestStreak: 0 },
@@ -165,16 +173,14 @@ export async function recordTaskStreak(taskId: string, childId: string, questDat
   });
 
   const today = normalizeDate(questDate);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
   const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
 
   // 同日処理済み
   if (lastDate && lastDate.getTime() === today.getTime()) return;
 
+  const prev = previousScheduledDate(repeatDays, today);
   const newStreak =
-    lastDate && lastDate.getTime() === yesterday.getTime()
+    lastDate && prev && lastDate.getTime() === prev.getTime()
       ? streak.currentStreak + 1
       : 1;
 
@@ -187,7 +193,7 @@ export async function recordTaskStreak(taskId: string, childId: string, questDat
       lastAchievedDate: today,
     },
   });
-  
+
   log.info("Task streak updated", { taskId, childId, newStreak, newBest });
 }
 

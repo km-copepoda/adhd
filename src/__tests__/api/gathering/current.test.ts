@@ -73,17 +73,24 @@ describe("GET /api/gathering/current", () => {
 
     const me = data.members.find((m: { id: string }) => m.id === "child-1");
     expect(me).toBeDefined();
-    expect(me.name).toBe("太郎");
+    // 本名(name)はAPIレスポンスから除去（プライバシー: 他ファミリーに本名を晒さない）
+    expect(me.name).toBeUndefined();
+    expect(me.monsterName).toBe("ドラゴン");
     expect(me.isMe).toBe(true);
     expect(me.monsterImage).toContain("STUDY_STUDY");
+    expect(typeof me.speciesName).toBe("string");
+    expect(me.speciesName.length).toBeGreaterThan(0);
 
     const other = data.members.find((m: { id: string }) => m.id === "child-2");
+    expect(other.name).toBeUndefined();
     expect(other.isMe).toBe(false);
     expect(other.monsterImage).toContain("egg.webp");
     expect(other.monsterImage).toContain("light");
+    expect(typeof other.speciesName).toBe("string");
+    expect(other.speciesName.length).toBeGreaterThan(0);
   });
 
-  it("子供: name=null かつ monsterName あり → name は monsterName にフォールバック", async () => {
+  it("子供: monsterName あり → monsterName をそのまま返す（name フィールドは存在しない）", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as never);
     vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
       groupId: "g-1",
@@ -109,10 +116,13 @@ describe("GET /api/gathering/current", () => {
 
     const res = await GET(makeGetRequest("/api/gathering/current"));
     const data = await res.json();
-    expect(data.members[0].name).toBe("ドラちゃん");
+    expect(data.members[0].name).toBeUndefined();
+    expect(data.members[0].monsterName).toBe("ドラちゃん");
+    expect(typeof data.members[0].speciesName).toBe("string");
+    expect(data.members[0].speciesName.length).toBeGreaterThan(0);
   });
 
-  it("子供: name=null かつ monsterName=null → name はモンスター種族名にフォールバック ('なまえなし' は使わない)", async () => {
+  it("子供: monsterName=null → monsterName は種族名にフォールバック ('なまえなし' は使わない)", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as never);
     vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue({
       groupId: "g-1",
@@ -138,10 +148,12 @@ describe("GET /api/gathering/current", () => {
 
     const res = await GET(makeGetRequest("/api/gathering/current"));
     const data = await res.json();
-    expect(data.members[0].name).not.toBe("なまえなし");
-    expect(data.members[0].name).toBe(data.members[0].monsterName);
-    expect(typeof data.members[0].name).toBe("string");
-    expect(data.members[0].name.length).toBeGreaterThan(0);
+    expect(data.members[0].name).toBeUndefined();
+    expect(data.members[0].monsterName).not.toBe("なまえなし");
+    expect(typeof data.members[0].monsterName).toBe("string");
+    expect(data.members[0].monsterName.length).toBeGreaterThan(0);
+    // monsterName=null だったので種族名にフォールバック → speciesName と一致
+    expect(data.members[0].monsterName).toBe(data.members[0].speciesName);
   });
 
   it("親: childId未指定はnull", async () => {

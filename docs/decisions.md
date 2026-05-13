@@ -652,6 +652,25 @@
 - DONE 受信時に Realtime トーストや未読再生まで止める（ページを開いている／開いた人は気づける状態を維持する）
 - localStorage の seenIds を無制限に肥大化させる（直近100件で trim、当日4日経過で API レスポンス側からも消える）
 
+## 2026-05-10: TaskStreak / isTaskStreakActive を repeatDays ベースの「前回出現日からの連続性」で判定
+
+### 決定内容
+- `src/lib/date.ts` に純粋関数 `previousScheduledDate(repeatDays, today): Date | null` を追加（today より厳密に過去で `repeatDays` に含まれる曜日のうち最も近い日付を返す。直近7日のみ走査）
+- `isTaskStreakActive` のシグネチャを `(repeatDays, lastAchievedDate, todayStr?)` に変更し、判定を「`lastAchievedDate >= previousScheduledDate(repeatDays, today)`」に置き換え（`repeatDays` が空のとき / `lastAchievedDate` が null のときは false）
+- `recordTaskStreak` のシグネチャを `(taskId, childId, questDate, repeatDays)` に変更し、連続加算条件を「`lastAchievedDate === previousScheduledDate(repeatDays, questDate)`」に変更（旧: 暦日上の昨日固定）
+- `src/lib/approve.ts` の `QuestWithRelations.template` に `repeatDays: number[]` を追加し、`recordTaskStreak` 呼び出しに渡す
+- 親タスク管理画面（`src/app/app/parent/(app)/tasks/page.tsx`）の `isTaskStreakActive` 呼び出しに `task.repeatDays` を渡す
+
+### 理由
+- 旧実装は「暦日上の昨日に達成したか」だけで判定していたため、月水金タスク（`repeatDays=[1,3,5]`）では金曜完了 → 土曜時点では active のまま、日曜になるとストリークが切れる扱いになっていた
+- 実際の運用では「次の予定日（月曜）を逃すまではストリーク継続」が直感に合う。週末や休曜日を「無視」して、予定日同士の連続性を見るのが正しい
+- 例: 月水金で金曜→月曜の連続完了は streak +1、月曜を逃して水曜に達成した場合は 1 にリセット（best は保持）
+
+### やってはいけないこと
+- `recordTaskStreak` を `repeatDays` 引数なしで呼ぶ（type error にしてある）
+- `isTaskStreakActive(lastAchievedDate, today)` の旧2引数シグネチャで呼ぶ（同上）
+- `previousScheduledDate` を別ファイルに重複実装する（`src/lib/date.ts` に集約）
+
 ## 2026-05-07: エール送信を掲示板（BulletinLog）にも記録する（2026-05-02 の禁止条項を撤回）
 
 ### 決定内容
@@ -676,6 +695,68 @@
 - `key` を空文字 `""` にする（Stamp 側の1日1回制約と意味的に重複させない。`"エール"` 固定で読みやすさを維持）
 - 既存の Push 抑制ロジック（DONE 受信者へは送らない / 2026-05-05 決定）を掲示板書き込みにも適用する（掲示板は全員に対する「送った事実」のフィードバックなので、受信側の進捗で間引かない）
 
+## 2026-05-09: ひろば なかま一覧の表示識別子を `monsterName` + `speciesName` の2軸に再構成し API から `name` を除去
+
+### 決定内容
+- `GET /api/gathering/current` の `members[]` から `name`（本名フォールバック）フィールドを削除
+- `members[]` は `id / monsterName / speciesName / monsterImage / evolutionStage / isMe` のみを返す
+  - `monsterName`: `User.monsterName ?? <種族名>`（既存通り。スタンプ送信文言にも流用）
+  - `speciesName`: `getMonsterStage().name`（種族名固定）
+- `<GatheringMemberList>` の表示は **上=`monsterName`（太字）／下=`speciesName`（薄字）** とし、両者が同一文字列のときは下ラベルを非表示にして重複表示を防ぐ
+- 2026-04-28「参加メンバー一覧の `name` フォールバックを `name ?? monsterName ?? <種族名>` に変更」のうち `name` 経路を **撤回**
+
+### 理由
+- 実装上 CHILD ロールの `User.name` をセットするコードパスが存在せず（親登録のみ `name = email の @ 前`）、CHILD は常に `name = null`。旧 API の `name = m.child.name ?? monsterName` は CHILD では常に `monsterName` に潰れ、上下ラベルが必ず同じ文字列になる表示バグの構造的原因だった
+- 2026-04-26 の「本名 (`name`) はグループ外（他ファミリー）に晒さない」プライバシー方針と整合。API レスポンス自体に `name` を含めないことで、誤って本名が露出する経路を構造的にゼロにする
+- なかま一覧の「上=愛称／下=種族名」の2軸は、スタンプ・掲示板で既に確立した `monsterName` 優先表示と一貫し、種族名表示でコレクション要素（種族の多様さ）も視認できる
+
+### やってはいけないこと
+- `/api/gathering/current` の `members[]` に `name`（本名フォールバック含む）を再追加する
+- `<GatheringMemberList>` で `monsterName` と `speciesName` のどちらか片方しか表示しない（重複時の片方非表示は許容、ただし両者が異なる場合は両方表示）
+
+## 2026-05-09: 「今日やる宣言ボーナス」の導入（放置タスク回避向け）
+
+### 決定内容
+- 3 日以上アイドル状態（最終 APPROVED から JST 換算で 3 日以上経過、または一度も APPROVED されていない場合は `template.createdAt` から 3 日以上経過）の今日のクエストに対して、子供画面で「今日やる」ボタンを表示する
+- ボタンを押した事実だけを `QuestDeclaration { templateId, childId, date(@db.Date) }` に記録（unique `(templateId, childId, date)`）。XP もペナルティもこの時点では発生しない
+- 同じ日のうちに当該クエストが APPROVED まで到達した場合、`approveQuestInstance` が `reportedAt` の JST 日付に対応する宣言を検索して、見つかれば `+DECLARATION_BONUS_XP (=1)` を加算する。carryOver タスクでも `quest.date` ではなく `reportedAt` 基準で照合するためマッチする
+- 放置カウンタのリセット条件は **APPROVED のみ**（spec: 「スキップまたは未完了」両方を放置として扱う）。SKIPPED/SKIP_REPORTED/REPORTED/REJECTED/PENDING はカウンタを増やすだけ
+- ボタンの表示対象ステータスは PENDING / REJECTED のみ（既に今日アクション済みの REPORTED/APPROVED/SKIPPED/SKIP_REPORTED には出さない）
+- 子供画面では `sortQuestsForDeclaration` で「アイドル未完了 → その他未完了 → 完了済み」の順に並び替えて、放置タスクが画面上部に来るようにする
+- 純粋関数（`getIdleDays`, `isEligibleForDeclaration`, `IDLE_DAYS_THRESHOLD`, `DECLARATION_BONUS_XP`, `sortQuestsForDeclaration`）は `src/lib/declaration.ts` と `src/lib/questProgress.ts` に分離してテスト容易にした
+
+### 理由
+- 得意なタスクだけ消化して苦手なタスクが永続的に放置されるパターン（ADHD 特性: 開始の神経回路が発火しづらい）への対策。放置タスクが目に入る状態を毎日作りつつ、操作ステップ追加・宣言ノルマ・親通知のいずれも増やさず「ペナルティなしのリマインド + 実行したら報われる」設計にまとめる
+- XP 上乗せは「宣言だけして完了しない」形骸化を防ぐため、宣言と完了のコンボでのみ発火させる（spec: 宣言だけは 0pt）
+- 放置判定の基準を「最終 APPROVED からの JST 日付差」に統一することで、carryOver タスクも非 carryOver タスクも同じ式で扱える（前者は instance.date が古いまま APPROVED されるため `approvedAt` ベースが必須）
+
+### やってはいけないこと
+- 宣言だけで XP を付与する（spec の形骸化防止条項）
+- 宣言したのに未完了だった場合にペナルティ（XP 減・ストリーク折れ・親通知など）を発動する（spec のノーリスク条項）
+- ボタン表示条件を「1 日 1 つに制限」する（spec: 自然と数が絞られるため不要）
+- 宣言処理を承認フローの `await` で直列に組み込む（既存の `after()` 方針には反しないが、宣言ボーナス分の XP は承認時点で確定させたいので findUnique は同期的に呼ぶのが正しい）
+- 放置カウンタのリセットを SKIPPED で行う（spec: スキップは放置として扱う）
+
+## 2026-05-09 (改): 「今日やる宣言」の放置判定を「直近 N 出現の連続非 APPROVED 数」に変更
+
+### 決定内容
+- 同日の決定 (上記) で導入したアイドル判定基準を **暦日数ベース** から **「直近 N 出現の連鎖長」ベース** に変更
+- `getMissedExposureCount({ allInstances, today, carryOver })`:
+  - 通常タスク: date 降順の `QuestInstance` を上から走査し、最初の `APPROVED` までの非 APPROVED 件数を返す（今日のインスタンスも含む）
+  - carryOver タスク: 連鎖最古の非 APPROVED `instance.date` から today までの暦日数（inclusive）を返す（carryOver は instance が増殖しないため）
+- 閾値定数も `IDLE_DAYS_THRESHOLD` → `IDLE_EXPOSURE_THRESHOLD` (= 3) に改名
+- API レスポンスは表示用に `idleDays`（最終 APPROVED からの暦日差）と判定結果 `eligibleForDeclaration` を分けて返す
+- `/api/quests/today` の per-template 集計を `groupBy` から `findMany take=30 desc` ベースに切り替え（連鎖長の計算には個別の status 履歴が必要）
+
+### 理由
+- 旧仕様（暦日数 ≥ 3）では **週次タスクで 1 回スキップしただけで翌週いきなりボタンが出る** 過剰反応バグがあった。子供は週に 1 回しか機会がないのに、1 回の見送りで毎週リマインドされるのは spec の「ペナルティなし・ノーリスク」の趣旨に反する
+- 新仕様（出現連鎖 ≥ 3）なら週次は 3 週連続見送り、毎日タスクは 3 日連続見送りでボタンが出るので「タスクの粒度に対して連続 3 回放置」という直感に揃う
+- carryOver は `instance` が日をまたいで残るため出現が増えない。同じ概念を「instance.date 以来の暦日」で代替し、毎日見える状態が 3 日続いたら発火、と整合させた
+- 表示用 `idleDays`（暦日）は別フィールドに切り出し、判定（`eligibleForDeclaration`）は出現連鎖、UI の「最後にやったのは X 日前」は暦日を使えるように分離した
+
+### 関連既知の問題（未対応）
+- `recordTaskStreak` / `isTaskStreakActive` (`src/lib/streak.ts`, `src/lib/date.ts`) も「today/yesterday の暦日連続」で判定しているため、**週次タスクをきちんと毎週完了しても TaskStreak が常に 1 にリセットされる** 同種のバグを抱えている。本決定の対象外として別チケットで扱う
+
 ## 2026-05-11: 親画面に「子供モード（child-view）」を導入（親が子供端末を持たない家庭向けの代理操作）
 
 ### 決定内容
@@ -684,8 +765,6 @@
   - `/app/parent/child-view`               — 子供セレクター（家族内の CHILD 一覧から選択）
   - `/app/parent/child-view/[childId]/quests`  — クエスト一覧＋代理報告
   - `/app/parent/child-view/[childId]/monster` — 育成（読み取り専用）
-  - `/app/parent/child-view/[childId]/badges`  — 実績（読み取り専用）
-  - `/app/parent/child-view/[childId]/zukan`   — 図鑑（読み取り専用）
   - **`/app/parent/child-view` は親の `(app)` グループの外に置く**（Sidebar / ParentBottomNav の親ナビは表示しない）
 - 代理報告の仕様:
   - 親が子供モードからタスクを「報告」した瞬間に **REPORTED を経由せず一気に APPROVED に確定**する
@@ -699,14 +778,13 @@
   - `GET /api/parent/child-view/quests/today?childId=X`
   - `POST /api/parent/child-view/quests/[id]/report-approve` — 代理報告→即承認
   - `GET /api/parent/child-view/monster-status?childId=X`
-  - `GET /api/parent/child-view/badges?childId=X`
   - 検証ロジックは `src/lib/parentChildView.ts` の `resolveTargetChild(parent, childId)` に集約（family ownership + role チェック）
 - 子供画面で動いていた以下の **副作用は子供モードでは無効化**（親セッションでの誤発火を防ぐため）:
   - `PushSubscriber`（子供の Push 購読が親端末に紐づくのを防ぐ）
   - `LoginStreakChecker`（モード切替だけでログインボーナスが付与されないように）
   - `BadgeUnlockToast`（子供画面以外で解除トーストを出さない）
   - Supabase Realtime 購読（親モードでは onload + 手動リロードのみ）
-- BottomNav は **子供モード専用の派生コンポーネント** `ChildViewBottomNav` を新設し、リンク先を `/app/parent/child-view/[childId]/{quests,monster,zukan,badges}` に差し替える（既存 `BottomNav` は変更しない）
+- BottomNav は **子供モード専用の派生コンポーネント** `ChildViewBottomNav` を新設し、リンク先を `/app/parent/child-view/[childId]/{quests,monster}` に差し替える（既存 `BottomNav` は変更しない）
 - 既存子供 API（`/api/quests/today` 等）は **触らない**。親モードはあくまで別エンドポイント経由で参照する
 
 ### 理由

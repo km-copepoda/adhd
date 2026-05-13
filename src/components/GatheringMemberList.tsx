@@ -2,8 +2,8 @@
 
 type Member = {
   id: string;
-  name: string;
   monsterName: string;
+  speciesName: string;
   monsterImage: string;
   evolutionStage: number;
   isMe: boolean;
@@ -42,11 +42,13 @@ export default function GatheringMemberList({ members }: { members: Member[] }) 
               </div>
             )}
             <p className="text-[11px] font-bold leading-tight mt-1 truncate w-full">
-              {m.name}
-            </p>
-            <p className="text-[10px] text-quest-dim leading-tight truncate w-full">
               {m.monsterName}
             </p>
+            {m.speciesName !== m.monsterName && (
+              <p className="text-[10px] text-quest-dim leading-tight truncate w-full">
+                {m.speciesName}
+              </p>
+            )}
           </div>
         ))}
       </div>

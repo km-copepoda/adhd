@@ -37,7 +37,6 @@ export async function GET(request: Request) {
               child: {
                 select: {
                   id: true,
-                  name: true,
                   monsterName: true,
                   evolutionStage: true,
                   evolutionPath: true,
@@ -59,7 +58,6 @@ export async function GET(request: Request) {
   type MemberRow = {
     child: {
       id: string;
-      name: string | null;
       monsterName: string | null;
       evolutionStage: number;
       evolutionPath: string;
@@ -70,10 +68,11 @@ export async function GET(request: Request) {
   const members = (member.group.members as MemberRow[]).map((m) => {
     const monster = getMonsterStage(m.child.evolutionStage, m.child.evolutionPath, m.child.side);
     const monsterName = m.child.monsterName ?? monster.name;
+    // 本名 (User.name) はプライバシー保護のため API レスポンスに含めない（decisions.md 2026-04-26 / 2026-05-09）
     return {
       id: m.child.id,
-      name: m.child.name ?? monsterName,
       monsterName,
+      speciesName: monster.name,
       monsterImage: monster.image,
       evolutionStage: m.child.evolutionStage,
       isMe: user.role === "CHILD" && m.child.id === user.id,

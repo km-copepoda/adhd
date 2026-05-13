@@ -33,96 +33,98 @@ enum QuestStatus {
 }
 
 model Family {
-  id                 String         @id @default(cuid())
-  code               String         @unique
-  createdAt          DateTime       @default(now())
-  autoApproveTime    String         @default("24:00")
-  users              User[]
-  tasks              TaskTemplate[]
+  id              String         @id @default(cuid())
+  code            String         @unique
+  createdAt       DateTime       @default(now())
+  autoApproveTime String         @default("24:00")
+  users           User[]
+  tasks           TaskTemplate[]
 }
 
 model User {
-  id          String          @id @default(cuid())
-  supabaseId  String          @unique
-  role        Role
-  name        String?
-  side        Side?
-  monsterName String?
-  childCode      String?
-  evolutionStage  Int    @default(0)
-  evolutionPath   String @default("")
-  collectedPaths  String @default("[]")
-  monsterLevels   String @default("{}")
-  studyPt        Int             @default(0)
-  staminaPt      Int             @default(0)
-  lifePt         Int             @default(0)
-  minTasksForStreak   Int             @default(1)
-  reportDeadlineTime  String?
-  rebirthPending      Boolean         @default(false)
-  rebirthEggBonus     String?
-  usedEggBonuses      String          @default("[]")
-  familyId    String?
-  family      Family?         @relation(fields: [familyId], references: [id])
-  quests              QuestInstance[]
-  streak              Streak?
-  taskStreaks         TaskStreak[]
-  assignedTasks       TaskTemplate[]     @relation("AssignedTasks")
-  pushSubscriptions   PushSubscription[]
-  badges              UserBadge[]
-  gatheringMember     GatheringMember?
-  bulletinLogs        BulletinLog[]
-  sentStamps          Stamp[]
-  createdAt           DateTime           @default(now())
+  id                 String             @id @default(cuid())
+  supabaseId         String             @unique
+  role               Role
+  name               String?
+  side               Side?
+  monsterName        String?
+  childCode          String?
+  evolutionStage     Int                @default(0)
+  evolutionPath      String             @default("")
+  collectedPaths     String             @default("[]")
+  monsterLevels      String             @default("{}")
+  studyPt            Int                @default(0)
+  staminaPt          Int                @default(0)
+  lifePt             Int                @default(0)
+  minTasksForStreak  Int                @default(1)
+  reportDeadlineTime String?
+  rebirthPending     Boolean            @default(false)
+  rebirthEggBonus    String?
+  usedEggBonuses     String             @default("[]")
+  familyId           String?
+  family             Family?            @relation(fields: [familyId], references: [id])
+  quests             QuestInstance[]
+  streak             Streak?
+  taskStreaks        TaskStreak[]
+  assignedTasks      TaskTemplate[]     @relation("AssignedTasks")
+  pushSubscriptions  PushSubscription[]
+  badges             UserBadge[]
+  gatheringMember    GatheringMember?
+  bulletinLogs       BulletinLog[]
+  sentStamps         Stamp[]
+  questDeclarations  QuestDeclaration[]
+  createdAt          DateTime           @default(now())
 
   @@unique([familyId, childCode])
   @@index([familyId])
 }
 
 model TaskTemplate {
-  id               String          @id @default(cuid())
-  title            String
-  emoji            String          @default("⚔️")
-  category         Category
-  repeatDays       Int[]
-  isTemporary      Boolean         @default(false)
-  targetDate       DateTime?       @db.Date
-  createdBy        Role            @default(PARENT)
-  isActive         Boolean         @default(true)
-  requestedDate    DateTime?       @db.Date
-  familyId         String
-  family           Family          @relation(fields: [familyId], references: [id])
-  photoBonus          Boolean         @default(false)
-  originalCreatedBy   Role            @default(PARENT)
-  carryOver           Boolean         @default(false)
-  assignedChildId  String?
-  assignedChild    User?           @relation("AssignedTasks", fields: [assignedChildId], references: [id])
-  quests           QuestInstance[]
-  taskStreaks      TaskStreak[]
-  createdAt        DateTime        @default(now())
+  id                String             @id @default(cuid())
+  title             String
+  emoji             String             @default("⚔️")
+  category          Category
+  repeatDays        Int[]
+  isTemporary       Boolean            @default(false)
+  targetDate        DateTime?          @db.Date
+  createdBy         Role               @default(PARENT)
+  isActive          Boolean            @default(true)
+  requestedDate     DateTime?          @db.Date
+  familyId          String
+  family            Family             @relation(fields: [familyId], references: [id])
+  photoBonus        Boolean            @default(false)
+  originalCreatedBy Role               @default(PARENT)
+  carryOver         Boolean            @default(false)
+  assignedChildId   String?
+  assignedChild     User?              @relation("AssignedTasks", fields: [assignedChildId], references: [id])
+  quests            QuestInstance[]
+  taskStreaks       TaskStreak[]
+  declarations      QuestDeclaration[]
+  createdAt         DateTime           @default(now())
 
   @@index([familyId])
   @@index([assignedChildId])
 }
 
 model QuestInstance {
-  id               String       @id @default(cuid())
-  date             DateTime     @db.Date
-  status           QuestStatus  @default(PENDING)
-  comment          String?
+  id                  String       @id @default(cuid())
+  date                DateTime     @db.Date
+  status              QuestStatus  @default(PENDING)
+  comment             String?
   photoUrl            String?
-  deadlineBonusEarned Boolean   @default(false)
+  deadlineBonusEarned Boolean      @default(false)
   rejectionReason     String?
   approvalStamp       String?
-  snapshotTitle    String
-  snapshotEmoji    String
-  snapshotCategory Category
-  templateId       String
-  template   TaskTemplate @relation(fields: [templateId], references: [id])
-  childId    String
-  child      User         @relation(fields: [childId], references: [id])
-  reportedAt DateTime?
-  approvedAt DateTime?
-  createdAt  DateTime     @default(now())
+  snapshotTitle       String
+  snapshotEmoji       String
+  snapshotCategory    Category
+  templateId          String
+  template            TaskTemplate @relation(fields: [templateId], references: [id])
+  childId             String
+  child               User         @relation(fields: [childId], references: [id])
+  reportedAt          DateTime?
+  approvedAt          DateTime?
+  createdAt           DateTime     @default(now())
 
   @@unique([templateId, childId, date])
   @@index([childId])
@@ -131,17 +133,17 @@ model QuestInstance {
 }
 
 model Streak {
-  id               String    @id @default(cuid())
-  childId          String    @unique
-  child            User      @relation(fields: [childId], references: [id])
-  currentStreak    Int       @default(0)
-  bestStreak       Int       @default(0)
-  lastAchievedDate DateTime? @db.Date
-  loginCurrentStreak Int     @default(0)
-  loginBestStreak    Int     @default(0)
+  id                 String    @id @default(cuid())
+  childId            String    @unique
+  child              User      @relation(fields: [childId], references: [id])
+  currentStreak      Int       @default(0)
+  bestStreak         Int       @default(0)
+  lastAchievedDate   DateTime? @db.Date
+  loginCurrentStreak Int       @default(0)
+  loginBestStreak    Int       @default(0)
   lastLoginDate      DateTime? @db.Date
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model TaskStreak {
@@ -181,9 +183,9 @@ model PushSubscription {
 }
 
 enum GatheringLocationType {
-  PARK             // 公園 max10
+  PARK // 公園 max10
   COMMUNITY_CENTER // 児童館 max30
-  SCHOOL           // 校庭 max50
+  SCHOOL // 校庭 max50
 }
 
 enum BulletinLogType {
@@ -234,6 +236,23 @@ model GatheringMember {
   childId  String         @unique
   child    User           @relation(fields: [childId], references: [id], onDelete: Cascade)
   joinedAt DateTime       @default(now())
+}
+
+/// 「今日やる宣言」のレコード。
+/// 3日以上アイドル状態のタスクに対して子供が当日内に宣言ボタンを押した事実だけを記録する。
+/// 宣言した日のうちに APPROVED まで持っていけば +1XP のボーナスが付与される（src/lib/approve.ts）。
+/// ペナルティは無い（押さなかった日も、押したけど未完了の日も、何も起こらない）。
+model QuestDeclaration {
+  id         String       @id @default(cuid())
+  templateId String
+  template   TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  childId    String
+  child      User         @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date       DateTime     @db.Date
+  createdAt  DateTime     @default(now())
+
+  @@unique([templateId, childId, date])
+  @@index([childId, date])
 }
 
 model BulletinLog {

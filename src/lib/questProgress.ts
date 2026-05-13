@@ -35,6 +35,25 @@ export function sortQuestsByCompletion<T extends { status: string }>(quests: T[]
 }
 
 /**
+ * 「今日やる宣言」用の並び替え。
+ *
+ * 1. eligibleForDeclaration=true（= 放置中の未完了）— 放置タスクが目に入る
+ * 2. その他の未完了（PENDING/REJECTED）
+ * 3. 完了済み（REPORTED/APPROVED/SKIP_REPORTED/SKIPPED）
+ *
+ * 各グループ内は元の順序を保つ（安定ソート）。
+ */
+export function sortQuestsForDeclaration<T extends { status: string; eligibleForDeclaration: boolean }>(quests: T[]): T[] {
+  return [...quests].sort((a, b) => rank(a) - rank(b));
+}
+
+function rank(q: { status: string; eligibleForDeclaration: boolean }): number {
+  if (COMPLETED_STATUSES.has(q.status)) return 2;
+  if (q.eligibleForDeclaration) return 0;
+  return 1;
+}
+
+/**
  * クエスト完了報告後の成功画面に表示する進捗情報を計算する。
  *
  * NOTE: completedCount は refreshQuests() 完了後の値を受け取る。
