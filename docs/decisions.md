@@ -725,3 +725,8 @@
 ### MVP スコープ外（フェーズ B 以降）
 - ひろば（gathering）の子供モード表示 — Realtime / Stamp 配送が絡むため別途設計
 - 代理スキップ申請（`SKIP_REPORTED → SKIPPED`）— 必要なら同じ「即 SKIPPED」パターンで追加可能だが、初期は対応しない
+
+### 広場（BulletinLog）への書き込み — 親代理報告も子供本人と同等に発火する
+- `MONSTER_EVOLVED` / `BADGE_UNLOCKED` / `STREAK_TITLE` は `approveQuestInstance` および `recordDailyAchievement` 経由で自動的に発火する（既存ロジックそのまま流用）
+- `TASK_STARTED` / `TASK_PROGRESS_25/50/75` / `TASK_COMPLETE` は通常 `/api/quests/[id]/report` が発火するが、親代理経路では別ルートを通るため `report-approve` 内で **明示的に `after(() => triggerTaskProgressLog(child.id))` を呼ぶ**
+- 趣旨: 広場（ひろば）は「子供の達成記録」であり、誰が代理で報告したかは関係ない。代理報告で進捗マイルストーンが落ちると「ひろばに反映されないルート」が生まれて社会的フィードバックが歪むため、子供本人の報告と同じ書き込みを必ず通す

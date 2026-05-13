@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
 import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
+import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
 
 export async function POST(
@@ -76,8 +77,12 @@ export async function POST(
     photoUrl: photoUrl ?? quest.photoUrl,
   };
 
-  // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログを一気に処理する
+  // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
   await approveQuestInstance(updatedQuest as any, stamp ?? undefined);
+
+  // TASK_* 進捗ログは通常 /api/quests/[id]/report が発火する。代理報告でも子供本人の社会的フィードバック
+  // を維持するため、ここで明示的に同等の after() 発火を行う（decisions.md 2026-05-11 / 2026-05-01）
+  after(() => triggerTaskProgressLog(child.id).catch(() => {}));
 
   rlog.info("Parent reported-approved on behalf of child", {
     questId: id,

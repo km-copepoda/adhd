@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { after } from "next/server";
 import { POST } from "@/app/api/parent/child-view/quests/[id]/report-approve/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import * as approveModule from "@/lib/approve";
+import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { parentUser, childUser } from "../../../helpers/fixtures";
 import { makeParams } from "../../../helpers/request";
 
@@ -11,9 +13,15 @@ vi.mock("@/lib/approve", () => ({
   approveSkipQuestInstance: vi.fn(),
 }));
 
+vi.mock("@/lib/bulletinLog", () => ({
+  triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApprove = vi.mocked(approveModule.approveQuestInstance);
+const mockAfter = vi.mocked(after);
+const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 
 function makeReq(body: Record<string, unknown>) {
   return new Request("http://localhost/api/parent/child-view/quests/q1/report-approve", {
@@ -218,6 +226,28 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     const updateCall = mockPrisma.questInstance.update.mock.calls[0][0];
     expect(updateCall.data).not.toHaveProperty("deadlineBonusEarned");
+  });
+
+  it("掲示板の TASK_* 進捗ログを after() 経由で発火する（子供本人の報告と同等の社会的フィードバックを保つ）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      id: "q1",
+      childId: "child-1",
+      status: "PENDING",
+      date: new Date("2026-03-12T00:00:00Z"),
+      deadlineBonusEarned: false,
+      photoUrl: null,
+      snapshotCategory: "STUDY",
+      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
+      child: { id: "child-1" },
+    } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+
+    expect(mockAfter).toHaveBeenCalled();
+    expect(mockTriggerTaskProgressLog).toHaveBeenCalledWith("child-1");
   });
 
   it("REPORTED 状態（子供が既に報告済み）も APPROVED にできる", async () => {
