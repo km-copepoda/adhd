@@ -39,8 +39,11 @@ export default function ChildViewQuestsPage() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchQuests() {
-    setLoading(true);
+  // 代理報告後の再フェッチでは loading をトグルしない。
+  // loading=true にするとページ全体が <LoadingSpinner /> に置換され、QuestActionSheet
+  // ごと unmount → activeQuest だけが残るため、refetch 完了後に sheet が idle 状態で
+  // 再表示されてしまう（「終わってもまたモーダルが出る」リグレッション）。
+  async function refreshQuests() {
     const res = await fetch(`/api/parent/child-view/quests/today?childId=${childId}`);
     if (res.ok) {
       const loaded: Quest[] = await res.json();
@@ -49,6 +52,11 @@ export default function ChildViewQuestsPage() {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? `読み込みに失敗しました（${res.status}）`);
     }
+  }
+
+  async function fetchQuests() {
+    setLoading(true);
+    await refreshQuests();
     setLoading(false);
   }
 
@@ -79,7 +87,7 @@ export default function ChildViewQuestsPage() {
       setError(d.error ?? `報告に失敗しました（${res.status}）`);
       return;
     }
-    await fetchQuests();
+    await refreshQuests();
   }
 
   async function handleSkip() {
