@@ -39,5 +39,33 @@ export async function PATCH(request: Request) {
     rlog.info("Child reportDeadlineTime updated", { childId, value });
   }
 
+  // questTimeNotifyEnabled: クエストタイム自動通知の ON/OFF（子供単位）
+  if ("questTimeNotifyEnabled" in body && "childId" in body) {
+    const value = body.questTimeNotifyEnabled;
+    const childId: string = body.childId;
+
+    if (typeof value !== "boolean") {
+      return NextResponse.json(
+        { error: "questTimeNotifyEnabled は boolean で指定してください" },
+        { status: 400 },
+      );
+    }
+
+    const child = await prisma.user.findFirst({
+      where: { id: childId, familyId: user.familyId, role: "CHILD" },
+      select: { id: true },
+    });
+    if (!child) {
+      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+    }
+
+    await prisma.user.update({
+      where: { id: childId },
+      data: { questTimeNotifyEnabled: value },
+    });
+
+    rlog.info("Child questTimeNotifyEnabled updated", { childId, value });
+  }
+
   return NextResponse.json({ ok: true });
 }

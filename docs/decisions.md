@@ -675,3 +675,25 @@
 - エール送信のメッセージにタスク名・具体的な進捗数値を含める（プライバシー）
 - `key` を空文字 `""` にする（Stamp 側の1日1回制約と意味的に重複させない。`"エール"` 固定で読みやすさを維持）
 - 既存の Push 抑制ロジック（DONE 受信者へは送らない / 2026-05-05 決定）を掲示板書き込みにも適用する（掲示板は全員に対する「送った事実」のフィードバックなので、受信側の進捗で間引かない）
+
+## 2026-05-11: クエストタイム自動通知（JST 17:00 / 進捗連動メッセージ）の導入
+
+### 決定内容
+- 毎日 JST 17:00（UTC 08:00）に Vercel cron `/api/cron/quest-time-notify` を起動し、当日クエスト未完了の子供に Push を送る
+- `User.questTimeNotifyEnabled Boolean @default(true)` を追加。親が「ファミリー管理」画面で子供ごとに ON/OFF できる安全弁とし、OFF の子は cron 対象から除外
+- 進捗バケットは純粋関数 `getQuestTimeProgressBucket(done, total)` で算出: `NOT_STARTED`（0%）/ `EARLY`（1〜79%）/ `ALMOST`（80〜99%）/ `DONE`（100% または対象クエスト0件）
+- メッセージプールは `src/lib/notifyMessages.ts` の `QUEST_TIME_MESSAGES` に NOT_STARTED / EARLY / ALMOST × 各3件以上を定義し、`buildQuestTimeNotification` がバケットに応じてランダム選択
+- `DONE` の子（全完了済み・タスク0件）は Push を送らずスキップ（追い詰めない）
+- 完了系の判定は既存の `computeCompletedCount`（REPORTED + APPROVED + SKIP_REPORTED + SKIPPED）と共通化し、進捗マイルストーンと食い違いが出ないようにする
+- 親リマインド（`/api/push/notify-child`、2026-03-18 決定）はそのまま残し、本機能はそれを補完する自動トリガー（フェーズB の本実装）
+
+### 既存方針との関係
+- 2026-03-18「**自動タイムトリガー**: 夕方〇時になっても未完了タスクがある場合、親の操作なしに子供へ自動通知。Supabase Edge Functions または外部 Cron で実装予定（フェーズB以降）」を実装したもの
+- cron は既存 `/api/cron/auto-approve` と同じ Vercel cron + `CRON_SECRET` パターンに揃え、Supabase Edge Functions は導入しない（運用・監視を1箇所に集約するため）
+- 「冷たい定型文（『わかりました。』『あと少しですね』）禁止」をテストで担保し、子供向けトーン（「一緒にやろう」）を維持
+
+### やってはいけないこと
+- 通知文にタスク名や具体的なクエスト内容を入れる（プライバシー）。メッセージは進捗バケットに対する抽象的な励まし表現のみ
+- `questTimeNotifyEnabled=false` の子に「うっかり」送らない（cron 対象を `where` 句で除外。アプリ内の他 Push 経路も同フラグを尊重したくなったら都度判断）
+- 100%完了の子・対象クエスト0件の子に通知を送る（DONE 扱いで必ずスキップ）
+- 深夜・早朝に走らせる（cron は JST 17:00 固定。範囲を変える場合は decisions.md を更新すること）

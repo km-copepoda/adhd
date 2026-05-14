@@ -58,6 +58,7 @@ model User {
   lifePt         Int             @default(0)
   minTasksForStreak   Int             @default(1)
   reportDeadlineTime  String?
+  questTimeNotifyEnabled Boolean      @default(true)
   rebirthPending      Boolean         @default(false)
   rebirthEggBonus     String?
   usedEggBonuses      String          @default("[]")

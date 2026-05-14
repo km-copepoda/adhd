@@ -24,6 +24,7 @@ type Member = {
   childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
+  questTimeNotifyEnabled: boolean;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -46,6 +47,7 @@ export default function FamilyPage() {
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
   const [deadlineTimes, setDeadlineTimes] = useState<Record<string, string>>({});
   const [savingDeadlineId, setSavingDeadlineId] = useState<string | null>(null);
+  const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -120,6 +122,31 @@ export default function FamilyPage() {
       }
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleToggleQuestTimeNotify(childId: string, next: boolean) {
+    setSavingNotifyId(childId);
+    try {
+      const res = await fetch("/api/family/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId, questTimeNotifyEnabled: next }),
+      });
+      if (res.ok) {
+        setFamily((prev) =>
+          prev
+            ? {
+                ...prev,
+                members: prev.members.map((m) =>
+                  m.id === childId ? { ...m, questTimeNotifyEnabled: next } : m,
+                ),
+              }
+            : prev,
+        );
+      }
+    } finally {
+      setSavingNotifyId(null);
     }
   }
 
@@ -405,6 +432,24 @@ export default function FamilyPage() {
                     </button>
                   )}
                 </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] text-quest-dim">📣 クエストタイム自動通知</span>
+                  <p className="text-[10px] text-quest-dim/60 mt-0.5">JST 17:00 に未完了の子へ自動Push（追い詰めたくない子はOFFに）</p>
+                </div>
+                <button
+                  onClick={() => handleToggleQuestTimeNotify(member.id, !member.questTimeNotifyEnabled)}
+                  disabled={savingNotifyId === member.id}
+                  className={`text-[10px] px-3 py-1 rounded border transition-colors disabled:opacity-50 ${
+                    member.questTimeNotifyEnabled
+                      ? "bg-quest-gold/20 text-quest-gold border-quest-gold/30 hover:bg-quest-gold/30"
+                      : "bg-quest-border text-quest-dim border-quest-border hover:text-quest-text"
+                  }`}
+                  aria-pressed={member.questTimeNotifyEnabled}
+                >
+                  {savingNotifyId === member.id ? "保存中..." : member.questTimeNotifyEnabled ? "ON" : "OFF"}
+                </button>
               </div>
             </div>
             )}
