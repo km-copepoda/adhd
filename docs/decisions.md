@@ -801,8 +801,20 @@
 - 代理報告に固有の `createdBy` 識別やスタンプ強制（履歴上は通常の達成と同一に扱う方針）
 
 ### MVP スコープ外（フェーズ B 以降）
-- ひろば（gathering）の子供モード表示 — Realtime / Stamp 配送が絡むため別途設計
+- ~~ひろば（gathering）の子供モード表示~~ → **2026-05-14 にスコープへ取り込み**（下記「追加スコープ」参照）
 - 代理スキップ申請（`SKIP_REPORTED → SKIPPED`）— 必要なら同じ「即 SKIPPED」パターンで追加可能だが、初期は対応しない
+
+### 追加スコープ（2026-05-14 改）: ひろば（gathering）を読み取り専用で取り込み
+- 子供モードナビに `🏕️ ひろば` タブを追加し、`/app/parent/child-view/[childId]/gathering` を新設
+- **新規 API は作らない**。既存の `/api/gathering/current?childId=X` と `/api/gathering/board?childId=X` が既に PARENT ロール + family 検証付きで `?childId=` を受け付けているのでそのまま流用
+- ページは既存 `<GatheringMemberList>` / `<GatheringBoard>` を再利用。Realtime 購読も既存のまま許可（read-only 受信のみで子供データを変更しないため、「子供モードでは副作用を起こさない」原則とは抵触しない）
+- **エール送信 / グループ参加・脱退の UI は出さない**（子供本人の操作領域）。MVP の「親代理の操作対象は『達成報告のみ』」境界を保つ
+- 元の「Realtime / Stamp 配送が絡むため別途」というスコープ外理由は、既存の `/app/parent/gathering`（家族全員から1人を選んで眺める形）が同じ API で既に動いていることが判明したため再評価し、流用に切り替えた
+
+### UI 微調整（2026-05-14）: 「親画面へ戻る」を下部ナビに集約
+- 旧: 子供モードの上部バナーに「管理画面へ戻る」リンク
+- 新: 下部ナビ `ChildViewBottomNav` に `🚪 親画面`（→ `/app/parent/tasks`）タブを追加し、上部バナーからリンクを撤去
+- 理由: 戻るアクションは「クエスト / 育成 / ひろば」と並列の主導線。上部バナーから探す動線より下部ナビにまとめた方が指で到達しやすく、親モード中であることを示すバナー本来の役割（状態提示）に集中させられる
 
 ### 広場（BulletinLog）への書き込み — 親代理報告も子供本人と同等に発火する
 - `MONSTER_EVOLVED` / `BADGE_UNLOCKED` / `STREAK_TITLE` は `approveQuestInstance` および `recordDailyAchievement` 経由で自動的に発火する（既存ロジックそのまま流用）
