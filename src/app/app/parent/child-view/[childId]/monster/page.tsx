@@ -7,6 +7,9 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { REBIRTH_THRESHOLD } from "@/lib/evolution";
 
+const REBIRTH_CONFIRM_MESSAGE =
+  "代理で転生しますか？\n\n卵ボーナスなし（NORMAL卵）で転生します。\n勉強/体力/生活の卵を選びたい場合は子供画面から操作してください。";
+
 type MonsterStatus = {
   name: string;
   side: "DARK" | "LIGHT" | null;
@@ -32,21 +35,43 @@ export default function ChildViewMonsterPage() {
   const childId = params.childId;
   const [status, setStatus] = useState<MonsterStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rebirthing, setRebirthing] = useState(false);
+
+  async function refreshStatus() {
+    const r = await fetch(`/api/parent/child-view/monster-status?childId=${childId}`);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setError(d.error ?? `読み込みに失敗しました（${r.status}）`);
+      return;
+    }
+    setStatus(await r.json());
+  }
 
   useEffect(() => {
     if (!childId) return;
-    fetch(`/api/parent/child-view/monster-status?childId=${childId}`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
-          setError(d.error ?? `読み込みに失敗しました（${r.status}）`);
-          return null;
-        }
-        return r.json();
-      })
-      .then((d) => d && setStatus(d))
-      .catch(() => setError("読み込みに失敗しました"));
+    refreshStatus().catch(() => setError("読み込みに失敗しました"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId]);
+
+  async function handleRebirth() {
+    if (!confirm(REBIRTH_CONFIRM_MESSAGE)) return;
+    setRebirthing(true);
+    try {
+      const res = await fetch(`/api/parent/child-view/rebirth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? `転生に失敗しました（${res.status}）`);
+        return;
+      }
+      await refreshStatus();
+    } finally {
+      setRebirthing(false);
+    }
+  }
 
   if (error) return <p className="p-6 text-red-400 text-sm">{error}</p>;
   if (!status) return <LoadingSpinner />;
@@ -74,8 +99,26 @@ export default function ChildViewMonsterPage() {
         🐣 {status.name}（代理閲覧）
       </h1>
       <p className="text-quest-dim text-xs mb-4">
-        親モードでは閲覧のみ。転生や卵選択は子供画面から行ってください。
+        親モードでは閲覧のみ（転生待ちのときだけ NORMAL 卵での代理転生が可能）。
+        勉強/体力/生活の卵を選びたい場合は子供画面から操作してください。
       </p>
+
+      {status.rebirthPending && (
+        <div className="mb-4 bg-purple-500/10 border border-purple-400/30 rounded-xl p-4">
+          <p className="text-sm font-bold text-purple-300 mb-1">転生待ちです</p>
+          <p className="text-xs text-quest-dim mb-3">
+            このままだと XP は加点されても進化が止まります。代理で転生すると NORMAL 卵
+            （ボーナスなし）で次サイクルが始まります。
+          </p>
+          <button
+            onClick={handleRebirth}
+            disabled={rebirthing}
+            className="w-full py-2 rounded-lg bg-purple-500/30 border border-purple-400/50 text-purple-100 text-sm font-bold hover:bg-purple-500/40 disabled:opacity-40"
+          >
+            {rebirthing ? "転生中..." : "🥚 代理で転生する（NORMAL 卵）"}
+          </button>
+        </div>
+      )}
 
       <div className="bg-quest-card border border-quest-border rounded-xl p-4 mb-4">
         <div className="flex items-center gap-4">
