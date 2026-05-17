@@ -9,6 +9,7 @@ import { usePendingCounts } from "@/hooks/usePendingApprovalCount";
 const tabs = [
   { href: "/app/parent/tasks", emoji: "📋", label: "タスク", badgeKey: "tasks" as const },
   { href: "/app/parent/approve", emoji: "✅", label: "承認", badgeKey: "approvals" as const },
+  { href: "/app/parent/child-view", emoji: "🧒", label: "子供モード" },
   { href: "/app/parent/completed", emoji: "🏆", label: "完了" },
   { href: "/app/parent/history", emoji: "📅", label: "履歴" },
   { href: "/app/parent/gathering", emoji: "🏕️", label: "ひろば" },

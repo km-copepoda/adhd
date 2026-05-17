@@ -104,4 +104,13 @@ describe("GET /api/cron/auto-approve", () => {
     expect(body.approved).toBe(0);
     expect(body.skipped).toBe(0);
   });
+
+  it("findMany の template select に repeatDays が含まれること（approveQuestInstance の型と整合）", async () => {
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+
+    await GET(makeRequest("test-secret"));
+
+    const call = mockPrisma.questInstance.findMany.mock.calls[0][0];
+    expect(call?.include?.template?.select?.repeatDays).toBe(true);
+  });
 });

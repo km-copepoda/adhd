@@ -30,6 +30,7 @@ export async function GET(request: Request) {
           createdBy: true,
           isTemporary: true,
           photoBonus: true,
+          repeatDays: true,
         },
       },
       child: {
