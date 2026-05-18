@@ -59,7 +59,7 @@ describe("POST /api/parent/child-view/rebirth", () => {
     );
     const res = await POST(makeReq({ childId: "child-1" }));
     expect(res.status).toBe(400);
-    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("正常系: 卵ボーナス無し（NORMAL 卵）でステージ・ポイントをリセットする", async () => {
@@ -75,13 +75,13 @@ describe("POST /api/parent/child-view/rebirth", () => {
         lifePt: 5,
       }) as any,
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const res = await POST(makeReq({ childId: "child-1" }));
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: "child-1" },
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "child-1", rebirthPending: true },
       data: expect.objectContaining({
         rebirthPending: false,
         rebirthEggBonus: null, // NORMAL 卵はボーナス無し
@@ -103,13 +103,25 @@ describe("POST /api/parent/child-view/rebirth", () => {
         usedEggBonuses: '["STUDY"]',
       }) as any,
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     await POST(makeReq({ childId: "child-1" }));
 
-    const call = mockPrisma.user.update.mock.calls[0][0];
+    const call = mockPrisma.user.updateMany.mock.calls[0][0];
     // 既存の usedEggBonuses は変更しない（NORMAL 卵は使用済み記録不要）
     expect(call.data.usedEggBonuses ?? '["STUDY"]').toBe('["STUDY"]');
+  });
+
+  it("rebirthPending=trueで読み込んだ後、update時には他経路で既に転生済み(count=0)の場合は400を返す（TOCTOUレース）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({ id: "child-1", rebirthPending: true, usedEggBonuses: "[]" }) as any,
+    );
+    // 子供本人が同時に転生実行済みのケースを模擬
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 } as any);
+
+    const res = await POST(makeReq({ childId: "child-1" }));
+    expect(res.status).toBe(400);
   });
 
   it("after() で MonsterReborn 掲示板ログをスケジュールする", async () => {
@@ -117,7 +129,7 @@ describe("POST /api/parent/child-view/rebirth", () => {
     mockPrisma.user.findFirst.mockResolvedValue(
       childUser({ id: "child-1", rebirthPending: true, usedEggBonuses: "[]" }) as any,
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     await POST(makeReq({ childId: "child-1" }));
 

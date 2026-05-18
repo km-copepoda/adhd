@@ -36,8 +36,10 @@ export async function POST(request: Request) {
   }
 
   // NORMAL 卵はボーナス無し・使用済み記録もしない（usedEggBonuses はそのまま）
-  await prisma.user.update({
-    where: { id: child.id },
+  // TOCTOU 回避: rebirthPending=true を WHERE 条件に含めて、別経路（子供本人）で
+  // 先に転生済みなら count=0 となり 400 を返す（子供の卵選択を上書きしない）。
+  const result = await prisma.user.updateMany({
+    where: { id: child.id, rebirthPending: true },
     data: {
       rebirthPending: false,
       rebirthEggBonus: null,
@@ -48,6 +50,9 @@ export async function POST(request: Request) {
       lifePt: 0,
     },
   });
+  if (result.count === 0) {
+    return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
+  }
 
   after(() => triggerMonsterRebornLog(child.id, "ふつう").catch(() => {}));
 

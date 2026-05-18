@@ -56,15 +56,15 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: "[]",
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "child-1" },
+        where: { id: "child-1", rebirthPending: true },
         data: expect.objectContaining({
           rebirthPending: false,
           rebirthEggBonus: "STUDY",
@@ -86,13 +86,13 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: '["STUDY"]',
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ usedEggBonuses: '["STUDY"]' }),
       }),
@@ -106,13 +106,13 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: '["STUDY"]',
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const req = makeRequest("/api/rebirth", { eggType: "NORMAL" });
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ usedEggBonuses: '["STUDY"]' }),
       }),
@@ -126,13 +126,13 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: "[]",
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const req = makeRequest("/api/rebirth", { eggType: "STAMINA" });
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ rebirthEggBonus: "STAMINA" }),
       }),
@@ -146,13 +146,13 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: "[]",
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const req = makeRequest("/api/rebirth", { eggType: "LIFE" });
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ rebirthEggBonus: "LIFE" }),
       }),
@@ -166,17 +166,32 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: "[]",
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
     
     const req = makeRequest("/api/rebirth", { eggType: "NORMAL" });
     const res = await POST(req);
     expect(res.status).toBe(200);
     
-    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ rebirthEggBonus: null }),
       }),
     );
+  });
+
+  it("rebirthPending=trueで読み込んだ後、update時には他経路で既に転生済み(count=0)の場合は400を返すこと（TOCTOUレース）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...childUser({ id: "child-1" }),
+      rebirthPending: true,
+      usedEggBonuses: "[]",
+    } as any);
+    // updateMany が 0 件マッチ = 既に別経路（親代理 or 別端末）で転生済み
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 } as any);
+
+    const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
   });
 
   it("成功時に{ ok: true }を返すこと", async () => {
@@ -186,7 +201,7 @@ describe("POST /api/rebirth", () => {
       rebirthPending: true,
       usedEggBonuses: "[]",
     } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
 
     const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
     const res = await POST(req);

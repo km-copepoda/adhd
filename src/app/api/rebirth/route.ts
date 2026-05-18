@@ -35,8 +35,10 @@ export async function POST(request: Request) {
     ? [...prevUsed, eggType]
     : prevUsed;
 
-  await prisma.user.update({
-    where: { id: user.id },
+  // TOCTOU 回避: rebirthPending=true を WHERE 条件に含めて、別経路（親代理転生・別端末）で
+  // 先に転生済みなら count=0 となり 400 を返す。
+  const result = await prisma.user.updateMany({
+    where: { id: user.id, rebirthPending: true },
     data: {
       rebirthPending: false,
       rebirthEggBonus: eggType === "NORMAL" ? null : eggType,
@@ -48,6 +50,9 @@ export async function POST(request: Request) {
       usedEggBonuses: JSON.stringify(newUsed),
     },
   });
+  if (result.count === 0) {
+    return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
+  }
 
   // 転生ログ — after() でレスポンス送信後に実行（サーバレスで取りこぼさないため）
   const eggLabel: Record<string, string> = { NORMAL: "ふつう", STUDY: "べんきょう", STAMINA: "たいりょく", LIFE: "せいかつ" };
