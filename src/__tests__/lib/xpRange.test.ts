@@ -17,6 +17,28 @@ describe("xpRangeLabel", () => {
   it("deadline も photoBonus もある → +1〜3pt", () => {
     expect(xpRangeLabel(true, true)).toBe("+1〜3pt");
   });
+
+  describe("「今日やる宣言」ボーナスを含むレンジ", () => {
+    it("declared=true のみ → +2pt（宣言ボーナス確定で範囲なし）", () => {
+      expect(xpRangeLabel(false, false, true)).toBe("+2pt");
+    });
+
+    it("declared=true + deadline → +2〜3pt", () => {
+      expect(xpRangeLabel(true, false, true)).toBe("+2〜3pt");
+    });
+
+    it("declared=true + photoBonus → +2〜3pt", () => {
+      expect(xpRangeLabel(false, true, true)).toBe("+2〜3pt");
+    });
+
+    it("declared=true + deadline + photoBonus → +2〜4pt（全部入り）", () => {
+      expect(xpRangeLabel(true, true, true)).toBe("+2〜4pt");
+    });
+
+    it("declared=false（デフォルト）は従来通り宣言ボーナスを含まない", () => {
+      expect(xpRangeLabel(true, true, false)).toBe("+1〜3pt");
+    });
+  });
 });
 
 describe("calcActualXP", () => {

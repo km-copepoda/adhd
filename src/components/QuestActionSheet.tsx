@@ -12,6 +12,7 @@ import type { Category, QuestStatus } from "@/types";
 export type SheetQuest = {
   id: string;
   status: QuestStatus;
+  declaredToday?: boolean;
   template: {
     title: string;
     emoji: string;
@@ -232,7 +233,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className="text-2xl font-black text-quest-gold leading-none">{xpRangeLabel(hasDeadline, photoBonus)}</p>
+                  <p className="text-2xl font-black text-quest-gold leading-none">{xpRangeLabel(hasDeadline, photoBonus, !!quest.declaredToday)}</p>
                 </div>
               </div>
 
