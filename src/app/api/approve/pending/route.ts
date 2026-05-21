@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { cleanupStaleCarryOverInstances } from "@/lib/quests";
+import { jstDateOf } from "@/lib/date";
 
 export async function GET() {
   const rlog = routeLogger("GET", "/api/approve/pending");
@@ -45,6 +46,38 @@ export async function GET() {
     orderBy: { reportedAt: "desc" },
   });
 
+  // 承認時の「今日やる宣言」ボーナス (+1XP) を表示にも反映するため、
+  // 各 REPORTED クエストの (templateId, childId, reportedAt の JST 日付) で
+  // QuestDeclaration をルックアップする。approveQuestInstance と同じ
+  // 照合キーを使い、親が見る +Xpt と実際の付与額を一致させる。
+  const declarationKeys = quests
+    .filter((q: any) => q.reportedAt)
+    .map((q: any) => ({
+      templateId: q.templateId,
+      childId: q.childId,
+      date: jstDateOf(q.reportedAt),
+    }));
+
+  let declaredSet = new Set<string>();
+  if (declarationKeys.length > 0) {
+    const declarations = await prisma.questDeclaration.findMany({
+      where: { OR: declarationKeys },
+      select: { templateId: true, childId: true, date: true },
+    });
+    declaredSet = new Set(
+      declarations.map((d: { templateId: string; childId: string; date: Date }) =>
+        `${d.templateId}|${d.childId}|${d.date.toISOString()}`,
+      ),
+    );
+  }
+
+  const enriched = quests.map((q: any) => {
+    const declaredToday = q.reportedAt
+      ? declaredSet.has(`${q.templateId}|${q.childId}|${jstDateOf(q.reportedAt).toISOString()}`)
+      : false;
+    return { ...q, declaredToday };
+  });
+
   rlog.info("Pending approvals fetched", { userId: user.id, familyId: user.familyId, count: quests.length });
-  return NextResponse.json(quests);
+  return NextResponse.json(enriched);
 }

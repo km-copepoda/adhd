@@ -105,4 +105,91 @@ describe("GET /api/approve/pending", () => {
       orderBy: { reportedAt: "desc" },
     });
   });
+
+  describe("declaredToday: 承認時の宣言ボーナスを反映する", () => {
+    it("(templateId, childId, reportedAtのJST日付) に一致する宣言があれば declaredToday=true", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+      // JST 2026-03-12 09:00 = UTC 2026-03-12 00:00
+      const reportedAt = new Date("2026-03-12T00:00:00Z");
+      const jstDate = new Date("2026-03-12T00:00:00Z"); // jstDateOf の戻り値（JST 日付の UTC 0:00）
+
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        {
+          id: "q1",
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: "REPORTED",
+          reportedAt,
+          child: { name: "太郎", monsterName: "ド" },
+          template: { title: "宿題", emoji: "📚", category: "STUDY", photoBonus: false, isTemporary: false },
+        },
+      ] as any);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([
+        { templateId: "tpl-1", childId: "child-1", date: jstDate },
+      ] as any);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json[0].declaredToday).toBe(true);
+    });
+
+    it("該当宣言が無ければ declaredToday=false", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        {
+          id: "q1",
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: "REPORTED",
+          reportedAt: new Date("2026-03-12T00:00:00Z"),
+          child: { name: "太郎" },
+          template: { title: "宿題", emoji: "📚", category: "STUDY", photoBonus: false, isTemporary: false },
+        },
+      ] as any);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([] as any);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json[0].declaredToday).toBe(false);
+    });
+
+    it("別の templateId の宣言は混同しない", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+
+      const jstDate = new Date("2026-03-12T00:00:00Z");
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        {
+          id: "q1",
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: "REPORTED",
+          reportedAt: new Date("2026-03-12T00:00:00Z"),
+          child: { name: "太郎" },
+          template: { title: "宿題", emoji: "📚", category: "STUDY", photoBonus: false, isTemporary: false },
+        },
+      ] as any);
+      // 別 template の宣言は来るが、対象クエストの templateId とは違う
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([
+        { templateId: "tpl-OTHER", childId: "child-1", date: jstDate },
+      ] as any);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json[0].declaredToday).toBe(false);
+    });
+
+    it("REPORTED クエストが0件なら QuestDeclaration を検索しない", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+      await GET();
+
+      expect(mockPrisma.questDeclaration.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -5,6 +5,11 @@ export function xpRangeLabel(hasDeadline: boolean, photoBonus: boolean, declared
   return min === max ? `+${min}pt` : `+${min}〜${max}pt`;
 }
 
-export function calcActualXP(deadlineBonusEarned: boolean, photoBonus: boolean, hasPhoto: boolean): number {
-  return 1 + (deadlineBonusEarned ? 1 : 0) + (photoBonus && hasPhoto ? 1 : 0);
+export function calcActualXP(
+  deadlineBonusEarned: boolean,
+  photoBonus: boolean,
+  hasPhoto: boolean,
+  declared: boolean = false,
+): number {
+  return 1 + (deadlineBonusEarned ? 1 : 0) + (photoBonus && hasPhoto ? 1 : 0) + (declared ? 1 : 0);
 }
