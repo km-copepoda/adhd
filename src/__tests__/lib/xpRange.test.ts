@@ -65,4 +65,22 @@ describe("calcActualXP", () => {
   it("期限ボーナスあり・写真ボーナスあり・写真なし → 2pt", () => {
     expect(calcActualXP(true, true, false)).toBe(2);
   });
+
+  describe("「今日やる宣言」ボーナス", () => {
+    it("declared=true のみ → 2pt（基本 1 + 宣言 1）", () => {
+      expect(calcActualXP(false, false, false, true)).toBe(2);
+    });
+
+    it("declared=true + 期限ボーナス → 3pt", () => {
+      expect(calcActualXP(true, false, false, true)).toBe(3);
+    });
+
+    it("全ボーナス + declared=true → 4pt", () => {
+      expect(calcActualXP(true, true, true, true)).toBe(4);
+    });
+
+    it("declared 引数省略時は従来通り（=false 扱い）", () => {
+      expect(calcActualXP(true, true, true)).toBe(3);
+    });
+  });
 });

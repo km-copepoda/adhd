@@ -18,6 +18,7 @@ type PendingQuest = {
   photoUrl: string | null;
   deadlineBonusEarned: boolean;
   reportedAt: string;
+  declaredToday: boolean;
   child: { name: string; monsterName: string; side: string; reportDeadlineTime: string | null };
   template: {
     title: string;
@@ -184,7 +185,7 @@ export default function ApprovePage() {
                   </p>
                   <p className="text-base font-medium mt-1">{quest.template.title}</p>
                   <p className="text-xs text-quest-dim mt-1">
-                    {cat.emoji} {cat.name}{!isSkipRequest && <> · {xpRangeLabel(!!quest.child.reportDeadlineTime, quest.template.photoBonus)}</>}
+                    {cat.emoji} {cat.name}{!isSkipRequest && <> · {xpRangeLabel(!!quest.child.reportDeadlineTime, quest.template.photoBonus, quest.declaredToday)}</>}
                   </p>
                 </div>
               </div>
@@ -240,7 +241,7 @@ export default function ApprovePage() {
                     ? "bg-red-400/10 text-red-400 border border-red-400/30"
                     : "btn-gold"
                 }`}>
-                  {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl)}pt)`}
+                  {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl, quest.declaredToday)}pt)`}
                 </div>
                 {!isSkipRequest && (
                   <button
