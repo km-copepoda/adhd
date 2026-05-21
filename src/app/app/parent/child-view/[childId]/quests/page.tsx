@@ -7,6 +7,7 @@ import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import { computeCompletedCount, sortQuestsByCompletion } from "@/lib/questProgress";
+import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 
 type Quest = {
   id: string;
@@ -18,6 +19,7 @@ type Quest = {
   deadlineBonusEarned: boolean;
   photoUrl: string | null;
   hasDeadline: boolean;
+  declaredToday: boolean;
   template: {
     id: string;
     title: string;
@@ -141,6 +143,7 @@ export default function ChildViewQuestsPage() {
             let xp = 1;
             if (quest.deadlineBonusEarned) xp++;
             if (quest.template.photoBonus && quest.photoUrl) xp++;
+            if (quest.declaredToday) xp += DECLARATION_BONUS_XP;
             const isApproved = quest.status === "APPROVED";
             const isReported = quest.status === "REPORTED";
             const isSkipped = quest.status === "SKIPPED";

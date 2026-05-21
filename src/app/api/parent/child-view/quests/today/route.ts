@@ -55,11 +55,22 @@ export async function GET(request: Request) {
     orderBy: { template: { createdAt: "asc" } },
   });
 
+  // 子供が「今日やる」宣言したテンプレートを取得し、親画面でも +1XP 反映する
+  const templateIds = Array.from(new Set(quests.map((q: any) => q.templateId)));
+  const declarationsToday = templateIds.length
+    ? await prisma.questDeclaration.findMany({
+        where: { childId: child.id, date: today, templateId: { in: templateIds } },
+        select: { templateId: true },
+      })
+    : [];
+  const declaredTemplateIds = new Set(declarationsToday.map((d: { templateId: string }) => d.templateId));
+
   const hasDeadline = !!child.reportDeadlineTime;
   return NextResponse.json(
     quests.map((q: any) => ({
       ...q,
       hasDeadline,
+      declaredToday: declaredTemplateIds.has(q.templateId),
       template: {
         ...q.template,
         title: q.snapshotTitle ?? q.template.title,

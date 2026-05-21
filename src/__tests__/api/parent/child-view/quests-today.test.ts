@@ -101,4 +101,66 @@ describe("GET /api/parent/child-view/quests/today", () => {
     const json = await res.json();
     expect(json[0].hasDeadline).toBe(false);
   });
+
+  describe("declaredToday: 子供の今日やる宣言を親画面でも表示する", () => {
+    it("当日の宣言レコードがあれば declaredToday=true を返す", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", reportDeadlineTime: "20:00" }) as any,
+      );
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        {
+          id: "q1",
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: "PENDING",
+          template: { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY" },
+        },
+      ] as any);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([{ templateId: "tpl-1" }] as any);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json[0].declaredToday).toBe(true);
+    });
+
+    it("当日の宣言レコードが無ければ declaredToday=false を返す", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", reportDeadlineTime: "20:00" }) as any,
+      );
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        {
+          id: "q1",
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: "PENDING",
+          template: { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY" },
+        },
+      ] as any);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([] as any);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json[0].declaredToday).toBe(false);
+    });
+
+    it("テンプレートが無い場合は QuestDeclaration を検索しない", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", reportDeadlineTime: null }) as any,
+      );
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+      const res = await GET(makeReq("child-1"));
+      expect(res.status).toBe(200);
+      // 空配列なら declaration クエリを発行しないこと（無駄な DB アクセス回避）
+      expect(mockPrisma.questDeclaration.findMany).not.toHaveBeenCalled();
+    });
+  });
 });
