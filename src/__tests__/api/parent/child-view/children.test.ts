@@ -30,7 +30,7 @@ describe("GET /api/parent/child-view/children", () => {
     expect(res.status).toBe(403);
   });
 
-  it("正常系: 家族内の CHILD だけを返す（最小限フィールド）", async () => {
+  it("正常系: 家族内の CHILD を返し、モンスター画像とXPバー描画に必要なフィールドを含む", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -40,6 +40,11 @@ describe("GET /api/parent/child-view/children", () => {
         side: "LIGHT",
         evolutionStage: 1,
         evolutionPath: "STUDY",
+        studyPt: 2,
+        staminaPt: 1,
+        lifePt: 0,
+        collectedPaths: "[]",
+        rebirthEggBonus: null,
       },
       {
         id: "child-2",
@@ -48,6 +53,11 @@ describe("GET /api/parent/child-view/children", () => {
         side: "DARK",
         evolutionStage: 0,
         evolutionPath: "",
+        studyPt: 0,
+        staminaPt: 0,
+        lifePt: 0,
+        collectedPaths: "[]",
+        rebirthEggBonus: null,
       },
     ] as any);
 
@@ -57,10 +67,22 @@ describe("GET /api/parent/child-view/children", () => {
     expect(json).toHaveLength(2);
     expect(json[0].id).toBe("child-1");
     expect(json[0].monsterName).toBe("ドラゴン");
+    expect(json[0].studyPt).toBe(2);
+    expect(json[0].staminaPt).toBe(1);
+    expect(json[0].lifePt).toBe(0);
+    expect(json[0].collectedPaths).toBe("[]");
+    expect(json[0].rebirthEggBonus).toBe(null);
 
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { familyId: "fam-1", role: "CHILD" },
+        select: expect.objectContaining({
+          studyPt: true,
+          staminaPt: true,
+          lifePt: true,
+          collectedPaths: true,
+          rebirthEggBonus: true,
+        }),
       }),
     );
   });
