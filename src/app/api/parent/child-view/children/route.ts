@@ -20,6 +20,11 @@ export async function GET() {
       side: true,
       evolutionStage: true,
       evolutionPath: true,
+      studyPt: true,
+      staminaPt: true,
+      lifePt: true,
+      collectedPaths: true,
+      rebirthEggBonus: true,
     },
     orderBy: { name: "asc" },
   });
