@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import PushSubscriber from "@/components/parent/PushSubscriber";
 import { usePendingCounts } from "@/hooks/usePendingApprovalCount";
 
@@ -19,12 +18,6 @@ const tabs = [
 export default function ParentBottomNav() {
   const pathname = usePathname();
   const counts = usePendingCounts();
-
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-quest-card border-t border-quest-border z-50">
@@ -58,13 +51,6 @@ export default function ParentBottomNav() {
           iconClassName="text-xl"
           labelClassName="text-[10px] tracking-wider"
         />
-        <button
-          onClick={handleLogout}
-          className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors text-quest-dim hover:text-red-400"
-        >
-          <span className="text-xl">🚪</span>
-          <span className="text-[10px] tracking-wider">ログアウト</span>
-        </button>
       </div>
     </nav>
   );
