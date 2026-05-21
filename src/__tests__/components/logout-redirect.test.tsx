@@ -73,22 +73,14 @@ describe("ログアウト後のリダイレクト先", () => {
     vi.clearAllMocks();
   });
 
-  it("親 Sidebar: ログアウト後に /login にリダイレクトする", async () => {
+  it("親 Sidebar: ログアウトボタンを含まない（ファミリーページに移動済み）", () => {
     render(<Sidebar />);
-    const btn = screen.getByText("ログアウト").closest("button")!;
-    fireEvent.click(btn);
-    await waitFor(() => {
-      expect((window.location as unknown as { href: string }).href).toBe("/login");
-    });
+    expect(screen.queryByText("ログアウト")).toBeNull();
   });
 
-  it("親 ParentBottomNav: ログアウト後に /login にリダイレクトする", async () => {
+  it("親 ParentBottomNav: ログアウトボタンを含まない（ファミリーページに移動済み）", () => {
     render(<ParentBottomNav />);
-    const btn = screen.getByText("ログアウト").closest("button")!;
-    fireEvent.click(btn);
-    await waitFor(() => {
-      expect((window.location as unknown as { href: string }).href).toBe("/login");
-    });
+    expect(screen.queryByText("ログアウト")).toBeNull();
   });
 
   it("子 BottomNav: 確認ダイアログでOKを押すと /login にリダイレクトする", async () => {

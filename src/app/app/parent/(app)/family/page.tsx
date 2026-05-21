@@ -5,6 +5,7 @@ import Image from "next/image";
 import { getMonsterStage, getXpInfo, REBIRTH_THRESHOLD } from "@/lib/constants";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { createClient } from "@/lib/supabase/client";
 
 const EGG_BONUS_IMAGE: Record<string, string> = {
   STUDY: "/monsters/egg-study.webp",
@@ -161,6 +162,12 @@ export default function FamilyPage() {
     } finally {
       setSavingDeadlineId(null);
     }
+  }
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   }
 
   async function handleAddChild() {
@@ -459,6 +466,17 @@ export default function FamilyPage() {
             <p className="text-quest-dim text-sm">メンバーはまだいません</p>
           )}
         </div>
+      </div>
+
+      {/* Logout */}
+      <div className="mt-8 flex justify-end">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 text-sm text-quest-dim hover:text-red-400 border border-quest-border rounded-lg px-4 py-2 transition-colors"
+        >
+          <span>🚪</span>
+          <span>ログアウト</span>
+        </button>
       </div>
     </div>
   );

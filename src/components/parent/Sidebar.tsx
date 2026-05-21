@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import PushSubscriber from "@/components/parent/PushSubscriber";
 import { usePendingCounts } from "@/hooks/usePendingApprovalCount";
 
@@ -19,12 +18,6 @@ const links = [
 export default function Sidebar() {
   const pathname = usePathname();
   const counts = usePendingCounts();
-
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
 
   return (
     <aside className="hidden md:flex w-56 bg-quest-card border-r border-quest-border min-h-dvh p-4 flex-col">
@@ -64,13 +57,6 @@ export default function Sidebar() {
       </nav>
       <div className="mt-auto pt-4 border-t border-quest-border flex flex-col gap-1">
         <PushSubscriber className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-quest-dim hover:text-quest-gold hover:bg-quest-gold/5 transition-colors w-full" />
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-quest-dim hover:text-red-400 hover:bg-red-400/5 transition-colors w-full"
-        >
-          <span>🚪</span>
-          <span>ログアウト</span>
-        </button>
       </div>
     </aside>
   );
