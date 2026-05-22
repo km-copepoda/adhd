@@ -8,9 +8,10 @@ import { REBIRTH_THRESHOLD } from "@/lib/evolution";
 type Props = {
   data: MonsterMiniData;
   childName: string;
+  href?: string;
 };
 
-export default function MonsterMiniCard({ data, childName }: Props) {
+export default function MonsterMiniCard({ data, childName, href = "/app/child/monster" }: Props) {
   const { image, monsterName, stageLabel, ptCurrent, ptNeeded, ptToEvolve, isRebirth, rebirthThreshold } = data;
 
   const progressPct = isRebirth
@@ -25,7 +26,7 @@ export default function MonsterMiniCard({ data, childName }: Props) {
     : "linear-gradient(90deg, #b45309, #fbbf24)";
 
   return (
-    <Link href="/app/child/monster" className="block">
+    <Link href={href} className="block">
       <div className="bg-quest-card border border-quest-border rounded-xl p-3 mb-5 flex items-center gap-3 hover:border-quest-gold/30 active:scale-[0.99] transition-all">
         {/* Monster image */}
         <div

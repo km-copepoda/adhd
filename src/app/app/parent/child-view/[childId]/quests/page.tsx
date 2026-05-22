@@ -6,6 +6,8 @@ import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
+import MonsterMiniCard from "@/components/MonsterMiniCard";
+import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsByCompletion } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 
@@ -38,6 +40,7 @@ export default function ChildViewQuestsPage() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
   const [childName, setChildName] = useState<string>("");
+  const [monsterMini, setMonsterMini] = useState<MonsterMiniData | null>(null);
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +70,20 @@ export default function ChildViewQuestsPage() {
     if (res.ok) {
       const d = await res.json();
       setChildName(d.name ?? "");
+      if (typeof d.evolutionStage === "number") {
+        setMonsterMini(
+          getMonsterMiniData({
+            evolutionStage: d.evolutionStage,
+            evolutionPath: d.evolutionPath ?? "",
+            side: d.side ?? null,
+            studyPt: d.studyPt,
+            staminaPt: d.staminaPt,
+            lifePt: d.lifePt,
+            collectedPaths: d.collectedPaths ?? "[]",
+            rebirthEggBonus: d.rebirthEggBonus ?? null,
+          }),
+        );
+      }
     }
   }
 
@@ -121,6 +138,14 @@ export default function ChildViewQuestsPage() {
             />
           </div>
         </div>
+
+        {monsterMini && (
+          <MonsterMiniCard
+            data={monsterMini}
+            childName={childName}
+            href={`/app/parent/child-view/${childId}/monster`}
+          />
+        )}
 
         {error && (
           <div className="mb-4 bg-red-400/10 border border-red-400/30 rounded-xl px-3 py-2 text-xs text-red-300 flex items-start gap-2">

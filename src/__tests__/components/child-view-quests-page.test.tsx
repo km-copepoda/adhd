@@ -111,3 +111,68 @@ describe("ChildViewQuestsPage 代理報告後のモーダル挙動（回帰防�
     });
   });
 });
+
+describe("ChildViewQuestsPage: モンスターミニカード（キャラクター・XP）表示", () => {
+  it("monster-status から取得したデータで MonsterMiniCard を表示する（子供画面と同等のキャラ+XP表示）", async () => {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/parent/child-view/quests/today")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
+      }
+      if (url.includes("/api/parent/child-view/monster-status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            name: "たろう",
+            side: null,
+            evolutionStage: 1,
+            evolutionPath: "",
+            collectedPaths: "[]",
+            studyPt: 3,
+            staminaPt: 1,
+            lifePt: 0,
+            rebirthEggBonus: null,
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    render(<ChildViewQuestsPage />);
+
+    // 子供名と stageLabel（"stage 1 / 3"）がカードに出る
+    await waitFor(() => expect(screen.getByText("たろう")).toBeTruthy());
+    expect(screen.getByText(/stage 1 \/ 3/)).toBeTruthy();
+  });
+
+  it("monster-status の childId クエリパラメータに URL の childId を渡す", async () => {
+    const fetchSpy = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/parent/child-view/quests/today")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      if (url.includes("/api/parent/child-view/monster-status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            name: "たろう",
+            side: null,
+            evolutionStage: 0,
+            evolutionPath: "",
+            collectedPaths: "[]",
+            studyPt: 0,
+            staminaPt: 0,
+            lifePt: 0,
+            rebirthEggBonus: null,
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchSpy as unknown as typeof fetch;
+
+    render(<ChildViewQuestsPage />);
+
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.some(([u]) => typeof u === "string" && u.includes("/api/parent/child-view/monster-status?childId=child-1"))).toBe(true),
+    );
+  });
+});
