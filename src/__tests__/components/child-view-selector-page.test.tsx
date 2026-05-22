@@ -13,6 +13,26 @@ vi.mock("next/image", () => ({
   },
 }));
 
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    channel: () => ({
+      on: function () {
+        return this;
+      },
+      subscribe: () => ({}),
+    }),
+    removeChannel: vi.fn(),
+  }),
+}));
+
+vi.mock("@/hooks/usePendingApprovalCount", () => ({
+  usePendingCounts: () => ({ tasks: 0, approvals: 0 }),
+}));
+
+vi.mock("@/components/parent/PushSubscriber", () => ({
+  default: () => <div data-testid="push-subscriber" />,
+}));
+
 vi.mock("@/components/LoadingSpinner", () => ({
   default: () => <div data-testid="loading-spinner" />,
 }));
@@ -82,12 +102,30 @@ describe("ChildViewSelectorPage", () => {
     expect(Number(bars[0].getAttribute("aria-valuemax") ?? "0")).toBeGreaterThan(0);
   });
 
-  it("選択ページにフッター（親画面に戻るリンク）が表示される", async () => {
+  it("フッターに親画面と同じ ParentBottomNav が表示される（タスク/承認/子供モード/完了/履歴/ひろば/家族）", async () => {
     render(<ChildViewSelectorPage />);
     await waitFor(() => expect(screen.getByText("ラーン")).toBeTruthy());
 
-    const backLink = screen.getByRole("link", { name: /親画面/ });
-    expect(backLink).toBeTruthy();
-    expect(backLink.getAttribute("href")).toBe("/app/parent/tasks");
+    expect(screen.getByRole("link", { name: /タスク/ }).getAttribute("href")).toBe(
+      "/app/parent/tasks",
+    );
+    expect(screen.getByRole("link", { name: /承認/ }).getAttribute("href")).toBe(
+      "/app/parent/approve",
+    );
+    expect(screen.getByRole("link", { name: /子供モード/ }).getAttribute("href")).toBe(
+      "/app/parent/child-view",
+    );
+    expect(screen.getByRole("link", { name: /完了/ }).getAttribute("href")).toBe(
+      "/app/parent/completed",
+    );
+    expect(screen.getByRole("link", { name: /履歴/ }).getAttribute("href")).toBe(
+      "/app/parent/history",
+    );
+    expect(screen.getByRole("link", { name: /ひろば/ }).getAttribute("href")).toBe(
+      "/app/parent/gathering",
+    );
+    expect(screen.getByRole("link", { name: /家族/ }).getAttribute("href")).toBe(
+      "/app/parent/family",
+    );
   });
 });
