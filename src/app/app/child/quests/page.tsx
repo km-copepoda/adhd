@@ -629,7 +629,7 @@ export default function QuestsPage() {
                       </p>
                     </div>
                     {quest.declaredToday ? (
-                      <span className="text-[10px] text-quest-gold border border-quest-gold/40 rounded-lg px-2 py-1 shrink-0 bg-quest-gold/10">
+                      <span className="text-[10px] text-green-400 border border-green-500/40 rounded-lg px-2 py-1 shrink-0 bg-green-500/10">
                         ✓ 宣言済み
                       </span>
                     ) : (
@@ -638,7 +638,7 @@ export default function QuestsPage() {
                           e.stopPropagation();
                           handleDeclare(quest.id);
                         }}
-                        className="text-[10px] text-quest-gold border border-quest-gold/40 rounded-lg px-2 py-1 shrink-0 hover:bg-quest-gold/10 active:scale-95 transition-all"
+                        className="text-[10px] text-green-400 border border-green-500/40 rounded-lg px-2 py-1 shrink-0 hover:bg-green-500/10 active:scale-95 transition-all"
                       >
                         今日やる（完了で +{DECLARATION_BONUS_XP}）
                       </button>
