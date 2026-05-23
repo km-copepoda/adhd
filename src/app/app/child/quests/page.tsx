@@ -11,6 +11,7 @@ import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
+import { calcActualXP, sumQuestXp } from "@/lib/xpRange";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 import { shouldShowReportHint } from "@/lib/quest-hint";
 
@@ -263,25 +264,8 @@ export default function QuestsPage() {
     }
   }
 
-  const provisionalPt = quests
-    .filter((q) => q.status === "REPORTED")
-    .reduce((sum, q) => {
-      let xp = 1;
-      if (q.deadlineBonusEarned) xp++;
-      if (q.template.photoBonus && q.photoUrl) xp++;
-      if (q.declaredToday) xp += DECLARATION_BONUS_XP;
-      return sum + xp;
-    }, 0);
-
-  const confirmedPt = quests
-    .filter((q) => q.status === "APPROVED")
-    .reduce((sum, q) => {
-      let xp = 1;
-      if (q.deadlineBonusEarned) xp++;
-      if (q.template.photoBonus && q.photoUrl) xp++;
-      if (q.declaredToday) xp += DECLARATION_BONUS_XP;
-      return sum + xp;
-    }, 0);
+  const provisionalPt = sumQuestXp(quests, "REPORTED");
+  const confirmedPt = sumQuestXp(quests, "APPROVED");
 
   if (loading) {
     return <LoadingSpinner />;
@@ -500,10 +484,12 @@ export default function QuestsPage() {
           )}
           {sortedQuests.map((quest) => {
             const cat = CATEGORY_LABEL[quest.template.category];
-            let xp = 1;
-            if (quest.deadlineBonusEarned) xp++;
-            if (quest.template.photoBonus && quest.photoUrl) xp++;
-            if (quest.declaredToday) xp += DECLARATION_BONUS_XP;
+            const xp = calcActualXP(
+              quest.deadlineBonusEarned,
+              quest.template.photoBonus,
+              !!quest.photoUrl,
+              quest.declaredToday,
+            );
             const isTemporary = quest.template.isTemporary;
             const taskStreak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
             const isApproved = quest.status === "APPROVED";

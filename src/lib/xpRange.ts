@@ -13,3 +13,26 @@ export function calcActualXP(
 ): number {
   return 1 + (deadlineBonusEarned ? 1 : 0) + (photoBonus && hasPhoto ? 1 : 0) + (declared ? 1 : 0);
 }
+
+type QuestForXp = {
+  status: string;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
+  declaredToday: boolean;
+  template: { photoBonus: boolean };
+};
+
+/**
+ * 指定ステータスのクエストの XP 合計を返す。
+ * 仮ゲージ（REPORTED）と本ゲージ（APPROVED）は同一ロジックで集計するため共通化。
+ */
+export function sumQuestXp(quests: QuestForXp[], status: string): number {
+  return quests
+    .filter((q) => q.status === status)
+    .reduce(
+      (sum, q) =>
+        sum +
+        calcActualXP(q.deadlineBonusEarned, q.template.photoBonus, !!q.photoUrl, q.declaredToday),
+      0,
+    );
+}
