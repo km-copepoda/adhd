@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStreakTitle } from "@/lib/streakMilestones";
 import { monthStartJST, monthEndJST } from "@/lib/date";
-import { calculateQuestXP } from "@/lib/xp";
+import { pendingXpByCategory } from "@/lib/xp";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -32,13 +32,19 @@ export async function GET() {
     }),
   ]);
 
-  let pendingStudyPt = 0, pendingStaminaPt = 0, pendingLifePt = 0;
-  for (const q of pendingQuests) {
-    const xp = calculateQuestXP(q);
-    if (q.template.category === "STUDY") pendingStudyPt += xp;
-    else if (q.template.category === "STAMINA") pendingStaminaPt += xp;
-    else if (q.template.category === "LIFE") pendingLifePt += xp;
-  }
+  // 「今日やる宣言」ボーナスを仮 XP に含めるため、対応する宣言を一括取得
+  const templateIds = Array.from(new Set(pendingQuests.map((q: { templateId: string }) => q.templateId)));
+  const declarations = templateIds.length
+    ? await prisma.questDeclaration.findMany({
+        where: { childId: user.id, templateId: { in: templateIds } },
+        select: { templateId: true, date: true },
+      })
+    : [];
+  const {
+    STUDY: pendingStudyPt,
+    STAMINA: pendingStaminaPt,
+    LIFE: pendingLifePt,
+  } = pendingXpByCategory(pendingQuests, declarations);
 
   const title = getStreakTitle(streakRecord?.currentStreak ?? 0);
 
