@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { xpRangeLabel, calcActualXP } from "@/lib/xpRange";
+import { xpRangeLabel, calcActualXP } from "@/lib/xp";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
 
 type PendingQuest = {

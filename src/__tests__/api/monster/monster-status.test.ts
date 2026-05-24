@@ -73,6 +73,33 @@ describe("GET /api/monster-status", () => {
     expect(json.pendingLifePt).toBe(2);    // 2
   });
 
+  it("「今日やる宣言」つきの REPORTED クエストは pendingXP に宣言ボーナスを含めること", async () => {
+    // regression: 育成画面の「+ N (仮)」とクエスト画面のタイル個別 +xpXP が乖離していたバグ
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    const reportedAt = new Date("2026-05-24T10:00:00+09:00"); // JST 2026-05-24
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([
+        {
+          templateId: "t1",
+          reportedAt,
+          deadlineBonusEarned: true,
+          photoUrl: null,
+          snapshotCategory: null,
+          template: { photoBonus: false, category: "STUDY" },
+        },
+      ] as any)
+      .mockResolvedValueOnce([] as any);
+    mockPrisma.questDeclaration.findMany.mockResolvedValue([
+      { templateId: "t1", date: new Date("2026-05-24T00:00:00Z") },
+    ] as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.pendingStudyPt).toBe(3); // 1 base + 1 deadline + 1 declaration
+  });
+
   it("今月の達成日数を正しく返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     mockPrisma.questInstance.findMany

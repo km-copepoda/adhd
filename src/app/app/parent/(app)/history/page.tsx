@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/categories";
-import { calcActualXP } from "@/lib/xpRange";
+import { calcActualXP } from "@/lib/xp";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 

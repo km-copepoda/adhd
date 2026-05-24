@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getStreakTitle } from "@/lib/streakMilestones";
 import { monthStartJST, monthEndJST } from "@/lib/date";
-import { calculateQuestXP } from "@/lib/xp";
+import { pendingXpByCategory } from "@/lib/xp";
 import { resolveTargetChild } from "@/lib/parentChildView";
 
 export async function GET(request: Request) {
@@ -41,16 +41,18 @@ export async function GET(request: Request) {
     }),
   ]);
 
-  let pendingStudyPt = 0;
-  let pendingStaminaPt = 0;
-  let pendingLifePt = 0;
-  for (const q of pendingQuests as any[]) {
-    const xp = calculateQuestXP(q);
-    const cat = q.snapshotCategory ?? q.template.category;
-    if (cat === "STUDY") pendingStudyPt += xp;
-    else if (cat === "STAMINA") pendingStaminaPt += xp;
-    else if (cat === "LIFE") pendingLifePt += xp;
-  }
+  const templateIds = Array.from(new Set((pendingQuests as any[]).map((q) => q.templateId)));
+  const declarations = templateIds.length
+    ? await prisma.questDeclaration.findMany({
+        where: { childId: child.id, templateId: { in: templateIds } },
+        select: { templateId: true, date: true },
+      })
+    : [];
+  const {
+    STUDY: pendingStudyPt,
+    STAMINA: pendingStaminaPt,
+    LIFE: pendingLifePt,
+  } = pendingXpByCategory(pendingQuests as any[], declarations);
 
   const title = getStreakTitle(streakRecord?.currentStreak ?? 0);
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateQuestXP } from "@/lib/xp";
+import { pendingXpByCategory } from "@/lib/xp";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -15,13 +15,18 @@ export async function GET() {
     include: { template: true },
   });
 
-  let pendingStudyPt = 0, pendingStaminaPt = 0, pendingLifePt = 0;
-  for (const q of pendingQuests) {
-    const xp = calculateQuestXP(q);
-    if (q.template.category === "STUDY") pendingStudyPt += xp;
-    else if (q.template.category === "STAMINA") pendingStaminaPt += xp;
-    else if (q.template.category === "LIFE") pendingLifePt += xp;
-  }
+  const templateIds = Array.from(new Set(pendingQuests.map((q: { templateId: string }) => q.templateId)));
+  const declarations = templateIds.length
+    ? await prisma.questDeclaration.findMany({
+        where: { childId: user.id, templateId: { in: templateIds } },
+        select: { templateId: true, date: true },
+      })
+    : [];
+  const {
+    STUDY: pendingStudyPt,
+    STAMINA: pendingStaminaPt,
+    LIFE: pendingLifePt,
+  } = pendingXpByCategory(pendingQuests, declarations);
 
   return NextResponse.json({
     name: user.monsterName || user.name || "ぼうけんしゃ",
