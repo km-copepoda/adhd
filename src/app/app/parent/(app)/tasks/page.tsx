@@ -5,7 +5,7 @@ import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { todayStringJST, isVisibleTemporaryTask, isTaskStreakActive } from "@/lib/date";
-import { xpRangeLabel } from "@/lib/xpRange";
+import { xpRangeLabel } from "@/lib/xp";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
 import SetupGuideBanner from "@/components/SetupGuideBanner";
 import TaskForm from "@/components/parent/TaskForm";

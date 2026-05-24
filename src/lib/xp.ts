@@ -1,26 +1,73 @@
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { jstDateOf } from "@/lib/date";
 
+type Category = "STUDY" | "STAMINA" | "LIFE";
+
 /**
- * クエストの XP を計算する。
- * 基本 1pt + 期限ボーナス + 写真ボーナス (最大 3pt)
- *
- * 注: 「今日やる宣言」ボーナスは含まない。
- * 宣言ボーナスは reportedAt の JST 日付と QuestDeclaration の照合が必要なので、
- * カテゴリ別集計には pendingXpByCategory を使うこと。
+ * クエストの XP を計算する。基本 1pt + 期限ボーナス + 写真ボーナス + 宣言ボーナス。
+ * `declared` を渡さなければ宣言ボーナスは含まれない（後方互換）。
  */
-export function calculateQuestXP(quest: {
-  deadlineBonusEarned: boolean;
-  photoUrl: string | null;
-  template: { photoBonus: boolean };
-}): number {
+export function calculateQuestXP(
+  quest: {
+    deadlineBonusEarned: boolean;
+    photoUrl: string | null;
+    template: { photoBonus: boolean };
+  },
+  declared = false,
+): number {
   let xp = 1;
   if (quest.deadlineBonusEarned) xp++;
   if (quest.template.photoBonus && quest.photoUrl) xp++;
+  if (declared) xp += DECLARATION_BONUS_XP;
   return xp;
 }
 
-type Category = "STUDY" | "STAMINA" | "LIFE";
+/**
+ * フラグだけ手元にあるケース（UI で `photoUrl` などのオブジェクトを持っていない場面）向けの薄いラッパ。
+ * 内部で `calculateQuestXP` を呼ぶので XP ルールの単一情報源は常に `calculateQuestXP`。
+ */
+export function calcActualXP(
+  deadlineBonusEarned: boolean,
+  photoBonus: boolean,
+  hasPhoto: boolean,
+  declared = false,
+): number {
+  return calculateQuestXP(
+    {
+      deadlineBonusEarned,
+      photoUrl: hasPhoto ? "x" : null,
+      template: { photoBonus },
+    },
+    declared,
+  );
+}
+
+/**
+ * UI 表示用の XP レンジラベル。報告前に「これだけもらえる可能性がある」を子供に見せるための文字列。
+ * 宣言ボーナスは宣言時点で確定するので min/max の両方に乗る。
+ */
+export function xpRangeLabel(hasDeadline: boolean, photoBonus: boolean, declared = false): string {
+  const min = 1 + (declared ? 1 : 0);
+  const max = min + (hasDeadline ? 1 : 0) + (photoBonus ? 1 : 0);
+  return min === max ? `+${min}pt` : `+${min}〜${max}pt`;
+}
+
+type QuestForSum = {
+  status: string;
+  deadlineBonusEarned: boolean;
+  photoUrl: string | null;
+  declaredToday: boolean;
+  template: { photoBonus: boolean };
+};
+
+/**
+ * 指定ステータスのクエストの XP 合計を返す（仮ゲージ / 本ゲージ用）。
+ */
+export function sumQuestXp(quests: QuestForSum[], status: string): number {
+  return quests
+    .filter((q) => q.status === status)
+    .reduce((sum, q) => sum + calculateQuestXP(q, q.declaredToday), 0);
+}
 
 type PendingQuest = {
   templateId: string;
@@ -52,7 +99,7 @@ export function pendingXpByCategory(
     const declared = q.reportedAt
       ? declSet.has(`${q.templateId}|${dateKey(jstDateOf(q.reportedAt))}`)
       : false;
-    const xp = calculateQuestXP(q) + (declared ? DECLARATION_BONUS_XP : 0);
+    const xp = calculateQuestXP(q, declared);
     const cat = (q.snapshotCategory ?? q.template.category) as Category;
     if (cat === "STUDY" || cat === "STAMINA" || cat === "LIFE") {
       totals[cat] += xp;

@@ -11,7 +11,7 @@ import MonsterMiniCard from "@/components/MonsterMiniCard";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
-import { calcActualXP, sumQuestXp } from "@/lib/xpRange";
+import { calcActualXP, sumQuestXp } from "@/lib/xp";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 import { shouldShowReportHint } from "@/lib/quest-hint";
 
