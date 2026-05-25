@@ -30,7 +30,7 @@ type Task = {
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number; lastAchievedDate: string | null }[];
   completedToday: boolean;
   lastSkippedDate: string | null;
-  oldestCarryOverPendingDate: string | null;
+  carryOverMissedCount: number | null;
 };
 
 function daysSince(dateStr: string): number {
@@ -49,12 +49,9 @@ function formatSkipBadge(dateStr: string | null): string | null {
   return `${diffDays}日前スキップ`;
 }
 
-function formatPendingCarryBadge(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  const diffDays = daysSince(dateStr);
-  if (diffDays <= 0) return null; // 未来or今日はバッジ不要（今日は通常表示）
-  if (diffDays === 1) return "昨日から未完了";
-  return `${diffDays}日間未完了`;
+function formatPendingCarryBadge(missedCount: number | null): string | null {
+  if (missedCount === null || missedCount <= 0) return null;
+  return `${missedCount}回未完了`;
 }
 
 type Child = {
@@ -427,7 +424,7 @@ export default function TasksPage() {
                       : 0;
                     const isOffDay = !task.repeatDays.includes(todayDow);
                     const assignedChild = children.find(c => c.id === task.assignedChildId);
-                    const carryLabel = formatPendingCarryBadge(task.oldestCarryOverPendingDate);
+                    const carryLabel = formatPendingCarryBadge(task.carryOverMissedCount);
                     const hasBadges = task.completedToday || streak >= 1 || task.lastSkippedDate || carryLabel;
                     return (
                       <div
@@ -462,7 +459,7 @@ export default function TasksPage() {
                               )}
                               {carryLabel && (
                                 <span
-                                  title={`最古の未完了: ${new Date(task.oldestCarryOverPendingDate!).toLocaleDateString("ja-JP")}`}
+                                  title={`未完了が続いている回数: ${task.carryOverMissedCount}回`}
                                   className="text-[9px] text-red-300 bg-red-400/10 border border-red-400/40 rounded px-1"
                                 >
                                   🔁 {carryLabel}

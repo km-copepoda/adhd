@@ -144,6 +144,25 @@ export function isTaskStreakActive(
   return lastStr >= prevStr;
 }
 
+/**
+ * `[from, to]` inclusive の暦範囲で、UTC dayOfWeek が `repeatDays` に含まれる日数を返す。
+ * 日付は JST 日付の UTC 0:00 表現（@db.Date と同じ形）を前提とする。
+ * 親画面の「N回未完了」バッジで、carryOver タスクの放置出現回数を求めるために使う。
+ */
+export function countScheduledOccurrences(from: Date, to: Date, repeatDays: number[]): number {
+  if (repeatDays.length === 0) return 0;
+  const fromMs = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+  const toMs = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  if (fromMs > toMs) return 0;
+  const days = Math.round((toMs - fromMs) / 86400000) + 1;
+  let count = 0;
+  for (let i = 0; i < days; i++) {
+    const d = new Date(fromMs + i * 86400000);
+    if (repeatDays.includes(d.getUTCDay())) count++;
+  }
+  return count;
+}
+
 /** 期限切れでない表示可能な一時タスクかどうか */
 export function isVisibleTemporaryTask(
   task: { isTemporary: boolean; createdBy: string; completedToday: boolean; targetDate: string | null },

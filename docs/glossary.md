@@ -49,7 +49,7 @@ PENDING ──子供が報告──▶ REPORTED ──親が承認──▶ APPR
 | トリガー | 子供のスキップ申請 | `TaskTemplate.carryOver = true` のまま日付を越える |
 | XP | 付与なし | 翌日に完了すれば通常どおり付与 |
 | ストリーク | **算入される**（親が承認した意思表示） | 切れる（未完了の事実は変わらない） |
-| 親画面バッジ | `⏭ 昨日スキップ`（`lastSkippedDate`） | `🔁 昨日から未完了`（`oldestCarryOverPendingDate`） |
+| 親画面バッジ | `⏭ 昨日スキップ`（`lastSkippedDate`） | `🔁 N回未完了`（`carryOverMissedCount` = 最古PENDING〜今日の repeatDays 出現回数） |
 
 ### 3.2 TaskTemplate vs QuestInstance
 
@@ -60,7 +60,7 @@ PENDING ──子供が報告──▶ REPORTED ──親が承認──▶ APPR
 | 寿命 | `isActive` フラグで論理削除 | 日ごとに作られる |
 | タイトル保持 | `title` | `snapshotTitle`（変更耐性のためコピー保持）|
 
-### 3.3 completedToday / lastSkippedDate / oldestCarryOverPendingDate
+### 3.3 completedToday / lastSkippedDate / carryOverMissedCount
 
 `/api/tasks` GET の親向け3フィールド。
 
@@ -68,7 +68,7 @@ PENDING ──子供が報告──▶ REPORTED ──親が承認──▶ APPR
 |---|---|
 | `completedToday: boolean` | 今日の QuestInstance が `APPROVED` または `SKIPPED` |
 | `lastSkippedDate: Date\|null` | 過去7日間で最も新しい `SKIPPED` QuestInstance の日付 |
-| `oldestCarryOverPendingDate: Date\|null` | `carryOver=true` タスクの、今日より過去に残っている最古 `PENDING` の日付 |
+| `carryOverMissedCount: number\|null` | `carryOver=true` タスクで、今日より過去に残っている最古 `PENDING` の日付から今日までの inclusive 範囲で `repeatDays` に当たる日数（= 放置された出現回数）。stale PENDING なし or `repeatDays` 該当なしなら null |
 
 ### 3.4 isTemporary vs 通常タスク
 

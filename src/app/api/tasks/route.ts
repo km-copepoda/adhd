@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
-import { todayJST } from "@/lib/date";
+import { todayJST, countScheduledOccurrences } from "@/lib/date";
 import { ensureTodayQuests } from "@/lib/quests";
 
 export async function GET() {
@@ -113,12 +113,23 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    tasks.map((t) => ({
-      ...t,
-      completedToday: completedSet.has(t.id),
-      lastSkippedDate: lastSkippedMap.get(t.id) ?? null,
-      oldestCarryOverPendingDate: oldestPendingMap.get(t.id) ?? null,
-    }))
+    tasks.map((t) => {
+      const oldest = oldestPendingMap.get(t.id);
+      const repeatDays = (t as { repeatDays?: number[] }).repeatDays ?? [];
+      // carryOver タスクの「N回未完了」: 最古 PENDING の日付から today までの inclusive 範囲で、repeatDays に当たる出現回数。
+      // isTemporary 等で repeatDays が空の場合は出現が 1 度しか定義されないので 1 にフォールバック。
+      const carryOverMissedCount = oldest
+        ? repeatDays.length > 0
+          ? countScheduledOccurrences(oldest, today, repeatDays)
+          : 1
+        : null;
+      return {
+        ...t,
+        completedToday: completedSet.has(t.id),
+        lastSkippedDate: lastSkippedMap.get(t.id) ?? null,
+        carryOverMissedCount,
+      };
+    })
   );
 }
 

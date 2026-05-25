@@ -42,8 +42,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      { ...tasks[0], completedToday: false, lastSkippedDate: null, oldestCarryOverPendingDate: null },
-      { ...tasks[1], completedToday: false, lastSkippedDate: null, oldestCarryOverPendingDate: null },
+      { ...tasks[0], completedToday: false, lastSkippedDate: null, carryOverMissedCount: null },
+      { ...tasks[1], completedToday: false, lastSkippedDate: null, carryOverMissedCount: null },
     ]);
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
       where: { familyId: "fam-1", isActive: true },
@@ -73,8 +73,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      { ...tasks[0], completedToday: true, lastSkippedDate: null, oldestCarryOverPendingDate: null },
-      { ...tasks[1], completedToday: false, lastSkippedDate: null, oldestCarryOverPendingDate: null },
+      { ...tasks[0], completedToday: true, lastSkippedDate: null, carryOverMissedCount: null },
+      { ...tasks[1], completedToday: false, lastSkippedDate: null, carryOverMissedCount: null },
     ]);
     const expectedToday = new Date("2026-03-18T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
@@ -170,20 +170,18 @@ describe("GET /api/tasks", () => {
     expect(json[0].lastSkippedDate).toBe(recent.toISOString());
   });
 
-  it("carryOver=true のタスクに過去のPENDINGがある場合、oldestCarryOverPendingDate が設定されること", async () => {
+  it("carryOver=true の毎日タスクで PENDING が3日前なら carryOverMissedCount=4（出現回数 inclusive）", async () => {
+    // 2026-03-18 は水曜（dayOfWeek=3）
     vi.setSystemTime(new Date("2026-03-18T10:00:00"));
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     const tasks = [
-      { id: "t1", title: "宿題", isActive: true, carryOver: true },
-      { id: "t2", title: "運動", isActive: true, carryOver: false },
+      // 毎日タスク
+      { id: "t1", title: "宿題", isActive: true, carryOver: true, repeatDays: [0, 1, 2, 3, 4, 5, 6] },
+      { id: "t2", title: "運動", isActive: true, carryOver: false, repeatDays: [1, 2, 3, 4, 5] },
     ];
     mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
 
-    const oldPending = new Date("2026-03-15T00:00:00Z");
-    // 1回目: 今日のAPPROVED/SKIPPED（空）
-    // 2回目: 直近SKIPPED（空）
-    // 3回目: 過去のcarryOver PENDING
-    // 4回目: 直近settled（無し）
+    const oldPending = new Date("2026-03-15T00:00:00Z"); // 3日前（日曜）
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
@@ -193,14 +191,64 @@ describe("GET /api/tasks", () => {
     const res = await GET();
     const json = await res.json();
 
-    expect(json[0].oldestCarryOverPendingDate).toBe(oldPending.toISOString());
-    expect(json[1].oldestCarryOverPendingDate).toBeNull();
+    // 3/15(日)〜3/18(水) inclusive = 4 日、毎日タスクなので 4 回出現
+    expect(json[0].carryOverMissedCount).toBe(4);
+    expect(json[1].carryOverMissedCount).toBeNull();
+  });
+
+  it("carryOver=true の週次タスク(月曜のみ)で先週月曜の PENDING なら carryOverMissedCount=2", async () => {
+    // 2026-03-23 は月曜（dayOfWeek=1）
+    vi.setSystemTime(new Date("2026-03-23T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [
+      { id: "t1", title: "週次宿題", isActive: true, carryOver: true, repeatDays: [1] }, // 月曜のみ
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const oldPending = new Date("2026-03-16T00:00:00Z"); // 先週月曜
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any)
+      .mockResolvedValueOnce([] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    // 先週月曜＋今週月曜 = 2 回（暦日では 7 日経過しているが、出現は 2 回）
+    expect(json[0].carryOverMissedCount).toBe(2);
+  });
+
+  it("carryOver=true の週次タスク(月曜のみ)で先週月曜の PENDING でも翌日火曜の時点では 1 回", async () => {
+    // 2026-03-24 は火曜（dayOfWeek=2）。先週月曜から見て今週月曜はまだ過ぎていない…のではなく、3/24時点で直前の月曜=3/23 はすでに過ぎている
+    // 先週月曜から見て次の月曜（3/23）も含めると 2 回。この境界を別に検証する。
+    // ここでは「先週月曜が PENDING で、今日が翌日火曜（=出現は1回のまま）」のケースを確認する。
+    // 2026-03-17 は火曜
+    vi.setSystemTime(new Date("2026-03-17T10:00:00"));
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const tasks = [
+      { id: "t1", title: "週次宿題", isActive: true, carryOver: true, repeatDays: [1] },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
+
+    const oldPending = new Date("2026-03-16T00:00:00Z"); // 月曜
+    mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any)
+      .mockResolvedValueOnce([] as any);
+
+    const res = await GET();
+    const json = await res.json();
+
+    // 月曜PENDING〜翌日火曜 inclusive で月曜は 1 回しか含まれない
+    expect(json[0].carryOverMissedCount).toBe(1);
   });
 
   it("直近の APPROVED より古い PENDING は無視されること（stale データ対策）", async () => {
     vi.setSystemTime(new Date("2026-03-18T10:00:00"));
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true }];
+    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true, repeatDays: [0, 1, 2, 3, 4, 5, 6] }];
     mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
 
     const stalePending = new Date("2026-03-11T00:00:00Z"); // 7日前 (古い PENDING、stale)
@@ -219,14 +267,14 @@ describe("GET /api/tasks", () => {
     const res = await GET();
     const json = await res.json();
 
-    // stale を飛ばして realPending が採用される
-    expect(json[0].oldestCarryOverPendingDate).toBe(realPending.toISOString());
+    // stale を飛ばして realPending（3/15）採用、3/15〜3/18 で毎日タスクなら 4 回
+    expect(json[0].carryOverMissedCount).toBe(4);
   });
 
   it("PENDING がすべて settled より古い場合は null になること", async () => {
     vi.setSystemTime(new Date("2026-03-18T10:00:00"));
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true }];
+    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true, repeatDays: [0, 1, 2, 3, 4, 5, 6] }];
     mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
 
     const stalePending = new Date("2026-03-11T00:00:00Z"); // 7日前
@@ -241,7 +289,7 @@ describe("GET /api/tasks", () => {
     const res = await GET();
     const json = await res.json();
 
-    expect(json[0].oldestCarryOverPendingDate).toBeNull();
+    expect(json[0].carryOverMissedCount).toBeNull();
   });
 
   it("carryOver=false のタスクは carryOver PENDING クエリの対象外", async () => {
@@ -269,10 +317,10 @@ describe("GET /api/tasks", () => {
     );
   });
 
-  it("同じテンプレートに複数のcarryOver PENDINGがある場合、最古の日付を返すこと", async () => {
+  it("同じテンプレートに複数のcarryOver PENDINGがある場合、最古の日付を起点に出現回数を数えること", async () => {
     vi.setSystemTime(new Date("2026-03-18T10:00:00"));
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true }];
+    const tasks = [{ id: "t1", title: "宿題", isActive: true, carryOver: true, repeatDays: [0, 1, 2, 3, 4, 5, 6] }];
     mockPrisma.taskTemplate.findMany.mockResolvedValue(tasks as any);
 
     const oldest = new Date("2026-03-13T00:00:00Z");
@@ -290,7 +338,8 @@ describe("GET /api/tasks", () => {
     const res = await GET();
     const json = await res.json();
 
-    expect(json[0].oldestCarryOverPendingDate).toBe(oldest.toISOString());
+    // 3/13〜3/18 inclusive = 6 日、毎日タスクなので 6 回
+    expect(json[0].carryOverMissedCount).toBe(6);
   });
 
   it("親がアクセスした時、ファミリー内の各子供について ensureTodayQuests が呼ばれること", async () => {

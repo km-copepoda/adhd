@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask, formatReportedTime } from "@/lib/date";
+import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask, formatReportedTime, countScheduledOccurrences } from "@/lib/date";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -182,6 +182,67 @@ describe("isVisibleTemporaryTask", () => {
   
   it("今日完了済みのタスクは非表示", () => {
     expect(isVisibleTemporaryTask({ ...base, completedToday: true }, today)).toBe(false);
+  });
+});
+
+describe("countScheduledOccurrences", () => {
+  // 全ての日付は JST 日付の UTC 0:00 表現（@db.Date と同じ）
+  const date = (iso: string) => new Date(iso + "T00:00:00Z");
+
+  it("from === to で repeatDays に該当する曜日なら 1", () => {
+    // 2026-03-16 は月曜（UTC dayOfWeek=1）
+    expect(countScheduledOccurrences(date("2026-03-16"), date("2026-03-16"), [1])).toBe(1);
+  });
+
+  it("from === to で repeatDays に非該当なら 0", () => {
+    // 2026-03-17 は火曜（UTC dayOfWeek=2）
+    expect(countScheduledOccurrences(date("2026-03-17"), date("2026-03-17"), [1])).toBe(0);
+  });
+
+  it("週次タスク（月曜のみ）: 月曜→翌週月曜（7日間 inclusive）は 2 回", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-16"), date("2026-03-23"), [1]),
+    ).toBe(2);
+  });
+
+  it("週次タスク（月曜のみ）: 月曜→次週土曜（6日後）は 1 回", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-16"), date("2026-03-21"), [1]),
+    ).toBe(1);
+  });
+
+  it("週次タスク（月曜のみ）: 月曜→3週後の月曜は 4 回（inclusive 両端）", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-16"), date("2026-04-06"), [1]),
+    ).toBe(4);
+  });
+
+  it("毎日タスク（全曜日）: 3 日間で 3 回", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-16"), date("2026-03-18"), [0, 1, 2, 3, 4, 5, 6]),
+    ).toBe(3);
+  });
+
+  it("平日タスク（月〜金）: 月曜→日曜の7日間は平日5日分", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-16"), date("2026-03-22"), [1, 2, 3, 4, 5]),
+    ).toBe(5);
+  });
+
+  it("from > to なら 0（不正な範囲）", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-20"), date("2026-03-16"), [1, 2, 3, 4, 5]),
+    ).toBe(0);
+  });
+
+  it("repeatDays が空なら 0", () => {
+    expect(countScheduledOccurrences(date("2026-03-16"), date("2026-03-22"), [])).toBe(0);
+  });
+
+  it("月またぎを正しく数える（3/30 月 → 4/6 月 = 2 回）", () => {
+    expect(
+      countScheduledOccurrences(date("2026-03-30"), date("2026-04-06"), [1]),
+    ).toBe(2);
   });
 });
 

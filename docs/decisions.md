@@ -867,3 +867,20 @@
 ### やってはいけないこと
 - `[childId]/*` 配下に `ParentBottomNav` を載せる（`ChildViewBottomNav` と二重表示になる／代理操作中の認知モードと噛み合わない）
 - セレクター画面に `ChildViewBottomNav` を併置する（`ChildViewBottomNav` は `childId` 前提）
+
+## 2026-05-26: 親画面の carryOver 放置バッジを「N日間未完了」→「N回未完了」（出現回数ベース）に変更
+
+### 決定内容
+- `/api/tasks` GET の `oldestCarryOverPendingDate: Date|null` を **`carryOverMissedCount: number|null`** に置き換え
+- 新フィールドは「最古の PENDING 日付から today までの inclusive 範囲で `repeatDays` に当たる出現回数」。pure 関数 `countScheduledOccurrences(from, to, repeatDays)` を `src/lib/date.ts` に追加して計算
+- 親画面の `formatPendingCarryBadge` は `${N}回未完了` を返すよう変更（旧: `${N}日間未完了`／`昨日から未完了`）
+
+### 理由
+- 旧仕様では **週1タスクを1回落としただけで7日後に「7日間未完了」と表示される** 過剰反応があり、「タスクの粒度に対して何回放置したか」という感覚に合わなかった
+- 2026-05-09 改で子供画面の「今日やる宣言」アイドル判定を **「直近 N 出現の連続非 APPROVED 数」** に揃えたのと同じ趣旨を、親画面のバッジ表示にも適用する
+- carryOver タスクは仕様上「PENDING インスタンスが日をまたいで増殖しない」ため、出現回数は instance の数では数えられず、`repeatDays` を踏まえた暦範囲の走査で算出する必要がある
+- isTemporary など `repeatDays` が空のタスクで stale PENDING がある場合は 1 にフォールバック（一度しか出現しないタスクなので）
+
+### やってはいけないこと
+- 旧フィールド `oldestCarryOverPendingDate` を後方互換のため復活させる（型変更なので新フィールド名のみを参照する）
+- 子供画面の `getMissedExposureCount`（`src/lib/declaration.ts`）と統合する（あちらは個別 `QuestInstance` 履歴を見るロジック、こちらはテンプレートの `repeatDays` から算出するロジックで責務が違う）
