@@ -907,3 +907,20 @@
 - レア度・確率・天井閾値などのチューニングパラメータは `src/lib/treasure.ts` の定数（`RARITY_BASE_PROBABILITY`, `RARITY_BOOSTED_MULTIPLIER`, `PITY_THRESHOLD`）に集約。テストもこれらを使うので変更したら一箇所で完結する
 - 「おすすめセット」のテンプレ20件は `src/lib/treasureTemplates.ts` に定義（純粋データ）。初期投入用 API `/api/treasures/import` でまとめて createMany する
 - 子供画面の `getMissedExposureCount`（`src/lib/declaration.ts`）と統合する（あちらは個別 `QuestInstance` 履歴を見るロジック、こちらはテンプレートの `repeatDays` から算出するロジックで責務が違う）
+
+## 2026-05-28: 親が宝箱プール未設定のときは宝箱を生成しない
+
+### 決定内容
+- `generateTreasuresOnReport` と `generateAutoApproveTreasure` の冒頭で `prisma.treasureItem.count({ where: { childId, isActive: true } })` を確認し、0 件なら早期 return（LOCKED / AUTO どちらも作らない）
+- 結果として子供画面の `TreasureStock` は `locked=0 && unlocked=0` の分岐で何も表示されない → 親が設定するまで宝箱 UI 自体が存在しないクリーン状態に
+
+### 理由
+- 設計書セクション 18 で「宝箱プールが空のとき（全てハズレ演出になる。親に案内を出すか）」が未決事項として残っていた
+- 旧挙動だと、親が一度も設定しない場合に子供が「あける」ボタンを連打しても**全部ハズレ演出**になり、子供は「何これ壊れてる？」、親は設定を促す合図もない、という二重に悪い UX に陥る
+- 「ハズレ演出」は本来 *たまに出る* ものとして設計されている（モンスターのリアクションでネガティブ感を相殺する目的）。100% ハズレで連打されると演出が逆効果になる
+- 「設定されていない＝そもそも宝箱機能が動いていない」と暗黙に伝えるほうが、初期セットアップ前の状態として自然
+- 既に UNLOCKED 状態で残っている宝箱は引き続き開封可能（過去に設定→クリアの順だった場合の救済）。あくまで **新規生成のみ** をプール存在に依存させる
+
+### やってはいけないこと
+- プール空チェックを `openOldestTreasure` 側でも追加して既存 UNLOCKED の開封を塞ぐ（救済路線を壊す。過去ぶんは演出のみで完了させる方が自然）
+- 親が後からプールをクリアした場合に既存 LOCKED を強制 CANCELLED する処理を入れる（差し戻し時の CANCEL とロジックが重なって状態遷移が複雑化する。手動で履歴クリアしたい場合は別途 admin 操作に切り出す）
