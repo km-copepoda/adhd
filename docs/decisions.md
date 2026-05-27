@@ -883,4 +883,27 @@
 
 ### やってはいけないこと
 - 旧フィールド `oldestCarryOverPendingDate` を後方互換のため復活させる（型変更なので新フィールド名のみを参照する）
+
+## 2026-05-28: ごほうび（宝箱）システムの導入
+
+### 決定内容
+- ゲーム内報酬（XP・進化・バッジ）に加え、親が用意した「現実のごほうび」を確率抽選で結びつける宝箱機構を追加
+- 詳細仕様は `docs/reword-system-design.md` を正本とする（DB スキーマ、状態遷移、抽選アルゴリズム、UI 構成）
+- **既存の XP→進化ループを壊さない方針**: 宝箱は XP を消費しない／通貨も増やさない／写真ボーナス・期限ボーナス・進化確率には一切触らない
+- 純粋関数 `src/lib/treasure.ts`（`drawTreasure`）と DB 操作 `src/lib/treasureService.ts`（生成・アンロック・キャンセル・開封）を 1 ファイル 1 責務で分離。テストは `treasure.test.ts` と `treasureService.test.ts` で完結
+- 既存承認パス（`src/lib/approve.ts`）の最後に `unlockTreasuresOnApprove` を呼ぶだけで統合。`approveQuestInstance` と `approveSkipQuestInstance` の両方から呼ぶ（スキップ承認も親の意思表示として LOCKED→UNLOCKED の契機にする）
+- 報告（`/api/quests/[id]/report`）・スキップ申請（`/api/quests/[id]/skip`）両方から宝箱生成を呼ぶ。`computeCompletedCount`（REPORTED+APPROVED+SKIP_REPORTED+SKIPPED）に揃え、進捗バケットと食い違わせない
+- 差し戻し（`/api/approve/[id]` action=reject）後は同日進捗を再計算し、minTasks を割ったら LOCKED 全部 CANCELLED、minTasks は満たすが全完了でなくなったら ALL_COMPLETE のみ CANCELLED
+- 自動承認 cron は `(childId, date)` で集約して 1 件のみ AUTO 宝箱を即 UNLOCKED で生成（仕様 3 章 / 4 章）
+- 親代理経路（child-view からの報告 / 承認）は **宝箱対象外**: `isProxy=true` を渡して `generateTreasuresOnReport` を no-op にする。子供の自発的動機を阻害しないため
+
+### やってはいけないこと
+- 報告 API でカウントを `computeCompletedCount` 以外の集計関数で出す（進捗バケット・ストリーク・宝箱トリガーが食い違うと UX が崩れる）
+- `approveQuestInstance` 内に宝箱生成ロジックを書く（生成は報告経路・自動承認 cron のみ。承認は LOCKED→UNLOCKED の遷移しか持たない）
+- アイテム DELETE で物理削除する（`TreasureLog.itemId` FK が SET NULL で過去履歴の参照が失われる）。`isActive=false` のソフトデリート方針を維持
+- 親代理経路で宝箱を生成する（`isProxy=true` 必須）
+
+### 補足
+- レア度・確率・天井閾値などのチューニングパラメータは `src/lib/treasure.ts` の定数（`RARITY_BASE_PROBABILITY`, `RARITY_BOOSTED_MULTIPLIER`, `PITY_THRESHOLD`）に集約。テストもこれらを使うので変更したら一箇所で完結する
+- 「おすすめセット」のテンプレ20件は `src/lib/treasureTemplates.ts` に定義（純粋データ）。初期投入用 API `/api/treasures/import` でまとめて createMany する
 - 子供画面の `getMissedExposureCount`（`src/lib/declaration.ts`）と統合する（あちらは個別 `QuestInstance` 履歴を見るロジック、こちらはテンプレートの `repeatDays` から算出するロジックで責務が違う）

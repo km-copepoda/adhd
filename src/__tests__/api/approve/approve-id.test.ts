@@ -3,6 +3,7 @@ import { POST } from "@/app/api/approve/[id]/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { recordTaskStreak } from "@/lib/streak";
+import { cancelTreasuresOnReject } from "@/lib/treasureService";
 import { makeRequest, makeParams } from "../../helpers/request";
 import { parentUser, childUser } from "../../helpers/fixtures";
 
@@ -16,7 +17,13 @@ vi.mock("@/lib/badges", () => ({
   checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  unlockTreasuresOnApprove: vi.fn().mockResolvedValue(0),
+  cancelTreasuresOnReject: vi.fn().mockResolvedValue(0),
+}));
+
 const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
+const mockCancelTreasures = vi.mocked(cancelTreasuresOnReject);
 
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
@@ -25,6 +32,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // 宣言ボーナス: 既定では宣言なし（テスト毎に上書き可能）
   mockPrisma.questDeclaration.findUnique.mockResolvedValue(null);
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
 });
 
 describe("POST /api/approve/[id]", () => {
@@ -746,6 +754,41 @@ describe("POST /api/approve/[id]", () => {
       expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
         where: { id: "q4c" },
         data: { status: "REJECTED", rejectionReason: "算数プリントだけやってね" },
+      });
+    });
+
+    it("差し戻し後の当日進捗を集計して cancelTreasuresOnReject を呼ぶ", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const dateJST = new Date("2026-03-13");
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-rej",
+        status: "REPORTED",
+        childId: "child-1",
+        templateId: "tpl-1",
+        date: dateJST,
+        template: { category: "STUDY" },
+        child: { id: "child-1", minTasksForStreak: 1, studyPt: 0, staminaPt: 0, lifePt: 0 },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      // 差し戻し後の集計: 当日 3個中 PENDING (差し戻し後) + REPORTED 1個 + PENDING 1個 → reportedCount=1, totalCount=3
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "PENDING" } as any,
+        { status: "REPORTED" } as any,
+        { status: "PENDING" } as any,
+      ]);
+
+      await POST(
+        makeRequest("/api/approve/q-rej", { action: "reject", rejectionReason: "がんばろう" }),
+        makeParams("q-rej"),
+      );
+
+      expect(mockCancelTreasures).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: dateJST,
+        reportedCount: 1,
+        totalCount: 3,
+        minTasks: 1,
+        isProxy: false,
       });
     });
   });

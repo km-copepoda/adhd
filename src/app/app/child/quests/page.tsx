@@ -8,6 +8,7 @@ import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
+import TreasureStock from "@/components/child/TreasureStock";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
@@ -349,6 +350,11 @@ export default function QuestsPage() {
         {monsterMini && (
           <MonsterMiniCard data={monsterMini} childName={childName} />
         )}
+
+        {/* Treasure stock & open */}
+        <div className="flex justify-end mb-3">
+          <TreasureStock />
+        </div>
 
         {/* Add task form */}
         {showAddForm && (

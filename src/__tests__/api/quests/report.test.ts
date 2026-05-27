@@ -4,6 +4,7 @@ import { POST } from "@/app/api/quests/[id]/report/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
+import { generateTreasuresOnReport } from "@/lib/treasureService";
 import { makeRequest, makeParams } from "../../helpers/request";
 import { childUser } from "../../helpers/fixtures";
 
@@ -11,13 +12,21 @@ vi.mock("@/lib/bulletinLog", () => ({
   triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  generateTreasuresOnReport: vi.fn().mockResolvedValue([]),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
+const mockGenerateTreasures = vi.mocked(generateTreasuresOnReport);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 当日の集計を取りに行く findMany のデフォルト（宝箱ロジック向け）
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
+  mockGenerateTreasures.mockResolvedValue([]);
 });
 
 describe("POST /api/quests/[id]/report", () => {
@@ -280,5 +289,97 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(mockAfter).toHaveBeenCalledTimes(1);
     expect(mockTriggerTaskProgressLog).toHaveBeenCalledWith("child-1");
+  });
+
+  // ─── 宝箱（ごほうび）統合 ───────────────────────────────────────
+  describe("宝箱生成", () => {
+    it("minTasks 達成（部分完了）→ STREAK 宝箱1個", async () => {
+      mockGetCurrentUser.mockResolvedValue({
+        ...baseUser,
+        minTasksForStreak: 1,
+        reportDeadlineTime: null,
+      } as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      // 当日3個のうち今回の1個だけが REPORTED
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "REPORTED" } as any,
+        { status: "PENDING" } as any,
+        { status: "PENDING" } as any,
+      ]);
+      mockGenerateTreasures.mockResolvedValue(["t-streak"]);
+
+      const res = await POST(
+        makeRequest("/api/quests/q1/report", { comment: "" }),
+        makeParams("q1"),
+      );
+      const json = await res.json();
+
+      expect(mockGenerateTreasures).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: baseQuest.date,
+        reportedCount: 1,
+        totalCount: 3,
+        minTasks: 1,
+        isProxy: false,
+      });
+      expect(json.treasureIds).toEqual(["t-streak"]);
+    });
+
+    it("全完了 → STREAK + ALL_COMPLETE で2個", async () => {
+      mockGetCurrentUser.mockResolvedValue({
+        ...baseUser,
+        minTasksForStreak: 1,
+        reportDeadlineTime: null,
+      } as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "REPORTED" } as any,
+        { status: "APPROVED" } as any,
+        { status: "SKIPPED" } as any,
+      ]);
+      mockGenerateTreasures.mockResolvedValue(["t-streak", "t-all"]);
+
+      const res = await POST(
+        makeRequest("/api/quests/q1/report", { comment: "" }),
+        makeParams("q1"),
+      );
+      const json = await res.json();
+
+      expect(mockGenerateTreasures).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: baseQuest.date,
+        reportedCount: 3,
+        totalCount: 3,
+        minTasks: 1,
+        isProxy: false,
+      });
+      expect(json.treasureIds).toEqual(["t-streak", "t-all"]);
+    });
+
+    it("minTasks 未達なら宝箱なしでも 200 を返す", async () => {
+      mockGetCurrentUser.mockResolvedValue({
+        ...baseUser,
+        minTasksForStreak: 3,
+        reportDeadlineTime: null,
+      } as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "REPORTED" } as any,
+        { status: "PENDING" } as any,
+        { status: "PENDING" } as any,
+      ]);
+      mockGenerateTreasures.mockResolvedValue([]);
+
+      const res = await POST(
+        makeRequest("/api/quests/q1/report", { comment: "" }),
+        makeParams("q1"),
+      );
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.treasureIds).toEqual([]);
+    });
   });
 });

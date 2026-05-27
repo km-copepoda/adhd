@@ -7,11 +7,17 @@ vi.mock("@/lib/approve", () => ({
   approveSkipQuestInstance: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  generateAutoApproveTreasure: vi.fn().mockResolvedValue(null),
+}));
+
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
+import { generateAutoApproveTreasure } from "@/lib/treasureService";
 
 const mockPrisma = vi.mocked(prisma);
 const mockApproveQuest = vi.mocked(approveQuestInstance);
 const mockApproveSkip = vi.mocked(approveSkipQuestInstance);
+const mockGenerateAuto = vi.mocked(generateAutoApproveTreasure);
 
 function makeRequest(secret?: string) {
   const headers: Record<string, string> = {};
@@ -112,5 +118,62 @@ describe("GET /api/cron/auto-approve", () => {
 
     const call = mockPrisma.questInstance.findMany.mock.calls[0][0];
     expect(call?.include?.template?.select?.repeatDays).toBe(true);
+  });
+
+  describe("宝箱（AUTO）生成", () => {
+    it("(childId, date) ごとに 1 回 generateAutoApproveTreasure を呼ぶ", async () => {
+      const d1 = new Date("2026-03-21");
+      const d2 = new Date("2026-03-22");
+      const quests = [
+        { id: "q-1", status: "REPORTED", date: d1, childId: "c1", templateId: "t1", template: {}, child: { id: "c1", minTasksForStreak: 1 } },
+        { id: "q-2", status: "REPORTED", date: d1, childId: "c1", templateId: "t2", template: {}, child: { id: "c1", minTasksForStreak: 1 } },
+        { id: "q-3", status: "REPORTED", date: d2, childId: "c1", templateId: "t1", template: {}, child: { id: "c1", minTasksForStreak: 1 } },
+        { id: "q-4", status: "REPORTED", date: d1, childId: "c2", templateId: "t1", template: {}, child: { id: "c2", minTasksForStreak: 2 } },
+      ];
+
+      // 1回目: pending quests, 以後: 各 (child,date) の集計
+      mockPrisma.questInstance.findMany
+        .mockResolvedValueOnce(quests as any)
+        // c1/d1
+        .mockResolvedValueOnce([
+          { status: "REPORTED" } as any,
+          { status: "REPORTED" } as any,
+        ])
+        // c1/d2
+        .mockResolvedValueOnce([{ status: "REPORTED" } as any])
+        // c2/d1
+        .mockResolvedValueOnce([{ status: "REPORTED" } as any]);
+
+      await GET(makeRequest("test-secret"));
+
+      expect(mockGenerateAuto).toHaveBeenCalledTimes(3);
+      expect(mockGenerateAuto).toHaveBeenCalledWith({
+        childId: "c1",
+        date: d1,
+        reportedCount: 2,
+        totalCount: 2,
+        minTasks: 1,
+      });
+      expect(mockGenerateAuto).toHaveBeenCalledWith({
+        childId: "c1",
+        date: d2,
+        reportedCount: 1,
+        totalCount: 1,
+        minTasks: 1,
+      });
+      expect(mockGenerateAuto).toHaveBeenCalledWith({
+        childId: "c2",
+        date: d1,
+        reportedCount: 1,
+        totalCount: 1,
+        minTasks: 2,
+      });
+    });
+
+    it("対象クエストが無いときは generateAutoApproveTreasure を呼ばない", async () => {
+      mockPrisma.questInstance.findMany.mockResolvedValueOnce([]);
+      await GET(makeRequest("test-secret"));
+      expect(mockGenerateAuto).not.toHaveBeenCalled();
+    });
   });
 });

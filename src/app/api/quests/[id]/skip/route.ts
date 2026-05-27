@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
+import { computeCompletedCount } from "@/lib/questProgress";
+import { generateTreasuresOnReport } from "@/lib/treasureService";
 
 export async function POST(
   request: Request,
@@ -58,9 +60,23 @@ export async function POST(
     }
   }
 
+  // 宝箱生成: スキップ申請も SKIP_REPORTED として完了扱いに含まれる
+  const todayQuests = await prisma.questInstance.findMany({
+    where: { childId: user.id, date: quest.date },
+    select: { status: true },
+  });
+  const treasureIds = await generateTreasuresOnReport({
+    childId: user.id,
+    date: quest.date,
+    reportedCount: computeCompletedCount(todayQuests),
+    totalCount: todayQuests.length,
+    minTasks: user.minTasksForStreak,
+    isProxy: false,
+  });
+
   // 掲示板ログ — スキップも「done」扱いなので進捗を再評価する。after() でレスポンス後実行
   after(() => triggerTaskProgressLog(user.id).catch(() => {}));
 
-  rlog.info("Skip requested", { questId: id, childId: user.id });
-  return NextResponse.json({ ok: true });
+  rlog.info("Skip requested", { questId: id, childId: user.id, treasureIds });
+  return NextResponse.json({ ok: true, treasureIds });
 }

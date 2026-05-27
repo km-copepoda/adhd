@@ -62,6 +62,7 @@ model User {
   rebirthPending         Boolean            @default(false)
   rebirthEggBonus        String?
   usedEggBonuses         String             @default("[]")
+  treasurePityCount      Int                @default(0)
   familyId               String?
   family                 Family?            @relation(fields: [familyId], references: [id])
   quests                 QuestInstance[]
@@ -74,6 +75,8 @@ model User {
   bulletinLogs           BulletinLog[]
   sentStamps             Stamp[]
   questDeclarations      QuestDeclaration[]
+  treasureItems          TreasureItem[]
+  treasureLogs           TreasureLog[]
   createdAt              DateTime           @default(now())
 
   @@unique([familyId, childCode])
@@ -254,6 +257,65 @@ model QuestDeclaration {
 
   @@unique([templateId, childId, date])
   @@index([childId, date])
+}
+
+/// 宝箱プールのごほうびアイテム。子供ごとに親が設定する。
+/// title + rarity のみ。レア度は COMMON / UNCOMMON / RARE の3段階。
+model TreasureItem {
+  id        String         @id @default(cuid())
+  childId   String
+  child     User           @relation(fields: [childId], references: [id], onDelete: Cascade)
+  title     String
+  rarity    TreasureRarity
+  sortOrder Int            @default(0)
+  isActive  Boolean        @default(true)
+  logs      TreasureLog[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([childId])
+}
+
+/// 宝箱1個 = 1レコード。LOCKED → UNLOCKED → OPENED の状態遷移で全ライフサイクルを管理。
+/// 報告時に LOCKED 生成、承認で UNLOCKED、子供が開封で OPENED + 抽選結果 (itemId) 確定。
+/// 自動承認時は LOCKED をスキップして直接 UNLOCKED で生成。
+/// 差し戻しで minTasks を割った場合は CANCELLED。
+model TreasureLog {
+  id        String          @id @default(cuid())
+  childId   String
+  child     User            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date      DateTime        @db.Date
+  trigger   TreasureTrigger
+  boosted   Boolean         @default(false)
+  status    TreasureStatus  @default(LOCKED)
+  itemId    String?
+  item      TreasureItem?   @relation(fields: [itemId], references: [id])
+  openedAt  DateTime?
+  fulfilled Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([childId, status])
+  @@index([childId, date])
+}
+
+enum TreasureRarity {
+  COMMON
+  UNCOMMON
+  RARE
+}
+
+enum TreasureTrigger {
+  STREAK
+  ALL_COMPLETE
+  AUTO
+}
+
+enum TreasureStatus {
+  LOCKED
+  UNLOCKED
+  OPENED
+  CANCELLED
 }
 
 model BulletinLog {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { prisma } from "@/lib/prisma";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
+import { unlockTreasuresOnApprove } from "@/lib/treasureService";
 
 vi.mock("@/lib/streak", () => ({
   recordDailyAchievement: vi.fn().mockResolvedValue(undefined),
@@ -12,9 +13,14 @@ vi.mock("@/lib/badges", () => ({
   checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  unlockTreasuresOnApprove: vi.fn().mockResolvedValue(0),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockRecordDailyAchievement = vi.mocked(recordDailyAchievement);
 const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
+const mockUnlockTreasures = vi.mocked(unlockTreasuresOnApprove);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -494,5 +500,26 @@ describe("approveSkipQuestInstance", () => {
       }),
     );
     expect(mockRecordDailyAchievement).toHaveBeenCalledWith("child-1", skipQuest.date);
+  });
+});
+
+describe("宝箱アンロック", () => {
+  it("approveQuestInstance 経由で同日 LOCKED が UNLOCKED になる", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    await approveQuestInstance(baseQuest as any);
+
+    expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", baseQuest.date);
+  });
+
+  it("approveSkipQuestInstance 経由でも同日 LOCKED が UNLOCKED になる", async () => {
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const skipQuest = { ...baseQuest, status: "SKIP_REPORTED" as const };
+    await approveSkipQuestInstance(skipQuest as any);
+
+    expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", skipQuest.date);
   });
 });
