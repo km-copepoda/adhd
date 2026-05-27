@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { routeLogger } from "@/lib/logger";
+import { computeCompletedCount } from "@/lib/questProgress";
+import { cancelTreasuresOnReject } from "@/lib/treasureService";
 
 export async function POST(
   request: Request,
@@ -59,6 +61,20 @@ export async function POST(
     await prisma.questInstance.update({
       where: { id },
       data: { status: "REJECTED", rejectionReason: reason },
+    });
+
+    // 差し戻し後の当日進捗を集計して、条件を割った LOCKED 宝箱を CANCELLED に
+    const todayQuests = await prisma.questInstance.findMany({
+      where: { childId: quest.childId, date: quest.date },
+      select: { status: true },
+    });
+    await cancelTreasuresOnReject({
+      childId: quest.childId,
+      date: quest.date,
+      reportedCount: computeCompletedCount(todayQuests),
+      totalCount: todayQuests.length,
+      minTasks: quest.child.minTasksForStreak,
+      isProxy: false,
     });
 
     rlog.info("Quest rejected", { questId: id, childId: quest.childId, reason });

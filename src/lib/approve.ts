@@ -9,6 +9,7 @@ import { getMonsterStage } from "@/lib/monsters";
 import { triggerMonsterEvolvedLog, triggerBadgeLog } from "@/lib/bulletinLog";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { todayJST, jstDateOf } from "@/lib/date";
+import { unlockTreasuresOnApprove } from "@/lib/treasureService";
 
 type QuestWithRelations = {
   id: string;
@@ -186,6 +187,9 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
     await recordTaskStreak(quest.templateId, quest.childId, quest.date, quest.template.repeatDays);
   }
 
+  // 同日の LOCKED 宝箱を UNLOCKED に。0個でも安全 (updateMany)
+  await unlockTreasuresOnApprove(quest.childId, quest.date);
+
   // バッジ解除チェック + 掲示板ログ — レスポンス送信後に after() で実行
   after(() =>
     checkAndUnlockBadges(quest.childId)
@@ -204,4 +208,5 @@ export async function approveSkipQuestInstance(quest: Pick<QuestWithRelations, "
     data: { status: "SKIPPED", approvedAt: new Date() },
   });
   await recordDailyAchievement(quest.childId, quest.date);
+  await unlockTreasuresOnApprove(quest.childId, quest.date);
 }

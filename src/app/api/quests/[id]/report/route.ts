@@ -5,6 +5,8 @@ import { isBeforeDeadline } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
+import { computeCompletedCount } from "@/lib/questProgress";
+import { generateTreasuresOnReport } from "@/lib/treasureService";
 
 export async function POST(
   request: Request,
@@ -76,9 +78,26 @@ export async function POST(
     }
   }
 
+  // 宝箱（ごほうび）生成: 当日の進捗状況を再集計して、LOCKED 宝箱を作る
+  // この経路は子供本人の報告なので isProxy=false 固定（親代理は別ルート）
+  const todayQuests = await prisma.questInstance.findMany({
+    where: { childId: user.id, date: quest.date },
+    select: { status: true },
+  });
+  const reportedCount = computeCompletedCount(todayQuests);
+  const totalCount = todayQuests.length;
+  const treasureIds = await generateTreasuresOnReport({
+    childId: user.id,
+    date: quest.date,
+    reportedCount,
+    totalCount,
+    minTasks: user.minTasksForStreak,
+    isProxy: false,
+  });
+
   // 掲示板ログ — レスポンス送信後に実行（サーバレスで取りこぼさないため after() を使う）
   after(() => triggerTaskProgressLog(user.id).catch(() => {}));
 
-  rlog.info("Quest reported", { questId: id, childId: user.id, xp, category });
-  return NextResponse.json({ ok: true, xpAdded: xp, category });
+  rlog.info("Quest reported", { questId: id, childId: user.id, xp, category, treasureIds });
+  return NextResponse.json({ ok: true, xpAdded: xp, category, treasureIds });
 }

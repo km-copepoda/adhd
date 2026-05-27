@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { todayJST } from "@/lib/date";
 import { routeLogger } from "@/lib/logger";
+import { computeCompletedCount } from "@/lib/questProgress";
+import { generateAutoApproveTreasure } from "@/lib/treasureService";
 
 export async function GET(request: Request) {
   const rlog = routeLogger("GET", "/api/cron/auto-approve");
@@ -51,6 +53,23 @@ export async function GET(request: Request) {
   let approved = 0;
   let skipped = 0;
 
+  // (childId, date) ごとにグルーピング — AUTO 宝箱は1日1個（仕様 4 章）
+  const groups = new Map<
+    string,
+    { childId: string; date: Date; minTasks: number }
+  >();
+  for (const quest of pendingQuests) {
+    const key = `${quest.childId}|${quest.date.toISOString()}`;
+    if (!groups.has(key)) {
+      const child = quest.child as unknown as { minTasksForStreak?: number };
+      groups.set(key, {
+        childId: quest.childId,
+        date: quest.date,
+        minTasks: child.minTasksForStreak ?? 1,
+      });
+    }
+  }
+
   for (const quest of pendingQuests) {
     if (quest.status === "SKIP_REPORTED") {
       await approveSkipQuestInstance(quest);
@@ -61,6 +80,23 @@ export async function GET(request: Request) {
     }
   }
 
-  rlog.done("Auto-approve cron completed", { approved, skipped });
-  return NextResponse.json({ ok: true, approved, skipped });
+  // 自動承認の AUTO 宝箱生成（即 UNLOCKED）
+  let autoTreasures = 0;
+  for (const group of groups.values()) {
+    const todayQuests = await prisma.questInstance.findMany({
+      where: { childId: group.childId, date: group.date },
+      select: { status: true },
+    });
+    const treasureId = await generateAutoApproveTreasure({
+      childId: group.childId,
+      date: group.date,
+      reportedCount: computeCompletedCount(todayQuests),
+      totalCount: todayQuests.length,
+      minTasks: group.minTasks,
+    });
+    if (treasureId) autoTreasures++;
+  }
+
+  rlog.done("Auto-approve cron completed", { approved, skipped, autoTreasures });
+  return NextResponse.json({ ok: true, approved, skipped, autoTreasures });
 }

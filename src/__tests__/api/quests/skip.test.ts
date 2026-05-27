@@ -4,6 +4,7 @@ import { POST } from "@/app/api/quests/[id]/skip/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
+import { generateTreasuresOnReport } from "@/lib/treasureService";
 import { makeParams } from "../../helpers/request";
 import { childUser, questInstance } from "../../helpers/fixtures";
 
@@ -11,13 +12,20 @@ vi.mock("@/lib/bulletinLog", () => ({
   triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  generateTreasuresOnReport: vi.fn().mockResolvedValue([]),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 const mockAfter = vi.mocked(after);
+const mockGenerateTreasures = vi.mocked(generateTreasuresOnReport);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
+  mockGenerateTreasures.mockResolvedValue([]);
 });
 
 function makeSkipRequest(body: { comment?: string } = { comment: "体調が悪い" }) {

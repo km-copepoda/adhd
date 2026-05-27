@@ -12,6 +12,7 @@ const links = [
   { href: "/app/parent/child-view", emoji: "🧒", label: "子供モード" },
   { href: "/app/parent/history", emoji: "📅", label: "過去の記録" },
   { href: "/app/parent/gathering", emoji: "🏕️", label: "ひろば" },
+  { href: "/app/parent/treasures", emoji: "🎁", label: "ごほうび" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "ファミリー" },
 ] as const;
 

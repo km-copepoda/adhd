@@ -14,6 +14,11 @@ vi.mock("@/lib/badges", () => ({
   checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  unlockTreasuresOnApprove: vi.fn().mockResolvedValue(0),
+  cancelTreasuresOnReject: vi.fn().mockResolvedValue(0),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
