@@ -18,6 +18,26 @@ const dateJST = new Date(Date.UTC(2026, 4, 27)); // 2026-05-27 JST
 
 // ─── generateTreasuresOnReport ──────────────────────────────────────────────
 describe("generateTreasuresOnReport", () => {
+  beforeEach(() => {
+    // 既定: プールに 1 件あるので生成は進む
+    mockPrisma.treasureItem.count.mockResolvedValue(1);
+  });
+
+  it("プールが空 (treasureItem.count=0) なら何もしない", async () => {
+    mockPrisma.treasureItem.count.mockResolvedValue(0);
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      minTasks: 1,
+      isProxy: false,
+    });
+    expect(ids).toEqual([]);
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.treasureLog.findMany).not.toHaveBeenCalled();
+  });
+
   it("isProxy=true なら何もしない (親代理は宝箱対象外)", async () => {
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -206,6 +226,23 @@ describe("cancelTreasuresOnReject", () => {
 
 // ─── generateAutoApproveTreasure ────────────────────────────────────────────
 describe("generateAutoApproveTreasure", () => {
+  beforeEach(() => {
+    mockPrisma.treasureItem.count.mockResolvedValue(1);
+  });
+
+  it("プールが空なら null（生成しない）", async () => {
+    mockPrisma.treasureItem.count.mockResolvedValue(0);
+    const id = await generateAutoApproveTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      minTasks: 1,
+    });
+    expect(id).toBeNull();
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+  });
+
   it("minTasks 未達なら null", async () => {
     const id = await generateAutoApproveTreasure({
       childId: "c1",
