@@ -190,3 +190,88 @@ describe("drawTreasure — rng デフォルト", () => {
     }
   });
 });
+
+// ─── 新仕様: レア度ごとに独立抽選（プールサイズ非依存）─────────────────────────
+describe("drawTreasure — レア度ごとの独立抽選 (プールサイズ非依存)", () => {
+  const manyCommons = (): TreasurePoolItem[] => [
+    { id: "c1", title: "A", rarity: "COMMON" },
+    { id: "c2", title: "B", rarity: "COMMON" },
+    { id: "c3", title: "C", rarity: "COMMON" },
+    { id: "c4", title: "D", rarity: "COMMON" },
+    { id: "c5", title: "E", rarity: "COMMON" },
+  ];
+
+  it("COMMON 5個のプールでも COMMON 抽選は 1 回だけ (rng=0.2 → MISS で全 MISS)", () => {
+    // 0.2 > 1/7 ≈ 0.143 なので COMMON は MISS。
+    // 旧実装はアイテム毎に 5 回 roll するため 5 個目までに当たりが出やすい。
+    // 新実装はレア度ごとに 1 回 = 計 3 回の roll で確率を決める。
+    const res = drawTreasure(manyCommons(), {
+      rng: seq([0.2, 0.2, 0.2]),
+    });
+    expect(res.itemId).toBeNull();
+    expect(res.rarity).toBeNull();
+    expect(res.nextPityCount).toBe(1);
+  });
+
+  it("COMMON HIT 時、4 回目の rng でプール内のアイテムを選ぶ (floor(rng*tierLen))", () => {
+    // rng 消費順:
+    //   1: COMMON 抽選 (HIT)
+    //   2: UNCOMMON 抽選 (MISS)
+    //   3: RARE 抽選 (MISS)
+    //   4: アイテム選択 → floor(0.0 * 5) = 0 → c1
+    const res = drawTreasure(manyCommons(), {
+      rng: seq([COMMON_HIT, UNCOMMON_MISS, RARE_MISS, 0.0]),
+    });
+    expect(res.itemId).toBe("c1");
+    expect(res.rarity).toBe("COMMON");
+  });
+
+  it("COMMON HIT 時、アイテム選択 rng の値で別のアイテムが選ばれる", () => {
+    // floor(0.5 * 5) = 2 → c3
+    const res = drawTreasure(manyCommons(), {
+      rng: seq([COMMON_HIT, UNCOMMON_MISS, RARE_MISS, 0.5]),
+    });
+    expect(res.itemId).toBe("c3");
+    expect(res.rarity).toBe("COMMON");
+  });
+
+  it("プール100個 COMMON でも rng=0.2 なら MISS (旧実装ではほぼ確実に当たる)", () => {
+    const pool: TreasurePoolItem[] = Array.from({ length: 100 }, (_, i) => ({
+      id: `c${i}`,
+      title: `${i}`,
+      rarity: "COMMON" as const,
+    }));
+    // rng=0.2 を 3 回連続: COMMON/UNCOMMON/RARE すべて MISS
+    const res = drawTreasure(pool, { rng: seq([0.2, 0.2, 0.2]) });
+    expect(res.itemId).toBeNull();
+  });
+});
+
+describe("drawTreasure — ヒットしたレア度がプールに無い場合", () => {
+  it("RARE+UNCOMMON HIT でも プールに RARE が無ければ UNCOMMON を採用", () => {
+    const pool: TreasurePoolItem[] = [
+      { id: "c1", title: "A", rarity: "COMMON" },
+      { id: "u1", title: "B", rarity: "UNCOMMON" },
+    ];
+    // 全レア度 HIT。RARE が無いので UNCOMMON に降格 → u1。
+    // アイテム選択: floor(0.0 * 1) = 0 → u1
+    const res = drawTreasure(pool, {
+      rng: seq([COMMON_HIT, UNCOMMON_HIT, RARE_HIT, 0.0]),
+    });
+    expect(res.rarity).toBe("UNCOMMON");
+    expect(res.itemId).toBe("u1");
+  });
+
+  it("HIT したレア度のいずれもプールに無ければハズレ扱い (pity +1)", () => {
+    const onlyCommon: TreasurePoolItem[] = [
+      { id: "c1", title: "おやつ", rarity: "COMMON" },
+    ];
+    // COMMON は MISS、UNCOMMON も MISS、RARE だけ HIT。プールには COMMON のみ
+    const res = drawTreasure(onlyCommon, {
+      rng: seq([COMMON_MISS, UNCOMMON_MISS, RARE_HIT]),
+    });
+    expect(res.itemId).toBeNull();
+    expect(res.rarity).toBeNull();
+    expect(res.nextPityCount).toBe(1);
+  });
+});
