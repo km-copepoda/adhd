@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ensureTodayQuests, cleanupStaleCarryOverInstances } from "@/lib/quests";
+import {
+  ensureTodayQuests,
+  cleanupStaleCarryOverInstances,
+} from "@/lib/quests";
 import { prisma } from "@/lib/prisma";
 
 const mockPrisma = vi.mocked(prisma);
@@ -173,6 +176,90 @@ describe("cleanupStaleCarryOverInstances", () => {
 
   it("APPROVED/SKIPPED 履歴がないテンプレートには updateMany を呼ばないこと", async () => {
     mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await cleanupStaleCarryOverInstances({
+      childId: "child-1",
+      templates: [{ id: "tpl-1", carryOver: true }],
+    });
+
+    expect(mockPrisma.questInstance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("APPROVED 履歴がなくても複数 PENDING があれば最新を残して古いものを REJECTED に縮約すること", async () => {
+    // settled は空（APPROVED/SKIPPED なし）
+    mockPrisma.questInstance.findMany.mockImplementation((args: any) => {
+      // settled クエリ
+      if (args?.where?.status?.in?.includes("APPROVED")) {
+        return Promise.resolve([] as any);
+      }
+      // duplicate collapse 用 active 取得（PENDING/REPORTED/SKIP_REPORTED）
+      return Promise.resolve([
+        { id: "q-old", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" },
+        { id: "q-mid", templateId: "tpl-1", date: new Date("2026-03-11T00:00:00Z"), status: "PENDING" },
+        { id: "q-new", templateId: "tpl-1", date: new Date("2026-03-12T00:00:00Z"), status: "PENDING" },
+      ] as any);
+    });
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
+
+    await cleanupStaleCarryOverInstances({
+      childId: "child-1",
+      templates: [{ id: "tpl-1", carryOver: true }],
+    });
+
+    // 最新 (q-new) を残して q-old と q-mid を REJECTED に変換
+    expect(mockPrisma.questInstance.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: expect.arrayContaining(["q-old", "q-mid"]) },
+        }),
+        data: expect.objectContaining({
+          status: "REJECTED",
+          rejectionReason: "DUPLICATE_PENDING_CLEANUP",
+        }),
+      })
+    );
+  });
+
+  it("REPORTED と複数 PENDING が混在する場合は REPORTED を残して PENDING を REJECTED にすること", async () => {
+    mockPrisma.questInstance.findMany.mockImplementation((args: any) => {
+      if (args?.where?.status?.in?.includes("APPROVED")) {
+        return Promise.resolve([] as any);
+      }
+      return Promise.resolve([
+        { id: "q-pend-old", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" },
+        { id: "q-reported", templateId: "tpl-1", date: new Date("2026-03-11T00:00:00Z"), status: "REPORTED" },
+        { id: "q-pend-new", templateId: "tpl-1", date: new Date("2026-03-12T00:00:00Z"), status: "PENDING" },
+      ] as any);
+    });
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
+
+    await cleanupStaleCarryOverInstances({
+      childId: "child-1",
+      templates: [{ id: "tpl-1", carryOver: true }],
+    });
+
+    expect(mockPrisma.questInstance.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: expect.arrayContaining(["q-pend-old", "q-pend-new"]) },
+        }),
+        data: expect.objectContaining({
+          status: "REJECTED",
+          rejectionReason: "DUPLICATE_PENDING_CLEANUP",
+        }),
+      })
+    );
+  });
+
+  it("アクティブインスタンスが 1 件だけなら縮約は走らないこと", async () => {
+    mockPrisma.questInstance.findMany.mockImplementation((args: any) => {
+      if (args?.where?.status?.in?.includes("APPROVED")) {
+        return Promise.resolve([] as any);
+      }
+      return Promise.resolve([
+        { id: "q-only", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" },
+      ] as any);
+    });
 
     await cleanupStaleCarryOverInstances({
       childId: "child-1",

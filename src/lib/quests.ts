@@ -47,6 +47,42 @@ export async function cleanupStaleCarryOverInstances(params: {
       },
     });
   }
+
+  // 重複アクティブの縮約: 同じテンプレートに PENDING/REPORTED/SKIP_REPORTED が
+  // 複数あれば 1 つだけ残して他を REJECTED にする。
+  // 残す優先順:
+  //   1. REPORTED（親の承認待ち。最優先で残す）
+  //   2. SKIP_REPORTED（スキップ承認待ち）
+  //   3. 最新 PENDING（最古ではなく最新を残す。最古を残すと「今日の重複 PENDING」が
+  //      REJECTED 状態で `date: today` の今日リストに居残り、子画面に
+  //      "DUPLICATE_PENDING_CLEANUP" 文字列が露出するため）
+  for (const templateId of carryOverIds) {
+    const actives = await prisma.questInstance.findMany({
+      where: {
+        templateId,
+        childId,
+        status: { in: ["PENDING", "REPORTED", "SKIP_REPORTED"] },
+      },
+      select: { id: true, date: true, status: true },
+      orderBy: { date: "asc" },
+    });
+
+    if (actives.length <= 1) continue;
+
+    const reported = actives.find((a) => a.status === "REPORTED");
+    const skipReported = actives.find((a) => a.status === "SKIP_REPORTED");
+    const newestPending = [...actives].reverse().find((a) => a.status === "PENDING");
+    const keepId = (reported ?? skipReported ?? newestPending ?? actives[actives.length - 1]).id;
+    const rejectIds = actives.filter((a) => a.id !== keepId).map((a) => a.id);
+
+    await prisma.questInstance.updateMany({
+      where: { id: { in: rejectIds } },
+      data: {
+        status: "REJECTED",
+        rejectionReason: "DUPLICATE_PENDING_CLEANUP",
+      },
+    });
+  }
 }
 
 /**
