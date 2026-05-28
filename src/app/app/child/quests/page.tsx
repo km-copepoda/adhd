@@ -9,6 +9,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
 import TreasureStock from "@/components/child/TreasureStock";
+import TreasureGetCutscene from "@/components/child/TreasureGetCutscene";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
@@ -60,6 +61,8 @@ export default function QuestsPage() {
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [stampQueue, setStampQueue] = useState<StampCelebration[]>([]);
+  const pendingTreasureGetRef = useRef<number>(0);
+  const [showTreasureGet, setShowTreasureGet] = useState<number>(0);
   const [reportHintDismissed, setReportHintDismissed] = useState(
     () => typeof window !== "undefined" && !!localStorage.getItem("quest-report-hint-seen"),
   );
@@ -184,11 +187,20 @@ export default function QuestsPage() {
   }
 
   async function handleReport(questId: string, comment: string | null, photoUrl: string | null) {
-    await fetch(`/api/quests/${questId}/report`, {
+    const res = await fetch(`/api/quests/${questId}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ comment, photoUrl }),
     });
+    if (res.ok) {
+      try {
+        const data = (await res.json()) as { treasureIds?: string[] };
+        const count = data.treasureIds?.length ?? 0;
+        if (count > 0) pendingTreasureGetRef.current = count;
+      } catch {
+        // 旧APIで JSON が無い場合などは無視
+      }
+    }
     await refreshQuests();
   }
 
@@ -664,7 +676,21 @@ export default function QuestsPage() {
           questsTotal={quests.length}
           onReport={handleReport}
           onSkip={handleSkip}
-          onClose={() => setActiveQuest(null)}
+          onClose={() => {
+            setActiveQuest(null);
+            if (pendingTreasureGetRef.current > 0) {
+              setShowTreasureGet(pendingTreasureGetRef.current);
+              pendingTreasureGetRef.current = 0;
+            }
+          }}
+        />
+      )}
+
+      {/* 宝箱ゲット演出（タスク完了エフェクトのあとに表示） */}
+      {showTreasureGet > 0 && (
+        <TreasureGetCutscene
+          count={showTreasureGet}
+          onClose={() => setShowTreasureGet(0)}
         />
       )}
 

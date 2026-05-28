@@ -14,6 +14,7 @@ const SEEN_BADGE_COUNT_KEY = "lastSeenBadgeUnlockedCount";
 const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | "monster" | "zukan" | "badges" }[] = [
   { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" , badgeKey: "quests" },
   { href: "/app/child/monster", emoji: "🐣", label: "育成", badgeKey: "monster" },
+  { href: "/app/child/treasures", emoji: "📦", label: "宝箱" },
   { href: "/app/child/zukan", emoji: "📖", label: "図鑑", badgeKey: "zukan" },
   { href: "/app/child/badges", emoji: "🏅", label: "実績", badgeKey: "badges" },
   { href: "/app/child/gathering", emoji: "🏕️", label: "ひろば" },

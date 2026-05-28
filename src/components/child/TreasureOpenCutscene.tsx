@@ -46,7 +46,8 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
     return (
       <CutsceneOverlay
         onClose={onClose}
-        emoji="📦"
+        imageSrc="/treasure/open1.png"
+        imageAlt="からっぽの宝箱"
         title="からっぽ…"
         titleColor="text-quest-gold/80"
         subtitle="でも"
@@ -60,7 +61,8 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
   return (
     <CutsceneOverlay
       onClose={onClose}
-      emoji="🎁"
+      imageSrc="/treasure/open2.png"
+      imageAlt="あたりの宝箱"
       glowColor={glow}
       title={result.item.title}
       titleColor="text-quest-gold"

@@ -1,0 +1,188 @@
+"use client";
+
+import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import TreasureOpenCutscene from "@/components/child/TreasureOpenCutscene";
+
+type Rarity = "COMMON" | "UNCOMMON" | "RARE";
+
+interface OpenedLog {
+  id: string;
+  openedAt: string;
+  boosted: boolean;
+  item: { id: string; title: string; rarity: Rarity } | null;
+}
+
+interface StatusResponse {
+  locked: number;
+  unlocked: number;
+  opened: OpenedLog[];
+}
+
+interface TreasureOpenResult {
+  miss: boolean;
+  pityTriggered: boolean;
+  item: { id: string; title: string; rarity: Rarity } | null;
+  remainingUnlocked: number;
+}
+
+const RARITY_LABEL: Record<Rarity, string> = {
+  COMMON: "よく出る",
+  UNCOMMON: "ときどき",
+  RARE: "たまに",
+};
+
+const RARITY_BG: Record<Rarity, string> = {
+  COMMON: "bg-blue-100 text-blue-700 border-blue-300",
+  UNCOMMON: "bg-purple-100 text-purple-700 border-purple-300",
+  RARE: "bg-amber-100 text-amber-700 border-amber-300",
+};
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+export default function ChildTreasuresPage() {
+  const [data, setData] = useState<StatusResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [opening, setOpening] = useState(false);
+  const [result, setResult] = useState<TreasureOpenResult | null>(null);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/treasures/status", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = (await res.json()) as StatusResponse;
+      setData(json);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchStatus();
+  }, [fetchStatus]);
+
+  const handleOpen = async () => {
+    if (opening) return;
+    if (!data || data.unlocked <= 0) return;
+    setOpening(true);
+    try {
+      const res = await fetch("/api/treasures/open", { method: "POST" });
+      if (!res.ok) return;
+      const json = (await res.json()) as TreasureOpenResult;
+      setResult(json);
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+  if (!data) {
+    return (
+      <div className="p-6 text-center text-quest-dim text-sm">
+        宝箱データを読み込めませんでした。
+      </div>
+    );
+  }
+
+  const hits = data.opened.filter((o) => o.item !== null);
+  const misses = data.opened.length - hits.length;
+  const canOpen = data.unlocked > 0 && !opening;
+
+  return (
+    <div className="p-4 pb-8">
+      <h1 className="text-xl font-bold mb-4 text-center">宝箱</h1>
+
+      <div className="bg-quest-card border border-quest-border rounded-2xl p-5 mb-6 flex flex-col items-center">
+        <div className="w-40 h-40 mb-3">
+          <Image
+            src="/treasure/closed.png"
+            alt="閉じた宝箱"
+            width={160}
+            height={160}
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <div className="flex gap-4 text-sm mb-4">
+          <div className="flex items-center gap-1">
+            <span aria-hidden>🔒</span>
+            <span className="font-bold tabular-nums">{data.locked}</span>
+            <span className="text-quest-dim text-xs">承認まち</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span aria-hidden>🔓</span>
+            <span className="font-bold tabular-nums text-quest-gold">{data.unlocked}</span>
+            <span className="text-quest-dim text-xs">あけられる</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleOpen}
+          disabled={!canOpen}
+          className="rounded-full bg-quest-gold px-6 py-2 text-sm font-bold text-white shadow disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          {opening ? "ひらいてる..." : "あける"}
+        </button>
+      </div>
+
+      <h2 className="text-sm font-bold text-quest-dim mb-2">これまでの宝箱</h2>
+      {data.opened.length === 0 ? (
+        <p className="text-center text-quest-dim text-xs py-6">
+          まだ宝箱を開けていません。
+        </p>
+      ) : (
+        <>
+          <div className="text-xs text-quest-dim mb-2">
+            ぜんぶで <span className="font-bold text-quest-text">{data.opened.length}</span>{" "}
+            個（あたり {hits.length}・からっぽ {misses}）
+          </div>
+          <ul className="space-y-2">
+            {data.opened.map((o) => (
+              <li
+                key={o.id}
+                className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
+              >
+                <div className="w-10 h-10 flex-shrink-0">
+                  <Image
+                    src={o.item ? "/treasure/open2.png" : "/treasure/open1.png"}
+                    alt={o.item ? "あたり" : "はずれ"}
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm truncate">
+                    {o.item ? o.item.title : "からっぽ…でもうれしい！"}
+                  </div>
+                  <div className="text-[11px] text-quest-dim">
+                    {formatDate(o.openedAt)}
+                    {o.boosted && <span className="ml-2 text-quest-gold">★ ボーナス</span>}
+                  </div>
+                </div>
+                {o.item && (
+                  <span className={`text-[11px] px-2 py-0.5 rounded border ${RARITY_BG[o.item.rarity]}`}>
+                    {RARITY_LABEL[o.item.rarity]}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {result && (
+        <TreasureOpenCutscene
+          result={result}
+          onClose={() => {
+            setResult(null);
+            void fetchStatus();
+          }}
+        />
+      )}
+    </div>
+  );
+}
