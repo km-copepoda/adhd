@@ -45,7 +45,7 @@ export default function ParentTreasuresPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const res = await fetch("/api/family", { cache: "no-store" });
+      const res = await fetch("/api/family/code", { cache: "no-store" });
       if (!res.ok) return;
       const json = await res.json();
       const list = (json.members ?? [])
