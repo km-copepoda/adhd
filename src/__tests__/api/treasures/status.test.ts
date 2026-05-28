@@ -28,14 +28,12 @@ describe("GET /api/treasures/status", () => {
         id: "log-1",
         openedAt: new Date("2026-03-21"),
         boosted: false,
-        fulfilled: false,
         item: { id: "i1", title: "おやつ", rarity: "COMMON" },
       } as any,
       {
         id: "log-2",
         openedAt: new Date("2026-03-20"),
         boosted: true,
-        fulfilled: true,
         item: null, // ハズレ
       } as any,
     ]);

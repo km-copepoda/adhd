@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { sortAndFilterBadges, isBadgeNew, type BadgeData, type BadgeFilter } from "@/lib/badgeFilter";
+import TreasureHistoryList from "@/components/child/TreasureHistoryList";
 
 type BadgesResponse = {
   badges: BadgeData[];
@@ -12,10 +13,13 @@ type BadgesResponse = {
   newlyUnlocked: string[];
 };
 
+type TopTab = "badges" | "treasures";
+
 export default function BadgesPage() {
   const [data, setData] = useState<BadgesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BadgeFilter>("all");
+  const [topTab, setTopTab] = useState<TopTab>("badges");
 
   const fetchBadges = () => {
     fetch("/api/badges")
@@ -80,50 +84,85 @@ export default function BadgesPage() {
     <div className="min-h-screen bg-quest-bg pb-24">
       {/* ヘッダー */}
       <div className="sticky top-0 z-10 bg-quest-bg/95 backdrop-blur border-b border-quest-border px-4 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-quest-gold font-bold text-lg tracking-wider">🏅 実績</h1>
-          <span className="text-quest-dim text-xs">
-            {data.unlockedCount} / {data.totalCount}
-          </span>
+        {/* トップタブ: 実績 / ごほうび */}
+        <div className="flex gap-1 mb-3">
+          <button
+            type="button"
+            onClick={() => setTopTab("badges")}
+            className={`flex-1 text-sm py-1.5 rounded-md font-bold tracking-wider transition-colors ${
+              topTab === "badges"
+                ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
+                : "text-quest-dim hover:text-quest-text"
+            }`}
+          >
+            🏅 実績
+          </button>
+          <button
+            type="button"
+            onClick={() => setTopTab("treasures")}
+            className={`flex-1 text-sm py-1.5 rounded-md font-bold tracking-wider transition-colors ${
+              topTab === "treasures"
+                ? "bg-quest-gold/20 text-quest-gold border border-quest-gold/30"
+                : "text-quest-dim hover:text-quest-text"
+            }`}
+          >
+            🎁 ごほうび
+          </button>
         </div>
 
-        {/* 進捗バー */}
-        <div className="h-2 bg-quest-border rounded-full overflow-hidden mb-3">
-          <div
-            className="h-full bg-gradient-to-r from-yellow-500 to-quest-gold rounded-full transition-all duration-500"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+        {topTab === "badges" && (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-quest-dim text-xs">
+                {data.unlockedCount} / {data.totalCount}
+              </span>
+            </div>
 
-        {/* フィルター */}
-        <div className="flex gap-2 flex-wrap">
-          {filterOptions.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setFilter(value)}
-              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                filter === value
-                  ? "bg-quest-gold text-quest-bg border-quest-gold font-bold"
-                  : "border-quest-border text-quest-dim hover:text-quest-text"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+            {/* 進捗バー */}
+            <div className="h-2 bg-quest-border rounded-full overflow-hidden mb-3">
+              <div
+                className="h-full bg-gradient-to-r from-yellow-500 to-quest-gold rounded-full transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+
+            {/* フィルター */}
+            <div className="flex gap-2 flex-wrap">
+              {filterOptions.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                    filter === value
+                      ? "bg-quest-gold text-quest-bg border-quest-gold font-bold"
+                      : "border-quest-border text-quest-dim hover:text-quest-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* バッジ一覧 */}
-      <div className="p-4 grid grid-cols-2 gap-3">
-        {filtered.map(badge => (
-          <BadgeCard key={badge.id} badge={badge} />
-        ))}
-      </div>
+      {topTab === "badges" ? (
+        <>
+          {/* バッジ一覧 */}
+          <div className="p-4 grid grid-cols-2 gap-3">
+            {filtered.map(badge => (
+              <BadgeCard key={badge.id} badge={badge} />
+            ))}
+          </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center text-quest-dim text-sm py-12">
-          {filter === "unlocked" ? "まだ解除した実績がありません" : "すべて解除済みです！"}
-        </div>
+          {filtered.length === 0 && (
+            <div className="text-center text-quest-dim text-sm py-12">
+              {filter === "unlocked" ? "まだ解除した実績がありません" : "すべて解除済みです！"}
+            </div>
+          )}
+        </>
+      ) : (
+        <TreasureHistoryList />
       )}
     </div>
   );

@@ -17,15 +17,20 @@ const RARITY_COLOR: Record<Rarity, string> = {
   RARE: "bg-amber-100 text-amber-700",
 };
 
-interface PendingItem {
+interface HistoryItem {
   id: string;
   openedAt: string;
   item: { id: string; title: string; rarity: Rarity } | null;
   child: { id: string; name: string | null; monsterName: string | null };
 }
 
-export default function PendingTreasuresPage() {
-  const [items, setItems] = useState<PendingItem[]>([]);
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+export default function ParentTreasureHistoryPage() {
+  const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchItems = useCallback(async () => {
@@ -44,23 +49,18 @@ export default function PendingTreasuresPage() {
     void fetchItems();
   }, [fetchItems]);
 
-  const handleFulfill = async (id: string) => {
-    const res = await fetch(`/api/treasures/fulfill/${id}`, { method: "POST" });
-    if (res.ok) void fetchItems();
-  };
-
   if (loading) return <LoadingSpinner />;
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-1">🎁 渡すごほうび</h1>
+      <h1 className="text-2xl font-bold mb-1">🎁 もらったごほうび</h1>
       <p className="text-sm text-quest-dim mb-4">
-        子供が宝箱から引き当てたごほうびの一覧です。実際に渡したら「渡したよ」を押してください。
+        子供が宝箱から引き当てたごほうびの履歴です。実際の受け渡しはお子さんと直接お話ししてください。
       </p>
 
       {items.length === 0 ? (
         <div className="bg-quest-card border border-quest-border rounded-xl p-6 text-center">
-          <p className="text-sm text-quest-dim">渡すべきごほうびはありません。</p>
+          <p className="text-sm text-quest-dim">まだもらったごほうびはありません。</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -70,8 +70,9 @@ export default function PendingTreasuresPage() {
               className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
             >
               <div className="flex-1">
-                <div className="text-xs text-quest-dim">
-                  {it.child.monsterName ?? it.child.name ?? "子供"}
+                <div className="text-xs text-quest-dim flex items-center gap-2">
+                  <span>{it.child.monsterName ?? it.child.name ?? "子供"}</span>
+                  {it.openedAt && <span>{formatDate(it.openedAt)}</span>}
                 </div>
                 <div className="font-bold">{it.item?.title ?? "—"}</div>
               </div>
@@ -80,13 +81,6 @@ export default function PendingTreasuresPage() {
                   {RARITY_LABEL[it.item.rarity]}
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => handleFulfill(it.id)}
-                className="bg-quest-mint text-white text-xs font-bold px-3 py-1.5 rounded-lg"
-              >
-                渡したよ
-              </button>
             </li>
           ))}
         </ul>

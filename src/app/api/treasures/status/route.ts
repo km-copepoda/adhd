@@ -40,7 +40,6 @@ export async function GET() {
       id: o.id,
       openedAt: o.openedAt,
       boosted: o.boosted,
-      fulfilled: o.fulfilled,
       item: o.item, // null = ハズレ
     })),
   });
