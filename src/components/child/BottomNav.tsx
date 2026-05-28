@@ -11,10 +11,10 @@ import { computeRemainingCount } from "@/lib/questProgress";
 const SEEN_KEY = "seenAchievementTitles";
 const SEEN_BADGE_COUNT_KEY = "lastSeenBadgeUnlockedCount";
 
-const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | "monster" | "zukan" | "badges" }[] = [
+const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | "monster" | "zukan" | "badges" | "treasures" }[] = [
   { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" , badgeKey: "quests" },
   { href: "/app/child/monster", emoji: "🐣", label: "育成", badgeKey: "monster" },
-  { href: "/app/child/treasures", emoji: "📦", label: "宝箱" },
+  { href: "/app/child/treasures", emoji: "📦", label: "宝箱", badgeKey: "treasures" },
   { href: "/app/child/zukan", emoji: "📖", label: "図鑑", badgeKey: "zukan" },
   { href: "/app/child/badges", emoji: "🏅", label: "実績", badgeKey: "badges" },
   { href: "/app/child/gathering", emoji: "🏕️", label: "ひろば" },
@@ -27,6 +27,7 @@ export default function BottomNav() {
   const [monsterBadge, setMonsterBadge] = useState(false);
   const [zukanBadge, setZukanBadge] = useState(false);
   const [badgesCount, setBadgesCount] = useState(0);
+  const [treasureCount, setTreasureCount] = useState(0);
   const [rebirthReady, setRebirthReady] = useState(false);
   const statusRef = useRef<{ evolutionStage: number; collectedCount: number } | null>(null);
   const streakRef = useRef<number | null>(null);
@@ -67,6 +68,15 @@ export default function BottomNav() {
       .catch(() => {});
   }
   
+  function fetchTreasureCount() {
+    fetch("/api/treasures/status")
+      .then((r) => r.json())
+      .then((d: { locked?: number; unlocked?: number }) => {
+        setTreasureCount((d.locked ?? 0) + (d.unlocked ?? 0));
+      })
+      .catch(() => {});
+  }
+
   function fetchBadgesCount() {
     fetch("/api/badges/unseen-count")
       .then((r) => r.json())
@@ -82,6 +92,7 @@ export default function BottomNav() {
   useEffect(() => {
     fetchMonsterStatus();
     fetchQuestRemaining();
+    fetchTreasureCount();
 
     fetch("/api/streak")
       .then((r) => r.json())
@@ -110,6 +121,9 @@ export default function BottomNav() {
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, () => {
         fetchQuestRemaining();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, () => {
+        fetchTreasureCount();
+      })
       .subscribe();
 
     const onVisible = () => {
@@ -117,6 +131,7 @@ export default function BottomNav() {
         fetchMonsterStatus();
         fetchBadgesCount();
         fetchQuestRemaining();
+        fetchTreasureCount();
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -171,7 +186,8 @@ export default function BottomNav() {
             (tab.badgeKey === "quests" && questRemaining > 0 && !isActive) ||
             (tab.badgeKey === "monster" && (monsterBadge || rebirthReady)) ||
             (tab.badgeKey === "zukan" && zukanBadge) ||
-            (tab.badgeKey === "badges" && badgesCount > 0);
+            (tab.badgeKey === "badges" && badgesCount > 0) ||
+            (tab.badgeKey === "treasures" && treasureCount > 0 && !isActive);
           return (
             <Link
               key={tab.label}
@@ -196,6 +212,13 @@ export default function BottomNav() {
                       style={{ lineHeight: 1 }}
                     >
                       {badgesCount > 9 ? "9+" : badgesCount}
+                    </span>
+                  ) : tab.badgeKey === "treasures" ? (
+                    <span
+                      className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"
+                      style={{ lineHeight: 1 }}
+                    >
+                      {treasureCount > 9 ? "9+" : treasureCount}
                     </span>
                   ) : (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
