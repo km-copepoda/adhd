@@ -1,11 +1,17 @@
-// 親用 — 未受け渡しの宝箱（当たりだがまだ渡していない）一覧
+// 親用 — 子供がもらった「ごほうび履歴」一覧
 //
 // GET /api/treasures/pending
+//
+// NOTE: エンドポイント名は「pending」のままだが、2026-05-28 B 決定により
+// 「渡したよ」フローは廃止された。親は履歴として把握するだけで、確定操作は無い
+// （実際のごほうび受け渡しは親子のリアルなコミュニケーションに任せる）。
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+
+const HISTORY_LIMIT = 100;
 
 export async function GET() {
   const rlog = routeLogger("GET", "/api/treasures/pending");
@@ -21,18 +27,18 @@ export async function GET() {
   const items = await prisma.treasureLog.findMany({
     where: {
       status: "OPENED",
-      fulfilled: false,
       itemId: { not: null },
       child: { familyId: user.familyId },
     },
-    orderBy: { openedAt: "asc" },
+    orderBy: { openedAt: "desc" },
+    take: HISTORY_LIMIT,
     include: {
       item: { select: { id: true, title: true, rarity: true } },
       child: { select: { id: true, name: true, monsterName: true } },
     },
   });
 
-  rlog.info("Pending treasures fetched", { parentId: user.id, count: items.length });
+  rlog.info("Treasure history fetched", { parentId: user.id, count: items.length });
   return NextResponse.json({
     items: items.map((i) => ({
       id: i.id,

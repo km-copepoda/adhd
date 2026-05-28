@@ -291,7 +291,6 @@ model TreasureLog {
   itemId    String?
   item      TreasureItem?   @relation(fields: [itemId], references: [id])
   openedAt  DateTime?
-  fulfilled Boolean         @default(false)
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
