@@ -50,7 +50,10 @@ export default function ParentTreasuresPage() {
       const json = await res.json();
       const list = (json.members ?? [])
         .filter((m: { role: string }) => m.role === "CHILD")
-        .map((m: { id: string; name: string }) => ({ id: m.id, name: m.name }));
+        .map((m: { id: string; name: string | null; monsterName: string | null }) => ({
+          id: m.id,
+          name: m.monsterName || m.name || "未設定",
+        }));
       setChildren(list);
       if (list.length > 0) setSelectedChildId(list[0].id);
     })();
