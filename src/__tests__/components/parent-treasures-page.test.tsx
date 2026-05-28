@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, waitFor } from "@testing-library/react";
+import { render, waitFor, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 
@@ -65,5 +65,38 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
     const urls = fetchMock.mock.calls.map((c) => String(c[0]));
     // 裸の /api/family（末尾が family のもの）を叩いていないこと
     expect(urls.some((u) => /\/api\/family(\?|$)/.test(u))).toBe(false);
+  });
+
+  it("子供の name が空でも monsterName を「対象の子供」セレクトに表示する", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/api/family/code")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              code: "ABC123",
+              members: [
+                // 実データ: 子供は monsterName のみ設定され name は null/空
+                { id: "c1", name: null, monsterName: "りゅうくん", role: "CHILD" },
+                { id: "c2", name: "", monsterName: "ねこさん", role: "CHILD" },
+              ],
+            }),
+        });
+      }
+      if (url.includes("/api/treasures")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ items: [] }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+
+    render(<ParentTreasuresPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "りゅうくん" })).toBeDefined();
+      expect(screen.getByRole("option", { name: "ねこさん" })).toBeDefined();
+    });
   });
 });
