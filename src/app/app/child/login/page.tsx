@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toHalfWidth } from "@/lib/input";
+import { useImeSafeText } from "@/hooks/useImeSafeText";
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
@@ -11,6 +12,15 @@ export default function OnboardingPage() {
   const [familyCode, setFamilyCode] = useState("");
   const [childCode, setChildCode] = useState("");
   const [loginError, setLoginError] = useState("");
+
+  // IME ON 状態で英字を入れると二重発火する問題への対策。
+  // ファミリー/ユーザーコードはどちらも ASCII のみなので合成を抑止する。
+  const familyCodeHandlers = useImeSafeText(setFamilyCode, (raw) =>
+    toHalfWidth(raw).toUpperCase().slice(0, 6),
+  );
+  const childCodeHandlers = useImeSafeText(setChildCode, (raw) =>
+    toHalfWidth(raw).replace(/\D/g, "").slice(0, 4),
+  );
 
   // ファミリーコード + ユーザーコードでログイン
   async function handleLogin() {
@@ -69,7 +79,12 @@ export default function OnboardingPage() {
           <input
             type="text"
             value={familyCode}
-            onChange={(e) => setFamilyCode(toHalfWidth(e.target.value).toUpperCase().slice(0, 6))}
+            {...familyCodeHandlers}
+            inputMode="text"
+            autoCapitalize="characters"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="ABC123"
             className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-center text-quest-text font-mono text-lg tracking-[0.3em] placeholder:text-quest-dim/50 placeholder:tracking-normal placeholder:text-sm focus:outline-none focus:border-quest-gold/50"
             autoFocus
@@ -85,7 +100,10 @@ export default function OnboardingPage() {
             type="text"
             inputMode="numeric"
             value={childCode}
-            onChange={(e) => setChildCode(toHalfWidth(e.target.value).replace(/\D/g, "").slice(0, 4))}
+            {...childCodeHandlers}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="1234"
             className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-center text-quest-text font-mono text-lg tracking-[0.3em] placeholder:text-quest-dim/50 placeholder:tracking-normal placeholder:text-sm focus:outline-none focus:border-quest-gold/50"
           />
