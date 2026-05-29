@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   RARITY_LABEL,
   RARITY_BADGE_CLASS,
+  RARITY_STARS,
+  formatChildRarity,
   type TreasureRarity,
 } from "@/lib/treasureRarity";
 
@@ -44,5 +46,29 @@ describe("RARITY_BADGE_CLASS (dark-palette compliance)", () => {
       const re = new RegExp(`(^|\\s)${bad}(\\s|$)`);
       expect(cls).not.toMatch(re);
     }
+  });
+});
+
+describe("RARITY_STARS (子向け表示)", () => {
+  it("COMMON は 🌟 1個", () => {
+    expect(RARITY_STARS.COMMON).toBe("🌟");
+  });
+  it("UNCOMMON は 🌟 2個", () => {
+    expect(RARITY_STARS.UNCOMMON).toBe("🌟🌟");
+  });
+  it("RARE は 🌟 3個", () => {
+    expect(RARITY_STARS.RARE).toBe("🌟🌟🌟");
+  });
+  it("レア度が上がるほど 🌟 が増える (順序保証)", () => {
+    expect(RARITY_STARS.UNCOMMON.length).toBeGreaterThan(RARITY_STARS.COMMON.length);
+    expect(RARITY_STARS.RARE.length).toBeGreaterThan(RARITY_STARS.UNCOMMON.length);
+  });
+});
+
+describe("formatChildRarity", () => {
+  it("「レア度：」プレフィックス + 🌟 を返す", () => {
+    expect(formatChildRarity("COMMON")).toBe("レア度：🌟");
+    expect(formatChildRarity("UNCOMMON")).toBe("レア度：🌟🌟");
+    expect(formatChildRarity("RARE")).toBe("レア度：🌟🌟🌟");
   });
 });

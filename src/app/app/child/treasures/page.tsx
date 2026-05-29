@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import TreasureOpenCutscene from "@/components/child/TreasureOpenCutscene";
 import {
-  RARITY_LABEL,
   RARITY_BADGE_CLASS,
+  formatChildRarity,
   type TreasureRarity,
 } from "@/lib/treasureRarity";
 
@@ -160,7 +160,7 @@ export default function ChildTreasuresPage() {
                 </div>
                 {o.item && (
                   <span className={`text-[11px] px-2 py-0.5 rounded ${RARITY_BADGE_CLASS[o.item.rarity]}`}>
-                    {RARITY_LABEL[o.item.rarity]}
+                    {formatChildRarity(o.item.rarity)}
                   </span>
                 )}
               </li>

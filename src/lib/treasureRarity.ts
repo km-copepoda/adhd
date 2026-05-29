@@ -23,3 +23,19 @@ export const RARITY_BADGE_CLASS: Record<TreasureRarity, string> = {
   UNCOMMON: "bg-purple-500/10 text-purple-300 border border-purple-500/40",
   RARE: "bg-quest-gold/15 text-quest-gold border border-quest-gold/50",
 };
+
+/**
+ * 子向けレア度表示。テキストラベル(`RARITY_LABEL`)より直感的に「すごさ」が伝わる
+ * 星の数表現。RARE ほど星が多い。
+ * 親の設定 UI は `RARITY_LABEL`（文言）を使う方が明示的なので置き換えない。
+ */
+export const RARITY_STARS: Record<TreasureRarity, string> = {
+  COMMON: "🌟",
+  UNCOMMON: "🌟🌟",
+  RARE: "🌟🌟🌟",
+};
+
+/** 子画面の宝箱「あたり」表示で使う、星付きレア度文字列。 */
+export function formatChildRarity(rarity: TreasureRarity): string {
+  return `レア度：${RARITY_STARS[rarity]}`;
+}

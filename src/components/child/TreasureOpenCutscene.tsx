@@ -2,11 +2,12 @@
 
 import { useMemo } from "react";
 import CutsceneOverlay from "./CutsceneOverlay";
+import { formatChildRarity, type TreasureRarity } from "@/lib/treasureRarity";
 
 interface Result {
   miss: boolean;
   pityTriggered: boolean;
-  item: { id: string; title: string; rarity: "COMMON" | "UNCOMMON" | "RARE" } | null;
+  item: { id: string; title: string; rarity: TreasureRarity } | null;
 }
 
 interface Props {
@@ -24,13 +25,7 @@ const MISS_MESSAGES = [
   "今日もよくがんばったね！ 🌟",
 ];
 
-const RARITY_LABEL: Record<"COMMON" | "UNCOMMON" | "RARE", string> = {
-  COMMON: "よく出る",
-  UNCOMMON: "ときどき",
-  RARE: "たまに",
-};
-
-const RARITY_COLOR: Record<"COMMON" | "UNCOMMON" | "RARE", string> = {
+const RARITY_COLOR: Record<TreasureRarity, string> = {
   COMMON: "rgba(96,165,250,0.8)", // blue-400
   UNCOMMON: "rgba(168,85,247,0.8)", // purple-500
   RARE: "rgba(251,191,36,0.9)", // amber-400
@@ -67,7 +62,7 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
       title={result.item.title}
       titleColor="text-quest-gold"
       subtitle={result.pityTriggered ? "ようやくキタ！" : "宝箱をひらいた！"}
-      description={RARITY_LABEL[result.item.rarity]}
+      description={formatChildRarity(result.item.rarity)}
       bonus={{ text: "おうちの人に「もらった！」を伝えよう", color: "text-quest-mint" }}
     />
   );
