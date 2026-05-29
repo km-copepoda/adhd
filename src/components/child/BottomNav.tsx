@@ -71,8 +71,9 @@ export default function BottomNav() {
   function fetchTreasureCount() {
     fetch("/api/treasures/status")
       .then((r) => r.json())
-      .then((d: { locked?: number; unlocked?: number }) => {
-        setTreasureCount((d.locked ?? 0) + (d.unlocked ?? 0));
+      .then((d: { unlocked?: number }) => {
+        // LOCKED（承認待ち）は除外し、UNLOCKED（開封可）のみカウント
+        setTreasureCount(d.unlocked ?? 0);
       })
       .catch(() => {});
   }
@@ -135,10 +136,15 @@ export default function BottomNav() {
       }
     };
     document.addEventListener("visibilitychange", onVisible);
-    
+
+    // 子コンポーネント（TreasureStock / treasures page）からの通知で即時更新
+    const onTreasureChanged = () => fetchTreasureCount();
+    window.addEventListener("treasure-changed", onTreasureChanged);
+
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("treasure-changed", onTreasureChanged);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -71,7 +71,7 @@ afterEach(() => {
 });
 
 describe("子 BottomNav 宝箱バッジ", () => {
-  it("locked+unlocked が 0 ならバッジを表示しない", async () => {
+  it("unlocked が 0 ならバッジを表示しない", async () => {
     global.fetch = buildFetch({ locked: 0, unlocked: 0 });
     await act(async () => {
       render(<BottomNav />);
@@ -82,7 +82,18 @@ describe("子 BottomNav 宝箱バッジ", () => {
     });
   });
 
-  it("locked+unlocked > 0 のとき宝箱タブにバッジ数字を表示する", async () => {
+  it("LOCKED（承認待ち）のみのときはバッジを表示しない", async () => {
+    global.fetch = buildFetch({ locked: 5, unlocked: 0 });
+    await act(async () => {
+      render(<BottomNav />);
+    });
+    await waitFor(() => {
+      const treasureLink = screen.getByText("宝箱").closest("a") as HTMLElement;
+      expect(treasureLink.querySelector(".bg-red-500")).toBeNull();
+    });
+  });
+
+  it("unlocked > 0 のときバッジに unlocked の数字を表示する（locked は含めない）", async () => {
     global.fetch = buildFetch({ locked: 2, unlocked: 3 });
     await act(async () => {
       render(<BottomNav />);
@@ -91,12 +102,12 @@ describe("子 BottomNav 宝箱バッジ", () => {
       const treasureLink = screen.getByText("宝箱").closest("a") as HTMLElement;
       const badge = treasureLink.querySelector(".bg-red-500");
       expect(badge).toBeTruthy();
-      expect(badge?.textContent).toBe("5");
+      expect(badge?.textContent).toBe("3");
     });
   });
 
-  it("9 を超えるときは 9+ と表示する", async () => {
-    global.fetch = buildFetch({ locked: 7, unlocked: 5 });
+  it("unlocked が 9 を超えるときは 9+ と表示する", async () => {
+    global.fetch = buildFetch({ locked: 0, unlocked: 12 });
     await act(async () => {
       render(<BottomNav />);
     });
@@ -108,7 +119,7 @@ describe("子 BottomNav 宝箱バッジ", () => {
 
   it("宝箱タブを開いているときはバッジを表示しない", async () => {
     mockPath = "/app/child/treasures";
-    global.fetch = buildFetch({ locked: 2, unlocked: 3 });
+    global.fetch = buildFetch({ locked: 0, unlocked: 3 });
     await act(async () => {
       render(<BottomNav />);
     });
@@ -119,8 +130,8 @@ describe("子 BottomNav 宝箱バッジ", () => {
   });
 
   it("Realtime で TreasureLog の変更が来たらカウントを再フェッチする", async () => {
-    let locked = 0;
     let unlocked = 0;
+    const locked = 0;
     global.fetch = vi.fn().mockImplementation((url: string) => {
       if (url.includes("/api/treasures/status")) {
         return Promise.resolve({
@@ -154,8 +165,8 @@ describe("子 BottomNav 宝箱バッジ", () => {
       expect(treasureLink.querySelector(".bg-red-500")).toBeNull();
     });
 
-    // 宝箱が追加されたとシミュレート
-    locked = 1;
+    // 宝箱が開封可能になったとシミュレート
+    unlocked = 1;
     await act(async () => {
       realtimeHandlers["TreasureLog"]?.({ eventType: "INSERT" });
     });
@@ -163,6 +174,64 @@ describe("子 BottomNav 宝箱バッジ", () => {
     await waitFor(() => {
       const treasureLink = screen.getByText("宝箱").closest("a") as HTMLElement;
       expect(treasureLink.querySelector(".bg-red-500")?.textContent).toBe("1");
+    });
+  });
+
+  it("window の 'treasure-changed' イベントを受けてカウントを再フェッチする（開封直後の即時反映）", async () => {
+    let unlocked = 2;
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/treasures/status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ locked: 0, unlocked, opened: [] }),
+        });
+      }
+      if (url.includes("/api/monster-status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              evolutionStage: 0,
+              evolutionPath: "",
+              collectedPaths: "[]",
+              studyPt: 0,
+              staminaPt: 0,
+              lifePt: 0,
+              rebirthPending: false,
+            }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<BottomNav />);
+    });
+    await waitFor(() => {
+      const treasureLink = screen.getByText("宝箱").closest("a") as HTMLElement;
+      expect(treasureLink.querySelector(".bg-red-500")?.textContent).toBe("2");
+    });
+
+    // 開封されたとシミュレート（残り1個）
+    unlocked = 1;
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("treasure-changed"));
+    });
+
+    await waitFor(() => {
+      const treasureLink = screen.getByText("宝箱").closest("a") as HTMLElement;
+      expect(treasureLink.querySelector(".bg-red-500")?.textContent).toBe("1");
+    });
+
+    // 全部開けたら（0個）バッジが消える
+    unlocked = 0;
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("treasure-changed"));
+    });
+
+    await waitFor(() => {
+      const treasureLink = screen.getByText("宝箱").closest("a") as HTMLElement;
+      expect(treasureLink.querySelector(".bg-red-500")).toBeNull();
     });
   });
 });

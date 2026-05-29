@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("next/image", () => ({
@@ -89,5 +89,55 @@ describe("/app/child/treasures 宝箱専用画面", () => {
     await waitFor(() => {
       expect(screen.getByText("シール")).toBeTruthy();
     });
+  });
+
+  it("「あける」を押すと window に 'treasure-changed' イベントを発火する（BottomNav バッジ更新トリガ）", async () => {
+    // open API も応答するように fetch を上書き
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/api/treasures/status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              locked: 0,
+              unlocked: 1,
+              opened: [],
+            }),
+        });
+      }
+      if (url.includes("/api/treasures/open") && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              miss: true,
+              pityTriggered: false,
+              item: null,
+              remainingUnlocked: 0,
+            }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    const handler = vi.fn();
+    window.addEventListener("treasure-changed", handler);
+
+    await act(async () => {
+      render(<ChildTreasuresPage />);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /あける/ })).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /あける/ }));
+    });
+
+    await waitFor(() => {
+      expect(handler).toHaveBeenCalled();
+    });
+
+    window.removeEventListener("treasure-changed", handler);
   });
 });
