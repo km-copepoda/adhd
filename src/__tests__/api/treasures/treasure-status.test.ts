@@ -76,4 +76,28 @@ describe("GET /api/treasures/status", () => {
     expect(json.opened).toHaveLength(1);
     expect(json.opened[0].id).toBe("log1");
   });
+
+  it("treasureItem (有効プール) が 1件以上あれば hasPool=true", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.treasureLog.count.mockResolvedValue(0);
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureItem.count.mockResolvedValue(3);
+
+    const res = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.hasPool).toBe(true);
+  });
+
+  it("treasureItem が 0件なら hasPool=false (フッタータブ非表示判定に使う)", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.treasureLog.count.mockResolvedValue(0);
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+    const res = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.hasPool).toBe(false);
+  });
 });

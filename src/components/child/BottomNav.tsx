@@ -28,7 +28,20 @@ export default function BottomNav() {
   const [monsterBadge, setMonsterBadge] = useState(false);
   const [zukanBadge, setZukanBadge] = useState(false);
   const [badgesCount, setBadgesCount] = useState(0);
-  const [treasureCount, setTreasureCount] = useState(0);
+  const [treasureCount, setTreasureCount] = useState(0); // unlocked
+  const [treasureLockedCount, setTreasureLockedCount] = useState(0);
+  // hasPool は親が宝箱アイテムを 1件でも設定しているか。未設定で在庫もなければタブごと隠す。
+  // 初回マウント時は localStorage キャッシュから復元 (なければ true=表示) → 既設定家庭で
+  // タブが「あとから現れる」フリッカーを避ける。未設定家庭は次の fetch で false に確定し非表示化。
+  const [hasTreasurePool, setHasTreasurePool] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const cached = localStorage.getItem("treasureHasPool");
+      return cached === null ? true : cached === "true";
+    } catch {
+      return true;
+    }
+  });
   const [rebirthReady, setRebirthReady] = useState(false);
   const statusRef = useRef<{ evolutionStage: number; collectedCount: number } | null>(null);
   const streakRef = useRef<number | null>(null);
@@ -72,9 +85,13 @@ export default function BottomNav() {
   function fetchTreasureCount() {
     fetch("/api/treasures/status")
       .then((r) => r.json())
-      .then((d: { unlocked?: number }) => {
+      .then((d: { unlocked?: number; locked?: number; hasPool?: boolean }) => {
         // LOCKED（承認待ち）は除外し、UNLOCKED（開封可）のみカウント
         setTreasureCount(d.unlocked ?? 0);
+        setTreasureLockedCount(d.locked ?? 0);
+        const hp = d.hasPool ?? true;
+        setHasTreasurePool(hp);
+        try { localStorage.setItem("treasureHasPool", String(hp)); } catch { /* ignore */ }
       })
       .catch(() => {});
   }
@@ -188,10 +205,20 @@ export default function BottomNav() {
     window.location.href = "/login";
   }
 
+  // 親がごほうび（宝箱アイテム）を一度も設定していない & 既存在庫もない子供には
+  // 宝箱タブを出さない（UI ノイズ削減）。
+  // 過去に設定→クリアの順だった場合の救済として、locked/unlocked が残っているなら表示。
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.badgeKey === "treasures") {
+      return hasTreasurePool || treasureLockedCount > 0 || treasureCount > 0;
+    }
+    return true;
+  });
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-quest-card border-t border-quest-border z-50">
       <div className="flex justify-around items-center max-w-md mx-auto h-16">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = pathname?.startsWith(tab.href);
           const hasBadge =
             (tab.badgeKey === "quests" && questRemaining > 0 && !isActive) ||
