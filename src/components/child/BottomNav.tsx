@@ -11,13 +11,14 @@ import { computeRemainingCount } from "@/lib/questProgress";
 const SEEN_KEY = "seenAchievementTitles";
 const SEEN_BADGE_COUNT_KEY = "lastSeenBadgeUnlockedCount";
 
-const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | "monster" | "zukan" | "badges" | "treasures" }[] = [
+// 旧「図鑑」「実績」タブは /app/child/collection 配下のタブ切替へ統合。
+// 「コレクション」のバッジは旧 zukan / badges バッジを OR 合成したもの。
+const tabs: { href: string; emoji: string; label: string; badgeKey?: "quests" | "monster" | "collection" | "treasures" }[] = [
   { href: "/app/child/quests", emoji: "⚔️", label: "クエスト" , badgeKey: "quests" },
   { href: "/app/child/monster", emoji: "🐣", label: "育成", badgeKey: "monster" },
   { href: "/app/child/treasures", emoji: "📦", label: "宝箱", badgeKey: "treasures" },
-  { href: "/app/child/zukan", emoji: "📖", label: "図鑑", badgeKey: "zukan" },
-  { href: "/app/child/badges", emoji: "🏅", label: "実績", badgeKey: "badges" },
   { href: "/app/child/gathering", emoji: "🏕️", label: "ひろば" },
+  { href: "/app/child/collection", emoji: "🏆", label: "コレクション", badgeKey: "collection" },
 ];
 
 export default function BottomNav() {
@@ -159,8 +160,12 @@ export default function BottomNav() {
       setZukanBadge(shouldShowZukanBadge(s.collectedCount, localStorage.getItem("lastSeenCollectedCount")));
     }
 
-    if (pathname?.startsWith("/app/child/badges")) {
-      // 実績ページ訪問時に既読にする
+    // 実績は /app/child/badges だけでなく、新コレクションタブ /app/child/collection
+    // でも到達できるので、どちらの訪問でも既読扱いにする。
+    const onAchievementSurface =
+      pathname?.startsWith("/app/child/badges") ||
+      pathname?.startsWith("/app/child/collection");
+    if (onAchievementSurface) {
       const streak = streakRef.current ?? 0;
       const achieved = STREAK_MILESTONES.filter((m) => m.days <= streak).map((m) => m.title);
       localStorage.setItem(SEEN_KEY, JSON.stringify(achieved));
@@ -191,8 +196,7 @@ export default function BottomNav() {
           const hasBadge =
             (tab.badgeKey === "quests" && questRemaining > 0 && !isActive) ||
             (tab.badgeKey === "monster" && (monsterBadge || rebirthReady)) ||
-            (tab.badgeKey === "zukan" && zukanBadge) ||
-            (tab.badgeKey === "badges" && badgesCount > 0) ||
+            (tab.badgeKey === "collection" && (zukanBadge || badgesCount > 0)) ||
             (tab.badgeKey === "treasures" && treasureCount > 0 && !isActive);
           return (
             <Link
@@ -211,13 +215,6 @@ export default function BottomNav() {
                       style={{ lineHeight: 1 }}
                     >
                       {questRemaining > 9 ? "9+" : questRemaining}
-                    </span>
-                  ) : tab.badgeKey === "badges" ? (
-                    <span
-                      className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center"
-                      style={{ lineHeight: 1 }}
-                    >
-                      {badgesCount > 9 ? "9+" : badgesCount}
                     </span>
                   ) : tab.badgeKey === "treasures" ? (
                     <span
