@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
+import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
 
 type Rarity = "COMMON" | "UNCOMMON" | "RARE";
 
@@ -120,6 +121,8 @@ export default function ParentTreasuresPage() {
 
   return (
     <div className="p-4 max-w-3xl mx-auto">
+      <ParentTreasureTabs active="settings" />
+
       <h1 className="text-2xl font-bold mb-1">🎁 ごほうび設定</h1>
       <p className="text-sm text-quest-dim mb-4">
         宝箱から出るごほうびを子供ごとに設定します。レア度ごとの確率はシステムが管理します。

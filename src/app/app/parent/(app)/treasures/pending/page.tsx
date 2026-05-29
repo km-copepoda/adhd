@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
+import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
 
 type Rarity = "COMMON" | "UNCOMMON" | "RARE";
 
@@ -24,11 +26,6 @@ interface HistoryItem {
   child: { id: string; name: string | null; monsterName: string | null };
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
 export default function ParentTreasureHistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,16 +46,18 @@ export default function ParentTreasureHistoryPage() {
     void fetchItems();
   }, [fetchItems]);
 
-  if (loading) return <LoadingSpinner />;
-
   return (
     <div className="p-4 max-w-2xl mx-auto">
+      <ParentTreasureTabs active="history" />
+
       <h1 className="text-2xl font-bold mb-1">🎁 もらったごほうび</h1>
       <p className="text-sm text-quest-dim mb-4">
         子供が宝箱から引き当てたごほうびの履歴です。実際の受け渡しはお子さんと直接お話ししてください。
       </p>
 
-      {items.length === 0 ? (
+      {loading ? (
+        <LoadingSpinner />
+      ) : items.length === 0 ? (
         <div className="bg-quest-card border border-quest-border rounded-xl p-6 text-center">
           <p className="text-sm text-quest-dim">まだもらったごほうびはありません。</p>
         </div>
@@ -72,7 +71,7 @@ export default function ParentTreasureHistoryPage() {
               <div className="flex-1">
                 <div className="text-xs text-quest-dim flex items-center gap-2">
                   <span>{it.child.monsterName ?? it.child.name ?? "子供"}</span>
-                  {it.openedAt && <span>{formatDate(it.openedAt)}</span>}
+                  {it.openedAt && <span>{formatTreasureOpenedAt(it.openedAt)}</span>}
                 </div>
                 <div className="font-bold">{it.item?.title ?? "—"}</div>
               </div>

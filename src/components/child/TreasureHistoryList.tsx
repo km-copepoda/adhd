@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
 
 type Rarity = "COMMON" | "UNCOMMON" | "RARE";
 
@@ -29,13 +30,6 @@ const RARITY_BG: Record<Rarity, string> = {
   UNCOMMON: "bg-purple-100 text-purple-700 border-purple-300",
   RARE: "bg-amber-100 text-amber-700 border-amber-300",
 };
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  return `${m}/${day}`;
-}
 
 export default function TreasureHistoryList() {
   const [data, setData] = useState<StatusResponse | null>(null);
@@ -66,6 +60,7 @@ export default function TreasureHistoryList() {
       <div className="text-center text-quest-dim text-sm py-12 px-4">
         <p>まだ宝箱を開けていません。</p>
         <p className="text-xs mt-2">クエストを報告すると宝箱がもらえるよ！</p>
+        <p className="text-[11px] mt-3 opacity-70">※ 1週間前までの宝箱を表示しています</p>
       </div>
     );
   }
@@ -76,7 +71,7 @@ export default function TreasureHistoryList() {
   return (
     <div className="p-4">
       <div className="text-xs text-quest-dim mb-3">
-        ぜんぶで <span className="font-bold text-quest-text">{data.opened.length}</span> 個ひらいたよ
+        この1週間で <span className="font-bold text-quest-text">{data.opened.length}</span> 個ひらいたよ
         （あたり {hits.length} 個・からっぽ {misses} 個）
       </div>
       <ul className="space-y-2">
@@ -93,7 +88,7 @@ export default function TreasureHistoryList() {
                 {o.item ? o.item.title : "からっぽ…でもうれしい！"}
               </div>
               <div className="text-[11px] text-quest-dim">
-                {o.openedAt && formatDate(o.openedAt)}
+                {formatTreasureOpenedAt(o.openedAt)}
                 {o.boosted && <span className="ml-2 text-quest-gold">★ ボーナス宝箱</span>}
               </div>
             </div>
