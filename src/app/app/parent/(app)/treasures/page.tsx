@@ -4,20 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
 import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
+import {
+  RARITY_LABEL,
+  RARITY_BADGE_CLASS,
+  type TreasureRarity,
+} from "@/lib/treasureRarity";
 
-type Rarity = "COMMON" | "UNCOMMON" | "RARE";
-
-const RARITY_LABEL: Record<Rarity, string> = {
-  COMMON: "よく出る",
-  UNCOMMON: "ときどき",
-  RARE: "たまに",
-};
-
-const RARITY_COLOR: Record<Rarity, string> = {
-  COMMON: "bg-blue-100 text-blue-700 border-blue-200",
-  UNCOMMON: "bg-purple-100 text-purple-700 border-purple-200",
-  RARE: "bg-amber-100 text-amber-700 border-amber-200",
-};
+type Rarity = TreasureRarity;
 
 interface ChildOption {
   id: string;
@@ -170,7 +163,7 @@ export default function ParentTreasuresPage() {
           type="button"
           onClick={handleAdd}
           disabled={!newTitle.trim() || !selectedChildId}
-          className="w-full bg-quest-gold text-white py-2 rounded-lg font-bold disabled:bg-gray-300"
+          className="w-full bg-quest-gold text-quest-bg py-2.5 px-5 rounded-lg font-bold disabled:opacity-40 disabled:cursor-not-allowed"
         >
           追加
         </button>
@@ -184,7 +177,7 @@ export default function ParentTreasuresPage() {
           <button
             type="button"
             onClick={handleImport}
-            className="bg-quest-mint text-white px-4 py-2 rounded-lg font-bold text-sm"
+            className="bg-quest-mint text-quest-bg py-2.5 px-4 rounded-lg font-bold text-sm"
           >
             おすすめセットで始める
           </button>
@@ -204,7 +197,7 @@ export default function ParentTreasuresPage() {
               <select
                 value={item.rarity}
                 onChange={(e) => handleUpdateRarity(item.id, e.target.value as Rarity)}
-                className={`text-xs px-2 py-1 rounded border ${RARITY_COLOR[item.rarity]}`}
+                className={`text-xs px-2 py-1 rounded ${RARITY_BADGE_CLASS[item.rarity]}`}
               >
                 <option value="COMMON">{RARITY_LABEL.COMMON}</option>
                 <option value="UNCOMMON">{RARITY_LABEL.UNCOMMON}</option>

@@ -4,25 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
-
-type Rarity = "COMMON" | "UNCOMMON" | "RARE";
-
-const RARITY_LABEL: Record<Rarity, string> = {
-  COMMON: "よく出る",
-  UNCOMMON: "ときどき",
-  RARE: "たまに",
-};
-
-const RARITY_COLOR: Record<Rarity, string> = {
-  COMMON: "bg-blue-100 text-blue-700",
-  UNCOMMON: "bg-purple-100 text-purple-700",
-  RARE: "bg-amber-100 text-amber-700",
-};
+import {
+  RARITY_LABEL,
+  RARITY_BADGE_CLASS,
+  type TreasureRarity,
+} from "@/lib/treasureRarity";
 
 interface HistoryItem {
   id: string;
   openedAt: string;
-  item: { id: string; title: string; rarity: Rarity } | null;
+  item: { id: string; title: string; rarity: TreasureRarity } | null;
   child: { id: string; name: string | null; monsterName: string | null };
 }
 
@@ -76,7 +67,7 @@ export default function ParentTreasureHistoryPage() {
                 <div className="font-bold">{it.item?.title ?? "—"}</div>
               </div>
               {it.item && (
-                <span className={`text-xs px-2 py-1 rounded ${RARITY_COLOR[it.item.rarity]}`}>
+                <span className={`text-xs px-2 py-1 rounded ${RARITY_BADGE_CLASS[it.item.rarity]}`}>
                   {RARITY_LABEL[it.item.rarity]}
                 </span>
               )}

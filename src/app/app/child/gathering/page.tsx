@@ -57,7 +57,7 @@ export default function GatheringPage() {
   async function handleJoin() {
     setError(null);
     const normalized = normalizeSecretWord(secretWord);
-    if (!normalized) { setError("合言葉を入力してください"); return; }
+    if (!normalized) { setError("合言葉を入れてね"); return; }
     setJoining(true);
     try {
       const res = await fetch("/api/gathering/join", {
@@ -66,7 +66,7 @@ export default function GatheringPage() {
         body: JSON.stringify({ location: selectedLocation, secretWord: normalized }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "参加できませんでした"); return; }
+      if (!res.ok) { setError(data.error ?? "参加できなかったみたい…"); return; }
       await fetchGroup();
     } finally {
       setJoining(false);

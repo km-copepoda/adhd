@@ -84,7 +84,7 @@ export default function TreasureStock() {
           type="button"
           onClick={handleOpen}
           disabled={status.unlocked <= 0 || opening}
-          className="ml-1 rounded-full bg-quest-gold px-3 py-1 text-xs font-bold text-white shadow disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="ml-1 rounded-lg bg-quest-gold px-3 py-1 text-xs font-bold text-quest-bg shadow disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {opening ? "..." : "あける"}
         </button>

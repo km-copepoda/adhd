@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
-
-type Rarity = "COMMON" | "UNCOMMON" | "RARE";
+import {
+  RARITY_LABEL,
+  RARITY_BADGE_CLASS,
+  type TreasureRarity,
+} from "@/lib/treasureRarity";
 
 interface OpenedLog {
   id: string;
   openedAt: string;
   boosted: boolean;
-  item: { id: string; title: string; rarity: Rarity } | null;
+  item: { id: string; title: string; rarity: TreasureRarity } | null;
 }
 
 interface StatusResponse {
@@ -18,18 +21,6 @@ interface StatusResponse {
   unlocked: number;
   opened: OpenedLog[];
 }
-
-const RARITY_LABEL: Record<Rarity, string> = {
-  COMMON: "よく出る",
-  UNCOMMON: "ときどき",
-  RARE: "たまに",
-};
-
-const RARITY_BG: Record<Rarity, string> = {
-  COMMON: "bg-blue-100 text-blue-700 border-blue-300",
-  UNCOMMON: "bg-purple-100 text-purple-700 border-purple-300",
-  RARE: "bg-amber-100 text-amber-700 border-amber-300",
-};
 
 export default function TreasureHistoryList() {
   const [data, setData] = useState<StatusResponse | null>(null);
@@ -93,7 +84,7 @@ export default function TreasureHistoryList() {
               </div>
             </div>
             {o.item && (
-              <span className={`text-[11px] px-2 py-0.5 rounded border ${RARITY_BG[o.item.rarity]}`}>
+              <span className={`text-[11px] px-2 py-0.5 rounded ${RARITY_BADGE_CLASS[o.item.rarity]}`}>
                 {RARITY_LABEL[o.item.rarity]}
               </span>
             )}

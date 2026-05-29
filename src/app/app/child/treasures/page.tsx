@@ -4,8 +4,13 @@ import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import TreasureOpenCutscene from "@/components/child/TreasureOpenCutscene";
+import {
+  RARITY_LABEL,
+  RARITY_BADGE_CLASS,
+  type TreasureRarity,
+} from "@/lib/treasureRarity";
 
-type Rarity = "COMMON" | "UNCOMMON" | "RARE";
+type Rarity = TreasureRarity;
 
 interface OpenedLog {
   id: string;
@@ -26,18 +31,6 @@ interface TreasureOpenResult {
   item: { id: string; title: string; rarity: Rarity } | null;
   remainingUnlocked: number;
 }
-
-const RARITY_LABEL: Record<Rarity, string> = {
-  COMMON: "よく出る",
-  UNCOMMON: "ときどき",
-  RARE: "たまに",
-};
-
-const RARITY_BG: Record<Rarity, string> = {
-  COMMON: "bg-blue-100 text-blue-700 border-blue-300",
-  UNCOMMON: "bg-purple-100 text-purple-700 border-purple-300",
-  RARE: "bg-amber-100 text-amber-700 border-amber-300",
-};
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -124,7 +117,7 @@ export default function ChildTreasuresPage() {
           type="button"
           onClick={handleOpen}
           disabled={!canOpen}
-          className="rounded-full bg-quest-gold px-6 py-2 text-sm font-bold text-white shadow disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="rounded-lg bg-quest-gold py-2.5 px-5 text-sm font-bold text-quest-bg shadow disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {opening ? "ひらいてる..." : "あける"}
         </button>
@@ -166,7 +159,7 @@ export default function ChildTreasuresPage() {
                   </div>
                 </div>
                 {o.item && (
-                  <span className={`text-[11px] px-2 py-0.5 rounded border ${RARITY_BG[o.item.rarity]}`}>
+                  <span className={`text-[11px] px-2 py-0.5 rounded ${RARITY_BADGE_CLASS[o.item.rarity]}`}>
                     {RARITY_LABEL[o.item.rarity]}
                   </span>
                 )}

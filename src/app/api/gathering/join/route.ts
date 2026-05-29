@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
   const normalized = normalizeSecretWord(secretWord ?? "");
   if (!normalized || normalized.length === 0) {
-    return NextResponse.json({ error: "合言葉を入力してください" }, { status: 400 });
+    return NextResponse.json({ error: "合言葉を入れてね" }, { status: 400 });
   }
 
   // 既に別グループに参加中かチェック
