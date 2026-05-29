@@ -81,6 +81,14 @@ afterEach(() => {
 });
 
 describe("ChildViewSelectorPage", () => {
+  it("親代理操作では宝箱が出ない旨を案内する", async () => {
+    render(<ChildViewSelectorPage />);
+    await waitFor(() => expect(screen.getByText("ラーン")).toBeTruthy());
+    const body = document.body.textContent ?? "";
+    expect(body).toMatch(/宝箱|ごほうび/);
+    expect(body).toMatch(/出ません|出ない|対象外/);
+  });
+
   it("各子供のアイコンに子供のモンスター画像を表示する（絵文字ではない）", async () => {
     render(<ChildViewSelectorPage />);
     await waitFor(() => expect(screen.getByText("ラーン")).toBeTruthy());

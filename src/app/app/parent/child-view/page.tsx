@@ -58,8 +58,11 @@ export default function ChildViewSelectorPage() {
         <h1 className="font-serif text-quest-gold text-lg tracking-wider mb-1">
           🧒 子供モード
         </h1>
-        <p className="text-quest-dim text-xs mb-6">
+        <p className="text-quest-dim text-xs mb-2">
           どの子のクエストを操作しますか？親が代理で報告するとそのまま承認扱いになります。
+        </p>
+        <p className="text-quest-dim/80 text-[11px] mb-6">
+          ℹ️ 代理操作では宝箱（ごほうび）は出ません。
         </p>
 
         {children.length === 0 ? (

@@ -67,6 +67,17 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
     expect(urls.some((u) => /\/api\/family(\?|$)/.test(u))).toBe(false);
   });
 
+  it("親が代理で報告した場合は宝箱が出ない旨の案内文が表示される", async () => {
+    render(<ParentTreasuresPage />);
+    await waitFor(() => {
+      // 「代理」と「宝箱」「出ない/出ません/対象外」のいずれかが説明文に含まれる
+      const body = document.body.textContent ?? "";
+      expect(body).toMatch(/代理/);
+      expect(body).toMatch(/宝箱|ごほうび/);
+      expect(body).toMatch(/出ません|出ない|対象外/);
+    });
+  });
+
   it("子供の name が空でも monsterName を「対象の子供」セレクトに表示する", async () => {
     fetchMock.mockImplementation((url: string) => {
       if (url.includes("/api/family/code")) {

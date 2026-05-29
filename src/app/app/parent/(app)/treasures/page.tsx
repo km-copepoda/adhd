@@ -113,8 +113,11 @@ export default function ParentTreasuresPage() {
       <ParentTreasureTabs active="settings" />
 
       <h1 className="text-2xl font-bold mb-1">🎁 ごほうび設定</h1>
-      <p className="text-sm text-quest-dim mb-4">
+      <p className="text-sm text-quest-dim mb-2">
         宝箱から出るごほうびを子供ごとに設定します。レア度ごとの確率はシステムが管理します。
+      </p>
+      <p className="text-xs text-quest-dim/80 mb-4">
+        ℹ️ 親が「子供モード」で代理報告した場合は宝箱が出ません（子供の自発的なやる気を大事にする設計です）。
       </p>
 
       {children.length > 0 && (
