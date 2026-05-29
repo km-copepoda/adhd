@@ -4,11 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
 import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
-import {
-  RARITY_LABEL,
-  RARITY_BADGE_CLASS,
-  type TreasureRarity,
-} from "@/lib/treasureRarity";
+import { RARITY_LABEL, type TreasureRarity } from "@/lib/treasureRarity";
 
 type Rarity = TreasureRarity;
 
@@ -127,7 +123,7 @@ export default function ParentTreasuresPage() {
           <select
             value={selectedChildId}
             onChange={(e) => setSelectedChildId(e.target.value)}
-            className="w-full px-3 py-2 border border-quest-border rounded-lg bg-white"
+            className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text focus:outline-none focus:border-quest-gold/30"
           >
             {children.map((c) => (
               <option key={c.id} value={c.id}>
@@ -146,13 +142,13 @@ export default function ParentTreasuresPage() {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="例: アイスを買える"
-            className="flex-1 px-3 py-2 border border-quest-border rounded-lg"
+            className="flex-1 bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30"
             maxLength={100}
           />
           <select
             value={newRarity}
             onChange={(e) => setNewRarity(e.target.value as Rarity)}
-            className="px-3 py-2 border border-quest-border rounded-lg bg-white"
+            className="bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text focus:outline-none focus:border-quest-gold/30"
           >
             <option value="COMMON">よく出る</option>
             <option value="UNCOMMON">ときどき</option>
@@ -177,7 +173,7 @@ export default function ParentTreasuresPage() {
           <button
             type="button"
             onClick={handleImport}
-            className="bg-quest-mint text-quest-bg py-2.5 px-4 rounded-lg font-bold text-sm"
+            className="bg-quest-gold text-quest-bg py-2.5 px-5 rounded-lg font-bold text-sm"
           >
             おすすめセットで始める
           </button>
@@ -197,7 +193,7 @@ export default function ParentTreasuresPage() {
               <select
                 value={item.rarity}
                 onChange={(e) => handleUpdateRarity(item.id, e.target.value as Rarity)}
-                className={`text-xs px-2 py-1 rounded ${RARITY_BADGE_CLASS[item.rarity]}`}
+                className="bg-quest-bg border border-quest-border rounded text-xs text-quest-text px-2 py-1 focus:outline-none focus:border-quest-gold/30"
               >
                 <option value="COMMON">{RARITY_LABEL.COMMON}</option>
                 <option value="UNCOMMON">{RARITY_LABEL.UNCOMMON}</option>
