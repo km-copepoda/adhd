@@ -74,6 +74,8 @@ export default function ChildTreasuresPage() {
       if (!res.ok) return;
       const json = (await res.json()) as TreasureOpenResult;
       setResult(json);
+      // BottomNav バッジを即時更新するため通知
+      window.dispatchEvent(new CustomEvent("treasure-changed"));
     } finally {
       setOpening(false);
     }
