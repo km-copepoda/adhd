@@ -418,7 +418,7 @@ describe("openOldestTreasure", () => {
       treasurePityCount: 0,
     } as any);
     mockPrisma.treasureItem.findMany.mockResolvedValue([
-      // 1/7 ≈ 0.143、boosted で 2/7 ≈ 0.286
+      // 1/7 ≈ 0.143、boosted で 1.5/7 ≈ 0.214
       // rng=0.2 → 通常ハズレ、boosted ヒット
       { id: "i1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
     ]);

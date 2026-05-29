@@ -41,8 +41,8 @@ describe("treasure constants", () => {
   it("RARE は 1/28", () => {
     expect(RARITY_BASE_PROBABILITY.RARE).toBeCloseTo(1 / 28, 10);
   });
-  it("ボーナス倍率は 2", () => {
-    expect(RARITY_BOOSTED_MULTIPLIER).toBe(2);
+  it("ボーナス倍率は 1.5", () => {
+    expect(RARITY_BOOSTED_MULTIPLIER).toBe(1.5);
   });
   it("天井閾値は 5", () => {
     expect(PITY_THRESHOLD).toBe(5);
@@ -119,9 +119,9 @@ describe("drawTreasure — 当たり", () => {
   });
 });
 
-describe("drawTreasure — boosted (確率2倍)", () => {
+describe("drawTreasure — boosted (確率1.5倍)", () => {
   it("通常ハズレの roll でも boosted なら当たる", () => {
-    // COMMON 通常: 1/7 ≈ 0.143、boosted: 2/7 ≈ 0.286
+    // COMMON 通常: 1/7 ≈ 0.143、boosted: 1.5/7 ≈ 0.214
     // roll = 0.18 → 通常ハズレ、boosted ヒット
     const res = drawTreasure(pool3(), {
       boosted: true,

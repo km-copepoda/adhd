@@ -118,7 +118,7 @@
 
 | 1個目 | その日の報告完了数 ≥ minTasksForStreak | 通常宝箱 |
 
-| 2個目 | その日の全クエストを報告完了 | ボーナス宝箱（開封時に確率2倍） |
+| 2個目 | その日の全クエストを報告完了 | ボーナス宝箱（開封時に確率1.5倍） |
 
 | なし | minTasks 未達 | 出ない |
 
@@ -212,15 +212,15 @@ CANCELLED（破棄）
 
 
 
-| レア度ラベル | enum | 通常宝箱 | ボーナス宝箱（全完了で獲得、確率2倍） |
+| レア度ラベル | enum | 通常宝箱 | ボーナス宝箱（全完了で獲得、確率1.5倍） |
 
 |-------------|------|---------|--------------------------------------|
 
-| よく出る | COMMON | 1/7（≈14%） | 2/7（≈29%） |
+| よく出る | COMMON | 1/7（≈14%） | 1.5/7（≈21%） |
 
-| ときどき | UNCOMMON | 1/14（≈7%） | 2/14（≈14%） |
+| ときどき | UNCOMMON | 1/14（≈7%） | 1.5/14（≈11%） |
 
-| たまに | RARE | 1/28（≈4%） | 2/28（≈7%） |
+| たまに | RARE | 1/28（≈4%） | 1.5/28（≈5%） |
 
 | ハズレ | — | 上記いずれにも当たらなかった場合 | 同左 |
 
@@ -278,15 +278,15 @@ drawTreasure(childId, options?): TreasureItem | null
 
 2. プールが空なら null（ハズレ演出のみ。天井カウンターは進めない）
 
-3. options.boosted = true なら確率を2倍にする
+3. options.boosted = true なら確率を1.5倍にする
 
 4. 各レア度ごとに1回独立に抽選（プールに何個アイテムがあっても確率は変わらない）
 
-  - COMMON:  1/7 （boosted: 2/7）
+  - COMMON:  1/7 （boosted: 1.5/7 ≈ 0.214）
 
-  - UNCOMMON: 1/14 （boosted: 2/14）
+  - UNCOMMON: 1/14 （boosted: 1.5/14 ≈ 0.107）
 
-  - RARE:   1/28 （boosted: 2/28）
+  - RARE:   1/28 （boosted: 1.5/28 ≈ 0.054）
 
 5. 当たりが複数ある場合 → 一番レアなものを優先
 
@@ -580,11 +580,11 @@ model TreasureItem {
 
 enum TreasureRarity {
 
- COMMON   // よく出る: 1/7（ボーナス宝箱: 2/7）
+ COMMON   // よく出る: 1/7（ボーナス宝箱: 1.5/7）
 
- UNCOMMON  // ときどき: 1/14（ボーナス宝箱: 2/14）
+ UNCOMMON  // ときどき: 1/14（ボーナス宝箱: 1.5/14）
 
- RARE    // たまに:  1/28（ボーナス宝箱: 2/28）
+ RARE    // たまに:  1/28（ボーナス宝箱: 1.5/28）
 
 }
 
@@ -606,7 +606,7 @@ model TreasureLog {
 
  trigger  TreasureTrigger
 
- boosted  Boolean @default(false) // 全完了ボーナス宝箱（確率2倍）
+ boosted  Boolean @default(false) // 全完了ボーナス宝箱（確率1.5倍）
 
  status  TreasureStatus @default(LOCKED)
 
@@ -802,7 +802,7 @@ src/app/api/treasures/open/route.ts（CHILD 用）
 
  → 最も古い UNLOCKED 宝箱を取得
 
- → drawTreasure() で中身を抽選（boosted なら確率2倍）
+ → drawTreasure() で中身を抽選（boosted なら確率1.5倍）
 
  → itemId + openedAt をセット、status → OPENED
 
@@ -874,7 +874,7 @@ src/lib/treasure.ts（新規）
 
  → drawTreasure(childId, options?): TreasureItem | null
 
- → options.boosted = true で確率2倍
+ → options.boosted = true で確率1.5倍
 
  → 天井チェック込み
 
@@ -962,7 +962,7 @@ src/lib/treasure.ts（新規）
 
 - [x] **minTasks 未達では宝箱なし** — 1個完了しただけで宝箱が出て残りをサボる問題を防止。
 
-- [x] **全完了時は確率2倍（確定ではない）** — 間欠強化（Variable Ratio Schedule）を活用。「もらえるかもしれない」が最も行動を持続させる。確定報酬にすると間欠強化が崩れる。子供は確率を知らないが体感で「全部やると当たりやすい」と学習する。
+- [x] **全完了時は確率1.5倍（確定ではない）** — 間欠強化（Variable Ratio Schedule）を活用。「もらえるかもしれない」が最も行動を持続させる。確定報酬にすると間欠強化が崩れる。子供は確率を知らないが体感で「全部やると当たりやすい」と学習する。
 
 - [x] **自動承認でも宝箱は出る（ただし1個・通常確率のみ、即 UNLOCKED）** — 親が非協力的でも子供の努力が無駄にならない。まとめて承認されると2個出ても文脈がわからないため1個に制限。都度承認なら最大2個（親が積極的に承認するインセンティブにもなる）。
 

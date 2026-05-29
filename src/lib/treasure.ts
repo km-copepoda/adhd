@@ -2,7 +2,7 @@
 // 設計: docs/reword-system-design.md セクション 5〜8
 //
 // 振る舞い:
-//  - 各レア度ごとに1回独立に抽選 (boosted で 2倍)。プールに何個あっても確率は変わらない
+//  - 各レア度ごとに1回独立に抽選 (boosted で 1.5倍)。プールに何個あっても確率は変わらない
 //  - 当たりが複数なら一番レアな当たりを採用し、そのレア度のプール内アイテムからランダムに1個選ぶ
 //  - 当たりレア度のアイテムがプールに無ければ次に低いレア度の当たりに降格、いずれも無ければハズレ
 //  - プールが空なら null (天井カウンタも進めない)
@@ -22,7 +22,7 @@ export const RARITY_BASE_PROBABILITY: Record<TreasureRarity, number> = {
   RARE: 1 / 28,
 };
 
-export const RARITY_BOOSTED_MULTIPLIER = 2;
+export const RARITY_BOOSTED_MULTIPLIER = 1.5;
 
 export const PITY_THRESHOLD = 5;
 
