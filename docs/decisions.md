@@ -1082,3 +1082,23 @@
 - 親モードで `lastSeenCollectedCount` / `lastSeenBadgeUnlockedCount` / `treasure-changed` イベントなど **子供 BottomNav 用の既読フラグ** を更新する（親端末の localStorage が子供画面のバッジ表示に干渉する）
 - 親モードで Supabase Realtime を購読する（2026-05-11 で警戒した子供向け副作用の親端末発火事故が起こる）
 
+## 2026-05-30: 親フッター再整理 — 「完了 + 履歴」を「📊 記録」タブに統合
+
+### 決定内容
+- 親 BottomNav / Sidebar から「🏆 完了」「📅 履歴」の独立タブを外し、**「📊 記録」1タブ**に集約
+- 新規 `/app/parent/records` ページ: **「🏆 今日」「📅 過去」の2タブ**
+- 旧 `/app/parent/completed` `/app/parent/history` は **残置**（リダイレクトせず）
+- 完了タスク本体 → `src/components/parent/CompletedContent.tsx` に抽出
+- 履歴本体 → `src/components/parent/HistoryContent.tsx` に抽出
+- 旧ページは抽出済みコンポーネントを呼ぶだけの薄ラッパに
+
+### 理由
+- 親 BottomNav が 8タブ + PushSubscriber で過密化しており、2026-05-30 子フッター再設計と同じ「タブ過密回避」の方針を適用
+- 「今日の完了」と「過去の記録」は **同じ振り返り軸**（やったことを見る）で認知統合しやすい
+- 子の `/app/child/collection` と同じ「2サブタブで統合」パターンを踏襲することで実装・UX に一貫性
+- PushSubscriber は **意図的にフッターに残置**: 購読オフのユーザに最も目立つ位置で通知許可を促し続けたい（設定画面に隠さない）
+
+### やってはいけないこと
+- `/app/parent/completed` `/app/parent/history` を即時 redirect / 削除する（外部リンクやブックマークを壊す）
+- ParentBottomNav / Sidebar に「完了」「履歴」を独立タブとして復活させる（タブ過密の方針に反する）
+- PushSubscriber をフッターから外して「ファミリー」ページ等の奥に移動する（通知許可率が落ちる）
