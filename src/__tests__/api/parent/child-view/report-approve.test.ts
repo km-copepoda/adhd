@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import * as approveModule from "@/lib/approve";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
+import { generateAutoApproveTreasure } from "@/lib/treasureService";
 import { parentUser, childUser } from "../../../helpers/fixtures";
 import { makeParams } from "../../../helpers/request";
 
@@ -17,11 +18,16 @@ vi.mock("@/lib/bulletinLog", () => ({
   triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/treasureService", () => ({
+  generateAutoApproveTreasure: vi.fn().mockResolvedValue(null),
+}));
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApprove = vi.mocked(approveModule.approveQuestInstance);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
+const mockGenerateAutoApproveTreasure = vi.mocked(generateAutoApproveTreasure);
 
 function makeReq(body: Record<string, unknown>) {
   return new Request("http://localhost/api/parent/child-view/quests/q1/report-approve", {
@@ -34,6 +40,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-03-12T09:00:00Z")); // JST 18:00
+  // 既定では「today のクエストは無い」状態に。AUTO 宝箱生成は minTasks=1 達成しないため発火しない。
+  mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
 });
 
 afterEach(() => {
@@ -269,5 +277,102 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(200);
     expect(mockApprove).toHaveBeenCalled();
+  });
+
+  // 2026-05-30: 親代理 report-approve でも auto-approve cron と同じ
+  // 「即 UNLOCKED の AUTO 宝箱を 1個生成」を発火する（親端末しかない家庭で
+  // 「あと一個で宝箱出るよ」のコミュニケーション・体験完結のため）。
+  describe("親代理経路でも AUTO 宝箱を即 UNLOCKED で生成する", () => {
+    function setupApprovedQuest(opts: { minTasksForStreak?: number } = {}) {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({
+          id: "child-1",
+          minTasksForStreak: opts.minTasksForStreak ?? 1,
+        }) as any,
+      );
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+        deadlineBonusEarned: false,
+        photoUrl: null,
+        snapshotCategory: "STUDY",
+        template: { id: "tpl-1", category: "STUDY", photoBonus: false },
+        child: { id: "child-1" },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    }
+
+    it("minTasks 達成時に generateAutoApproveTreasure を呼ぶ（reportedCount / totalCount / minTasks 込み）", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      // approve 後の集計：今日 1件 APPROVED（自分自身）, 全1件 → minTasks=1 達成
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+      ] as any);
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      expect(res.status).toBe(200);
+
+      expect(mockGenerateAutoApproveTreasure).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: new Date("2026-03-12T00:00:00Z"),
+        reportedCount: 1,
+        totalCount: 1,
+        minTasks: 1,
+      });
+    });
+
+    it("minTasks 未達なら generateAutoApproveTreasure は呼ばない（=「あと N 個で宝箱」状態）", async () => {
+      setupApprovedQuest({ minTasksForStreak: 3 });
+      // 今日 1件 APPROVED, 全3件 → 3 > 1 で未達
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+        { status: "PENDING" },
+        { status: "PENDING" },
+      ] as any);
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      expect(res.status).toBe(200);
+
+      // 関数自体は呼ばれてよいが、その場合 reportedCount < minTasks で内部 no-op になる。
+      // 仕様としては「呼ばれても呼ばれなくても良い」だが、無駄な DB 呼び出しを避けるため、
+      // route 層で minTasks 判定して呼ばない、を期待動作にする。
+      expect(mockGenerateAutoApproveTreasure).not.toHaveBeenCalled();
+    });
+
+    it("approveQuestInstance より後（つまり今クエストの APPROVED 反映後）に集計する", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      const callOrder: string[] = [];
+      mockApprove.mockImplementation(async () => {
+        callOrder.push("approve");
+      });
+      (mockPrisma.questInstance.findMany as any).mockImplementation(async () => {
+        callOrder.push("findMany");
+        return [{ status: "APPROVED" }];
+      });
+      mockGenerateAutoApproveTreasure.mockImplementation(async () => {
+        callOrder.push("generateTreasure");
+        return "log-1";
+      });
+
+      await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+
+      expect(callOrder).toEqual(["approve", "findMany", "generateTreasure"]);
+    });
+
+    it("findMany は同じ childId と同じ date で today のクエストを取りに行く", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+      ] as any);
+
+      await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+
+      const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+      expect(findManyCall.where.childId).toBe("child-1");
+      expect(findManyCall.where.date).toEqual(new Date("2026-03-12T00:00:00Z"));
+    });
   });
 });

@@ -2,17 +2,24 @@
 // 設計: docs/reword-system-design.md セクション 5〜8
 //
 // 振る舞い:
-//  - 各レア度ごとに1回独立に抽選 (boosted で 1.5倍)。プールに何個あっても確率は変わらない
-//  - 当たりが複数なら一番レアな当たりを採用し、そのレア度のプール内アイテムからランダムに1個選ぶ
-//  - 当たりレア度のアイテムがプールに無ければ次に低いレア度の当たりに降格、いずれも無ければハズレ
+//  - 「排他的単発抽選」: rng を 1 回だけ消費し、その値で RARE / UNCOMMON / COMMON / MISS を排他選択
+//      u in [0,                 1/28)            → RARE
+//      u in [1/28,              1/28+1/14)       → UNCOMMON
+//      u in [1/28+1/14,         1/28+1/14+1/7)   → COMMON
+//      u in [1/4,               1.0)             → MISS
+//    boosted=true なら各レア度の幅を 1.5 倍（合計 hit 率 1/4 → 3/8）
+//  - 当選レア度のアイテムがプールに無ければ次に低いレア度に降格、いずれも無ければハズレ
 //  - プールが空なら null (天井カウンタも進めない)
 //  - pityCount >= PITY_THRESHOLD のときに自然ハズレなら、プールから1個強制ピック (天井発動)
 //  - 当たり/天井発動時は pity を 0 にリセット、ハズレは +1
 //
+//  決定: 2026-05-30 (docs/decisions.md) — 旧「レア度ごと独立抽選」を撤廃し、個別レート =
+//  実出力（28回引けば COMMON 4 / UNCOMMON 2 / RARE 1 / MISS 21）の関係を保証する。
+//
 // rng 消費順:
-//  1. COMMON 抽選, 2. UNCOMMON 抽選, 3. RARE 抽選
-//  4. (HIT 時) 当たりレア度プール内のアイテム選択
-//  4. (天井発動時) プール全体からアイテム選択
+//  1. rarity 判定（1 回）
+//  2. (HIT 時) 当選レア度（または降格先）のプール内アイテム選択
+//  2. (天井発動時) プール全体からアイテム選択
 
 export type TreasureRarity = "COMMON" | "UNCOMMON" | "RARE";
 
@@ -32,7 +39,8 @@ export const RARITY_ORDER: Record<TreasureRarity, number> = {
   RARE: 3,
 };
 
-const RARITIES_LOW_TO_HIGH: TreasureRarity[] = ["COMMON", "UNCOMMON", "RARE"];
+// 排他抽選の判定順は「高レア度→低レア度」。u の小さい側に低確率の RARE を割り当てる。
+const RARITIES_HIGH_TO_LOW: TreasureRarity[] = ["RARE", "UNCOMMON", "COMMON"];
 
 export interface TreasurePoolItem {
   id: string;
@@ -70,22 +78,29 @@ export function drawTreasure(
 
   const multiplier = boosted ? RARITY_BOOSTED_MULTIPLIER : 1;
 
-  // レア度ごとに 1 回ずつ独立抽選（プールサイズ非依存）
-  const hitTiers: TreasureRarity[] = [];
-  for (const r of RARITIES_LOW_TO_HIGH) {
-    const prob = RARITY_BASE_PROBABILITY[r] * multiplier;
-    if (rng() < prob) hitTiers.push(r);
+  // 排他抽選: 1回の rng で RARE / UNCOMMON / COMMON / MISS を決める
+  const u = rng();
+  let acc = 0;
+  let hitTier: TreasureRarity | null = null;
+  for (const r of RARITIES_HIGH_TO_LOW) {
+    const p = RARITY_BASE_PROBABILITY[r] * multiplier;
+    if (u < acc + p) {
+      hitTier = r;
+      break;
+    }
+    acc += p;
   }
 
-  // 高レア度から順に「プールにそのレア度のアイテムが存在するか」を確認
-  const tiersHighToLow = hitTiers
-    .slice()
-    .sort((a, b) => RARITY_ORDER[b] - RARITY_ORDER[a]);
-  for (const tier of tiersHighToLow) {
-    const tierItems = pool.filter((p) => p.rarity === tier);
-    if (tierItems.length === 0) continue;
-    const picked = pickRandomFrom(tierItems, rng);
-    return { itemId: picked.id, rarity: picked.rarity, nextPityCount: 0, pityTriggered: false };
+  if (hitTier !== null) {
+    // 当選レア度から下に降格しつつプール内アイテムを探す（昇格は禁止）
+    for (const t of RARITIES_HIGH_TO_LOW) {
+      if (RARITY_ORDER[t] > RARITY_ORDER[hitTier]) continue;
+      const items = pool.filter((p) => p.rarity === t);
+      if (items.length === 0) continue;
+      const picked = pickRandomFrom(items, rng);
+      return { itemId: picked.id, rarity: picked.rarity, nextPityCount: 0, pityTriggered: false };
+    }
+    // 当選レア度以下にもプール内アイテムが無い → ハズレ扱い (pity を進める)
   }
 
   // ハズレ → 天井チェック
