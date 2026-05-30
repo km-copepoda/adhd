@@ -7,7 +7,7 @@ import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount } from "@/lib/questProgress";
-import { generateAutoApproveTreasure } from "@/lib/treasureService";
+import { generateProxyTreasure } from "@/lib/treasureService";
 
 export async function POST(
   request: Request,
@@ -82,8 +82,8 @@ export async function POST(
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
   await approveQuestInstance(updatedQuest as any, stamp ?? undefined);
 
-  // 親代理経路でも minTasks 到達時に AUTO 宝箱を即 UNLOCKED で生成する（2026-05-30 決定）。
-  // trigger="AUTO" を auto-approve cron と共有することで、同日に二重発火しても 1個に収まる。
+  // 親代理経路でも minTasks 到達時に PROXY 宝箱を即 UNLOCKED で生成する
+  // （2026-05-30 決定 / 2026-05-31 で trigger を AUTO から PROXY にリネーム）。
   // 親端末しかない家庭で「あと一個で宝箱出るよ」の体験を完結させるための導線。
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
   const todayQuests = await prisma.questInstance.findMany({
@@ -96,7 +96,7 @@ export async function POST(
   // と意味的に揃える（あちらは1報告で最大2個、こちらは1日1個なので単数）。
   let treasureId: string | null = null;
   if (reportedCount >= minTasks) {
-    treasureId = await generateAutoApproveTreasure({
+    treasureId = await generateProxyTreasure({
       childId: child.id,
       date: quest.date,
       reportedCount,

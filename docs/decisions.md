@@ -1190,4 +1190,28 @@
 - `src/app/api/cron/auto-approve/route.ts` — `generateAutoApproveTreasure` インポートと呼び出しを削除
 - `src/__tests__/api/cron/auto-approve.test.ts` — `mockGenerateAuto` が呼ばれないことを担保するテストに反転
 
+## 2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）
+
+### 決定内容
+- Prisma enum `TreasureTrigger` の値 `AUTO` を `PROXY` に変更
+- 関数名 `generateAutoApproveTreasure` を `generateProxyTreasure` にリネーム
+- マイグレーション: `ALTER TYPE "TreasureTrigger" RENAME VALUE 'AUTO' TO 'PROXY'`（PostgreSQL 10+ の機能で既存データもそのまま新名に切り替わる）
+
+### 理由
+- 同日 cron の AUTO 生成を撤回した結果、`trigger="AUTO"` を立てる経路は **親代理 report-approve のみ** になった。「AUTO」の名前が「自動承認」を連想させて実態と乖離している（「これは cron が立てるやつ？」と誤読されかねない）
+- 親代理を `isProxy` フラグや `parentChildView` モジュール名で既に表現しているため、`PROXY` という命名は既存のコード語彙に整合する
+- 2026-05-30:1129「新しい trigger 値（例: "PROXY"）を作る」は「やってはいけないこと」と明記していたが、その禁止理由は **「cron と冪等性を共有するために AUTO を流用する」** であり、2026-05-31 で cron 経路が消えた以上、この禁止は失効
+
+### やってはいけないこと
+- 旧 AUTO 名のまま放置する（実装読解時の混乱の温床）
+- `ALTER TYPE` を使わず `DROP TYPE` → 再作成する形のマイグレーションを書く（既存データを失う）
+- enum 名 `TreasureTrigger` 自体を変更する（無関係な型名変更で diff が肥大化する）
+
+### 該当箇所
+- `prisma/schema.prisma` — enum 値
+- `prisma/migrations/20260531000001_rename_treasure_trigger_auto_to_proxy/migration.sql`
+- `src/lib/treasureService.ts` — `generateProxyTreasure`・`trigger: "PROXY"`
+- `src/app/api/parent/child-view/quests/[id]/report-approve/route.ts` — 呼び出し元
+- テスト 3 ファイル（cron / report-approve / treasureService）
+
 

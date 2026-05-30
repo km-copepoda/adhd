@@ -307,7 +307,7 @@ enum TreasureRarity {
 enum TreasureTrigger {
   STREAK
   ALL_COMPLETE
-  AUTO
+  PROXY
 }
 
 enum TreasureStatus {

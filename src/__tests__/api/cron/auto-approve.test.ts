@@ -8,16 +8,16 @@ vi.mock("@/lib/approve", () => ({
 }));
 
 vi.mock("@/lib/treasureService", () => ({
-  generateAutoApproveTreasure: vi.fn().mockResolvedValue(null),
+  generateProxyTreasure: vi.fn().mockResolvedValue(null),
 }));
 
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
-import { generateAutoApproveTreasure } from "@/lib/treasureService";
+import { generateProxyTreasure } from "@/lib/treasureService";
 
 const mockPrisma = vi.mocked(prisma);
 const mockApproveQuest = vi.mocked(approveQuestInstance);
 const mockApproveSkip = vi.mocked(approveSkipQuestInstance);
-const mockGenerateAuto = vi.mocked(generateAutoApproveTreasure);
+const mockGenerateAuto = vi.mocked(generateProxyTreasure);
 
 function makeRequest(secret?: string) {
   const headers: Record<string, string> = {};
@@ -120,12 +120,12 @@ describe("GET /api/cron/auto-approve", () => {
     expect(call?.include?.template?.select?.repeatDays).toBe(true);
   });
 
-  describe("宝箱（AUTO）は生成しない", () => {
-    // cron は AUTO 宝箱を生成しない。子セルフ報告経路で STREAK / ALL_COMPLETE が
+  describe("宝箱（PROXY）は生成しない", () => {
+    // cron は宝箱を生成しない。子セルフ報告経路で STREAK / ALL_COMPLETE が
     // 既に LOCKED で立っているため、approveQuestInstance の中の
     // unlockTreasuresOnApprove だけで体験が完結する。
-    // AUTO は親代理経路 (child-view report-approve) 専用の trigger として残す。
-    it("REPORTED が複数あっても generateAutoApproveTreasure は一度も呼ばれない", async () => {
+    // PROXY trigger は親代理経路 (child-view report-approve) 専用として残す。
+    it("REPORTED が複数あっても generateProxyTreasure は一度も呼ばれない", async () => {
       const d1 = new Date("2026-03-21");
       const d2 = new Date("2026-03-22");
       const quests = [
@@ -141,7 +141,7 @@ describe("GET /api/cron/auto-approve", () => {
       expect(mockGenerateAuto).not.toHaveBeenCalled();
     });
 
-    it("SKIP_REPORTED でも generateAutoApproveTreasure は呼ばれない", async () => {
+    it("SKIP_REPORTED でも generateProxyTreasure は呼ばれない", async () => {
       const d1 = new Date("2026-03-21");
       const quests = [
         { id: "q-s1", status: "SKIP_REPORTED", date: d1, childId: "c1", templateId: "t1", template: {}, child: { id: "c1", minTasksForStreak: 1 } },

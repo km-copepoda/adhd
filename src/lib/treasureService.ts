@@ -5,7 +5,7 @@
 //  - report API → generateTreasuresOnReport
 //  - approve.ts → unlockTreasuresOnApprove
 //  - reject API → cancelTreasuresOnReject
-//  - auto-approve cron → generateAutoApproveTreasure
+//  - 親代理 report-approve → generateProxyTreasure
 //  - 子供の開封 API → openOldestTreasure
 
 import { prisma } from "@/lib/prisma";
@@ -119,11 +119,11 @@ export async function cancelTreasuresOnReject(cond: TreasureCondition): Promise<
 }
 
 /**
- * 自動承認時の宝箱生成（即 UNLOCKED で1個のみ）。
+ * 親代理 report-approve 時の宝箱生成（即 UNLOCKED で1個のみ）。
  * 条件: reportedCount >= minTasks
- * 当日に既に AUTO 宝箱があれば作らない（冪等）。
+ * 当日に既に PROXY 宝箱があれば作らない（冪等）。
  */
-export async function generateAutoApproveTreasure(input: {
+export async function generateProxyTreasure(input: {
   childId: string;
   date: Date;
   reportedCount: number;
@@ -138,7 +138,7 @@ export async function generateAutoApproveTreasure(input: {
   if (poolSize === 0) return null;
 
   const existing = await prisma.treasureLog.findFirst({
-    where: { childId: input.childId, date: input.date, trigger: "AUTO" },
+    where: { childId: input.childId, date: input.date, trigger: "PROXY" },
     select: { id: true },
   });
   if (existing) return null;
@@ -147,7 +147,7 @@ export async function generateAutoApproveTreasure(input: {
     data: {
       childId: input.childId,
       date: input.date,
-      trigger: "AUTO",
+      trigger: "PROXY",
       boosted: false,
       status: "UNLOCKED",
     },

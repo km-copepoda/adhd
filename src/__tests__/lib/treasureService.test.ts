@@ -4,7 +4,7 @@ import {
   generateTreasuresOnReport,
   unlockTreasuresOnApprove,
   cancelTreasuresOnReject,
-  generateAutoApproveTreasure,
+  generateProxyTreasure,
   openOldestTreasure,
 } from "@/lib/treasureService";
 
@@ -224,15 +224,15 @@ describe("cancelTreasuresOnReject", () => {
   });
 });
 
-// ─── generateAutoApproveTreasure ────────────────────────────────────────────
-describe("generateAutoApproveTreasure", () => {
+// ─── generateProxyTreasure ────────────────────────────────────────────
+describe("generateProxyTreasure", () => {
   beforeEach(() => {
     mockPrisma.treasureItem.count.mockResolvedValue(1);
   });
 
   it("プールが空なら null（生成しない）", async () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
-    const id = await generateAutoApproveTreasure({
+    const id = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 3,
@@ -244,7 +244,7 @@ describe("generateAutoApproveTreasure", () => {
   });
 
   it("minTasks 未達なら null", async () => {
-    const id = await generateAutoApproveTreasure({
+    const id = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 0,
@@ -258,7 +258,7 @@ describe("generateAutoApproveTreasure", () => {
   it("条件を満たす → trigger=AUTO, status=UNLOCKED で1個だけ生成", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
     mockPrisma.treasureLog.create.mockResolvedValue({ id: "ta" } as any);
-    const id = await generateAutoApproveTreasure({
+    const id = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 3,
@@ -270,7 +270,7 @@ describe("generateAutoApproveTreasure", () => {
       data: expect.objectContaining({
         childId: "c1",
         date: dateJST,
-        trigger: "AUTO",
+        trigger: "PROXY",
         boosted: false,
         status: "UNLOCKED",
       }),
@@ -279,7 +279,7 @@ describe("generateAutoApproveTreasure", () => {
 
   it("当日既に AUTO 宝箱があれば作らない (冪等)", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue({ id: "existing" } as any);
-    const id = await generateAutoApproveTreasure({
+    const id = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 3,

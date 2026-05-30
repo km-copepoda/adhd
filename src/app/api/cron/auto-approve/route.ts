@@ -63,8 +63,8 @@ export async function GET(request: Request) {
 
   // 宝箱は子セルフ報告経路で生成された STREAK / ALL_COMPLETE (LOCKED) が
   // approveQuestInstance 内の unlockTreasuresOnApprove で UNLOCKED に切り替わる。
-  // cron が追加で AUTO 宝箱を作ると常に重複するため生成しない（trigger="AUTO" は
-  // 親代理 report-approve 経路専用として残す）。
+  // cron が追加で宝箱を作ると常に重複するため生成しない（trigger="PROXY" は
+  // 親代理 report-approve 経路専用）。
 
   rlog.done("Auto-approve cron completed", { approved, skipped });
   return NextResponse.json({ ok: true, approved, skipped });

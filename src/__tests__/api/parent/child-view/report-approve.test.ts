@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import * as approveModule from "@/lib/approve";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
-import { generateAutoApproveTreasure } from "@/lib/treasureService";
+import { generateProxyTreasure } from "@/lib/treasureService";
 import { parentUser, childUser } from "../../../helpers/fixtures";
 import { makeParams } from "../../../helpers/request";
 
@@ -19,7 +19,7 @@ vi.mock("@/lib/bulletinLog", () => ({
 }));
 
 vi.mock("@/lib/treasureService", () => ({
-  generateAutoApproveTreasure: vi.fn().mockResolvedValue(null),
+  generateProxyTreasure: vi.fn().mockResolvedValue(null),
 }));
 
 const mockPrisma = vi.mocked(prisma);
@@ -27,7 +27,7 @@ const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApprove = vi.mocked(approveModule.approveQuestInstance);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
-const mockGenerateAutoApproveTreasure = vi.mocked(generateAutoApproveTreasure);
+const mockGenerateProxyTreasure = vi.mocked(generateProxyTreasure);
 
 function makeReq(body: Record<string, unknown>) {
   return new Request("http://localhost/api/parent/child-view/quests/q1/report-approve", {
@@ -279,10 +279,10 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     expect(mockApprove).toHaveBeenCalled();
   });
 
-  // 2026-05-30: 親代理 report-approve でも auto-approve cron と同じ
-  // 「即 UNLOCKED の AUTO 宝箱を 1個生成」を発火する（親端末しかない家庭で
-  // 「あと一個で宝箱出るよ」のコミュニケーション・体験完結のため）。
-  describe("親代理経路でも AUTO 宝箱を即 UNLOCKED で生成する", () => {
+  // 2026-05-30: 親代理 report-approve で「即 UNLOCKED の宝箱を 1個生成」を発火する
+  // （親端末しかない家庭で「あと一個で宝箱出るよ」のコミュニケーション・体験完結のため）。
+  // 2026-05-31: trigger を AUTO → PROXY にリネーム（cron 経由生成も同日に撤回）。
+  describe("親代理経路で PROXY 宝箱を即 UNLOCKED で生成する", () => {
     function setupApprovedQuest(opts: { minTasksForStreak?: number } = {}) {
       mockGetCurrentUser.mockResolvedValue(parentUser() as any);
       mockPrisma.user.findFirst.mockResolvedValue(
@@ -305,7 +305,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
     }
 
-    it("minTasks 達成時に generateAutoApproveTreasure を呼ぶ（reportedCount / totalCount / minTasks 込み）", async () => {
+    it("minTasks 達成時に generateProxyTreasure を呼ぶ（reportedCount / totalCount / minTasks 込み）", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
       // approve 後の集計：今日 1件 APPROVED（自分自身）, 全1件 → minTasks=1 達成
       mockPrisma.questInstance.findMany.mockResolvedValue([
@@ -315,7 +315,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       expect(res.status).toBe(200);
 
-      expect(mockGenerateAutoApproveTreasure).toHaveBeenCalledWith({
+      expect(mockGenerateProxyTreasure).toHaveBeenCalledWith({
         childId: "child-1",
         date: new Date("2026-03-12T00:00:00Z"),
         reportedCount: 1,
@@ -324,7 +324,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       });
     });
 
-    it("minTasks 未達なら generateAutoApproveTreasure は呼ばない（=「あと N 個で宝箱」状態）", async () => {
+    it("minTasks 未達なら generateProxyTreasure は呼ばない（=「あと N 個で宝箱」状態）", async () => {
       setupApprovedQuest({ minTasksForStreak: 3 });
       // 今日 1件 APPROVED, 全3件 → 3 > 1 で未達
       mockPrisma.questInstance.findMany.mockResolvedValue([
@@ -339,7 +339,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       // 関数自体は呼ばれてよいが、その場合 reportedCount < minTasks で内部 no-op になる。
       // 仕様としては「呼ばれても呼ばれなくても良い」だが、無駄な DB 呼び出しを避けるため、
       // route 層で minTasks 判定して呼ばない、を期待動作にする。
-      expect(mockGenerateAutoApproveTreasure).not.toHaveBeenCalled();
+      expect(mockGenerateProxyTreasure).not.toHaveBeenCalled();
     });
 
     it("approveQuestInstance より後（つまり今クエストの APPROVED 反映後）に集計する", async () => {
@@ -352,7 +352,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
         callOrder.push("findMany");
         return [{ status: "APPROVED" }];
       });
-      mockGenerateAutoApproveTreasure.mockImplementation(async () => {
+      mockGenerateProxyTreasure.mockImplementation(async () => {
         callOrder.push("generateTreasure");
         return "log-1";
       });
@@ -383,7 +383,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       mockPrisma.questInstance.findMany.mockResolvedValue([
         { status: "APPROVED" },
       ] as any);
-      mockGenerateAutoApproveTreasure.mockResolvedValue("treasure-log-xyz");
+      mockGenerateProxyTreasure.mockResolvedValue("treasure-log-xyz");
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       const body = await res.json();
@@ -408,7 +408,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       mockPrisma.questInstance.findMany.mockResolvedValue([
         { status: "APPROVED" },
       ] as any);
-      mockGenerateAutoApproveTreasure.mockResolvedValue(null);
+      mockGenerateProxyTreasure.mockResolvedValue(null);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       const body = await res.json();
