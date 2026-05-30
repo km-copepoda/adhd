@@ -9,14 +9,18 @@ vi.mock("next/navigation", () => ({
 import ChildViewBottomNav from "@/components/parent/ChildViewBottomNav";
 
 describe("ChildViewBottomNav", () => {
-  it("クエスト・育成・ひろば の3タブが指定した childId にリンクする", () => {
+  it("クエスト・育成・宝箱・ひろば・コレクション の5タブが指定した childId にリンクする", () => {
     render(<ChildViewBottomNav childId="child-1" />);
     expect(screen.getByRole("link", { name: /クエスト/ }).getAttribute("href"))
       .toBe("/app/parent/child-view/child-1/quests");
     expect(screen.getByRole("link", { name: /育成/ }).getAttribute("href"))
       .toBe("/app/parent/child-view/child-1/monster");
+    expect(screen.getByRole("link", { name: /宝箱/ }).getAttribute("href"))
+      .toBe("/app/parent/child-view/child-1/treasures");
     expect(screen.getByRole("link", { name: /ひろば/ }).getAttribute("href"))
       .toBe("/app/parent/child-view/child-1/gathering");
+    expect(screen.getByRole("link", { name: /コレクション/ }).getAttribute("href"))
+      .toBe("/app/parent/child-view/child-1/collection");
   });
 
   it("「子を切替」リンクが子供セレクター画面に戻る", () => {

@@ -6,7 +6,9 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { suffix: "quests", emoji: "⚔️", label: "クエスト" },
   { suffix: "monster", emoji: "🐣", label: "育成" },
+  { suffix: "treasures", emoji: "📦", label: "宝箱" },
   { suffix: "gathering", emoji: "🏕️", label: "ひろば" },
+  { suffix: "collection", emoji: "🏆", label: "コレクション" },
 ] as const;
 
 export default function ChildViewBottomNav({ childId }: { childId: string }) {

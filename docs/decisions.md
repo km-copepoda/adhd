@@ -1048,3 +1048,37 @@
 - `/app/child/zukan` `/app/child/badges` を即時 redirect / 削除する（外部リンクや既存通知のリンク先を壊す。badge-deprecation spec で計画的に処理する）
 - BottomNav に「コレクション」を 6タブ目として追加するときに既存タブを残す（タブ過密の方針に反する。図鑑・実績の独立タブは必ず外す）
 - BadgesContent の中に「ごほうび履歴」タブを混ぜる（旧ページ側のサブタブ責務であり、コレクションページ側には不要）
+
+## 2026-05-30: 親モード（child-view）に「宝箱」「コレクション」を追加 / 親代理で開封も可能
+
+### 決定内容
+- `ChildViewBottomNav` を 3タブ（クエスト/育成/ひろば）から 5タブ（**+宝箱 +コレクション**）に拡張
+  - 🎁 宝箱 → `/app/parent/child-view/[childId]/treasures`
+  - 🏆 コレクション → `/app/parent/child-view/[childId]/collection`（📖 図鑑 / 🏅 実績 の 2タブ。子画面と同じ構成）
+- 子画面コンポーネント `ZukanContent` `BadgesContent` に `fetchUrl` / `trackVisit` / `enableRealtime` props を追加し、親モードからは下記オプションで再利用:
+  - `fetchUrl` → child-view 経路（`/api/parent/child-view/{monster,badges}?childId=X`）
+  - `trackVisit=false` → 親モードでは `lastSeenCollectedCount` / `lastSeenBadgeUnlockedCount` を更新しない（**親端末の localStorage が子供画面 BottomNav のバッジ既読化に影響しないように**）
+  - `enableRealtime=false` → 親モードでは Supabase Realtime 購読を張らない（2026-05-11 の方針：子供モードでは副作用を起こさない）
+- 親代理経路の宝箱 API を 4本新設（既存 CHILD 専用 API は触らない）:
+  - `GET /api/parent/child-view/treasures/status?childId=X` — `/api/treasures/status` の親代理版
+  - `POST /api/parent/child-view/treasures/open` (body `{ childId }`) — `/api/treasures/open` の親代理版。当たり時の **親への Push は送らない**（親自身の操作なので二重通知になる）
+  - `GET /api/parent/child-view/badges?childId=X` — `/api/badges` の親代理版（`checkAndUnlockBadges` も親代理で実行）
+  - `GET /api/parent/child-view/monster?childId=X` — `/api/monster` の親代理版（図鑑描画用に `collectedPaths` `monsterLevels` `usedEggBonuses` を返す）
+- 宝箱履歴の **7日制限** は親モードでも維持（親 child-view は子画面の延長という認知）。親画面 `/app/parent/treasures/pending` の「履歴トラッキング100件」とは別物
+- 親モードでも開封演出は `TreasureOpenCutscene` を再利用。`treasure-changed` カスタムイベントは発火しない（子供 BottomNav バッジは子供端末で管理）
+
+### 理由
+- 2026-05-11 「親端末しか持たない家庭でも、子供のタスク達成体験（XP・進化・バッジ・図鑑）を提供したい」の自然な拡張
+  - これまで親モードに無かった「宝箱を開ける」と「図鑑/実績を眺める」を追加することで、子供端末ゼロの家庭でも 1サイクルが完結する
+- 当初は「閲覧のみ・開封不可」案も検討したが、**開封できないと親代理経路では宝箱が永久に UNLOCKED で溜まり続ける**（生成は 2026-05-28 で `isProxy=true` no-op だが、子供本人の報告で生成されたものは閉じたまま）。子供端末がない家庭では開けようがないため、**開封も親代理で可能にする** に倒した
+- 2026-05-28「親代理経路（child-view からの報告/承認）は宝箱対象外」は **生成** の話。開封は別物として扱う（生成は「子供が何かを達成した瞬間の動機付け」、開封は「すでに獲得した宝の楽しみ方」で性質が異なる）
+- 親自身への Push 通知を切るのは、親が自分の操作結果を自分宛に通知すると `/app/parent/treasures/pending` への誘導が冗長になるため
+- `enableRealtime=false` / `trackVisit=false` は 2026-05-11 で確立した「子供モードでは副作用を起こさない」原則の継続適用
+
+### やってはいけないこと
+- 既存 `/api/treasures/status` `/api/treasures/open` `/api/badges` `/api/monster` を PARENT ロールで受け付けるよう緩和する（**禁止**: child-view 経路 `/api/parent/child-view/*` を必ず使う。境界を維持する）
+- 親代理開封経路 (`/api/parent/child-view/treasures/open`) で親に Push を送る（二重通知になる）
+- ZukanContent / BadgesContent から `fetchUrl` 等の新 props を取り去って親側を独立 page にコピペ実装する（既に親モード対応の責務をコンポーネント側に閉じ込めてある。子画面と同じ UI を二箇所で保守したくない）
+- 親モードで `lastSeenCollectedCount` / `lastSeenBadgeUnlockedCount` / `treasure-changed` イベントなど **子供 BottomNav 用の既読フラグ** を更新する（親端末の localStorage が子供画面のバッジ表示に干渉する）
+- 親モードで Supabase Realtime を購読する（2026-05-11 で警戒した子供向け副作用の親端末発火事故が起こる）
+

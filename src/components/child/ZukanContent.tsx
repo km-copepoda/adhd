@@ -75,23 +75,34 @@ function PathChips({ path, size = "md" }: { path: string; size?: "sm" | "md" }) 
 
 type SelectedMonster = { image: string; name: string; stageLabel: string };
 
-export default function ZukanContent() {
+interface ZukanContentProps {
+  /** 取得元 API。親モードでは /api/parent/child-view/monster?childId=X を渡す。 */
+  fetchUrl?: string;
+  /** localStorage 既読フラグを更新するか。親モードでは false（親端末の子供バッジに影響させない）。 */
+  trackVisit?: boolean;
+}
+
+export default function ZukanContent({
+  fetchUrl = "/api/monster",
+  trackVisit = true,
+}: ZukanContentProps = {}) {
   const [data, setData] = useState<ZukanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SelectedMonster | null>(null);
 
   useEffect(() => {
-    fetch("/api/monster")
+    fetch(fetchUrl)
       .then((r) => r.json())
       .then((d: ZukanData) => {
         const paths = d.collectedPaths ?? "[]";
         setData({ side: d.side ?? null, collectedPaths: paths, monsterLevels: d.monsterLevels ?? "{}", usedEggBonuses: d.usedEggBonuses ?? "[]" });
-        // 図鑑を開いた時点で「見た」とマーク → BottomNav バッジをクリア
-        const count = (JSON.parse(paths) as string[]).length;
-        localStorage.setItem("lastSeenCollectedCount", String(count));
+        if (trackVisit) {
+          const count = (JSON.parse(paths) as string[]).length;
+          localStorage.setItem("lastSeenCollectedCount", String(count));
+        }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [fetchUrl, trackVisit]);
 
   if (loading || !data) return <LoadingSpinner />;
 

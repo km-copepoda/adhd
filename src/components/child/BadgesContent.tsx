@@ -18,23 +18,37 @@ type BadgesResponse = {
   newlyUnlocked: string[];
 };
 
-export default function BadgesContent() {
+interface BadgesContentProps {
+  /** 取得元 API。親モードでは /api/parent/child-view/badges?childId=X を渡す。 */
+  fetchUrl?: string;
+  /** localStorage 既読フラグを更新するか。親モードでは false。 */
+  trackVisit?: boolean;
+  /** Supabase Realtime 購読を有効にするか。親モードでは false（2026-05-11 の方針）。 */
+  enableRealtime?: boolean;
+}
+
+export default function BadgesContent({
+  fetchUrl = "/api/badges",
+  trackVisit = true,
+  enableRealtime = true,
+}: BadgesContentProps = {}) {
   const [data, setData] = useState<BadgesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BadgeFilter>("all");
 
   const fetchBadges = () => {
-    fetch("/api/badges")
+    fetch(fetchUrl)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then((d: BadgesResponse) => {
         setData(d);
-        // 訪問時点の解除数を記録してBottomNavバッジをクリア
-        try {
-          localStorage.setItem("lastSeenBadgeUnlockedCount", String(d.unlockedCount));
-        } catch { /* ignore */ }
+        if (trackVisit) {
+          try {
+            localStorage.setItem("lastSeenBadgeUnlockedCount", String(d.unlockedCount));
+          } catch { /* ignore */ }
+        }
       })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -42,6 +56,14 @@ export default function BadgesContent() {
 
   useEffect(() => {
     fetchBadges();
+
+    if (!enableRealtime) {
+      const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
+      document.addEventListener("visibilitychange", onVisible);
+      return () => {
+        document.removeEventListener("visibilitychange", onVisible);
+      };
+    }
 
     const supabase = createClient();
     const channel = supabase
@@ -56,7 +78,8 @@ export default function BadgesContent() {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchUrl, trackVisit, enableRealtime]);
 
   if (loading) {
     return <LoadingSpinner />;
