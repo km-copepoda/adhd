@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import type { Category, QuestStatus } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
+import TreasureGetCutscene from "@/components/child/TreasureGetCutscene";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsByCompletion } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
@@ -43,6 +44,11 @@ export default function ChildViewQuestsPage() {
   const [monsterMini, setMonsterMini] = useState<MonsterMiniData | null>(null);
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 子供セルフ画面と同様、シートが閉じたあとに「宝箱ゲット！」カットインを出す。
+  // pending にしておいて activeQuest=null になったタイミングで表示することで、
+  // 報告操作とカットインがチラつかず順番に流れる。
+  const pendingTreasureGetRef = useRef<number>(0);
+  const [showTreasureGet, setShowTreasureGet] = useState<number>(0);
 
   // 代理報告後の再フェッチでは loading をトグルしない。
   // loading=true にするとページ全体が <LoadingSpinner /> に置換され、QuestActionSheet
@@ -105,6 +111,12 @@ export default function ChildViewQuestsPage() {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? `報告に失敗しました（${res.status}）`);
       return;
+    }
+    try {
+      const data = (await res.json()) as { treasureId?: string | null };
+      if (data.treasureId) pendingTreasureGetRef.current = 1;
+    } catch {
+      // 旧APIで JSON が無い場合などは無視
     }
     await refreshQuests();
   }
@@ -249,7 +261,20 @@ export default function ChildViewQuestsPage() {
           questsTotal={quests.length}
           onReport={handleReport}
           onSkip={handleSkip}
-          onClose={() => setActiveQuest(null)}
+          onClose={() => {
+            setActiveQuest(null);
+            if (pendingTreasureGetRef.current > 0) {
+              setShowTreasureGet(pendingTreasureGetRef.current);
+              pendingTreasureGetRef.current = 0;
+            }
+          }}
+        />
+      )}
+
+      {showTreasureGet > 0 && (
+        <TreasureGetCutscene
+          count={showTreasureGet}
+          onClose={() => setShowTreasureGet(0)}
         />
       )}
     </>

@@ -6,12 +6,24 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ childId: "child-1" }),
 }));
 
-// QuestActionSheet をテスト用に差し替え: onReport をボタンで叩けるようにする
+// QuestActionSheet をテスト用に差し替え:
+//   - trigger-report: 親の onReport だけを呼ぶ（既存の refetch リグレッションテストが
+//     「シートが mount されたまま」を観測するため、自動 close しない）
+//   - trigger-close:  シートを閉じる（カットインの遷移トリガー）
 vi.mock("@/components/QuestActionSheet", () => ({
-  default: ({ onReport }: { onReport: (id: string, c: string | null, p: string | null) => Promise<void> }) => (
+  default: ({
+    onReport,
+    onClose,
+  }: {
+    onReport: (id: string, c: string | null, p: string | null) => Promise<void>;
+    onClose: () => void;
+  }) => (
     <div data-testid="quest-sheet">
       <button data-testid="trigger-report" onClick={() => onReport("q1", null, null)}>
         report
+      </button>
+      <button data-testid="trigger-close" onClick={() => onClose()}>
+        close
       </button>
     </div>
   ),
@@ -19,6 +31,13 @@ vi.mock("@/components/QuestActionSheet", () => ({
 
 vi.mock("@/components/LoadingSpinner", () => ({
   default: () => <div data-testid="loading-spinner" />,
+}));
+
+vi.mock("next/image", () => ({
+  __esModule: true,
+  default: ({ src, alt }: { src: string; alt: string }) => (
+    <img src={src} alt={alt} />
+  ),
 }));
 
 import ChildViewQuestsPage from "@/app/app/parent/child-view/[childId]/quests/page";
@@ -142,6 +161,85 @@ describe("ChildViewQuestsPage: モンスターミニカード（キャラクタ�
     // 子供名と stageLabel（"stage 1 / 3"）がカードに出る
     await waitFor(() => expect(screen.getByText("たろう")).toBeTruthy());
     expect(screen.getByText(/stage 1 \/ 3/)).toBeTruthy();
+  });
+
+  it("代理報告 API が treasureId を返したら、シートが閉じたあと「宝箱ゲット！」のカットインが表示される", async () => {
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/api/parent/child-view/quests/today")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
+      }
+      if (url.includes("/api/parent/child-view/monster-status")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
+      }
+      if (url.includes("/report-approve") && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ ok: true, treasureId: "log-xyz" }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<ChildViewQuestsPage />);
+    });
+    await waitFor(() => expect(screen.getByText("宿題")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("宿題"));
+    });
+    await waitFor(() => expect(screen.getByTestId("quest-sheet")).toBeTruthy());
+
+    // 報告 → シート閉じ → カットイン
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-report"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-close"));
+    });
+
+    await waitFor(() => expect(screen.getByText("宝箱ゲット！")).toBeTruthy());
+  });
+
+  it("代理報告 API の treasureId が null ならカットインは表示しない", async () => {
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/api/parent/child-view/quests/today")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
+      }
+      if (url.includes("/api/parent/child-view/monster-status")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
+      }
+      if (url.includes("/report-approve") && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ ok: true, treasureId: null }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<ChildViewQuestsPage />);
+    });
+    await waitFor(() => expect(screen.getByText("宿題")).toBeTruthy());
+    await act(async () => {
+      fireEvent.click(screen.getByText("宿題"));
+    });
+    await waitFor(() => expect(screen.getByTestId("quest-sheet")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-report"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-close"));
+    });
+
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByText("宝箱ゲット！")).toBeNull();
   });
 
   it("monster-status の childId クエリパラメータに URL の childId を渡す", async () => {

@@ -91,8 +91,12 @@ export async function POST(
     select: { status: true },
   });
   const reportedCount = computeCompletedCount(todayQuests);
+  // treasureId は親側 UI のカットイン演出トリガー。生成されなかった日 (プール未設定 /
+  // minTasks 未達 / 同日 AUTO 既存) は null を返す。子供セルフ報告 API (treasureIds)
+  // と意味的に揃える（あちらは1報告で最大2個、こちらは1日1個なので単数）。
+  let treasureId: string | null = null;
   if (reportedCount >= minTasks) {
-    await generateAutoApproveTreasure({
+    treasureId = await generateAutoApproveTreasure({
       childId: child.id,
       date: quest.date,
       reportedCount,
@@ -109,6 +113,7 @@ export async function POST(
     questId: id,
     childId: child.id,
     parentId: parent.id,
+    treasureId,
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, treasureId });
 }

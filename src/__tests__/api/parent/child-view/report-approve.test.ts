@@ -374,5 +374,45 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       expect(findManyCall.where.childId).toBe("child-1");
       expect(findManyCall.where.date).toEqual(new Date("2026-03-12T00:00:00Z"));
     });
+
+    // 親代理側のクエスト画面にもカットイン演出を出すため、生成された宝箱の id を
+    // レスポンスに含めて UI から検出できるようにする。子供セルフ報告 API
+    // (/api/quests/[id]/report) が treasureIds を返すのと同じ規約に揃える。
+    it("宝箱が生成されたら treasureId をレスポンスに含める", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+      ] as any);
+      mockGenerateAutoApproveTreasure.mockResolvedValue("treasure-log-xyz");
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      const body = await res.json();
+      expect(body.treasureId).toBe("treasure-log-xyz");
+    });
+
+    it("宝箱条件を満たさない場合は treasureId=null", async () => {
+      setupApprovedQuest({ minTasksForStreak: 3 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+        { status: "PENDING" },
+        { status: "PENDING" },
+      ] as any);
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      const body = await res.json();
+      expect(body.treasureId).toBeNull();
+    });
+
+    it("プール未設定や同日 AUTO 既存等で生成関数が null を返した場合も treasureId=null", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+      ] as any);
+      mockGenerateAutoApproveTreasure.mockResolvedValue(null);
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      const body = await res.json();
+      expect(body.treasureId).toBeNull();
+    });
   });
 });
