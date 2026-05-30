@@ -1166,4 +1166,28 @@
 - `src/lib/treasure.ts` — `drawTreasure`
 - `src/__tests__/lib/treasure.test.ts` — 5000 試行の統計テストで 3σ 範囲内を保証
 
+## 2026-05-31: auto-approve cron は AUTO 宝箱を生成しない（2026-05-28 を部分撤回）
+
+### 決定内容
+- `/api/cron/auto-approve` から `generateAutoApproveTreasure` の呼び出しを削除する
+- レスポンスからも `autoTreasures` フィールドを廃止する
+- `trigger="AUTO"` 自体は **親代理 report-approve (`/api/parent/child-view/quests/[id]/report-approve`) 専用** として存続させる
+
+### 理由
+- cron が拾うのは status が REPORTED / SKIP_REPORTED のクエストで、これらは子セルフ報告経路 (`/api/quests/[id]/report` または `/api/quests/[id]/skip`) を通っているため **同日に STREAK / ALL_COMPLETE が LOCKED で必ず立っている**
+- `approveQuestInstance` 内の `unlockTreasuresOnApprove` がそれらを UNLOCKED に切り替えるので、cron が追加で AUTO を作ると **同日 3 個** になる（STREAK + ALL_COMPLETE + AUTO）。**親が承認しなかった日のほうが、親が承認した日より宝箱が多くなる** という放置インセンティブが生まれていた
+- cron の AUTO は当初「自動承認になった日の慰めの 1個」として導入したが (2026-05-28)、子セルフ経路の STREAK / ALL_COMPLETE と役割が完全に重なる。`generateAutoApproveTreasure` 側で「同日の treasureLog 全般」を見て重複防止する案もあったが、cron 経路でそもそも呼ばないほうがシンプル
+
+### 影響範囲
+- 2026-05-28: 「自動承認 cron は `(childId, date)` で集約して 1 件のみ AUTO 宝箱を即 UNLOCKED で生成」→ **撤回**
+- 2026-05-30: 「親代理 report-approve でも宝箱を生成する（`trigger="AUTO"` 共有）」→ **そのまま有効**（cron 側が AUTO を作らなくなるので、`findFirst({ trigger: "AUTO" })` の冪等性は引き続き機能する。むしろ衝突相手が消えただけ）
+
+### やってはいけないこと
+- `generateAutoApproveTreasure` 関数そのものを削除する（親代理 report-approve がまだ使っている）
+- 親代理経路の AUTO 生成もまとめて消す（親端末しかない家庭の唯一の宝箱経路。decisions.md 2026-05-30 の前提）
+
+### 該当箇所
+- `src/app/api/cron/auto-approve/route.ts` — `generateAutoApproveTreasure` インポートと呼び出しを削除
+- `src/__tests__/api/cron/auto-approve.test.ts` — `mockGenerateAuto` が呼ばれないことを担保するテストに反転
+
 

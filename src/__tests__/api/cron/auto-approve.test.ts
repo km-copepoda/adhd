@@ -120,8 +120,12 @@ describe("GET /api/cron/auto-approve", () => {
     expect(call?.include?.template?.select?.repeatDays).toBe(true);
   });
 
-  describe("宝箱（AUTO）生成", () => {
-    it("(childId, date) ごとに 1 回 generateAutoApproveTreasure を呼ぶ", async () => {
+  describe("宝箱（AUTO）は生成しない", () => {
+    // cron は AUTO 宝箱を生成しない。子セルフ報告経路で STREAK / ALL_COMPLETE が
+    // 既に LOCKED で立っているため、approveQuestInstance の中の
+    // unlockTreasuresOnApprove だけで体験が完結する。
+    // AUTO は親代理経路 (child-view report-approve) 専用の trigger として残す。
+    it("REPORTED が複数あっても generateAutoApproveTreasure は一度も呼ばれない", async () => {
       const d1 = new Date("2026-03-21");
       const d2 = new Date("2026-03-22");
       const quests = [
@@ -130,50 +134,40 @@ describe("GET /api/cron/auto-approve", () => {
         { id: "q-3", status: "REPORTED", date: d2, childId: "c1", templateId: "t1", template: {}, child: { id: "c1", minTasksForStreak: 1 } },
         { id: "q-4", status: "REPORTED", date: d1, childId: "c2", templateId: "t1", template: {}, child: { id: "c2", minTasksForStreak: 2 } },
       ];
-
-      // 1回目: pending quests, 以後: 各 (child,date) の集計
-      mockPrisma.questInstance.findMany
-        .mockResolvedValueOnce(quests as any)
-        // c1/d1
-        .mockResolvedValueOnce([
-          { status: "REPORTED" } as any,
-          { status: "REPORTED" } as any,
-        ])
-        // c1/d2
-        .mockResolvedValueOnce([{ status: "REPORTED" } as any])
-        // c2/d1
-        .mockResolvedValueOnce([{ status: "REPORTED" } as any]);
+      mockPrisma.questInstance.findMany.mockResolvedValueOnce(quests as any);
 
       await GET(makeRequest("test-secret"));
 
-      expect(mockGenerateAuto).toHaveBeenCalledTimes(3);
-      expect(mockGenerateAuto).toHaveBeenCalledWith({
-        childId: "c1",
-        date: d1,
-        reportedCount: 2,
-        totalCount: 2,
-        minTasks: 1,
-      });
-      expect(mockGenerateAuto).toHaveBeenCalledWith({
-        childId: "c1",
-        date: d2,
-        reportedCount: 1,
-        totalCount: 1,
-        minTasks: 1,
-      });
-      expect(mockGenerateAuto).toHaveBeenCalledWith({
-        childId: "c2",
-        date: d1,
-        reportedCount: 1,
-        totalCount: 1,
-        minTasks: 2,
-      });
+      expect(mockGenerateAuto).not.toHaveBeenCalled();
     });
 
-    it("対象クエストが無いときは generateAutoApproveTreasure を呼ばない", async () => {
+    it("SKIP_REPORTED でも generateAutoApproveTreasure は呼ばれない", async () => {
+      const d1 = new Date("2026-03-21");
+      const quests = [
+        { id: "q-s1", status: "SKIP_REPORTED", date: d1, childId: "c1", templateId: "t1", template: {}, child: { id: "c1", minTasksForStreak: 1 } },
+      ];
+      mockPrisma.questInstance.findMany.mockResolvedValueOnce(quests as any);
+
+      await GET(makeRequest("test-secret"));
+
+      expect(mockGenerateAuto).not.toHaveBeenCalled();
+    });
+
+    it("対象クエストが無いときも当然呼ばれない", async () => {
       mockPrisma.questInstance.findMany.mockResolvedValueOnce([]);
       await GET(makeRequest("test-secret"));
       expect(mockGenerateAuto).not.toHaveBeenCalled();
+    });
+
+    it("レスポンスに autoTreasures フィールドを含めない（廃止）", async () => {
+      const yesterday = new Date("2026-03-21");
+      mockPrisma.questInstance.findMany.mockResolvedValueOnce([
+        { id: "q-1", status: "REPORTED", date: yesterday, childId: "c1", templateId: "t1", template: {}, child: { id: "c1", minTasksForStreak: 1 } },
+      ] as any);
+
+      const res = await GET(makeRequest("test-secret"));
+      const body = await res.json();
+      expect(body).not.toHaveProperty("autoTreasures");
     });
   });
 });
