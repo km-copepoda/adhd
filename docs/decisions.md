@@ -1048,3 +1048,24 @@
 - `/app/child/zukan` `/app/child/badges` を即時 redirect / 削除する（外部リンクや既存通知のリンク先を壊す。badge-deprecation spec で計画的に処理する）
 - BottomNav に「コレクション」を 6タブ目として追加するときに既存タブを残す（タブ過密の方針に反する。図鑑・実績の独立タブは必ず外す）
 - BadgesContent の中に「ごほうび履歴」タブを混ぜる（旧ページ側のサブタブ責務であり、コレクションページ側には不要）
+
+## 2026-05-30: 親フッター再整理 — 「完了 + 履歴」を「📊 記録」タブに統合
+
+### 決定内容
+- 親 BottomNav / Sidebar から「🏆 完了」「📅 履歴」の独立タブを外し、**「📊 記録」1タブ**に集約
+- 新規 `/app/parent/records` ページ: **「🏆 今日」「📅 過去」の2タブ**
+- 旧 `/app/parent/completed` `/app/parent/history` は **残置**（リダイレクトせず）
+- 完了タスク本体 → `src/components/parent/CompletedContent.tsx` に抽出
+- 履歴本体 → `src/components/parent/HistoryContent.tsx` に抽出
+- 旧ページは抽出済みコンポーネントを呼ぶだけの薄ラッパに
+
+### 理由
+- 親 BottomNav が 8タブ + PushSubscriber で過密化しており、2026-05-30 子フッター再設計と同じ「タブ過密回避」の方針を適用
+- 「今日の完了」と「過去の記録」は **同じ振り返り軸**（やったことを見る）で認知統合しやすい
+- 子の `/app/child/collection` と同じ「2サブタブで統合」パターンを踏襲することで実装・UX に一貫性
+- PushSubscriber は **意図的にフッターに残置**: 購読オフのユーザに最も目立つ位置で通知許可を促し続けたい（設定画面に隠さない）
+
+### やってはいけないこと
+- `/app/parent/completed` `/app/parent/history` を即時 redirect / 削除する（外部リンクやブックマークを壊す）
+- ParentBottomNav / Sidebar に「完了」「履歴」を独立タブとして復活させる（タブ過密の方針に反する）
+- PushSubscriber をフッターから外して「ファミリー」ページ等の奥に移動する（通知許可率が落ちる）

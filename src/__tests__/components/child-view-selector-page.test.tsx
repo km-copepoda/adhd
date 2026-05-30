@@ -110,7 +110,7 @@ describe("ChildViewSelectorPage", () => {
     expect(Number(bars[0].getAttribute("aria-valuemax") ?? "0")).toBeGreaterThan(0);
   });
 
-  it("フッターに親画面と同じ ParentBottomNav が表示される（タスク/承認/子供モード/完了/履歴/ひろば/家族）", async () => {
+  it("フッターに親画面と同じ ParentBottomNav が表示される（タスク/承認/子供モード/記録/ひろば/家族）", async () => {
     render(<ChildViewSelectorPage />);
     await waitFor(() => expect(screen.getByText("ラーン")).toBeTruthy());
 
@@ -123,11 +123,8 @@ describe("ChildViewSelectorPage", () => {
     expect(screen.getByRole("link", { name: /子供モード/ }).getAttribute("href")).toBe(
       "/app/parent/child-view",
     );
-    expect(screen.getByRole("link", { name: /完了/ }).getAttribute("href")).toBe(
-      "/app/parent/completed",
-    );
-    expect(screen.getByRole("link", { name: /履歴/ }).getAttribute("href")).toBe(
-      "/app/parent/history",
+    expect(screen.getByRole("link", { name: /記録/ }).getAttribute("href")).toBe(
+      "/app/parent/records",
     );
     expect(screen.getByRole("link", { name: /ひろば/ }).getAttribute("href")).toBe(
       "/app/parent/gathering",
