@@ -6,6 +6,8 @@ import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
+import { computeCompletedCount } from "@/lib/questProgress";
+import { generateAutoApproveTreasure } from "@/lib/treasureService";
 
 export async function POST(
   request: Request,
@@ -79,6 +81,25 @@ export async function POST(
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
   await approveQuestInstance(updatedQuest as any, stamp ?? undefined);
+
+  // 親代理経路でも minTasks 到達時に AUTO 宝箱を即 UNLOCKED で生成する（2026-05-30 決定）。
+  // trigger="AUTO" を auto-approve cron と共有することで、同日に二重発火しても 1個に収まる。
+  // 親端末しかない家庭で「あと一個で宝箱出るよ」の体験を完結させるための導線。
+  const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
+  const todayQuests = await prisma.questInstance.findMany({
+    where: { childId: child.id, date: quest.date },
+    select: { status: true },
+  });
+  const reportedCount = computeCompletedCount(todayQuests);
+  if (reportedCount >= minTasks) {
+    await generateAutoApproveTreasure({
+      childId: child.id,
+      date: quest.date,
+      reportedCount,
+      totalCount: todayQuests.length,
+      minTasks,
+    });
+  }
 
   // TASK_* 進捗ログは通常 /api/quests/[id]/report が発火する。代理報告でも子供本人の社会的フィードバック
   // を維持するため、ここで明示的に同等の after() 発火を行う（decisions.md 2026-05-11 / 2026-05-01）

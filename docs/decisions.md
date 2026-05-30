@@ -1082,3 +1082,34 @@
 - 親モードで `lastSeenCollectedCount` / `lastSeenBadgeUnlockedCount` / `treasure-changed` イベントなど **子供 BottomNav 用の既読フラグ** を更新する（親端末の localStorage が子供画面のバッジ表示に干渉する）
 - 親モードで Supabase Realtime を購読する（2026-05-11 で警戒した子供向け副作用の親端末発火事故が起こる）
 
+## 2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）
+
+### 決定内容
+- 2026-05-28 の「親代理経路（child-view からの報告 / 承認）は宝箱対象外」方針を **部分的に覆し**、`/api/parent/child-view/quests/[id]/report-approve` で APPROVED 確定後に **`generateAutoApproveTreasure` を呼ぶ** ように変更
+- 仕様は auto-approve cron と完全に揃える:
+  - `trigger="AUTO"`・`status="UNLOCKED"`（即開封可能 / 親自身が開封 API で開けられる）
+  - 同日に 1個のみ（既に AUTO があれば作らない冪等性は `generateAutoApproveTreasure` 側に内蔵）
+  - 親プールが空なら作らない / `reportedCount >= minTasks` を満たさなければ作らない
+- 計算は `computeCompletedCount` で報告APIと同じ集計に統一（REPORTED + APPROVED + SKIP_REPORTED + SKIPPED）
+- 子供本人セルフ報告経路の `generateTreasuresOnReport`（STREAK / ALL_COMPLETE で LOCKED 生成）は **触らない**。子供セルフ体験は LOCKED→承認待ち→UNLOCKED→開封の段階的演出を維持する
+
+### 理由
+- MVP ヒアリングで「親端末しか持たない家庭で子供モードを使わせるとき、『あと一個で宝箱出るよ！』という声かけのコミュニケーション・モチベーションが欲しい」という意見が複数上がった
+- 2026-05-30（同日）で「親モードでも宝箱を開封できる」を追加したが、**生成側が止まっていると親代理経路では永久に開けるものが現れない**矛盾が残っていた（子供本人の報告で生まれた LOCKED は別経路で承認されないと UNLOCKED にならない / cron は当日終わりまで走らない）
+- `trigger="AUTO"` を再利用するのが最小コスト:
+  - cron との競合は `findFirst({ trigger: "AUTO" })` で既に防がれている（先に親が出していたら cron は出さない / 逆も同様）
+  - 1日1個・即 UNLOCKED の体験仕様は auto-approve と同等で説明コストが低い
+- 2026-05-28 の「子供の自発的動機を阻害しない」原則は、**子供端末がある家庭で親が代理ショートカットしないため**の境界。**親端末しかない家庭ではそもそも『子供の自発的動機を阻害する余地が存在しない』** ため、原則の対象外と判断
+- LOCKED にしてしまうと「親が報告 → 親が承認 → でも UNLOCKED にならない（同セッション内で二段階を踏まない）」のような分岐になるか、`unlockTreasuresOnApprove` のシーケンスを書き換える必要があり、シンプルさを失う
+
+### やってはいけないこと
+- 親代理経路で `generateTreasuresOnReport`（LOCKED 生成）を呼ぶ。LOCKED は「子供セルフ報告 → 親承認待ち」の段階的演出専用。親代理経路は即 UNLOCKED 一本に統一する
+- 新しい trigger 値（例: "PROXY"）を作る。`trigger="AUTO"` を共有することで cron との冪等性が成り立つ。トリガーを分けると同日に 2個出る穴ができる
+- minTasks 判定を route 層でスキップして常に `generateAutoApproveTreasure` を呼ぶ。関数内部でも判定はされるが、route 層で早期 return することで「あと N 個で宝箱」状態を把握しやすくする / DB ラウンドトリップを節約する
+- 親代理開封経路 (`/api/parent/child-view/treasures/open`) で親に Push を送る（2026-05-30 既決定の通り。生成と開封が同一セッション内で完結するため二重通知になる）
+
+### 該当箇所
+- `src/app/api/parent/child-view/quests/[id]/report-approve/route.ts` — `approveQuestInstance` 直後に `generateAutoApproveTreasure` を呼ぶ
+- 集計は `computeCompletedCount` を共有（`src/lib/questProgress.ts`）。cron と同じセマンティクス
+
+
