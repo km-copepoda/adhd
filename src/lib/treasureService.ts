@@ -18,6 +18,7 @@ import {
 } from "@/lib/collectionItems";
 import { drawCollectionItem } from "@/lib/collectionDraw";
 import { awardCollectionItem } from "@/lib/collectionService";
+import { triggerCollectionItemLog } from "@/lib/bulletinLog";
 
 export interface TreasureCondition {
   childId: string;
@@ -238,6 +239,10 @@ export async function openOldestTreasure(
         image: picked.image,
         count: owned.count,
       };
+      // 初獲得 (count===1) のみひろばに書き込む。ダブり獲得は通知しない。
+      if (owned.count === 1) {
+        await triggerCollectionItemLog(childId, picked.id);
+      }
     }
   }
 
@@ -246,6 +251,7 @@ export async function openOldestTreasure(
     data: {
       status: "OPENED",
       itemId: draw.itemId,
+      collectionItemId: collectionItem?.id ?? null,
       openedAt: now,
     },
   });

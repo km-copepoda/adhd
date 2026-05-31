@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
 import {
@@ -8,12 +9,26 @@ import {
   formatChildRarity,
   type TreasureRarity,
 } from "@/lib/treasureRarity";
+import { SEASON_LABEL, type CollectionRarity } from "@/lib/collectionItems";
+
+const COLLECTION_RARITY_STARS: Record<CollectionRarity, string> = {
+  COMMON: "★",
+  UNCOMMON: "★★",
+  RARE: "★★★",
+};
 
 interface OpenedLog {
   id: string;
   openedAt: string;
   boosted: boolean;
   item: { id: string; title: string; rarity: TreasureRarity } | null;
+  collectionItem: {
+    id: string;
+    name: string;
+    season: "spring" | "summer" | "fall" | "winter";
+    rarity: CollectionRarity;
+    image: string;
+  } | null;
 }
 
 interface StatusResponse {
@@ -71,14 +86,31 @@ export default function TreasureHistoryList() {
             key={o.id}
             className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
           >
-            <span className="text-2xl" aria-hidden>
-              {o.item ? "🎁" : "🏆"}
-            </span>
+            <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center" aria-hidden>
+              {o.item ? (
+                <span className="text-2xl">🎁</span>
+              ) : o.collectionItem ? (
+                <Image
+                  src={o.collectionItem.image}
+                  alt={o.collectionItem.name}
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <span className="text-2xl">🏆</span>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm truncate">
-                {o.item ? o.item.title : "コレクションアイテム"}
+                {o.item ? o.item.title : o.collectionItem ? o.collectionItem.name : "コレクションアイテム"}
               </div>
               <div className="text-[11px] text-quest-dim">
+                {o.collectionItem && (
+                  <span className="mr-2">
+                    {SEASON_LABEL[o.collectionItem.season]}・{COLLECTION_RARITY_STARS[o.collectionItem.rarity]}
+                  </span>
+                )}
                 {formatTreasureOpenedAt(o.openedAt)}
                 {o.boosted && <span className="ml-2 text-quest-gold">★ ボーナス宝箱</span>}
               </div>

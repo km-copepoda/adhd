@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { getTreasureHistoryCutoff } from "@/lib/treasureHistory";
+import { getCollectionItemById } from "@/lib/collectionItems";
 
 const HISTORY_LIMIT = 50;
 
@@ -50,11 +51,17 @@ export async function GET(request: Request) {
     locked,
     unlocked,
     hasPool: poolSize > 0,
-    opened: opened.map((o: any) => ({
-      id: o.id,
-      openedAt: o.openedAt,
-      boosted: o.boosted,
-      item: o.item,
-    })),
+    opened: opened.map((o: any) => {
+      const ci = o.collectionItemId ? getCollectionItemById(o.collectionItemId) : null;
+      return {
+        id: o.id,
+        openedAt: o.openedAt,
+        boosted: o.boosted,
+        item: o.item,
+        collectionItem: ci
+          ? { id: ci.id, name: ci.name, season: ci.season, rarity: ci.rarity, image: ci.image }
+          : null,
+      };
+    }),
   });
 }

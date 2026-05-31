@@ -12,6 +12,9 @@ vi.mock("next/image", () => ({
 import ItemsContent from "@/components/child/ItemsContent";
 
 function mockApiResponse() {
+  // 今日獲得 + 過去獲得 + 未獲得 のサンプル
+  const todayIso = new Date().toISOString();
+  const yesterdayIso = new Date(Date.now() - 36 * 3600 * 1000).toISOString();
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     json: () =>
@@ -21,17 +24,17 @@ function mockApiResponse() {
           {
             id: "summer-01", season: "summer", category: "creature", rarity: "COMMON",
             name: "カブトムシ", description: "夏の王様", image: "/x.webp",
-            owned: true, count: 1, firstAcquiredAt: null, lastAcquiredAt: null,
+            owned: true, count: 1, firstAcquiredAt: todayIso, lastAcquiredAt: todayIso,
           },
           {
             id: "summer-03", season: "summer", category: "creature", rarity: "UNCOMMON",
             name: "クラゲ", description: "海のランプ", image: "/x.webp",
-            owned: true, count: 1, firstAcquiredAt: null, lastAcquiredAt: null,
+            owned: true, count: 1, firstAcquiredAt: yesterdayIso, lastAcquiredAt: yesterdayIso,
           },
           {
             id: "summer-04", season: "summer", category: "creature", rarity: "RARE",
             name: "リュウグウノツカイ", description: "深海の伝説", image: "/x.webp",
-            owned: true, count: 1, firstAcquiredAt: null, lastAcquiredAt: null,
+            owned: true, count: 1, firstAcquiredAt: todayIso, lastAcquiredAt: todayIso,
           },
         ],
       }),
@@ -60,5 +63,13 @@ describe("ItemsContent のレア度バッジ", () => {
     await waitFor(() => expect(screen.getByText("リュウグウノツカイ")).toBeTruthy());
     expect(screen.getAllByText("★★").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("★★★").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("今日獲得したアイテムには NEW バッジが付く (過去獲得には付かない)", async () => {
+    render(<ItemsContent />);
+    await waitFor(() => expect(screen.getByText("カブトムシ")).toBeTruthy());
+    // カブトムシ (今日) と リュウグウノツカイ (今日) で 2 つ NEW が出る
+    const news = screen.getAllByText("NEW");
+    expect(news.length).toBe(2);
   });
 });
