@@ -149,3 +149,27 @@ export async function triggerStampSentLog(childId: string): Promise<void> {
     log.error("triggerStampSentLog failed", { childId, err });
   }
 }
+
+/** 宝箱で新規コレクションアイテム獲得ログをトリガー（openOldestTreasure 内で count===1 のときに呼ぶ）。
+ * key=collectionItemId なので、同日に複数の異なるアイテムを獲得した場合はすべて書き込まれる。
+ * 同じアイテムをダブり獲得した場合は呼び出し側で count!==1 のときスキップする。 */
+export async function triggerCollectionItemLog(
+  childId: string,
+  collectionItemId: string,
+): Promise<void> {
+  try {
+    const groupId = await getChildGroupId(childId);
+    if (!groupId) return;
+    const displayName = await getDisplayName(childId);
+    if (!displayName) return;
+    await writeBulletinLog(
+      groupId,
+      childId,
+      displayName,
+      "COLLECTION_ITEM_OBTAINED",
+      collectionItemId,
+    );
+  } catch (err) {
+    log.error("triggerCollectionItemLog failed", { childId, collectionItemId, err });
+  }
+}

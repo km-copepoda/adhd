@@ -17,6 +17,7 @@ import {
   type CollectionRarity,
   type CollectionSeason,
 } from "@/lib/collectionItems";
+import { todayStringJST } from "@/lib/date";
 
 interface ApiItem {
   id: string;
@@ -102,9 +103,20 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
 
   if (loading || !data || !season) return <LoadingSpinner />;
 
+  const todayStr = todayStringJST();
+  const isAcquiredToday = (lastAcquiredAt: string | null): boolean => {
+    if (!lastAcquiredAt) return false;
+    // ISO 文字列を JST に変換した日付文字列で比較
+    const jstDate = new Date(new Date(lastAcquiredAt).getTime() + 9 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    return jstDate === todayStr;
+  };
+
   const seasonItems = data.items.filter((i) => i.season === season);
   const ownedInSeason = seasonItems.filter((i) => i.owned).length;
   const totalOwned = data.items.filter((i) => i.owned).length;
+  const todayCount = data.items.filter((i) => i.owned && isAcquiredToday(i.lastAcquiredAt)).length;
 
   return (
     <div className="px-4 pt-6 pb-24">
@@ -114,6 +126,11 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
       <p className="text-quest-dim text-xs text-center mb-4">
         ぜんぶで <span className="text-quest-text font-bold">{totalOwned}</span> /{" "}
         {data.items.length} こ
+        {todayCount > 0 && (
+          <span className="ml-2 text-quest-mint">
+            （きょう +{todayCount}）
+          </span>
+        )}
       </p>
 
       {/* シーズンタブ */}
@@ -182,6 +199,11 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                           filter: it.owned ? undefined : "brightness(0) opacity(0.3)",
                         }}
                       />
+                      {it.owned && isAcquiredToday(it.lastAcquiredAt) && (
+                        <span className="absolute -top-1 -left-1 bg-quest-mint text-quest-bg text-[9px] font-bold rounded px-1 py-0.5 shadow">
+                          NEW
+                        </span>
+                      )}
                       {it.owned && it.count > 1 && (
                         <span className="absolute -bottom-1 -right-1 bg-quest-gold text-quest-bg text-[9px] font-bold rounded-full px-1.5 py-0.5">
                           ×{it.count}

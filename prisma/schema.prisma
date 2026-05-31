@@ -282,18 +282,21 @@ model TreasureItem {
 /// 自動承認時は LOCKED をスキップして直接 UNLOCKED で生成。
 /// 差し戻しで minTasks を割った場合は CANCELLED。
 model TreasureLog {
-  id        String          @id @default(cuid())
-  childId   String
-  child     User            @relation(fields: [childId], references: [id], onDelete: Cascade)
-  date      DateTime        @db.Date
-  trigger   TreasureTrigger
-  boosted   Boolean         @default(false)
-  status    TreasureStatus  @default(LOCKED)
-  itemId    String?
-  item      TreasureItem?   @relation(fields: [itemId], references: [id])
-  openedAt  DateTime?
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id               String          @id @default(cuid())
+  childId          String
+  child            User            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date             DateTime        @db.Date
+  trigger          TreasureTrigger
+  boosted          Boolean         @default(false)
+  status           TreasureStatus  @default(LOCKED)
+  itemId           String?
+  item             TreasureItem?   @relation(fields: [itemId], references: [id])
+  /// 親ごほうび不当選時に付与されたコレクションアイテムの id (例: "summer-01")。
+  /// マスターは src/lib/collectionItems.ts (DB FK 無し)。当選 / 未開封なら null。
+  collectionItemId String?
+  openedAt         DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([childId, status])
   @@index([childId, date])

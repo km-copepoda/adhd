@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { getTreasureHistoryCutoff } from "@/lib/treasureHistory";
+import { getCollectionItemById } from "@/lib/collectionItems";
 
 const HISTORY_LIMIT = 50;
 
@@ -47,11 +48,18 @@ export async function GET() {
     locked,
     unlocked,
     hasPool: poolSize > 0,
-    opened: opened.map((o) => ({
-      id: o.id,
-      openedAt: o.openedAt,
-      boosted: o.boosted,
-      item: o.item, // null = 親ごほうび不当選 (代わりにコレクションアイテムが付与済み)
-    })),
+    opened: opened.map((o) => {
+      // 親ごほうび不当選時は collectionItemId からマスター情報を解決して履歴に表示
+      const ci = o.collectionItemId ? getCollectionItemById(o.collectionItemId) : null;
+      return {
+        id: o.id,
+        openedAt: o.openedAt,
+        boosted: o.boosted,
+        item: o.item, // null = 親ごほうび不当選
+        collectionItem: ci
+          ? { id: ci.id, name: ci.name, season: ci.season, rarity: ci.rarity, image: ci.image }
+          : null,
+      };
+    }),
   });
 }

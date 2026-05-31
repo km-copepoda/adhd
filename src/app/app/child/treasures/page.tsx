@@ -9,14 +9,28 @@ import {
   formatChildRarity,
   type TreasureRarity,
 } from "@/lib/treasureRarity";
+import { SEASON_LABEL, type CollectionRarity } from "@/lib/collectionItems";
 
 type Rarity = TreasureRarity;
+
+const COLLECTION_RARITY_STARS: Record<CollectionRarity, string> = {
+  COMMON: "★",
+  UNCOMMON: "★★",
+  RARE: "★★★",
+};
 
 interface OpenedLog {
   id: string;
   openedAt: string;
   boosted: boolean;
   item: { id: string; title: string; rarity: Rarity } | null;
+  collectionItem: {
+    id: string;
+    name: string;
+    season: "spring" | "summer" | "fall" | "winter";
+    rarity: Rarity;
+    image: string;
+  } | null;
 }
 
 interface StatusResponse {
@@ -148,14 +162,31 @@ export default function ChildTreasuresPage() {
                 key={o.id}
                 className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
               >
-                <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-3xl" aria-hidden>
-                  {o.item ? "🎁" : "🏆"}
+                <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center" aria-hidden>
+                  {o.item ? (
+                    <span className="text-3xl">🎁</span>
+                  ) : o.collectionItem ? (
+                    <Image
+                      src={o.collectionItem.image}
+                      alt={o.collectionItem.name}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-3xl">🏆</span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">
-                    {o.item ? o.item.title : "🎁 コレクションアイテム"}
+                    {o.item ? o.item.title : o.collectionItem ? o.collectionItem.name : "コレクションアイテム"}
                   </div>
                   <div className="text-[11px] text-quest-dim">
+                    {o.collectionItem && (
+                      <span className="mr-2">
+                        {SEASON_LABEL[o.collectionItem.season]}・{COLLECTION_RARITY_STARS[o.collectionItem.rarity]}
+                      </span>
+                    )}
                     {formatDate(o.openedAt)}
                     {o.boosted && <span className="ml-2 text-quest-gold">★ ボーナス</span>}
                   </div>

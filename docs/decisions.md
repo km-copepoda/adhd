@@ -1321,3 +1321,35 @@
 - `src/components/child/TreasureStock.tsx` + 子・親代理 treasures ページ — 型から `miss` 削除、履歴アイコンを emoji 化
 - テスト 6 ファイル（treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / 子・親代理 treasures page / treasures/status）から `miss` の mock/assertion 撤去
 
+
+
+## 2026-05-31: コレクションアイテム獲得をひろば通知＋履歴・図鑑に反映
+
+### 決定内容
+- **ひろば通知**: 宝箱開封で新規（count===1）コレクションアイテムを獲得したとき、`BulletinLog` に `COLLECTION_ITEM_OBTAINED` を書き込む。実績バッジ獲得と同等扱い。
+  - メッセージ: `${子供名}は${季節}の${★}コレクション「${アイテム名}」を手に入れた！`
+  - ダブり獲得（count>=2）は通知しない（ノイズになるため）
+  - 同日内で別アイテムを複数獲得した場合はすべて通知（unique key = collectionItemId）
+- **宝箱履歴の表示**: 親ごほうび不当選行を「コレクションアイテム」と一律表示するのをやめ、**獲得した具体的アイテムを表示**する（画像 + 名前 + 季節 + ★）。
+  - そのために `TreasureLog.collectionItemId` カラムを追加（マスター id 例 "summer-01" を保存、FK は無し）
+  - `/api/treasures/status` と child-view 版でマスター解決した `collectionItem` を `opened[]` に含める
+- **コレクションタブの "今日獲得" 表示**: `ItemsContent` で `lastAcquiredAt` を JST 比較し、本日獲得のアイテムに **NEW バッジ** を表示。ヘッダーにも「きょう +N」を併記。
+
+### 理由
+- 宝箱を開封したとき「コレクションアイテム」とだけ書かれていても**何が出たか履歴で見返せず**、コレクション収集の楽しみが半減していた。具体アイテムを保存・表示することで、宝箱を開ける度の体験を後から振り返れる
+- ひろば通知（実績バッジと同じ位置付け）により、コレクション獲得が **グループ内で共有される達成イベント** に格上げされる。1日に複数獲得した場合の通知重複を避けるため、初獲得のみに限定
+- 「今日もう手に入れた / これから取りに行く」が一目で分かるよう、NEW バッジで認知負荷を下げる。ヘッダーの「きょう +N」は集計的視点を与える
+
+### やってはいけないこと
+- ダブり獲得もひろば通知する（ノイズになる。badge / 進化など他の "新規イベント" 通知パターンと整合性が崩れる）
+- `TreasureLog.collectionItemId` に外部キー制約を張る（マスターは `src/lib/collectionItems.ts` のコード管理。シーズン仕様改廃時の DB マイグレーションが面倒になる）
+- 履歴 UI で旧「🏆 コレクションアイテム」ジェネリック表示に戻す（具体アイテム表示が無いと、収集体験のフィードバックループが切れる）
+- NEW バッジを「初獲得（count===1）のみ」にする（同じアイテムをダブり獲得した日も "今日の獲得実績" としてはハイライトしたい。「今日 acquired」== `lastAcquiredAt` JST 一致 で判定）
+
+### 該当箇所
+- スキーマ: `prisma/schema.prisma` `TreasureLog.collectionItemId` + `prisma/migrations/20260531000003_add_treasurelog_collection_item_id/migration.sql`
+- ひろば: `src/lib/gathering.ts`（`COLLECTION_ITEM_OBTAINED` 型 + メッセージ + 絵文字 🎴）/ `src/lib/bulletinLog.ts`（`triggerCollectionItemLog`）
+- 統合: `src/lib/treasureService.ts` `openOldestTreasure` — `collectionItemId` を保存し、count===1 のとき trigger
+- API: `src/app/api/treasures/status/route.ts` + child-view 版 — `opened[]` に `collectionItem` (name/season/rarity/image) を含める
+- UI: `src/app/app/child/treasures/page.tsx` + 親代理版 + `src/components/child/TreasureHistoryList.tsx` — 履歴行に具体アイテム表示
+- UI: `src/components/child/ItemsContent.tsx` — NEW バッジ + ヘッダー「きょう +N」

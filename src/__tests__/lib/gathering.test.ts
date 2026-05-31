@@ -173,6 +173,30 @@ describe("buildBulletinMessage", () => {
     expect(msg).toContain("エール");
   });
 
+  it("COLLECTION_ITEM_OBTAINED: 子供名・アイテム名・季節・レア度(★)を含む", () => {
+    // extra = collection item id (e.g. "summer-01")。
+    // メッセージ内で id を解決し、季節 + ★ + アイテム名を埋め込む。
+    const msg = buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう", "summer-01");
+    expect(msg).toContain("たろう");
+    expect(msg).toContain("カブトムシ");
+    expect(msg).toContain("夏");
+    expect(msg).toContain("★");
+  });
+
+  it("COLLECTION_ITEM_OBTAINED: RARE (★★★) のとき星 3 つを含む", () => {
+    const msg = buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう", "summer-04");
+    expect(msg).toContain("リュウグウノツカイ");
+    expect(msg).toContain("★★★");
+  });
+
+  it("COLLECTION_ITEM_OBTAINED: 未知の id は空文字列を返す (書き込みされない)", () => {
+    expect(buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう", "bogus-99")).toBe("");
+  });
+
+  it("COLLECTION_ITEM_OBTAINED: extra 未指定でも空文字列", () => {
+    expect(buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう")).toBe("");
+  });
+
   it("不明なtypeは空文字を返す", () => {
     expect(buildBulletinMessage("UNKNOWN_TYPE", "だれか")).toBe("");
   });
