@@ -483,7 +483,7 @@ describe("openOldestTreasure", () => {
     expect(result!.collectionItem!.count).toBe(3);
   });
 
-  it("初獲得 (count===1) はひろば書き込みをトリガーする", async () => {
+  it("初獲得 (count===1) はひろば書き込みをトリガー (item id + count を渡す)", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue({
       id: "log-new", childId: "c1", boosted: false,
     } as any);
@@ -499,10 +499,10 @@ describe("openOldestTreasure", () => {
     });
 
     expect(mockTriggerCollectionLog).toHaveBeenCalledTimes(1);
-    expect(mockTriggerCollectionLog).toHaveBeenCalledWith("c1", result!.collectionItem!.id);
+    expect(mockTriggerCollectionLog).toHaveBeenCalledWith("c1", result!.collectionItem!.id, 1);
   });
 
-  it("ダブり獲得 (count>=2) はひろば書き込みをトリガーしない", async () => {
+  it("ダブり獲得 (count>=2) もひろば書き込みをトリガーする (count をそのまま渡す)", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue({
       id: "log-dup2", childId: "c1", boosted: false,
     } as any);
@@ -511,10 +511,11 @@ describe("openOldestTreasure", () => {
     } as any);
     mockPrisma.treasureItem.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-    mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 2 } as any);
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 3 } as any);
 
-    await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
-    expect(mockTriggerCollectionLog).not.toHaveBeenCalled();
+    const result = await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+    expect(mockTriggerCollectionLog).toHaveBeenCalledTimes(1);
+    expect(mockTriggerCollectionLog).toHaveBeenCalledWith("c1", result!.collectionItem!.id, 3);
   });
 
   it("親ごほうび当選時はコレクション書き込みをトリガーしない", async () => {
