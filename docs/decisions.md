@@ -1353,3 +1353,18 @@
 - API: `src/app/api/treasures/status/route.ts` + child-view 版 — `opened[]` に `collectionItem` (name/season/rarity/image) を含める
 - UI: `src/app/app/child/treasures/page.tsx` + 親代理版 + `src/components/child/TreasureHistoryList.tsx` — 履歴行に具体アイテム表示
 - UI: `src/components/child/ItemsContent.tsx` — NEW バッジ + ヘッダー「きょう +N」
+
+
+## 2026-05-31: コレクション獲得通知をダブり獲得でも飛ばす（同日同 entry の 2026-05-31 を部分撤回）
+
+### 決定内容
+- `openOldestTreasure` の「初獲得 (count===1) のみ `triggerCollectionItemLog` を呼ぶ」ガードを撤去
+- `triggerCollectionItemLog(childId, itemId, count)` に count を必須で渡す
+- BulletinLog の `key` を `${itemId}#${count}` に変更し、同日同 itemId のダブり獲得でも unique 制約と衝突しないように
+- `writeBulletinLog` に `customKey?: string` パラメータを追加（extra と独立に key を上書き可能）
+- 同 entry「やってはいけないこと: ダブり獲得もひろば通知する」を撤回
+
+### 理由
+- ノイズ懸念で初獲得のみに絞っていたが、子供視点では **獲得イベント自体がお祝い**であり、ダブりだから黙る意味は薄い
+- ひろば UI 側の `coalesceBurst` がバースト書き込みを 1 エントリにまとめてくれるので、連打開封で 5 件並ぶこともない（視覚的にはコレクション 1 件＋カウンタ）
+- 「自分の獲得が必ずひろばに出る」という挙動の一貫性のほうが、子供に「予測可能性」を与える

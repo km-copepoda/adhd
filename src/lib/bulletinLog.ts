@@ -31,6 +31,7 @@ async function writeBulletinLog(
   displayName: string,
   type: BulletinLogType,
   extra?: string,
+  customKey?: string,
 ): Promise<void> {
   const message = buildBulletinMessage(type, displayName, extra);
   if (!message) return;
@@ -38,7 +39,9 @@ async function writeBulletinLog(
   // unique は (groupId, childId, type, date, key)。同日に別バッジ・別進化先を複数件
   // 書き込めるよう、type のサブ識別子（バッジ名・称号・モンスター名・卵タイプ）を key に入れる。
   // TASK_* は extra を使わないため key="" で従来通り冪等。
-  const key = extra ?? "";
+  // customKey を渡された場合は extra と別に独自 key 体系を許可（例: コレクション
+  // のダブり獲得を許すため `${itemId}#${count}` を渡す）。
+  const key = customKey ?? extra ?? "";
   try {
     await prisma.bulletinLog.create({
       data: { groupId, childId, type, message, key, date },
@@ -150,12 +153,16 @@ export async function triggerStampSentLog(childId: string): Promise<void> {
   }
 }
 
-/** 宝箱で新規コレクションアイテム獲得ログをトリガー（openOldestTreasure 内で count===1 のときに呼ぶ）。
- * key=collectionItemId なので、同日に複数の異なるアイテムを獲得した場合はすべて書き込まれる。
- * 同じアイテムをダブり獲得した場合は呼び出し側で count!==1 のときスキップする。 */
+/** 宝箱でコレクションアイテム獲得ログをトリガー（openOldestTreasure から毎回呼ぶ）。
+ * ダブり獲得 (count>=2) も含めて全件通知する。
+ * key=`${itemId}#${count}` で BulletinLog の unique 制約を回避し、
+ * 同日同じアイテムを複数回獲得しても 1 回 1 件書き込まれる。
+ * メッセージは name/season/★ のみで count は含めない（バーストはひろば UI 側の
+ * `coalesceBurst` で視覚的にまとめられる）。 */
 export async function triggerCollectionItemLog(
   childId: string,
   collectionItemId: string,
+  count: number,
 ): Promise<void> {
   try {
     const groupId = await getChildGroupId(childId);
@@ -168,8 +175,9 @@ export async function triggerCollectionItemLog(
       displayName,
       "COLLECTION_ITEM_OBTAINED",
       collectionItemId,
+      `${collectionItemId}#${count}`,
     );
   } catch (err) {
-    log.error("triggerCollectionItemLog failed", { childId, collectionItemId, err });
+    log.error("triggerCollectionItemLog failed", { childId, collectionItemId, count, err });
   }
 }

@@ -239,10 +239,10 @@ export async function openOldestTreasure(
         image: picked.image,
         count: owned.count,
       };
-      // 初獲得 (count===1) のみひろばに書き込む。ダブり獲得は通知しない。
-      if (owned.count === 1) {
-        await triggerCollectionItemLog(childId, picked.id);
-      }
+      // 獲得のたびに毎回ひろばに書き込む（ダブりも含む）。
+      // key=${itemId}#${count} で unique を回避するため triggerCollectionItemLog が
+      // 同日複数件の書き込みを許容する。
+      await triggerCollectionItemLog(childId, picked.id, owned.count);
     }
   }
 
