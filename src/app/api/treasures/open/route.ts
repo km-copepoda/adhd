@@ -2,7 +2,10 @@
 //
 // POST /api/treasures/open
 // 戻り値:
-//   { ok, miss, pityTriggered, item: {id,title,rarity} | null, remainingUnlocked: number }
+//   { ok, miss, pityTriggered, item: {id,title,rarity} | null,
+//     collectionItem: {id,name,rarity,season,description,image,count} | null,
+//     remainingUnlocked: number }
+// ハズレ枠 (miss=true) では現在のシーズンのコレクションアイテムを必ず 1個付与する。
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -55,6 +58,7 @@ export async function POST() {
     miss: result.miss,
     pityTriggered: result.pityTriggered,
     item: result.item,
+    collectionItem: result.collectionItem,
     remainingUnlocked,
   });
 }

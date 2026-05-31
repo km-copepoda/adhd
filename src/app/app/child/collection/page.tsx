@@ -1,19 +1,17 @@
 "use client";
 
 // 子供向け「コレクション」ページ。
-// 旧 `/app/child/zukan` と `/app/child/badges` の内容をタブ切替で 1画面に統合。
-//
-// タブ構成（仕様 docs/child-footer-redesign.md からの暫定差し替え）:
-//  - 📖 図鑑   — ZukanContent
-//  - 🏅 実績   — BadgesContent
-// 仕様書には「図鑑 + 宝箱アイテム」と書かれているが、collection-items spec が
-// 未実装のため、当面は「図鑑 + 実績」の 2タブで運用する（決定: docs/decisions.md）。
+// タブ構成 (仕様書原案: 図鑑 + 宝箱アイテム + 実績):
+//  - 📖 図鑑     — ZukanContent
+//  - 🎁 アイテム — ItemsContent (宝箱ハズレ枠のコレクションアイテム)
+//  - 🏅 実績     — BadgesContent
 
 import { useState } from "react";
 import ZukanContent from "@/components/child/ZukanContent";
 import BadgesContent from "@/components/child/BadgesContent";
+import ItemsContent from "@/components/child/ItemsContent";
 
-type Tab = "zukan" | "badges";
+type Tab = "zukan" | "items" | "badges";
 
 export default function CollectionPage() {
   const [tab, setTab] = useState<Tab>("zukan");
@@ -36,6 +34,13 @@ export default function CollectionPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTab("items")}
+            className={`${base} ${tab === "items" ? active : inactive}`}
+          >
+            🎁 アイテム
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("badges")}
             className={`${base} ${tab === "badges" ? active : inactive}`}
           >
@@ -44,7 +49,9 @@ export default function CollectionPage() {
         </div>
       </div>
 
-      {tab === "zukan" ? <ZukanContent /> : <BadgesContent />}
+      {tab === "zukan" && <ZukanContent />}
+      {tab === "items" && <ItemsContent />}
+      {tab === "badges" && <BadgesContent />}
     </div>
   );
 }

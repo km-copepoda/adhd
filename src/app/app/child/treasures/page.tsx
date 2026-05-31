@@ -29,6 +29,15 @@ interface TreasureOpenResult {
   miss: boolean;
   pityTriggered: boolean;
   item: { id: string; title: string; rarity: Rarity } | null;
+  collectionItem: {
+    id: string;
+    name: string;
+    rarity: Rarity;
+    season: "spring" | "summer" | "fall" | "winter";
+    description: string;
+    image: string;
+    count: number;
+  } | null;
   remainingUnlocked: number;
 }
 

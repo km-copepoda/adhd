@@ -1214,4 +1214,45 @@
 - `src/app/api/parent/child-view/quests/[id]/report-approve/route.ts` — 呼び出し元
 - テスト 3 ファイル（cron / report-approve / treasureService）
 
+## 2026-05-31: 宝箱ハズレ枠を「コレクションアイテム」に置き換え（季節制 80種）
+
+### 決定内容
+- 仕様 `docs/未実装仕様書/treasure-collection-items.md` を実装。宝箱のハズレ枠（drawTreasure が MISS を返す経路）で **必ず季節コレクションアイテムを 1個付与** する
+- 抽選フローは「ごほうび抽選 → MISS → コレクション抽選」の二段構成。`drawTreasure`（src/lib/treasure.ts）は無改変。`openOldestTreasure` 内で MISS を受けた時のみ `drawCollectionItem` を回す
+- マスターデータ（80種 = 春/夏/秋/冬 × 20種）は **コード管理** (`src/lib/collectionItems.ts`)。DB には子供の所持実績（`UserCollectionItem`）だけ保存
+- シーズン判定は **JST 月初境界**: 3/1 春, 6/1 夏, 9/1 秋, 12/1 冬。`getSeasonForDate()` / `getCurrentSeason()` が `src/lib/date.ts` の JST 規約に従い計算
+- コレクション抽選確率は **COMMON 60% / UNCOMMON 30% / RARE 10%** の排他選択（rng 1回で tier を決定 → 2回目で tier 内 uniform 選択）。当選 tier にアイテムが無ければ低 tier に降格（treasure.ts と同じ規約）
+- 開封演出 `TreasureOpenCutscene` はハズレ時に コレクションアイテムの画像・名前・カテゴリー・ダブり回数（n 個目）を描画。初獲得 (count=1) と 2回目以降を文言で区別
+- コレクション閲覧 UI は `/app/child/collection` を 2タブ（図鑑 + 実績）から **3タブ（図鑑 + 🎁 アイテム + 実績）** に拡張。親代理 `/app/parent/child-view/[childId]/collection` も同形（child-view 経路 API `/api/parent/child-view/collection-items` 経由）
+- API `GET /api/collection-items` は **全 80 種をマスター扱いで返し**、各アイテムに `owned/count/firstAcquiredAt/lastAcquiredAt` を merge して返す。未所持はクライアント側でシルエット表示
+
+### 仕様書との差分（解釈の固定）
+- 仕様書セクション 3 の表は「COMMON 10 / UNCOMMON 6 / RARE 4」と書かれているが、各カテゴリーの **具体的なアイテムリスト** は「COMMON 2 / UNCOMMON 1 / RARE 1」× 5カテゴリー = **10/5/5** になっている。実装は**具体アイテムリストを正**として 10/5/5 採用。抽選確率 60/30/10 はプール内件数とは独立なので運用影響なし
+- 春・冬のアイテム画像は未制作のため `public/collection-items/dummy.png`（宝箱画像を流用）を共通配置。画像差し替えは `src/lib/collectionItems.ts` の `image:` フィールド更新のみで済む
+- アイテム ID は `{season}-{NN}`（例 `summer-01`〜`summer-20`）。表示名は仕様書の日本語名そのまま
+
+### 理由
+- ADHD 特性（拒絶感受性・可変報酬への反応）から「開けたら必ず何か手に入る」体験を担保するため。旧仕様の MISS 演出は「モンスターがうれしそう」など慰めのみで、空振り感が残っていた
+- 季節制（3ヶ月ローテーション・常時 20種だけ）により「期限つきの動機」と「レア感維持」を両立。子のオーナーシップを段階的に成長させられる
+- マスターをコード管理にしたのは: (a) 親 UI を作らない（保護者の管理負担ゼロ）、(b) 季節ロテーションが自動、(c) 画像と文言の更新がデプロイサイクルに同期する、ため
+- `openOldestTreasure` に統合したのは: (a) 抽選 RNG を 1 経路に集約し再現性を保つ、(b) 親代理開封ルートも同じ関数を通るので **自動的に親モードでも機能する**（追加実装ゼロ）
+- 子の Push 通知は **当たり（既存）のみ送る**。ハズレでも何か出るからといってコレクションアイテム獲得を Push すると親への通知が無限増殖するため
+
+### やってはいけないこと
+- 親が編集する「アイテムマスター UI」を作る（仕様外。保護者の運用負担が増え MVP の趣旨に反する）
+- HIT 時にも併せてコレクションアイテムを付与する（コレクションは「ハズレでも手に入る慰め」が起源。HIT 報酬の二重化は当たりの価値を薄める）
+- pity 発動による HIT 昇格時にコレクション付与する（pity は MISS を HIT に書き換える機構。pity 発動 = HIT 扱いなので付与しない）
+- `drawTreasure` の戻り値を変えてコレクション抽選を埋め込む（treasure.ts は純粋関数 1ファイル 1責務を保つ。コレクション抽選は別ファイル `collectionDraw.ts`）
+- 親本人への Push をハズレ→コレクション獲得で送る（親代理開封でも、子セルフ開封の親宛 Push でも、コレクション獲得は通知対象外）
+- `UserCollectionItem` の `season` カラムを集計の主キーとして使う（季節判定の正本はあくまで `itemId` プレフィックスとマスター。`season` は獲得当時のスナップショットで、将来仕様変更時の再分類にも対応できるように冗長保持しているだけ）
+
+### 該当箇所
+- 純粋データ: `src/lib/collectionItems.ts`（80種マスター + season/category/rarity ヘルパ）
+- 純粋ロジック: `src/lib/collectionDraw.ts`（60/30/10 排他抽選）
+- DB 操作: `src/lib/collectionService.ts`（`awardCollectionItem` upsert / `getOwnedCollection`）
+- 統合: `src/lib/treasureService.ts` `openOldestTreasure` — MISS 経路で `drawCollectionItem` → `awardCollectionItem`
+- API: `src/app/api/treasures/open/route.ts` + `src/app/api/parent/child-view/treasures/open/route.ts`（レスポンスに `collectionItem`） / `src/app/api/collection-items/route.ts` + child-view variant
+- UI: `src/components/child/TreasureOpenCutscene.tsx`（MISS 演出差し替え） / `src/components/child/ItemsContent.tsx`（新タブ本体） / 子・親 collection ページに「🎁 アイテム」タブ
+- スキーマ: `prisma/schema.prisma` `UserCollectionItem` + `prisma/migrations/20260531000002_add_user_collection_item/migration.sql`
+- 画像: `public/collection-items/{summer,fall}/*.png`（仕様書由来）+ `public/collection-items/dummy.png`（春冬の暫定）
 

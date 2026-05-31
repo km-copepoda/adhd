@@ -1,13 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
 import CutsceneOverlay from "./CutsceneOverlay";
 import { formatChildRarity, type TreasureRarity } from "@/lib/treasureRarity";
+import type { CollectionRarity, CollectionSeason } from "@/lib/collectionItems";
+import { SEASON_LABEL } from "@/lib/collectionItems";
+
+interface CollectionItemResult {
+  id: string;
+  name: string;
+  rarity: CollectionRarity;
+  season: CollectionSeason;
+  description: string;
+  image: string;
+  count: number;
+}
 
 interface Result {
   miss: boolean;
   pityTriggered: boolean;
   item: { id: string; title: string; rarity: TreasureRarity } | null;
+  collectionItem?: CollectionItemResult | null;
 }
 
 interface Props {
@@ -15,29 +27,50 @@ interface Props {
   onClose: () => void;
 }
 
-// ハズレ時のポジティブ演出メッセージ（設計 8 章）
-const MISS_MESSAGES = [
-  "モンスターがうれしそうにしている！ ✨",
-  "モンスターのきげんが良くなった！ 😊",
-  "冒険の記録がふえた！ 📖",
-  "モンスターが元気になった！ 💪",
-  "モンスターがなついてきた！ 💕",
-  "今日もよくがんばったね！ 🌟",
-];
-
 const RARITY_COLOR: Record<TreasureRarity, string> = {
-  COMMON: "rgba(96,165,250,0.8)", // blue-400
-  UNCOMMON: "rgba(168,85,247,0.8)", // purple-500
-  RARE: "rgba(251,191,36,0.9)", // amber-400
+  COMMON: "rgba(96,165,250,0.8)",
+  UNCOMMON: "rgba(168,85,247,0.8)",
+  RARE: "rgba(251,191,36,0.9)",
+};
+
+const COLLECTION_RARITY_COLOR: Record<CollectionRarity, string> = {
+  COMMON: "rgba(96,165,250,0.7)",
+  UNCOMMON: "rgba(168,85,247,0.8)",
+  RARE: "rgba(251,191,36,0.9)",
+};
+
+const COLLECTION_RARITY_LABEL: Record<CollectionRarity, string> = {
+  COMMON: "ふつう",
+  UNCOMMON: "ちょっとレア",
+  RARE: "とってもレア",
 };
 
 export default function TreasureOpenCutscene({ result, onClose }: Props) {
-  const missMessage = useMemo(
-    () => MISS_MESSAGES[Math.floor(Math.random() * MISS_MESSAGES.length)],
-    [],
-  );
-
+  // ハズレ枠 — 季節コレクションアイテムを表示
   if (result.miss) {
+    const ci = result.collectionItem;
+    if (ci) {
+      const glow = COLLECTION_RARITY_COLOR[ci.rarity];
+      const seasonLabel = SEASON_LABEL[ci.season];
+      const isNew = ci.count === 1;
+      return (
+        <CutsceneOverlay
+          onClose={onClose}
+          imageSrc={ci.image}
+          imageAlt={ci.name}
+          glowColor={glow}
+          title={ci.name}
+          titleColor="text-quest-gold"
+          subtitle={isNew ? `${seasonLabel}のコレクションをゲット！` : `${seasonLabel}のコレクション（${ci.count}個目）`}
+          description={ci.description}
+          bonus={{
+            text: `🏆 ${COLLECTION_RARITY_LABEL[ci.rarity]}`,
+            color: ci.rarity === "RARE" ? "text-quest-gold" : "text-quest-mint",
+          }}
+        />
+      );
+    }
+    // 万一 collectionItem が無い場合（古い API レスポンス互換）
     return (
       <CutsceneOverlay
         onClose={onClose}
@@ -46,7 +79,7 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
         title="からっぽ…"
         titleColor="text-quest-gold/80"
         subtitle="でも"
-        description={missMessage}
+        description="モンスターがうれしそうにしている！ ✨"
       />
     );
   }

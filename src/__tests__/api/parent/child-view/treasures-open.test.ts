@@ -89,7 +89,7 @@ describe("POST /api/parent/child-view/treasures/open", () => {
     expect(mockOpen).toHaveBeenCalledWith("child-1");
   });
 
-  it("ハズレ時もハンドリング (miss=true, item=null) を返す", async () => {
+  it("ハズレ時もハンドリング (miss=true, item=null, collectionItem 付与) を返す", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
     mockOpen.mockResolvedValue({
@@ -98,6 +98,15 @@ describe("POST /api/parent/child-view/treasures/open", () => {
       miss: true,
       pityTriggered: false,
       nextPityCount: 1,
+      collectionItem: {
+        id: "summer-01",
+        name: "カブトムシ",
+        rarity: "COMMON",
+        season: "summer",
+        description: "夏の王様。つのがかっこいい",
+        image: "/collection-items/summer/カブトムシ.png",
+        count: 1,
+      },
     } as any);
 
     const res = await POST(makeReq({ childId: "child-1" }));
@@ -105,6 +114,7 @@ describe("POST /api/parent/child-view/treasures/open", () => {
 
     expect(json.miss).toBe(true);
     expect(json.item).toBeNull();
+    expect(json.collectionItem).toMatchObject({ id: "summer-01", name: "カブトムシ" });
     expect(mockSendPushToParent).not.toHaveBeenCalled();
   });
 

@@ -7,6 +7,15 @@ interface TreasureOpenResult {
   miss: boolean;
   pityTriggered: boolean;
   item: { id: string; title: string; rarity: "COMMON" | "UNCOMMON" | "RARE" } | null;
+  collectionItem: {
+    id: string;
+    name: string;
+    rarity: "COMMON" | "UNCOMMON" | "RARE";
+    season: "spring" | "summer" | "fall" | "winter";
+    description: string;
+    image: string;
+    count: number;
+  } | null;
   remainingUnlocked: number;
 }
 

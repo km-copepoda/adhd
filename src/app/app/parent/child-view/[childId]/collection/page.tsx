@@ -1,17 +1,16 @@
 "use client";
 
-// 親代理（子供モード）— 子供の図鑑＆実績を閲覧する。
-// 子供画面 `/app/child/collection` と同じ 2タブ構成（📖 図鑑 / 🏅 実績）を、
-// child-view 経路の API + 親モード向けオプション（trackVisit=false, enableRealtime=false）で再利用する。
-// 親モードでは BottomNav バッジを変えないため localStorage 書き込みを止め、
-// Realtime も切る（2026-05-11 の方針）。
+// 親代理（子供モード）— 子供の図鑑・アイテム・実績を閲覧する。
+// 子供画面 `/app/child/collection` と同じ 3タブ構成 (📖 図鑑 / 🎁 アイテム / 🏅 実績) を、
+// child-view 経路の API と親モード向けオプション (trackVisit=false, enableRealtime=false) で再利用する。
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import ZukanContent from "@/components/child/ZukanContent";
 import BadgesContent from "@/components/child/BadgesContent";
+import ItemsContent from "@/components/child/ItemsContent";
 
-type Tab = "zukan" | "badges";
+type Tab = "zukan" | "items" | "badges";
 
 export default function ParentChildViewCollectionPage() {
   const params = useParams<{ childId: string }>();
@@ -19,6 +18,7 @@ export default function ParentChildViewCollectionPage() {
   const [tab, setTab] = useState<Tab>("zukan");
 
   const monsterUrl = `/api/parent/child-view/monster?childId=${encodeURIComponent(childId)}`;
+  const itemsUrl = `/api/parent/child-view/collection-items?childId=${encodeURIComponent(childId)}`;
   const badgesUrl = `/api/parent/child-view/badges?childId=${encodeURIComponent(childId)}`;
 
   const base =
@@ -39,6 +39,13 @@ export default function ParentChildViewCollectionPage() {
           </button>
           <button
             type="button"
+            onClick={() => setTab("items")}
+            className={`${base} ${tab === "items" ? active : inactive}`}
+          >
+            🎁 アイテム
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("badges")}
             className={`${base} ${tab === "badges" ? active : inactive}`}
           >
@@ -47,9 +54,9 @@ export default function ParentChildViewCollectionPage() {
         </div>
       </div>
 
-      {tab === "zukan" ? (
-        <ZukanContent fetchUrl={monsterUrl} trackVisit={false} />
-      ) : (
+      {tab === "zukan" && <ZukanContent fetchUrl={monsterUrl} trackVisit={false} />}
+      {tab === "items" && <ItemsContent fetchUrl={itemsUrl} />}
+      {tab === "badges" && (
         <BadgesContent
           fetchUrl={badgesUrl}
           trackVisit={false}

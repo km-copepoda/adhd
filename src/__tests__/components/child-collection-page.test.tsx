@@ -24,6 +24,10 @@ vi.mock("@/components/child/BadgesContent", () => ({
   default: () => <div data-testid="badges-content">実績コンテンツ</div>,
 }));
 
+vi.mock("@/components/child/ItemsContent", () => ({
+  default: () => <div data-testid="items-content">アイテムコンテンツ</div>,
+}));
+
 import CollectionPage from "@/app/app/child/collection/page";
 
 beforeEach(() => {
@@ -34,9 +38,10 @@ beforeEach(() => {
 });
 
 describe("/app/child/collection ページ", () => {
-  it("「📖 図鑑」「🏅 実績」の2タブを持つ", () => {
+  it("「📖 図鑑」「🎁 アイテム」「🏅 実績」の3タブを持つ", () => {
     render(<CollectionPage />);
     expect(screen.getByRole("button", { name: /図鑑/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /アイテム/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /実績/ })).toBeTruthy();
   });
 
@@ -44,6 +49,14 @@ describe("/app/child/collection ページ", () => {
     render(<CollectionPage />);
     expect(screen.getByTestId("zukan-content")).toBeTruthy();
     expect(screen.queryByTestId("badges-content")).toBeNull();
+    expect(screen.queryByTestId("items-content")).toBeNull();
+  });
+
+  it("アイテムタブクリックで ItemsContent に切り替わる", () => {
+    render(<CollectionPage />);
+    fireEvent.click(screen.getByRole("button", { name: /アイテム/ }));
+    expect(screen.getByTestId("items-content")).toBeTruthy();
+    expect(screen.queryByTestId("zukan-content")).toBeNull();
   });
 
   it("実績タブクリックで BadgesContent に切り替わる", () => {
@@ -51,10 +64,5 @@ describe("/app/child/collection ページ", () => {
     fireEvent.click(screen.getByRole("button", { name: /実績/ }));
     expect(screen.getByTestId("badges-content")).toBeTruthy();
     expect(screen.queryByTestId("zukan-content")).toBeNull();
-  });
-
-  it("「アイテム」タブは存在しない (collection-items spec 未実装のため)", () => {
-    render(<CollectionPage />);
-    expect(screen.queryByRole("button", { name: /アイテム/ })).toBeNull();
   });
 });

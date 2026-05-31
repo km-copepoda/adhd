@@ -10,6 +10,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { drawTreasure, type TreasurePoolItem, type TreasureRarity } from "@/lib/treasure";
+import {
+  getItemsBySeason,
+  getSeasonForDate,
+  type CollectionRarity,
+  type CollectionSeason,
+} from "@/lib/collectionItems";
+import { drawCollectionItem } from "@/lib/collectionDraw";
+import { awardCollectionItem } from "@/lib/collectionService";
 
 export interface TreasureCondition {
   childId: string;
@@ -155,12 +163,25 @@ export async function generateProxyTreasure(input: {
   return t.id;
 }
 
+export interface OpenedCollectionItem {
+  id: string;
+  name: string;
+  rarity: CollectionRarity;
+  season: CollectionSeason;
+  description: string;
+  image: string;
+  /** 通算入手回数 (1 なら初獲得、2 以上ならダブり) */
+  count: number;
+}
+
 export interface OpenTreasureResult {
   logId: string;
   item: { id: string; title: string; rarity: TreasureRarity } | null;
   miss: boolean;
   pityTriggered: boolean;
   nextPityCount: number;
+  /** ハズレ時に付与される季節コレクションアイテム。当たり時は null。 */
+  collectionItem: OpenedCollectionItem | null;
 }
 
 /**
@@ -168,11 +189,15 @@ export interface OpenTreasureResult {
  *  - 該当なし → null
  *  - プール空 → ハズレ（item=null）として OPENED に。pity は据え置き
  *  - 通常抽選 → drawTreasure で結果決定。pity を更新
+ *  - ハズレ (item=null) のときは現在のシーズンのコレクションアイテムを必ず 1個付与する
+ *    (仕様: docs/未実装仕様書/treasure-collection-items.md)
  */
 export async function openOldestTreasure(
   childId: string,
-  options: { rng?: () => number } = {},
+  options: { rng?: () => number; now?: Date } = {},
 ): Promise<OpenTreasureResult | null> {
+  const now = options.now ?? new Date();
+
   const log = await prisma.treasureLog.findFirst({
     where: { childId, status: "UNLOCKED" },
     orderBy: { createdAt: "asc" },
@@ -203,13 +228,34 @@ export async function openOldestTreasure(
   });
 
   const drawnItem = draw.itemId ? pool.find((p) => p.id === draw.itemId) ?? null : null;
+  const miss = draw.itemId === null;
+
+  // ハズレなら季節コレクションアイテムを必ず付与
+  let collectionItem: OpenedCollectionItem | null = null;
+  if (miss) {
+    const season = getSeasonForDate(now);
+    const seasonItems = getItemsBySeason(season);
+    const picked = drawCollectionItem(seasonItems, options.rng);
+    if (picked) {
+      const owned = await awardCollectionItem(childId, picked.id, season, now);
+      collectionItem = {
+        id: picked.id,
+        name: picked.name,
+        rarity: picked.rarity,
+        season: picked.season,
+        description: picked.description,
+        image: picked.image,
+        count: owned.count,
+      };
+    }
+  }
 
   await prisma.treasureLog.update({
     where: { id: log.id },
     data: {
       status: "OPENED",
       itemId: draw.itemId,
-      openedAt: new Date(),
+      openedAt: now,
     },
   });
 
@@ -225,8 +271,9 @@ export async function openOldestTreasure(
     item: drawnItem
       ? { id: drawnItem.id, title: drawnItem.title, rarity: drawnItem.rarity }
       : null,
-    miss: draw.itemId === null,
+    miss,
     pityTriggered: draw.pityTriggered,
     nextPityCount: draw.nextPityCount,
+    collectionItem,
   };
 }

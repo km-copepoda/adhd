@@ -44,6 +44,7 @@ export async function POST(request: Request) {
     miss: result.miss,
     pityTriggered: result.pityTriggered,
     item: result.item,
+    collectionItem: result.collectionItem,
     remainingUnlocked,
   });
 }

@@ -48,6 +48,7 @@ describe("POST /api/treasures/open", () => {
       miss: false,
       pityTriggered: false,
       nextPityCount: 0,
+      collectionItem: null,
     });
     mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as any);
     mockPrisma.treasureLog.count.mockResolvedValue(2);
@@ -68,7 +69,7 @@ describe("POST /api/treasures/open", () => {
     );
   });
 
-  it("ハズレ時: Push は送らない", async () => {
+  it("ハズレ時: Push は送らない / コレクションアイテムをレスポンスに含める", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     mockOpen.mockResolvedValue({
       logId: "log-2",
@@ -76,6 +77,15 @@ describe("POST /api/treasures/open", () => {
       miss: true,
       pityTriggered: false,
       nextPityCount: 1,
+      collectionItem: {
+        id: "summer-01",
+        name: "カブトムシ",
+        rarity: "COMMON",
+        season: "summer",
+        description: "夏の王様。つのがかっこいい",
+        image: "/collection-items/summer/カブトムシ.png",
+        count: 1,
+      },
     });
 
     const res = await POST();
@@ -83,6 +93,11 @@ describe("POST /api/treasures/open", () => {
 
     expect(json.miss).toBe(true);
     expect(json.item).toBeNull();
+    expect(json.collectionItem).toMatchObject({
+      id: "summer-01",
+      name: "カブトムシ",
+      count: 1,
+    });
     expect(mockSendPushToParent).not.toHaveBeenCalled();
   });
 
@@ -94,6 +109,7 @@ describe("POST /api/treasures/open", () => {
       miss: false,
       pityTriggered: true,
       nextPityCount: 0,
+      collectionItem: null,
     });
     mockPrisma.user.findFirst.mockResolvedValue(null);
 

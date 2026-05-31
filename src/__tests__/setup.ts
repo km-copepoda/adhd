@@ -115,6 +115,17 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(),
       count: vi.fn(),
     },
+    userCollectionItem: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+      count: vi.fn(),
+    },
   },
 }));
 
