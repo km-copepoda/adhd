@@ -204,6 +204,7 @@ enum BulletinLogType {
   MONSTER_EVOLVED
   MONSTER_REBORN
   STAMP_SENT
+  COLLECTION_ITEM_OBTAINED
 }
 
 model GatheringGroup {
