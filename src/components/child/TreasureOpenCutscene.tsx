@@ -70,15 +70,14 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
         />
       );
     }
-    // 万一 collectionItem が無い場合（古い API レスポンス互換）
+    // 万一 collectionItem が無い場合（古い API レスポンス互換のための防御）
     return (
       <CutsceneOverlay
         onClose={onClose}
         imageSrc="/treasure/open1.png"
-        imageAlt="からっぽの宝箱"
-        title="からっぽ…"
+        imageAlt="宝箱"
+        title="宝箱をひらいた！"
         titleColor="text-quest-gold/80"
-        subtitle="でも"
         description="モンスターがうれしそうにしている！ ✨"
       />
     );

@@ -19,12 +19,17 @@ const dateJST = new Date(Date.UTC(2026, 4, 27)); // 2026-05-27 JST
 // ─── generateTreasuresOnReport ──────────────────────────────────────────────
 describe("generateTreasuresOnReport", () => {
   beforeEach(() => {
-    // 既定: プールに 1 件あるので生成は進む
+    // 既定: プールに 1 件あるので生成は進む（プール空でも生成は走る仕様）
     mockPrisma.treasureItem.count.mockResolvedValue(1);
   });
 
-  it("プールが空 (treasureItem.count=0) なら何もしない", async () => {
+  it("プールが空 (treasureItem.count=0) でも生成する (ハズレ枠はコレクションアイテム)", async () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create
+      .mockResolvedValueOnce({ id: "t-streak" } as any)
+      .mockResolvedValueOnce({ id: "t-all" } as any);
+
     const ids = await generateTreasuresOnReport({
       childId: "c1",
       date: dateJST,
@@ -33,9 +38,8 @@ describe("generateTreasuresOnReport", () => {
       minTasks: 1,
       isProxy: false,
     });
-    expect(ids).toEqual([]);
-    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
-    expect(mockPrisma.treasureLog.findMany).not.toHaveBeenCalled();
+    expect(ids).toEqual(["t-streak", "t-all"]);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(2);
   });
 
   it("isProxy=true なら何もしない (親代理は宝箱対象外)", async () => {
@@ -230,8 +234,10 @@ describe("generateProxyTreasure", () => {
     mockPrisma.treasureItem.count.mockResolvedValue(1);
   });
 
-  it("プールが空なら null（生成しない）", async () => {
+  it("プールが空でも生成する (ハズレ枠はコレクションアイテムとして必ず付与される)", async () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
+    mockPrisma.treasureLog.create.mockResolvedValue({ id: "tp" } as any);
     const id = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -239,8 +245,8 @@ describe("generateProxyTreasure", () => {
       totalCount: 3,
       minTasks: 1,
     });
-    expect(id).toBeNull();
-    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+    expect(id).toBe("tp");
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(1);
   });
 
   it("minTasks 未達なら null", async () => {

@@ -57,13 +57,13 @@ export default function TreasureHistoryList() {
   }
 
   const hits = data.opened.filter((o) => o.item !== null);
-  const misses = data.opened.length - hits.length;
+  const collectionWins = data.opened.length - hits.length;
 
   return (
     <div className="p-4">
       <div className="text-xs text-quest-dim mb-3">
         この1週間で <span className="font-bold text-quest-text">{data.opened.length}</span> 個ひらいたよ
-        （あたり {hits.length} 個・からっぽ {misses} 個）
+        （ごほうび {hits.length} 個・コレクション {collectionWins} 個）
       </div>
       <ul className="space-y-2">
         {data.opened.map((o) => (
@@ -72,11 +72,11 @@ export default function TreasureHistoryList() {
             className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
           >
             <span className="text-2xl" aria-hidden>
-              {o.item ? "🎁" : "📦"}
+              {o.item ? "🎁" : "🏆"}
             </span>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm truncate">
-                {o.item ? o.item.title : "からっぽ…でもうれしい！"}
+                {o.item ? o.item.title : "コレクションアイテム"}
               </div>
               <div className="text-[11px] text-quest-dim">
                 {formatTreasureOpenedAt(o.openedAt)}

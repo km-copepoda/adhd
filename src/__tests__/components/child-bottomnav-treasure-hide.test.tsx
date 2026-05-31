@@ -39,40 +39,48 @@ function mockFetch(treasureStatus: TreasureStatus) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // localStorage を毎回クリア（hasPool キャッシュが残らないように）
   try { localStorage.clear(); } catch {}
 });
 
-describe("子 BottomNav 宝箱タブの条件表示", () => {
-  it("プール未設定 & 在庫ゼロなら「宝箱」タブを非表示", async () => {
+// 宝箱タブは常に表示する仕様（コレクションアイテム実装後の方針 2026-05-31）。
+// ハズレ枠が必ずコレクションアイテムになるため、親がプール未設定でも子供は
+// 宝箱から確定報酬を得られる。タブを隠してしまうとそのことを伝えられない。
+describe("子 BottomNav 宝箱タブは常に表示される", () => {
+  it("初期 localStorage キャッシュが treasureHasPool=false でも、宝箱タブを表示する", async () => {
+    // 旧仕様のキャッシュが残っているケース。新仕様では無視して常に表示する。
+    try { localStorage.setItem("treasureHasPool", "false"); } catch {}
     mockFetch({ locked: 0, unlocked: 0, hasPool: false, opened: [] });
     render(<BottomNav />);
-    await waitFor(() => {
-      expect(screen.queryByText("宝箱")).toBeNull();
-    });
+    expect(screen.getByText("宝箱")).toBeTruthy();
   });
 
-  it("プールが設定済みなら「宝箱」タブを表示", async () => {
+  it("プール未設定 & 在庫ゼロ (fetch 後) でも「宝箱」タブを表示し続ける", async () => {
+    mockFetch({ locked: 0, unlocked: 0, hasPool: false, opened: [] });
+    render(<BottomNav />);
+    // fetch が完了して状態が更新された後も維持されることを担保
+    await waitFor(() => {
+      expect((global.fetch as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
+        expect.stringContaining("/api/treasures/status"),
+      );
+    });
+    expect(screen.getByText("宝箱")).toBeTruthy();
+  });
+
+  it("プール設定済みでも表示", async () => {
     mockFetch({ locked: 0, unlocked: 0, hasPool: true, opened: [] });
     render(<BottomNav />);
-    await waitFor(() => {
-      expect(screen.getByText("宝箱")).toBeTruthy();
-    });
+    expect(screen.getByText("宝箱")).toBeTruthy();
   });
 
-  it("プール未設定でも UNLOCKED が残っていれば「宝箱」タブを表示 (救済アクセス)", async () => {
+  it("UNLOCKED が残っているとき表示", async () => {
     mockFetch({ locked: 0, unlocked: 2, hasPool: false, opened: [] });
     render(<BottomNav />);
-    await waitFor(() => {
-      expect(screen.getByText("宝箱")).toBeTruthy();
-    });
+    expect(screen.getByText("宝箱")).toBeTruthy();
   });
 
-  it("プール未設定でも LOCKED が残っていれば「宝箱」タブを表示", async () => {
+  it("LOCKED が残っているとき表示", async () => {
     mockFetch({ locked: 1, unlocked: 0, hasPool: false, opened: [] });
     render(<BottomNav />);
-    await waitFor(() => {
-      expect(screen.getByText("宝箱")).toBeTruthy();
-    });
+    expect(screen.getByText("宝箱")).toBeTruthy();
   });
 });

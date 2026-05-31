@@ -110,7 +110,7 @@ export default function ParentChildViewTreasuresPage() {
   }
 
   const hits = data.opened.filter((o) => o.item !== null);
-  const misses = data.opened.length - hits.length;
+  const collectionWins = data.opened.length - hits.length;
   const canOpen = data.unlocked > 0 && !opening;
 
   return (
@@ -161,7 +161,7 @@ export default function ParentChildViewTreasuresPage() {
         <>
           <div className="text-xs text-quest-dim mb-2">
             ぜんぶで <span className="font-bold text-quest-text">{data.opened.length}</span>{" "}
-            個（あたり {hits.length}・からっぽ {misses}）
+            個（ごほうび {hits.length}・コレクション {collectionWins}）
           </div>
           <ul className="space-y-2">
             {data.opened.map((o) => (
@@ -172,7 +172,7 @@ export default function ParentChildViewTreasuresPage() {
                 <div className="w-10 h-10 flex-shrink-0">
                   <Image
                     src={o.item ? "/treasure/open2.png" : "/treasure/open1.png"}
-                    alt={o.item ? "あたり" : "はずれ"}
+                    alt={o.item ? "ごほうび" : "コレクション"}
                     width={40}
                     height={40}
                     className="w-full h-full object-contain"
@@ -180,7 +180,7 @@ export default function ParentChildViewTreasuresPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">
-                    {o.item ? o.item.title : "からっぽ…でもうれしい！"}
+                    {o.item ? o.item.title : "🎁 コレクションアイテム"}
                   </div>
                   <div className="text-[11px] text-quest-dim">
                     {formatDate(o.openedAt)}

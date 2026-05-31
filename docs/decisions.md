@@ -1256,3 +1256,38 @@
 - スキーマ: `prisma/schema.prisma` `UserCollectionItem` + `prisma/migrations/20260531000002_add_user_collection_item/migration.sql`
 - 画像: `public/collection-items/{summer,fall}/*.png`（仕様書由来）+ `public/collection-items/dummy.png`（春冬の暫定）
 
+## 2026-05-31: 親プール未設定でも宝箱を生成する（2026-05-28 を撤回）
+
+### 決定内容
+- `generateTreasuresOnReport` と `generateProxyTreasure` の冒頭の `poolSize === 0` 早期 return を削除
+  - プール未設定の家庭でも、子供がクエストを報告すれば STREAK / ALL_COMPLETE / PROXY 宝箱が通常通り生成される
+  - 開封結果は必ずハズレ枠 → 季節コレクションアイテム獲得（プール空時の `openOldestTreasure` は既に MISS 経路でコレクション付与する仕様）
+- 子 BottomNav の「宝箱タブ非表示」分岐を撤廃し、**常に表示** に変更
+  - `hasTreasurePool` state と `treasureHasPool` の localStorage キャッシュも削除（不要になった）
+  - `hasPool` フィールドは API レスポンスに残置（将来の親向け案内バナー用に保留）
+- 履歴表示の文言を整理（子 treasures ページ / 親代理 treasures ページ / `TreasureHistoryList`）
+  - 集計: 「あたり X・からっぽ Y」→ 「ごほうび X・コレクション Y」
+  - 各行タイトル: 「からっぽ…でもうれしい！」→ 「🎁 コレクションアイテム」
+  - `alt` テキストも「はずれ」→「コレクション」
+- 開封演出 `TreasureOpenCutscene` の `collectionItem` 欠落時フォールバックも「からっぽ…」→「宝箱をひらいた！」に修正（防御コード。本来は API が必ず `collectionItem` を返すので到達しない）
+
+### 理由
+- 2026-05-28「親プール未設定なら宝箱を生成しない」の根拠だった『100% ハズレ演出になる悪 UX』はコレクションアイテム導入（同日 2026-05-31 別エントリ）で解消した
+  - ハズレ枠 = 季節コレクションアイテム獲得という確定報酬になっており、もはや「壊れてる？」状態にはならない
+- プール未設定家庭でも子供がクエストを完了したら宝箱体験ができることで、初期セットアップ前から動機付けが働く
+  - 親が後からごほうびを設定するきっかけも、子供が「宝箱から○○取れたよ！」と話すことで自然に生まれる
+- BottomNav 宝箱タブの「あとから現れる」フリッカー対策（localStorage キャッシュ）は、常時表示に変えたことで不要
+
+### やってはいけないこと
+- `openOldestTreasure` の MISS 経路でコレクションアイテム付与をスキップする（プール 0 でハズレ確定するケースが「真のハズレ」に戻り、本決定の前提が崩れる）
+- 親プール未設定家庭で BottomNav 宝箱タブを再び隠す（コレクション獲得経路が見えなくなる）
+- `hasPool` API フィールドの計算自体を削除する（将来「ごほうび未設定ですよ」案内バナーに使い得るので、判定だけ残す）
+- 「あたり X・からっぽ Y」「からっぽ…でもうれしい！」など旧文言を復活させる（「外れではない」というメッセージが揺らぐ）
+
+### 該当箇所
+- `src/lib/treasureService.ts` — `generateTreasuresOnReport` / `generateProxyTreasure`（`poolSize === 0` の早期 return を削除）
+- `src/components/child/BottomNav.tsx` — `hasTreasurePool` state とフィルタ撤廃
+- `src/app/app/child/treasures/page.tsx` + `src/app/app/parent/child-view/[childId]/treasures/page.tsx` + `src/components/child/TreasureHistoryList.tsx` — 履歴文言
+- `src/components/child/TreasureOpenCutscene.tsx` — フォールバック文言
+- テスト 3 ファイル（treasureService / BottomNav 表示 / Cutscene は既存維持）
+

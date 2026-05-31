@@ -31,7 +31,8 @@ export interface TreasureCondition {
 /**
  * 報告時の宝箱生成（LOCKED）。
  *  - isProxy=true → 何もしない（親代理は子供の自発的動機を生まないため）
- *  - 親のプール未設定（active アイテム 0）→ 何もしない（全部ハズレ演出を回避）
+ *  - 親のプール未設定でも生成する（ハズレ枠は季節コレクションアイテムが必ず出るため、
+ *    プール 0 でも子供は「コレクションアイテム × N」の確定報酬を受け取れる）
  *  - reportedCount >= minTasks → STREAK 1個
  *  - reportedCount = totalCount (全完了) → さらに ALL_COMPLETE (boosted) 1個
  *  - 同じ trigger の宝箱がその日既にあれば飛ばす（冪等）
@@ -41,11 +42,6 @@ export async function generateTreasuresOnReport(
 ): Promise<string[]> {
   if (cond.isProxy) return [];
   if (cond.reportedCount < cond.minTasks) return [];
-
-  const poolSize = await prisma.treasureItem.count({
-    where: { childId: cond.childId, isActive: true },
-  });
-  if (poolSize === 0) return [];
 
   const existing = await prisma.treasureLog.findMany({
     where: {
@@ -130,6 +126,7 @@ export async function cancelTreasuresOnReject(cond: TreasureCondition): Promise<
  * 親代理 report-approve 時の宝箱生成（即 UNLOCKED で1個のみ）。
  * 条件: reportedCount >= minTasks
  * 当日に既に PROXY 宝箱があれば作らない（冪等）。
+ * プール 0 でも生成する（ハズレ枠はコレクションアイテムが必ず出るため）。
  */
 export async function generateProxyTreasure(input: {
   childId: string;
@@ -139,11 +136,6 @@ export async function generateProxyTreasure(input: {
   minTasks: number;
 }): Promise<string | null> {
   if (input.reportedCount < input.minTasks) return null;
-
-  const poolSize = await prisma.treasureItem.count({
-    where: { childId: input.childId, isActive: true },
-  });
-  if (poolSize === 0) return null;
 
   const existing = await prisma.treasureLog.findFirst({
     where: { childId: input.childId, date: input.date, trigger: "PROXY" },
