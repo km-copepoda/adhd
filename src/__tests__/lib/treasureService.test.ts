@@ -468,6 +468,47 @@ describe("openOldestTreasure", () => {
     expect(result!.collectionItem!.count).toBe(3);
   });
 
+  // 「夏は夏のアイテムしか出ない」の構造的ロックダウン
+  // どんな rng シーケンスでも、シーズン外のアイテムは抽選プールに入らないことを担保する
+  describe("MISS 時のコレクションアイテムは現在シーズンのものに必ず限定される", () => {
+    const cases: Array<[string, Date, "spring" | "summer" | "fall" | "winter"]> = [
+      ["JST 2026-04-15 → spring", new Date("2026-04-15T03:00:00Z"), "spring"],
+      ["JST 2026-07-15 → summer", new Date("2026-07-15T03:00:00Z"), "summer"],
+      ["JST 2026-10-15 → fall",   new Date("2026-10-15T03:00:00Z"), "fall"],
+      ["JST 2026-01-15 → winter", new Date("2026-01-15T03:00:00Z"), "winter"],
+      // シーズン境界 (JST 月初 0:00) ちょうど = 新シーズン
+      ["JST 2026-06-01 00:00 → summer (前日まで春)", new Date("2026-05-31T15:00:00Z"), "summer"],
+      ["JST 2026-05-31 23:59 → spring (境界直前)",   new Date("2026-05-31T14:59:00Z"), "spring"],
+    ];
+
+    it.each(cases)("%s", async (_label, now, expectedSeason) => {
+      mockPrisma.treasureLog.findFirst.mockResolvedValue({
+        id: "log-season",
+        childId: "c1",
+        boosted: false,
+      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: "c1",
+        treasurePityCount: 0,
+      } as any);
+      mockPrisma.treasureItem.findMany.mockResolvedValue([]); // 親プール空 → 確実に MISS
+      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+
+      // rng を変えても結果のシーズンは変わらない (構造的保証)
+      for (const rngVal of [0.0, 0.05, 0.25, 0.5, 0.75, 0.99]) {
+        const result = await openOldestTreasure("c1", {
+          rng: () => rngVal,
+          now,
+        });
+        expect(result!.miss).toBe(true);
+        expect(result!.collectionItem).not.toBeNull();
+        expect(result!.collectionItem!.season).toBe(expectedSeason);
+        expect(result!.collectionItem!.id.startsWith(`${expectedSeason}-`)).toBe(true);
+      }
+    });
+  });
+
   it("boosted ログは抽選オプションに boosted=true を渡す", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue({
       id: "log-4",
