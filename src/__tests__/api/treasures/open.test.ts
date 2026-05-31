@@ -40,12 +40,11 @@ describe("POST /api/treasures/open", () => {
     expect(res.status).toBe(400);
   });
 
-  it("当たり時: 親に Push を送る", async () => {
+  it("親ごほうび当選時: 親に Push を送る", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ name: "太郎" }) as any);
     mockOpen.mockResolvedValue({
       logId: "log-1",
       item: { id: "i1", title: "おやつ", rarity: "COMMON" },
-      miss: false,
       pityTriggered: false,
       nextPityCount: 0,
       collectionItem: null,
@@ -57,8 +56,8 @@ describe("POST /api/treasures/open", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.miss).toBe(false);
     expect(json.item.title).toBe("おやつ");
+    expect(json.collectionItem).toBeNull();
     expect(json.remainingUnlocked).toBe(2);
     expect(mockSendPushToParent).toHaveBeenCalledWith(
       "parent-1",
@@ -69,12 +68,11 @@ describe("POST /api/treasures/open", () => {
     );
   });
 
-  it("ハズレ時: Push は送らない / コレクションアイテムをレスポンスに含める", async () => {
+  it("コレクション獲得時: Push は送らない / collectionItem をレスポンスに含める", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     mockOpen.mockResolvedValue({
       logId: "log-2",
       item: null,
-      miss: true,
       pityTriggered: false,
       nextPityCount: 1,
       collectionItem: {
@@ -91,7 +89,6 @@ describe("POST /api/treasures/open", () => {
     const res = await POST();
     const json = await res.json();
 
-    expect(json.miss).toBe(true);
     expect(json.item).toBeNull();
     expect(json.collectionItem).toMatchObject({
       id: "summer-01",
@@ -106,7 +103,6 @@ describe("POST /api/treasures/open", () => {
     mockOpen.mockResolvedValue({
       logId: "log-3",
       item: { id: "i1", title: "本", rarity: "RARE" },
-      miss: false,
       pityTriggered: true,
       nextPityCount: 0,
       collectionItem: null,

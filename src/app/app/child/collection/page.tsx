@@ -3,7 +3,7 @@
 // 子供向け「コレクション」ページ。
 // タブ構成 (仕様書原案: 図鑑 + 宝箱アイテム + 実績):
 //  - 📖 図鑑     — ZukanContent
-//  - 🎁 アイテム — ItemsContent (宝箱ハズレ枠のコレクションアイテム)
+//  - 🎁 アイテム — ItemsContent (宝箱で親ごほうび不当選時に獲得するコレクションアイテム)
 //  - 🏅 実績     — BadgesContent
 
 import { useState } from "react";

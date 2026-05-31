@@ -34,7 +34,7 @@ describe("GET /api/treasures/status", () => {
         id: "log-2",
         openedAt: new Date("2026-03-20"),
         boosted: true,
-        item: null, // ハズレ
+        item: null, // 親ごほうび不当選 (コレクションアイテム獲得)
       } as any,
     ]);
 

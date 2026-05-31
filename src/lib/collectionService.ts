@@ -3,7 +3,7 @@
 // 純粋ロジック (抽選) は src/lib/collectionDraw.ts。
 //
 // 呼び出し元:
-//  - 宝箱開封 (treasureService.openOldestTreasure) — ハズレ枠で awardCollectionItem
+//  - 宝箱開封 (treasureService.openOldestTreasure) — 親ごほうび不当選時に awardCollectionItem
 //  - /api/collection-items — getOwnedCollection で所持一覧を返す
 
 import { prisma } from "@/lib/prisma";

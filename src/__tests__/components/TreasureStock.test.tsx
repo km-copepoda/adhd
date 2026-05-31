@@ -29,9 +29,17 @@ beforeEach(() => {
         ok: true,
         json: () =>
           Promise.resolve({
-            miss: true,
             pityTriggered: false,
             item: null,
+            collectionItem: {
+              id: "summer-01",
+              name: "カブトムシ",
+              rarity: "COMMON",
+              season: "summer",
+              description: "夏の王様",
+              image: "/collection-items/summer/カブトムシ.png",
+              count: 1,
+            },
             remainingUnlocked: 1,
           }),
       });

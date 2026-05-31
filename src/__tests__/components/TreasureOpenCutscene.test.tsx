@@ -10,23 +10,27 @@ vi.mock("next/image", () => ({
   ),
 }));
 
-describe("TreasureOpenCutscene ドット絵", () => {
-  it("ハズレ時 + collectionItem 無し → /treasure/open1.png をフォールバック表示", () => {
+describe("TreasureOpenCutscene", () => {
+  it("親ごほうび当選時は /treasure/open2.png + タイトルを表示", () => {
     render(
       <TreasureOpenCutscene
-        result={{ miss: true, pityTriggered: false, item: null, collectionItem: null }}
+        result={{
+          pityTriggered: false,
+          item: { id: "i1", title: "ガチャあたり！", rarity: "RARE" },
+          collectionItem: null,
+        }}
         onClose={() => {}}
       />
     );
     const img = screen.getByRole("img") as HTMLImageElement;
-    expect(img.src).toContain("/treasure/open1.png");
+    expect(img.src).toContain("/treasure/open2.png");
+    expect(screen.getByText("ガチャあたり！")).toBeTruthy();
   });
 
-  it("ハズレ時 + collectionItem あり → コレクションアイテムの画像と名前を表示", () => {
+  it("コレクション獲得時はアイテムの画像と名前を表示 (初回)", () => {
     render(
       <TreasureOpenCutscene
         result={{
-          miss: true,
           pityTriggered: false,
           item: null,
           collectionItem: {
@@ -48,11 +52,10 @@ describe("TreasureOpenCutscene ドット絵", () => {
     expect(screen.getByText(/夏のコレクションをゲット/)).toBeTruthy();
   });
 
-  it("ハズレ時 + collectionItem の count >= 2 → ダブり表記", () => {
+  it("コレクション獲得時 count >= 2 → ダブり表記", () => {
     render(
       <TreasureOpenCutscene
         result={{
-          miss: true,
           pityTriggered: false,
           item: null,
           collectionItem: {
@@ -71,32 +74,13 @@ describe("TreasureOpenCutscene ドット絵", () => {
     expect(screen.getByText(/3個目/)).toBeTruthy();
   });
 
-  it("あたり時は /treasure/open2.png を表示する", () => {
-    render(
+  it("item も collectionItem も無いとき null を返す (防御)", () => {
+    const { container } = render(
       <TreasureOpenCutscene
-        result={{
-          miss: false,
-          pityTriggered: false,
-          item: { id: "i1", title: "ごほうび", rarity: "RARE" },
-        }}
+        result={{ pityTriggered: false, item: null, collectionItem: null }}
         onClose={() => {}}
       />
     );
-    const img = screen.getByRole("img") as HTMLImageElement;
-    expect(img.src).toContain("/treasure/open2.png");
-  });
-
-  it("あたり時もタイトル文字列を表示する", () => {
-    render(
-      <TreasureOpenCutscene
-        result={{
-          miss: false,
-          pityTriggered: false,
-          item: { id: "i1", title: "ガチャあたり！", rarity: "RARE" },
-        }}
-        onClose={() => {}}
-      />
-    );
-    expect(screen.getByText("ガチャあたり！")).toBeTruthy();
+    expect(container.firstChild).toBeNull();
   });
 });

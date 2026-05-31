@@ -34,7 +34,6 @@ interface StatusResponse {
 }
 
 interface TreasureOpenResult {
-  miss: boolean;
   pityTriggered: boolean;
   item: { id: string; title: string; rarity: Rarity } | null;
   collectionItem: {
@@ -169,14 +168,8 @@ export default function ParentChildViewTreasuresPage() {
                 key={o.id}
                 className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
               >
-                <div className="w-10 h-10 flex-shrink-0">
-                  <Image
-                    src={o.item ? "/treasure/open2.png" : "/treasure/open1.png"}
-                    alt={o.item ? "ごほうび" : "コレクション"}
-                    width={40}
-                    height={40}
-                    className="w-full h-full object-contain"
-                  />
+                <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-3xl" aria-hidden>
+                  {o.item ? "🎁" : "🏆"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">

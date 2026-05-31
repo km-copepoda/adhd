@@ -1291,3 +1291,33 @@
 - `src/components/child/TreasureOpenCutscene.tsx` — フォールバック文言
 - テスト 3 ファイル（treasureService / BottomNav 表示 / Cutscene は既存維持）
 
+## 2026-05-31: 「ハズレ」概念を廃止 — `OpenTreasureResult.miss` フィールド削除
+
+### 決定内容
+- `OpenTreasureResult` (および /api/treasures/open レスポンス) から `miss: boolean` フィールドを削除
+  - 「親ごほうび当選」「コレクション獲得」の 2つは `item !== null` / `collectionItem !== null` で完全に区別できるため、`miss` は冗長
+- `TreasureOpenCutscene` の描画分岐を `result.miss` チェックから `result.item ? ... : result.collectionItem ? ... : null` の素直な分岐に書き換え
+  - `collectionItem` 欠落フォールバック (旧 API 互換用の「からっぽ…」防御) を撤去 — 新 API では必ず `item` か `collectionItem` のどちらかが入る
+- Push 通知の判定を `if (!result.miss && ...)` → `if (result.item && ...)` に
+- 履歴行アイコンを `/treasure/open1.png`（からっぽの宝箱絵）から **🏆 絵文字** に置き換え（コレクションは「獲得」であり「空」のビジュアルは誤り）
+- 史料的コメント・テスト名から「ハズレ」「MISS」表現を「親ごほうび不当選」「コレクション獲得」「外れ枠」等に置換
+
+### 理由
+- 「外れ」「miss」という名前は『何ももらえなかった』を含意してしまい、コレクション獲得が必ず付く現仕様と認知不整合
+- `miss` が `item === null` と必ず一致するため、フィールドが冗長で True Source が二箇所に分かれていた（API 経由でずれが生じ得る）
+- 子画面の演出も「ごほうび当選 vs コレクション獲得」の 2 ステートで素直に書ける方が後続変更に強い
+- 旧アイコン `/treasure/open1.png`（空の宝箱）は「何も入っていない」表現で、新仕様の「必ず何か出る」と矛盾。絵文字（🎁 ごほうび / 🏆 コレクション）で意味的に区別する
+
+### やってはいけないこと
+- `miss` を別名（`hasReward` 反転 / `isCollection` 等）で復活させる（同じ True Source 二重化問題が再発）
+- `TreasureOpenCutscene` で「ごほうび」と「コレクション」の表示を 1つの分岐に合体させる（表示要素・配色・サブタイトル文言が異なるので分けたほうが読みやすい）
+- `/treasure/open1.png` ファイル自体を削除する（他の場所での参照が将来発生し得るので残置 — ただし新たに参照を増やさない）
+- TreasureLog.itemId === null を「ハズレ」と説明するコメントを残す（旧名残でユーザに「外れ」を連想させる）
+
+### 該当箇所
+- `src/lib/treasureService.ts` — `OpenTreasureResult.miss` 削除、`drawnItem === null` 判定に統一
+- `src/app/api/treasures/open/route.ts` + child-view variant — レスポンスから `miss` 削除、Push 判定を `result.item` ベースに
+- `src/components/child/TreasureOpenCutscene.tsx` — 分岐を item/collectionItem ベースに、フォールバック撤去
+- `src/components/child/TreasureStock.tsx` + 子・親代理 treasures ページ — 型から `miss` 削除、履歴アイコンを emoji 化
+- テスト 6 ファイル（treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / 子・親代理 treasures page / treasures/status）から `miss` の mock/assertion 撤去
+

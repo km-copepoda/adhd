@@ -62,7 +62,7 @@ describe("POST /api/parent/child-view/treasures/open", () => {
     expect(res.status).toBe(400);
   });
 
-  it("当たり時でも親への Push は送らない（親が自分で操作しているため通知不要）", async () => {
+  it("親ごほうび当選でも親への Push は送らない（親が自分で操作しているため通知不要）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.user.findFirst.mockResolvedValue(
       childUser({ id: "child-1", name: "太郎" }) as any,
@@ -70,18 +70,18 @@ describe("POST /api/parent/child-view/treasures/open", () => {
     mockOpen.mockResolvedValue({
       logId: "log-1",
       item: { id: "i1", title: "おやつ", rarity: "COMMON" },
-      miss: false,
       pityTriggered: false,
       nextPityCount: 0,
-    } as any);
+      collectionItem: null,
+    });
     mockPrisma.treasureLog.count.mockResolvedValue(2);
 
     const res = await POST(makeReq({ childId: "child-1" }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.miss).toBe(false);
     expect(json.item.title).toBe("おやつ");
+    expect(json.collectionItem).toBeNull();
     expect(json.remainingUnlocked).toBe(2);
     expect(mockSendPushToParent).not.toHaveBeenCalled();
 
@@ -89,13 +89,12 @@ describe("POST /api/parent/child-view/treasures/open", () => {
     expect(mockOpen).toHaveBeenCalledWith("child-1");
   });
 
-  it("ハズレ時もハンドリング (miss=true, item=null, collectionItem 付与) を返す", async () => {
+  it("コレクション獲得時もハンドリング (item=null, collectionItem 付与) を返す", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
     mockOpen.mockResolvedValue({
       logId: "log-2",
       item: null,
-      miss: true,
       pityTriggered: false,
       nextPityCount: 1,
       collectionItem: {
@@ -107,12 +106,11 @@ describe("POST /api/parent/child-view/treasures/open", () => {
         image: "/collection-items/summer/カブトムシ.png",
         count: 1,
       },
-    } as any);
+    });
 
     const res = await POST(makeReq({ childId: "child-1" }));
     const json = await res.json();
 
-    expect(json.miss).toBe(true);
     expect(json.item).toBeNull();
     expect(json.collectionItem).toMatchObject({ id: "summer-01", name: "カブトムシ" });
     expect(mockSendPushToParent).not.toHaveBeenCalled();
@@ -124,10 +122,10 @@ describe("POST /api/parent/child-view/treasures/open", () => {
     mockOpen.mockResolvedValue({
       logId: "log-3",
       item: { id: "i1", title: "本", rarity: "RARE" },
-      miss: false,
       pityTriggered: true,
       nextPityCount: 0,
-    } as any);
+      collectionItem: null,
+    });
 
     const res = await POST(makeReq({ childId: "child-1" }));
     const json = await res.json();

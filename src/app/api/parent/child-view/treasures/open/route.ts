@@ -1,9 +1,9 @@
 // 親代理（子供モード）— 宝箱を 1個開封する。
 //
 // POST /api/parent/child-view/treasures/open  body: { childId: string }
-// 子供セルフ用の /api/treasures/open と異なり、当たり時の親への Push は送らない
+// 子供セルフ用の /api/treasures/open と異なり、親ごほうび当選時の親への Push は送らない
 // （親自身が操作した結果なので二重通知になる）。
-// 抽選そのものは openOldestTreasure を共用するため、抽選確率・天井・ハズレ演出は同等。
+// 抽選そのものは openOldestTreasure を共用するため、抽選確率・天井・コレクション付与は同等。
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -41,7 +41,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    miss: result.miss,
     pityTriggered: result.pityTriggered,
     item: result.item,
     collectionItem: result.collectionItem,

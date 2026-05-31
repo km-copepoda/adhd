@@ -16,10 +16,11 @@ interface CollectionItemResult {
 }
 
 interface Result {
-  miss: boolean;
   pityTriggered: boolean;
+  /** 親が設定したごほうび。当選しなかった場合 null（その代わり collectionItem が入る） */
   item: { id: string; title: string; rarity: TreasureRarity } | null;
-  collectionItem?: CollectionItemResult | null;
+  /** 親ごほうび不当選時に付与されたコレクションアイテム */
+  collectionItem: CollectionItemResult | null;
 }
 
 interface Props {
@@ -46,56 +47,48 @@ const COLLECTION_RARITY_LABEL: Record<CollectionRarity, string> = {
 };
 
 export default function TreasureOpenCutscene({ result, onClose }: Props) {
-  // ハズレ枠 — 季節コレクションアイテムを表示
-  if (result.miss) {
-    const ci = result.collectionItem;
-    if (ci) {
-      const glow = COLLECTION_RARITY_COLOR[ci.rarity];
-      const seasonLabel = SEASON_LABEL[ci.season];
-      const isNew = ci.count === 1;
-      return (
-        <CutsceneOverlay
-          onClose={onClose}
-          imageSrc={ci.image}
-          imageAlt={ci.name}
-          glowColor={glow}
-          title={ci.name}
-          titleColor="text-quest-gold"
-          subtitle={isNew ? `${seasonLabel}のコレクションをゲット！` : `${seasonLabel}のコレクション（${ci.count}個目）`}
-          description={ci.description}
-          bonus={{
-            text: `🏆 ${COLLECTION_RARITY_LABEL[ci.rarity]}`,
-            color: ci.rarity === "RARE" ? "text-quest-gold" : "text-quest-mint",
-          }}
-        />
-      );
-    }
-    // 万一 collectionItem が無い場合（古い API レスポンス互換のための防御）
+  // 親が設定したごほうび当選 → 親ごほうび演出
+  if (result.item) {
+    const glow = RARITY_COLOR[result.item.rarity];
     return (
       <CutsceneOverlay
         onClose={onClose}
-        imageSrc="/treasure/open1.png"
-        imageAlt="宝箱"
-        title="宝箱をひらいた！"
-        titleColor="text-quest-gold/80"
-        description="モンスターがうれしそうにしている！ ✨"
+        imageSrc="/treasure/open2.png"
+        imageAlt="ごほうびの宝箱"
+        glowColor={glow}
+        title={result.item.title}
+        titleColor="text-quest-gold"
+        subtitle={result.pityTriggered ? "ようやくキタ！" : "宝箱をひらいた！"}
+        description={formatChildRarity(result.item.rarity)}
+        bonus={{ text: "おうちの人に「もらった！」を伝えよう", color: "text-quest-mint" }}
       />
     );
   }
 
-  if (!result.item) return null;
-  const glow = RARITY_COLOR[result.item.rarity];
-  return (
-    <CutsceneOverlay
-      onClose={onClose}
-      imageSrc="/treasure/open2.png"
-      imageAlt="あたりの宝箱"
-      glowColor={glow}
-      title={result.item.title}
-      titleColor="text-quest-gold"
-      subtitle={result.pityTriggered ? "ようやくキタ！" : "宝箱をひらいた！"}
-      description={formatChildRarity(result.item.rarity)}
-      bonus={{ text: "おうちの人に「もらった！」を伝えよう", color: "text-quest-mint" }}
-    />
-  );
+  // 親ごほうび不当選 → 季節コレクションアイテム演出
+  if (result.collectionItem) {
+    const ci = result.collectionItem;
+    const glow = COLLECTION_RARITY_COLOR[ci.rarity];
+    const seasonLabel = SEASON_LABEL[ci.season];
+    const isNew = ci.count === 1;
+    return (
+      <CutsceneOverlay
+        onClose={onClose}
+        imageSrc={ci.image}
+        imageAlt={ci.name}
+        glowColor={glow}
+        title={ci.name}
+        titleColor="text-quest-gold"
+        subtitle={isNew ? `${seasonLabel}のコレクションをゲット！` : `${seasonLabel}のコレクション（${ci.count}個目）`}
+        description={ci.description}
+        bonus={{
+          text: `🏆 ${COLLECTION_RARITY_LABEL[ci.rarity]}`,
+          color: ci.rarity === "RARE" ? "text-quest-gold" : "text-quest-mint",
+        }}
+      />
+    );
+  }
+
+  // どちらも無いケースは API 仕様上発生しない
+  return null;
 }

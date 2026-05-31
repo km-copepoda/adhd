@@ -1,7 +1,7 @@
 // 宝箱コレクションアイテムの抽選（純粋関数）。
 // 仕様: docs/未実装仕様書/treasure-collection-items.md セクション 3
 //
-// 宝箱の「ごほうび抽選」がハズレ (MISS) を出したときに追加で走らせる抽選。
+// 親ごほうび抽選 (drawTreasure) が当選を返さなかったときに追加で走らせる抽選。
 // - COMMON 60% / UNCOMMON 30% / RARE 10% を排他選択 (rng 1 回目)
 // - 当選レアにアイテムが無ければ次に低いレアへ降格 (treasure.ts の drawTreasure と同じ規約)
 // - 当選レア内のアイテム選択は uniform (rng 2 回目)

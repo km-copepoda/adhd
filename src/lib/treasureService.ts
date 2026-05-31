@@ -31,8 +31,8 @@ export interface TreasureCondition {
 /**
  * 報告時の宝箱生成（LOCKED）。
  *  - isProxy=true → 何もしない（親代理は子供の自発的動機を生まないため）
- *  - 親のプール未設定でも生成する（ハズレ枠は季節コレクションアイテムが必ず出るため、
- *    プール 0 でも子供は「コレクションアイテム × N」の確定報酬を受け取れる）
+ *  - 親のプール未設定でも生成する（開封時に必ず季節コレクションアイテムが出るため、
+ *    プール 0 でも子供は確定報酬を受け取れる）
  *  - reportedCount >= minTasks → STREAK 1個
  *  - reportedCount = totalCount (全完了) → さらに ALL_COMPLETE (boosted) 1個
  *  - 同じ trigger の宝箱がその日既にあれば飛ばす（冪等）
@@ -126,7 +126,7 @@ export async function cancelTreasuresOnReject(cond: TreasureCondition): Promise<
  * 親代理 report-approve 時の宝箱生成（即 UNLOCKED で1個のみ）。
  * 条件: reportedCount >= minTasks
  * 当日に既に PROXY 宝箱があれば作らない（冪等）。
- * プール 0 でも生成する（ハズレ枠はコレクションアイテムが必ず出るため）。
+ * プール 0 でも生成する（開封時にコレクションアイテムが必ず出るため）。
  */
 export async function generateProxyTreasure(input: {
   childId: string;
@@ -168,21 +168,21 @@ export interface OpenedCollectionItem {
 
 export interface OpenTreasureResult {
   logId: string;
+  /** 親が設定したごほうび。当選しなかった場合は null（その代わり collectionItem が入る）。 */
   item: { id: string; title: string; rarity: TreasureRarity } | null;
-  miss: boolean;
   pityTriggered: boolean;
   nextPityCount: number;
-  /** ハズレ時に付与される季節コレクションアイテム。当たり時は null。 */
+  /** 親ごほうびが当選しなかったときに付与される季節コレクションアイテム。当選時は null。 */
   collectionItem: OpenedCollectionItem | null;
 }
 
 /**
  * 最古の UNLOCKED 宝箱を開封し、抽選結果を確定する。
  *  - 該当なし → null
- *  - プール空 → ハズレ（item=null）として OPENED に。pity は据え置き
- *  - 通常抽選 → drawTreasure で結果決定。pity を更新
- *  - ハズレ (item=null) のときは現在のシーズンのコレクションアイテムを必ず 1個付与する
+ *  - 抽選で親ごほうびに当選 → item を入れて返す（collectionItem は null）
+ *  - 親ごほうび不当選 (プール空 or rng が外れ) → 現在シーズンのコレクションアイテムを 1個付与
  *    (仕様: docs/未実装仕様書/treasure-collection-items.md)
+ *  - pity は drawTreasure の戻り値に従う（プール空時は据え置き）
  */
 export async function openOldestTreasure(
   childId: string,
@@ -220,11 +220,10 @@ export async function openOldestTreasure(
   });
 
   const drawnItem = draw.itemId ? pool.find((p) => p.id === draw.itemId) ?? null : null;
-  const miss = draw.itemId === null;
 
-  // ハズレなら季節コレクションアイテムを必ず付与
+  // 親ごほうび不当選なら季節コレクションアイテムを必ず付与
   let collectionItem: OpenedCollectionItem | null = null;
-  if (miss) {
+  if (drawnItem === null) {
     const season = getSeasonForDate(now);
     const seasonItems = getItemsBySeason(season);
     const picked = drawCollectionItem(seasonItems, options.rng);
@@ -263,7 +262,6 @@ export async function openOldestTreasure(
     item: drawnItem
       ? { id: drawnItem.id, title: drawnItem.title, rarity: drawnItem.rarity }
       : null,
-    miss,
     pityTriggered: draw.pityTriggered,
     nextPityCount: draw.nextPityCount,
     collectionItem,

@@ -83,8 +83,9 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
       }
       if (typeof url === "string" && url.includes("/treasures/open") && init?.method === "POST") {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({
-          ok: true, miss: false, pityTriggered: false,
+          ok: true, pityTriggered: false,
           item: { id: "i1", title: "あめ", rarity: "COMMON" },
+          collectionItem: null,
           remainingUnlocked: 0,
         }) });
       }
@@ -122,7 +123,17 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
       }
       if (typeof url === "string" && url.includes("/treasures/open") && init?.method === "POST") {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({
-          ok: true, miss: true, pityTriggered: false, item: null, remainingUnlocked: 0,
+          ok: true, pityTriggered: false, item: null,
+          collectionItem: {
+            id: "summer-01",
+            name: "カブトムシ",
+            rarity: "COMMON",
+            season: "summer",
+            description: "夏の王様",
+            image: "/collection-items/summer/カブトムシ.png",
+            count: 1,
+          },
+          remainingUnlocked: 0,
         }) });
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
