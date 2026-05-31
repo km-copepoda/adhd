@@ -20,7 +20,7 @@ export interface CollectionItem {
   image: string;
 }
 
-const DUMMY_IMAGE = "/collection-items/dummy.png";
+const DUMMY_IMAGE = "/collection-items/dummy.webp";
 
 function img(season: CollectionSeason, filename: string | null): string {
   if (!filename) return DUMMY_IMAGE;
@@ -57,58 +57,58 @@ const SPRING_ITEMS: CollectionItem[] = [
 
 const SUMMER_ITEMS: CollectionItem[] = [
   // いきもの
-  { id: "summer-01", season: "summer", category: "creature", rarity: "COMMON",   name: "カブトムシ",         description: "夏の王様。つのがかっこいい",                 image: img("summer", "かぶとむし.png") },
-  { id: "summer-02", season: "summer", category: "creature", rarity: "COMMON",   name: "セミのぬけがら",     description: "木の幹にしがみついてた",                     image: img("summer", "セミのぬけがら.png") },
-  { id: "summer-03", season: "summer", category: "creature", rarity: "UNCOMMON", name: "クラゲ",             description: "ゆらゆら光る海のランプ",                     image: img("summer", "クラゲ.png") },
-  { id: "summer-04", season: "summer", category: "creature", rarity: "RARE",     name: "リュウグウノツカイ", description: "深海からあらわれた伝説の魚",                 image: img("summer", "リュウグウノツカイ.png") },
+  { id: "summer-01", season: "summer", category: "creature", rarity: "COMMON",   name: "カブトムシ",         description: "夏の王様。つのがかっこいい",                 image: img("summer", "かぶとむし.webp") },
+  { id: "summer-02", season: "summer", category: "creature", rarity: "COMMON",   name: "セミのぬけがら",     description: "木の幹にしがみついてた",                     image: img("summer", "セミのぬけがら.webp") },
+  { id: "summer-03", season: "summer", category: "creature", rarity: "UNCOMMON", name: "クラゲ",             description: "ゆらゆら光る海のランプ",                     image: img("summer", "クラゲ.webp") },
+  { id: "summer-04", season: "summer", category: "creature", rarity: "RARE",     name: "リュウグウノツカイ", description: "深海からあらわれた伝説の魚",                 image: img("summer", "リュウグウノツカイ.webp") },
   // たべもの
-  { id: "summer-05", season: "summer", category: "food",     rarity: "COMMON",   name: "スイカ",             description: "たたくといい音がする",                       image: img("summer", "スイカ.png") },
-  { id: "summer-06", season: "summer", category: "food",     rarity: "COMMON",   name: "かきごおり",         description: "シロップはブルーハワイ派",                   image: img("summer", "かきごおり.png") },
-  { id: "summer-07", season: "summer", category: "food",     rarity: "UNCOMMON", name: "わたあめ",           description: "ふわふわで雲みたいなやつ",                   image: img("summer", "わたあめ.png") },
-  { id: "summer-08", season: "summer", category: "food",     rarity: "RARE",     name: "流れ星ソーダ",       description: "飲むと体がキラキラ光る夜だけのジュース",     image: img("summer", "流れ星ソーダ.png") },
+  { id: "summer-05", season: "summer", category: "food",     rarity: "COMMON",   name: "スイカ",             description: "たたくといい音がする",                       image: img("summer", "スイカ.webp") },
+  { id: "summer-06", season: "summer", category: "food",     rarity: "COMMON",   name: "かきごおり",         description: "シロップはブルーハワイ派",                   image: img("summer", "かきごおり.webp") },
+  { id: "summer-07", season: "summer", category: "food",     rarity: "UNCOMMON", name: "わたあめ",           description: "ふわふわで雲みたいなやつ",                   image: img("summer", "わたあめ.webp") },
+  { id: "summer-08", season: "summer", category: "food",     rarity: "RARE",     name: "流れ星ソーダ",       description: "飲むと体がキラキラ光る夜だけのジュース",     image: img("summer", "流れ星ソーダ.webp") },
   // ほうせき
-  { id: "summer-09", season: "summer", category: "jewel",    rarity: "COMMON",   name: "シーグラス",         description: "波にみがかれたガラスのかけら",               image: img("summer", "シーグラス.png") },
-  { id: "summer-10", season: "summer", category: "jewel",    rarity: "COMMON",   name: "貝がら",             description: "耳にあてると海の音がする",                   image: img("summer", "貝がら.png") },
-  { id: "summer-11", season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "真珠",               description: "貝の中でひっそり育った光のつぶ",             image: img("summer", "真珠.png") },
-  { id: "summer-12", season: "summer", category: "jewel",    rarity: "RARE",     name: "人魚のうろこ",       description: "太陽にかざすと七色にかがやく",               image: img("summer", "人魚のうろこ.png") },
+  { id: "summer-09", season: "summer", category: "jewel",    rarity: "COMMON",   name: "シーグラス",         description: "波にみがかれたガラスのかけら",               image: img("summer", "シーグラス.webp") },
+  { id: "summer-10", season: "summer", category: "jewel",    rarity: "COMMON",   name: "貝がら",             description: "耳にあてると海の音がする",                   image: img("summer", "貝がら.webp") },
+  { id: "summer-11", season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "真珠",               description: "貝の中でひっそり育った光のつぶ",             image: img("summer", "真珠.webp") },
+  { id: "summer-12", season: "summer", category: "jewel",    rarity: "RARE",     name: "人魚のうろこ",       description: "太陽にかざすと七色にかがやく",               image: img("summer", "人魚のうろこ.webp") },
   // どうぐ
-  { id: "summer-13", season: "summer", category: "tool",     rarity: "COMMON",   name: "むしとりあみ",       description: "夏休みの必須アイテム",                       image: img("summer", "むしとりあみ.png") },
-  { id: "summer-14", season: "summer", category: "tool",     rarity: "COMMON",   name: "ビーチサンダル",     description: "ペタペタ音がたのしい",                       image: img("summer", "ビーチサンダル.png") },
-  { id: "summer-15", season: "summer", category: "tool",     rarity: "UNCOMMON", name: "花火セット",         description: "線香花火が最後まで残ったら勝ち",             image: img("summer", "花火セット.png") },
-  { id: "summer-16", season: "summer", category: "tool",     rarity: "RARE",     name: "まぼろしの貝笛",     description: "吹くと海の生き物があつまってくる",           image: img("summer", "まぼろしの貝笛.png") },
+  { id: "summer-13", season: "summer", category: "tool",     rarity: "COMMON",   name: "むしとりあみ",       description: "夏休みの必須アイテム",                       image: img("summer", "むしとりあみ.webp") },
+  { id: "summer-14", season: "summer", category: "tool",     rarity: "COMMON",   name: "ビーチサンダル",     description: "ペタペタ音がたのしい",                       image: img("summer", "ビーチサンダル.webp") },
+  { id: "summer-15", season: "summer", category: "tool",     rarity: "UNCOMMON", name: "花火セット",         description: "線香花火が最後まで残ったら勝ち",             image: img("summer", "花火セット.webp") },
+  { id: "summer-16", season: "summer", category: "tool",     rarity: "RARE",     name: "まぼろしの貝笛",     description: "吹くと海の生き物があつまってくる",           image: img("summer", "まぼろしの貝笛.webp") },
   // しぜん
-  { id: "summer-17", season: "summer", category: "nature",   rarity: "COMMON",   name: "ひまわり",           description: "太陽にむかってまっすぐのびる",               image: img("summer", "ひまわり.png") },
-  { id: "summer-18", season: "summer", category: "nature",   rarity: "COMMON",   name: "入道雲",             description: "もくもく育つ夏のしるし",                     image: img("summer", "入道雲.png") },
-  { id: "summer-19", season: "summer", category: "nature",   rarity: "UNCOMMON", name: "にじ",               description: "夕立のあとにかかるごほうび",                 image: img("summer", "にじ.png") },
-  { id: "summer-20", season: "summer", category: "nature",   rarity: "RARE",     name: "天の川のひとしずく", description: "七夕の夜にだけ降ってくる星のしずく",         image: img("summer", "天の川のひとしずく.png") },
+  { id: "summer-17", season: "summer", category: "nature",   rarity: "COMMON",   name: "ひまわり",           description: "太陽にむかってまっすぐのびる",               image: img("summer", "ひまわり.webp") },
+  { id: "summer-18", season: "summer", category: "nature",   rarity: "COMMON",   name: "入道雲",             description: "もくもく育つ夏のしるし",                     image: img("summer", "入道雲.webp") },
+  { id: "summer-19", season: "summer", category: "nature",   rarity: "UNCOMMON", name: "にじ",               description: "夕立のあとにかかるごほうび",                 image: img("summer", "にじ.webp") },
+  { id: "summer-20", season: "summer", category: "nature",   rarity: "RARE",     name: "天の川のひとしずく", description: "七夕の夜にだけ降ってくる星のしずく",         image: img("summer", "天の川のひとしずく.webp") },
 ];
 
 const FALL_ITEMS: CollectionItem[] = [
   // いきもの
-  { id: "fall-01",   season: "fall",   category: "creature", rarity: "COMMON",   name: "アキアカネ",         description: "夕やけの中をとぶ赤とんぼ",                   image: img("fall", "アキアカネ.png") },
-  { id: "fall-02",   season: "fall",   category: "creature", rarity: "COMMON",   name: "スズムシ",           description: "リーンリーンと秋を歌う",                     image: img("fall", "スズムシ.png") },
-  { id: "fall-03",   season: "fall",   category: "creature", rarity: "UNCOMMON", name: "フクロウ（秋羽）",   description: "紅葉色の羽をまとった森の番人",               image: img("fall", "フクロウ（秋羽）.png") },
-  { id: "fall-04",   season: "fall",   category: "creature", rarity: "RARE",     name: "月うさぎ",           description: "満月の夜だけ現れるふしぎなうさぎ",           image: img("fall", "月ウサギ.png") },
+  { id: "fall-01",   season: "fall",   category: "creature", rarity: "COMMON",   name: "アキアカネ",         description: "夕やけの中をとぶ赤とんぼ",                   image: img("fall", "アキアカネ.webp") },
+  { id: "fall-02",   season: "fall",   category: "creature", rarity: "COMMON",   name: "スズムシ",           description: "リーンリーンと秋を歌う",                     image: img("fall", "スズムシ.webp") },
+  { id: "fall-03",   season: "fall",   category: "creature", rarity: "UNCOMMON", name: "フクロウ（秋羽）",   description: "紅葉色の羽をまとった森の番人",               image: img("fall", "フクロウ（秋羽）.webp") },
+  { id: "fall-04",   season: "fall",   category: "creature", rarity: "RARE",     name: "月うさぎ",           description: "満月の夜だけ現れるふしぎなうさぎ",           image: img("fall", "月ウサギ.webp") },
   // たべもの
-  { id: "fall-05",   season: "fall",   category: "food",     rarity: "COMMON",   name: "やきいも",           description: "ホクホクあつあつ。ほっぺが落ちる",           image: img("fall", "やきいも.png") },
-  { id: "fall-06",   season: "fall",   category: "food",     rarity: "COMMON",   name: "くり",               description: "トゲトゲの中身はあまい",                     image: img("fall", "くり.png") },
-  { id: "fall-07",   season: "fall",   category: "food",     rarity: "UNCOMMON", name: "月見だんご",         description: "お月さまにおそなえするまんまるだんご",       image: img("fall", "月見だんご.png") },
-  { id: "fall-08",   season: "fall",   category: "food",     rarity: "RARE",     name: "黄金のまつたけ",     description: "見つけたら一生ラッキーな伝説のきのこ",       image: img("fall", "黄金のマツタケ.png") },
+  { id: "fall-05",   season: "fall",   category: "food",     rarity: "COMMON",   name: "やきいも",           description: "ホクホクあつあつ。ほっぺが落ちる",           image: img("fall", "やきいも.webp") },
+  { id: "fall-06",   season: "fall",   category: "food",     rarity: "COMMON",   name: "くり",               description: "トゲトゲの中身はあまい",                     image: img("fall", "くり.webp") },
+  { id: "fall-07",   season: "fall",   category: "food",     rarity: "UNCOMMON", name: "月見だんご",         description: "お月さまにおそなえするまんまるだんご",       image: img("fall", "月見だんご.webp") },
+  { id: "fall-08",   season: "fall",   category: "food",     rarity: "RARE",     name: "黄金のまつたけ",     description: "見つけたら一生ラッキーな伝説のきのこ",       image: img("fall", "黄金のマツタケ.webp") },
   // ほうせき
-  { id: "fall-09",   season: "fall",   category: "jewel",    rarity: "COMMON",   name: "琥珀",               description: "虫が閉じこめられた太古のたからもの",         image: img("fall", "琥珀.png") },
-  { id: "fall-10",   season: "fall",   category: "jewel",    rarity: "COMMON",   name: "もみじの化石",       description: "何万年も前の秋がのこってる",                 image: img("fall", "もみじの化石.png") },
-  { id: "fall-11",   season: "fall",   category: "jewel",    rarity: "UNCOMMON", name: "タイガーアイ",       description: "トラの目みたいにギラッと光る",               image: img("fall", "タイガーアイ.png") },
-  { id: "fall-12",   season: "fall",   category: "jewel",    rarity: "RARE",     name: "月光石",             description: "月の光をあつめて固めた石",                   image: img("fall", "月光石.png") },
+  { id: "fall-09",   season: "fall",   category: "jewel",    rarity: "COMMON",   name: "琥珀",               description: "虫が閉じこめられた太古のたからもの",         image: img("fall", "琥珀.webp") },
+  { id: "fall-10",   season: "fall",   category: "jewel",    rarity: "COMMON",   name: "もみじの化石",       description: "何万年も前の秋がのこってる",                 image: img("fall", "もみじの化石.webp") },
+  { id: "fall-11",   season: "fall",   category: "jewel",    rarity: "UNCOMMON", name: "タイガーアイ",       description: "トラの目みたいにギラッと光る",               image: img("fall", "タイガーアイ.webp") },
+  { id: "fall-12",   season: "fall",   category: "jewel",    rarity: "RARE",     name: "月光石",             description: "月の光をあつめて固めた石",                   image: img("fall", "月光石.webp") },
   // どうぐ
-  { id: "fall-13",   season: "fall",   category: "tool",     rarity: "COMMON",   name: "落ち葉",             description: "カサカサいい音がする",                       image: img("fall", "落ち葉.png") },
-  { id: "fall-14",   season: "fall",   category: "tool",     rarity: "COMMON",   name: "どんぐりごま",       description: "指でくるくるまわせる",                       image: img("fall", "どんぐりごま.png") },
-  { id: "fall-15",   season: "fall",   category: "tool",     rarity: "UNCOMMON", name: "秋の絵はがき",       description: "紅葉の山が描かれたふしぎなカード",           image: img("fall", "秋の絵ハガキ.png") },
-  { id: "fall-16",   season: "fall",   category: "tool",     rarity: "RARE",     name: "星月夜のランタン",   description: "火をつけると星空がうかびあがる",             image: img("fall", "星月夜のランタン.png") },
+  { id: "fall-13",   season: "fall",   category: "tool",     rarity: "COMMON",   name: "落ち葉",             description: "カサカサいい音がする",                       image: img("fall", "落ち葉.webp") },
+  { id: "fall-14",   season: "fall",   category: "tool",     rarity: "COMMON",   name: "どんぐりごま",       description: "指でくるくるまわせる",                       image: img("fall", "どんぐりごま.webp") },
+  { id: "fall-15",   season: "fall",   category: "tool",     rarity: "UNCOMMON", name: "秋の絵はがき",       description: "紅葉の山が描かれたふしぎなカード",           image: img("fall", "秋の絵ハガキ.webp") },
+  { id: "fall-16",   season: "fall",   category: "tool",     rarity: "RARE",     name: "星月夜のランタン",   description: "火をつけると星空がうかびあがる",             image: img("fall", "星月夜のランタン.webp") },
   // しぜん
-  { id: "fall-17",   season: "fall",   category: "nature",   rarity: "COMMON",   name: "紅葉",               description: "赤と黄色のグラデーション",                   image: img("fall", "紅葉.png") },
-  { id: "fall-18",   season: "fall",   category: "nature",   rarity: "COMMON",   name: "すすき",             description: "風にゆれる秋のシンボル",                     image: img("fall", "すすき.png") },
-  { id: "fall-19",   season: "fall",   category: "nature",   rarity: "UNCOMMON", name: "きんもくせいの香り", description: "ビンを開けると秋の匂いがふわっと",           image: img("fall", "きんもくせいの香り.png") },
-  { id: "fall-20",   season: "fall",   category: "nature",   rarity: "RARE",     name: "十五夜の月のかけら", description: "一年でいちばんきれいな月のひとかけ",         image: img("fall", "十五夜の月のかけら.png") },
+  { id: "fall-17",   season: "fall",   category: "nature",   rarity: "COMMON",   name: "紅葉",               description: "赤と黄色のグラデーション",                   image: img("fall", "紅葉.webp") },
+  { id: "fall-18",   season: "fall",   category: "nature",   rarity: "COMMON",   name: "すすき",             description: "風にゆれる秋のシンボル",                     image: img("fall", "すすき.webp") },
+  { id: "fall-19",   season: "fall",   category: "nature",   rarity: "UNCOMMON", name: "きんもくせいの香り", description: "ビンを開けると秋の匂いがふわっと",           image: img("fall", "きんもくせいの香り.webp") },
+  { id: "fall-20",   season: "fall",   category: "nature",   rarity: "RARE",     name: "十五夜の月のかけら", description: "一年でいちばんきれいな月のひとかけ",         image: img("fall", "十五夜の月のかけら.webp") },
 ];
 
 const WINTER_ITEMS: CollectionItem[] = [

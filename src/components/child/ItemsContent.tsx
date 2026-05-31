@@ -57,9 +57,9 @@ const RARITY_COLOR_HEX: Record<CollectionRarity, string> = {
 };
 
 const RARITY_LABEL: Record<CollectionRarity, string> = {
-  COMMON: "C",
-  UNCOMMON: "UC",
-  RARE: "R",
+  COMMON: "★",
+  UNCOMMON: "★★",
+  RARE: "★★★",
 };
 
 const CATEGORY_ORDER: CollectionCategory[] = [

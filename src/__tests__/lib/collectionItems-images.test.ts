@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ALL_COLLECTION_ITEMS } from "@/lib/collectionItems";
 
-const DUMMY_IMAGE = "/collection-items/dummy.png";
+const DUMMY_IMAGE = "/collection-items/dummy.webp";
 
 describe("collectionItems image paths", () => {
   it("ダミー画像は public 上に存在する", () => {
