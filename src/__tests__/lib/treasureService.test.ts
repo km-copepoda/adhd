@@ -29,6 +29,36 @@ describe("generateTreasuresOnReport", () => {
     mockPrisma.treasureItem.count.mockResolvedValue(1);
   });
 
+  it("STREAK が既に OPENED 状態でも、その後 ALL_COMPLETE 条件が満たされたら ALL_COMPLETE を新規作成する", async () => {
+    // ユーザー報告シナリオ:
+    // 1. 報告 → STREAK 生成
+    // 2. 親承認 → STREAK が UNLOCKED → 子が開封 → STREAK が OPENED
+    // 3. 残りタスクをスキップして全部完了 → ALL_COMPLETE が出るべき
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { trigger: "STREAK" }, // status は問わない (OPENED でも CANCELLED でも)
+    ] as any);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "t-all" } as any);
+
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      minTasks: 1,
+      isProxy: false,
+    });
+
+    expect(ids).toEqual(["t-all"]);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        trigger: "ALL_COMPLETE",
+        boosted: true,
+        status: "LOCKED",
+      }),
+    });
+  });
+
   it("プールが空 (treasureItem.count=0) でも生成する (開封時にコレクションアイテムが必ず出る)", async () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
