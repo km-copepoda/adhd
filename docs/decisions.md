@@ -1391,3 +1391,31 @@
 ### 該当箇所
 - `src/lib/treasureService.ts` — `generateProxyTreasure` の where に `trigger: { in: [...] }` + `status: { not: "CANCELLED" }`、`generateTreasuresOnReport` の STREAK 判定に PROXY を加算
 - `src/__tests__/lib/treasureService.test.ts` — STREAK→PROXY 抑制 / PROXY→STREAK 抑制 / PROXY+ALL_COMPLETE 共存 の 3 ケース追加
+
+
+## 2026-05-31: 「渡したよチェック」を親メモとして復活（2026-05-28 撤回）
+
+### 決定内容
+- `TreasureLog.fulfilled: Boolean @default(false)` カラムを復活（2026-05-28 で `20260528000001_drop_treasure_log_fulfilled` で削除したものを再追加）
+- `POST /api/treasures/fulfill/[id]` 復活: PARENT only / 同 family の TreasureLog のみ操作可 / body `{ fulfilled: boolean }` で双方向トグル可（誤チェック復旧用）
+- 親 `/app/parent/treasures/pending` の各行に「渡した / 取り消し」ボタンを追加。「✅ 渡し済み / ⏳ まだ渡してない」表示も併設
+- **子画面・子向け API には fulfilled を露出させない**（旧 2026-05-28 で懸念された「事務化」リスクを子側だけ完全に避ける）
+- コレクション獲得行 (`itemId=null`) は実物受け渡しが無いので `fulfill` API は 400 を返す
+
+### 理由
+- MVP で「子供は『まだもらってない』親は『あげた』」という水掛け論が複数家庭で観測された。実物の受け渡しを忘れること自体は親も子も普通だが、揉めるとごほうび制度の信頼を毀損する
+- 2026-05-28 で削除した理由「親が確定ボタンを押すだけの作業になりごほうびが事務化する」は **子供から見える形** だと強く効くが、**親 only の親メモ** なら催促圧力にならず、親が自分の記憶を補助するメモとして機能する
+- 子供は宝箱開封の喜びだけ覚えていればよく、親が「あれそういえばまだ渡してないな」と思い出して動くきっかけ（コミュニケーション）になることが期待される
+
+### やってはいけないこと
+- 子画面・子向け API (`/api/treasures/status` 等) で fulfilled を露出する（事務化リスクが直接戻ってくる、催促のきっかけを子供側に与えてしまう）
+- コレクション獲得行に fulfilled を意味付ける（実物が無いので無意味）
+- 親に「未受領 N 件」プッシュ通知を送る（親メモ＝任意の補助ツールとして提供し、義務化させない）
+
+### 該当箇所
+- `prisma/schema.prisma` — `TreasureLog.fulfilled` 復活
+- `prisma/migrations/20260531000005_restore_treasurelog_fulfilled/migration.sql`
+- `src/app/api/treasures/fulfill/[id]/route.ts` — 新規 (PARENT only / family スコープ / item not null チェック)
+- `src/app/api/treasures/pending/route.ts` — レスポンスに `fulfilled` 追加
+- `src/app/app/parent/(app)/treasures/pending/page.tsx` — 渡した/取り消しトグル
+- テスト 2 ファイル: `src/__tests__/api/treasures/fulfill.test.ts` + `src/__tests__/components/parent-treasures-pending-fulfill.test.tsx`
