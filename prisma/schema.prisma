@@ -295,6 +295,12 @@ model TreasureLog {
   /// 親ごほうび不当選時に付与されたコレクションアイテムの id (例: "summer-01")。
   /// マスターは src/lib/collectionItems.ts (DB FK 無し)。当選 / 未開封なら null。
   collectionItemId String?
+  /// 親が「実物のごほうびを子供に渡したか」を記録するフラグ。
+  /// 子画面には露出させず、親のみが /app/parent/treasures/pending で
+  /// チェックできる（水掛け論の防衛用、2026-05-28 廃止を 2026-05-31 で復活）。
+  /// 親ごほうび当選 (itemId が non-null) の TreasureLog のみ意味を持つ。
+  /// コレクション獲得 (itemId=null) は実物受け渡しが無いので無関係。
+  fulfilled        Boolean         @default(false)
   openedAt         DateTime?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt

@@ -205,11 +205,23 @@ export default function QuestsPage() {
   }
 
   async function handleSkip(questId: string, reason: string) {
-    await fetch(`/api/quests/${questId}/skip`, {
+    const res = await fetch(`/api/quests/${questId}/skip`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ comment: reason }),
     });
+    if (res.ok) {
+      // skip でも全タスク達成で STREAK / ALL_COMPLETE 宝箱が生成される。
+      // 報告フロー (handleReport) と対称に treasureIds を読み取り、
+      // シートが閉じた後に「宝箱ゲット！」演出を出す。
+      try {
+        const data = (await res.json()) as { treasureIds?: string[] };
+        const count = data.treasureIds?.length ?? 0;
+        if (count > 0) pendingTreasureGetRef.current = count;
+      } catch {
+        // 旧 API で JSON が無い場合などは無視
+      }
+    }
     await refreshQuests();
   }
 

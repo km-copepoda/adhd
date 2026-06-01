@@ -35,7 +35,9 @@ export interface TreasureCondition {
  *  - 親のプール未設定でも生成する（開封時に必ず季節コレクションアイテムが出るため、
  *    プール 0 でも子供は確定報酬を受け取れる）
  *  - reportedCount >= minTasks → STREAK 1個
+ *    ただし当日 PROXY が既にあれば STREAK は作らない（PROXY は STREAK の代替）
  *  - reportedCount = totalCount (全完了) → さらに ALL_COMPLETE (boosted) 1個
+ *    ALL_COMPLETE は PROXY と共存可（全タスク完了のボーナス枠として独立）
  *  - 同じ trigger の宝箱がその日既にあれば飛ばす（冪等）
  */
 export async function generateTreasuresOnReport(
@@ -48,14 +50,15 @@ export async function generateTreasuresOnReport(
     where: {
       childId: cond.childId,
       date: cond.date,
-      trigger: { in: ["STREAK", "ALL_COMPLETE"] },
+      trigger: { in: ["STREAK", "ALL_COMPLETE", "PROXY"] },
     },
     select: { trigger: true },
   });
   const has = new Set(existing.map((e) => e.trigger));
 
   const created: string[] = [];
-  if (!has.has("STREAK")) {
+  // PROXY は STREAK の代替なので、PROXY 既存なら STREAK は新規作成しない
+  if (!has.has("STREAK") && !has.has("PROXY")) {
     const t = await prisma.treasureLog.create({
       data: {
         childId: cond.childId,
@@ -126,7 +129,9 @@ export async function cancelTreasuresOnReject(cond: TreasureCondition): Promise<
 /**
  * 親代理 report-approve 時の宝箱生成（即 UNLOCKED で1個のみ）。
  * 条件: reportedCount >= minTasks
- * 当日に既に PROXY 宝箱があれば作らない（冪等）。
+ * 当日に **STREAK / ALL_COMPLETE / PROXY のいずれか** (非 CANCELLED) があれば作らない。
+ *   PROXY は「子セルフ報告で宝箱が出ない家庭への補填」枠なので、子供が既に
+ *   STREAK / ALL_COMPLETE を得ている混合家庭では追加で出さない（重複防止）。
  * プール 0 でも生成する（開封時にコレクションアイテムが必ず出るため）。
  */
 export async function generateProxyTreasure(input: {
@@ -139,7 +144,12 @@ export async function generateProxyTreasure(input: {
   if (input.reportedCount < input.minTasks) return null;
 
   const existing = await prisma.treasureLog.findFirst({
-    where: { childId: input.childId, date: input.date, trigger: "PROXY" },
+    where: {
+      childId: input.childId,
+      date: input.date,
+      trigger: { in: ["STREAK", "ALL_COMPLETE", "PROXY"] },
+      status: { not: "CANCELLED" },
+    },
     select: { id: true },
   });
   if (existing) return null;

@@ -2,9 +2,10 @@
 //
 // GET /api/treasures/pending
 //
-// NOTE: エンドポイント名は「pending」のままだが、2026-05-28 B 決定により
-// 「渡したよ」フローは廃止された。親は履歴として把握するだけで、確定操作は無い
-// （実際のごほうび受け渡しは親子のリアルなコミュニケーションに任せる）。
+// 2026-05-31: fulfilled (親メモ) フィールドを復活。同日 MVP フィードバック
+// 「子が『もらってない』親が『あげた』」の水掛け論への防衛策として、
+// 親 only の「渡したよチェック」を提供する。子画面には fulfilled を露出しない。
+// POST /api/treasures/fulfill/[id] で更新する。
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -45,6 +46,7 @@ export async function GET() {
       openedAt: i.openedAt,
       item: i.item,
       child: i.child,
+      fulfilled: i.fulfilled,
     })),
   });
 }

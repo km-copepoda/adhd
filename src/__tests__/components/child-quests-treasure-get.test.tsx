@@ -23,13 +23,15 @@ vi.mock("@/components/LoadingSpinner", () => ({
   default: () => <div data-testid="loading-spinner" />,
 }));
 
-// QuestActionSheet をテスト用に差し替え: onReport→onClose を即時に走らせる
+// QuestActionSheet をテスト用に差し替え: onReport / onSkip → onClose を即時に走らせる
 vi.mock("@/components/QuestActionSheet", () => ({
   default: ({
     onReport,
+    onSkip,
     onClose,
   }: {
     onReport: (id: string, c: string | null, p: string | null) => Promise<void>;
+    onSkip: (id: string, reason: string) => Promise<void>;
     onClose: () => void;
   }) => (
     <div data-testid="quest-sheet">
@@ -41,6 +43,15 @@ vi.mock("@/components/QuestActionSheet", () => ({
         }}
       >
         report
+      </button>
+      <button
+        data-testid="trigger-skip"
+        onClick={async () => {
+          await onSkip("q1", "気分が乗らない");
+          onClose();
+        }}
+      >
+        skip
       </button>
     </div>
   ),
@@ -76,7 +87,10 @@ const quest = {
   },
 };
 
-function setupFetch(reportResponse: { treasureIds: string[] }) {
+function setupFetch(opts: {
+  reportResponse?: { treasureIds: string[] };
+  skipResponse?: { treasureIds: string[] };
+}) {
   global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (url.includes("/api/quests/today")) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([quest]) });
@@ -88,7 +102,10 @@ function setupFetch(reportResponse: { treasureIds: string[] }) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ evolutionStage: 0, evolutionPath: "", studyPt: 0, staminaPt: 0, lifePt: 0 }) });
     }
     if (url.includes(`/api/quests/q1/report`) && init?.method === "POST") {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(reportResponse) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(opts.reportResponse ?? { treasureIds: [] }) });
+    }
+    if (url.includes(`/api/quests/q1/skip`) && init?.method === "POST") {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(opts.skipResponse ?? { treasureIds: [] }) });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
   }) as unknown as typeof fetch;
@@ -105,7 +122,7 @@ afterEach(() => {
 
 describe("child quests page - 宝箱ゲット演出", () => {
   it("report API が treasureIds を返したら、シートが閉じたあと「宝箱ゲット！」が表示される", async () => {
-    setupFetch({ treasureIds: ["t1"] });
+    setupFetch({ reportResponse: { treasureIds: ["t1"] } });
     await act(async () => {
       render(<ChildQuestsPage />);
     });
@@ -132,7 +149,7 @@ describe("child quests page - 宝箱ゲット演出", () => {
   });
 
   it("treasureIds が空なら宝箱ゲット演出は出ない", async () => {
-    setupFetch({ treasureIds: [] });
+    setupFetch({ reportResponse: { treasureIds: [] } });
     await act(async () => {
       render(<ChildQuestsPage />);
     });
@@ -148,5 +165,25 @@ describe("child quests page - 宝箱ゲット演出", () => {
     // 少し待っても表示されない
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText("宝箱ゲット！")).toBeNull();
+  });
+
+  it("skip API が treasureIds を返したら、シートが閉じたあと「宝箱ゲット！」が表示される (report と対称)", async () => {
+    setupFetch({ skipResponse: { treasureIds: ["t-all"] } });
+    await act(async () => {
+      render(<ChildQuestsPage />);
+    });
+    await waitFor(() => expect(screen.getByText(/宿題/)).toBeTruthy());
+    await act(async () => {
+      fireEvent.click(screen.getByText(/宿題/));
+    });
+    await waitFor(() => expect(screen.getByTestId("quest-sheet")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-skip"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("宝箱ゲット！")).toBeTruthy();
+    });
   });
 });

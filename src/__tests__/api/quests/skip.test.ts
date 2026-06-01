@@ -137,4 +137,57 @@ describe("POST /api/quests/[id]/skip", () => {
     expect(mockAfter).toHaveBeenCalledTimes(1);
     expect(mockTriggerTaskProgressLog).toHaveBeenCalledWith("child-1");
   });
+
+  // 宝箱生成: スキップも SKIP_REPORTED として「完了扱い」に含まれるため、
+  // 全タスクスキップでも STREAK + ALL_COMPLETE 宝箱が出ることを担保する
+  it("全タスクスキップ達成で generateTreasuresOnReport を totalCount===reportedCount で呼ぶ", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q1", status: "PENDING", date: new Date("2026-07-15") }) as any,
+    );
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    // 当日のクエスト = 3 件すべて SKIP_REPORTED（このスキップ完了で 3 件目）
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { status: "SKIP_REPORTED" },
+      { status: "SKIP_REPORTED" },
+      { status: "SKIP_REPORTED" },
+    ] as any);
+
+    await POST(makeSkipRequest({ comment: "全部スキップ" }), makeParams("q1"));
+
+    expect(mockGenerateTreasures).toHaveBeenCalledTimes(1);
+    expect(mockGenerateTreasures).toHaveBeenCalledWith({
+      childId: "child-1",
+      date: expect.any(Date),
+      reportedCount: 3, // SKIP_REPORTED も computeCompletedCount に含まれる
+      totalCount: 3,
+      minTasks: 1,
+      isProxy: false,
+    });
+  });
+
+  it("一部スキップでも minTasks 達成すれば generateTreasuresOnReport を呼ぶ", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q1", status: "PENDING" }) as any,
+    );
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    // 3 件中 1 件 SKIP_REPORTED、残り PENDING
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { status: "SKIP_REPORTED" },
+      { status: "PENDING" },
+      { status: "PENDING" },
+    ] as any);
+
+    await POST(makeSkipRequest({ comment: "ひとつだけスキップ" }), makeParams("q1"));
+
+    expect(mockGenerateTreasures).toHaveBeenCalledWith({
+      childId: "child-1",
+      date: expect.any(Date),
+      reportedCount: 1,
+      totalCount: 3,
+      minTasks: 1,
+      isProxy: false,
+    });
+  });
 });
