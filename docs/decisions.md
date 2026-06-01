@@ -1368,3 +1368,26 @@
 - ノイズ懸念で初獲得のみに絞っていたが、子供視点では **獲得イベント自体がお祝い**であり、ダブりだから黙る意味は薄い
 - ひろば UI 側の `coalesceBurst` がバースト書き込みを 1 エントリにまとめてくれるので、連打開封で 5 件並ぶこともない（視覚的にはコレクション 1 件＋カウンタ）
 - 「自分の獲得が必ずひろばに出る」という挙動の一貫性のほうが、子供に「予測可能性」を与える
+
+
+## 2026-05-31: STREAK と PROXY を相互排他に（混合家庭の宝箱重複を解消）
+
+### 決定内容
+- `generateProxyTreasure` の冪等性チェックを **PROXY 単独 → STREAK / ALL_COMPLETE / PROXY (非 CANCELLED) のいずれか** に拡張
+- `generateTreasuresOnReport` で STREAK を生成する際、**当日 PROXY 既存なら STREAK もスキップ**（has=`{STREAK | PROXY}` で判定）
+- ALL_COMPLETE は引き続き「全タスク完了のボーナス枠」として PROXY と共存可
+
+### 理由
+- ユーザー報告: 子供がセルフ報告で STREAK を得た日に、親が child-view からタスク報告すると **PROXY が追加で出てしまい、全タスク完了前に 2 個目の宝箱がもらえてしまう** バグ
+- 2026-05-30 で PROXY 導入時の意図は「親しか端末を持たない家庭でも 1 日 1 個宝箱を補填する」フォールバック枠。子供セルフ報告で既に STREAK が出ているなら PROXY は冗長
+- 対称性のため、逆方向（PROXY 先発 → 子セルフ報告で STREAK 追加）も塞ぐ
+- ALL_COMPLETE は「全タスク完了の追加ボーナス」という独立した意味を持つので、PROXY と共存させて子の達成感を尊重
+
+### やってはいけないこと
+- `generateProxyTreasure` の existing チェックを PROXY 単独に戻す（混合家庭で重複再発）
+- `generateTreasuresOnReport` で PROXY を has に含めない（同じく重複再発）
+- ALL_COMPLETE まで PROXY との共存を禁止する（純粋セルフ家庭との挙動差が広がりすぎる）
+
+### 該当箇所
+- `src/lib/treasureService.ts` — `generateProxyTreasure` の where に `trigger: { in: [...] }` + `status: { not: "CANCELLED" }`、`generateTreasuresOnReport` の STREAK 判定に PROXY を加算
+- `src/__tests__/lib/treasureService.test.ts` — STREAK→PROXY 抑制 / PROXY→STREAK 抑制 / PROXY+ALL_COMPLETE 共存 の 3 ケース追加
