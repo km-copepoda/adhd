@@ -4,12 +4,13 @@ import { useCallback, useRef } from "react";
 import type { ChangeEvent, CompositionEvent } from "react";
 
 /**
- * 日本語 IME の合成 (composition) 中に発火する onChange を抑止し、
- * 確定 (compositionend) 時のみ値を反映する text input 用ハンドラ群。
+ * ASCII text input 用ハンドラ群。
  *
- * IME がオンの状態で英字を入力するとブラウザと IME の二重発火で
- * 文字が重複入力される問題があり、ファミリーコード等の ASCII 入力欄で発生する。
- * このフックを `<input>` に展開すれば防げる。
+ * 目的:
+ * - PC: IME ON 状態で英字を入れるとブラウザと IME の二重発火で同じ値が二度反映される
+ *   問題への対策（同一値での重複 setValue を抑止）。
+ * - モバイル: Android Gboard 等は英字入力中も composition 状態を維持するため、
+ *   composition 中の onChange を抑止すると入力できなくなる → 反映する。
  *
  * @example
  *   const [code, setCode] = useState("");
@@ -20,26 +21,34 @@ export function useImeSafeText(
   setValue: (next: string) => void,
   transform: (raw: string) => string = (v) => v,
 ) {
-  const composingRef = useRef(false);
+  const lastValueRef = useRef<string | null>(null);
 
-  const onChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      if (composingRef.current) return;
-      setValue(transform(e.target.value));
+  const apply = useCallback(
+    (raw: string) => {
+      const next = transform(raw);
+      if (lastValueRef.current === next) return;
+      lastValueRef.current = next;
+      setValue(next);
     },
     [setValue, transform],
   );
 
+  const onChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      apply(e.target.value);
+    },
+    [apply],
+  );
+
   const onCompositionStart = useCallback(() => {
-    composingRef.current = true;
+    // composition 中も onChange で値を反映する設計のため、ここでは何もしない。
   }, []);
 
   const onCompositionEnd = useCallback(
     (e: CompositionEvent<HTMLInputElement>) => {
-      composingRef.current = false;
-      setValue(transform(e.currentTarget.value));
+      apply(e.currentTarget.value);
     },
-    [setValue, transform],
+    [apply],
   );
 
   return { onChange, onCompositionStart, onCompositionEnd };
