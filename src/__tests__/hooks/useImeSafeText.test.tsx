@@ -16,16 +16,36 @@ describe("useImeSafeText", () => {
     expect(setValue).toHaveBeenCalledWith("abc");
   });
 
-  it("compositionStart 後の onChange は setValue を呼ばない (IME 中)", () => {
+  it("compositionStart 後の onChange でも setValue を呼ぶ (モバイル IME 対応)", () => {
+    // モバイル (Android Gboard 等) では英字入力中も composition 状態が維持されるため、
+    // composition 中の onChange を完全抑止すると入力できなくなる。
     const setValue = vi.fn();
     const { result } = renderHook(() => useImeSafeText(setValue));
     act(() => {
       result.current.onCompositionStart();
     });
     act(() => {
-      result.current.onChange({ target: { value: "あ" } } as unknown as ChangeEv as never);
+      result.current.onChange({ target: { value: "A" } } as unknown as ChangeEv as never);
     });
-    expect(setValue).not.toHaveBeenCalled();
+    expect(setValue).toHaveBeenCalledWith("A");
+  });
+
+  it("同じ値での連続 setValue は重複しない (PC IME 二重発火対策)", () => {
+    // IME ON 状態で英字を入れたとき、onChange と compositionEnd で同じ値が二重発火しても
+    // setValue は 1 回だけになる。
+    const setValue = vi.fn();
+    const { result } = renderHook(() => useImeSafeText(setValue));
+    act(() => {
+      result.current.onCompositionStart();
+    });
+    act(() => {
+      result.current.onChange({ target: { value: "A" } } as unknown as ChangeEv as never);
+    });
+    act(() => {
+      result.current.onCompositionEnd({ currentTarget: { value: "A" } } as unknown as CompositionEv as never);
+    });
+    expect(setValue).toHaveBeenCalledTimes(1);
+    expect(setValue).toHaveBeenCalledWith("A");
   });
 
   it("compositionEnd で確定値を setValue する", () => {
