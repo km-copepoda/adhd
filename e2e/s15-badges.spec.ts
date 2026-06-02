@@ -2,23 +2,24 @@
  * S15: 実績（バッジ）ページテスト
  * 前提: as-child プロジェクト（storageState: child-light.json）で実行
  *
- * - /app/child/badges が表示される
- * - 🏅 実績 見出しが表示される
- * - 解除数 / 総数が表示される（新規は 0 / 100）
+ * - /app/child/badges が表示される（旧パス。実体は実績/ごほうびタブ切替）
+ * - 「🏅 実績」サブタブが選択状態で実績コンテンツが表示される
+ * - 解除数 / 総数が表示される（新規は 0 / N）
  * - フィルターボタン（すべて/解除済み/未解除）が表示される
  * - 「解除済み」フィルターで絞ると「まだ解除した実績がありません」または解除済みバッジのみ
- * - BottomNav に「実績」タブがある
+ * - BottomNav には実績を含む「コレクション」タブがある（旧「実績」タブは廃止）
  */
 import { test, expect } from "./fixtures";
 
 test.describe("S15: 実績（バッジ）ページ", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/app/child/badges");
-    await expect(page.getByRole("heading", { name: /実績/ })).toBeVisible({ timeout: 15000 });
+    // ページ本体は BadgesContent（フィルターボタン群）。表示まで待つ。
+    await expect(page.getByRole("button", { name: "すべて" })).toBeVisible({ timeout: 15000 });
   });
 
-  test("🏅 実績 ヘッダーが表示される", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /実績/ })).toBeVisible();
+  test("🏅 実績 サブタブが表示される", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /🏅 実績/ })).toBeVisible();
   });
 
   test("解除数 / 総数が表示される", async ({ page }) => {
@@ -51,7 +52,7 @@ test.describe("S15: 実績（バッジ）ページ", () => {
     });
   });
 
-  test("BottomNav に「実績」タブがある", async ({ page }) => {
-    await expect(page.getByRole("link", { name: /実績/ })).toBeVisible();
+  test("BottomNav に「コレクション」タブがある（実績はここに統合済み）", async ({ page }) => {
+    await expect(page.getByRole("link", { name: /コレクション/ })).toBeVisible();
   });
 });

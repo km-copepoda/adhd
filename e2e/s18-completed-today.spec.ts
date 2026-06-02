@@ -61,8 +61,10 @@ test.describe("S18: 今日の完了タスク", () => {
     });
 
     test("サマリー行に承認件数が表示されること", async ({ page }) => {
-        // ヘッダー↓のサマリー（N件承認 or N件スキップ）が表示されていることを確認
-        const summary = page.getByText(/件完了/).or(page.getByText("/承認済みのタスクが表示されます/"));
+        // 完了タスクがあれば「N件完了」、なければ「今日はまだ完了したタスクがありません」
+        const summary = page
+          .getByText(/件完了/)
+          .or(page.getByText(/今日はまだ完了したタスクがありません/));
         await expect(summary).toBeVisible({ timeout: 10000 });
     });
 
