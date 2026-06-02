@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
+import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { todayStringJST, isVisibleTemporaryTask, isTaskStreakActive } from "@/lib/date";
-import { xpRangeLabel } from "@/lib/xp";
+import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
 import SetupGuideBanner from "@/components/SetupGuideBanner";
 import TaskForm from "@/components/parent/TaskForm";
 import type { FormData, FormMode } from "@/components/parent/TaskForm";
 import TemplateImportSection from "@/components/parent/TemplateImportSection";
+import ChildSelector from "@/components/parent/ChildSelector";
+import PendingTaskCard from "@/components/parent/PendingTaskCard";
+import RegularTaskCard from "@/components/parent/RegularTaskCard";
+import TemporaryTaskCard from "@/components/parent/TemporaryTaskCard";
 
 type Task = {
   id: string;
@@ -32,27 +35,6 @@ type Task = {
   lastSkippedDate: string | null;
   carryOverMissedCount: number | null;
 };
-
-function daysSince(dateStr: string): number {
-  const past = new Date(dateStr);
-  const today = new Date();
-  const pastDay = Date.UTC(past.getUTCFullYear(), past.getUTCMonth(), past.getUTCDate());
-  const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  return Math.round((todayDay - pastDay) / (24 * 60 * 60 * 1000));
-}
-
-function formatSkipBadge(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  const diffDays = daysSince(dateStr);
-  if (diffDays <= 0) return "今日スキップ";
-  if (diffDays === 1) return "昨日スキップ";
-  return `${diffDays}日前スキップ`;
-}
-
-function formatPendingCarryBadge(missedCount: number | null): string | null {
-  if (missedCount === null || missedCount <= 0) return null;
-  return `${missedCount}回未完了`;
-}
 
 type Child = {
   id: string;
@@ -243,34 +225,17 @@ export default function TasksPage() {
         </p>
       )}
 
-      {/* 子供セレクター（2人以上の場合のみ表示） */}
-      {children.length > 1 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-          {children.map((child) => {
-            const name = child.monsterName || "名前未設定";
-            return (
-              <button
-                key={child.id}
-                onClick={() => {
-                  setSelectedChildId(child.id);
-                  // 別の子供に切り替えたらフォームを閉じる
-                  setOpenChildId(null);
-                  setImportChildId(null);
-                  setEditingId(null);
-                }}
-                className={[
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
-                  selectedChildId === child.id
-                    ? "bg-quest-gold/15 border border-quest-gold text-quest-gold"
-                    : "bg-quest-card border border-quest-border text-quest-dim hover:text-quest-text",
-                ].join(" ")}
-              >
-                🧒 {name}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <ChildSelector
+        children={children}
+        selectedChildId={selectedChildId}
+        onSelect={(id) => {
+          setSelectedChildId(id);
+          // 別の子供に切り替えたらフォームを閉じる
+          setOpenChildId(null);
+          setImportChildId(null);
+          setEditingId(null);
+        }}
+      />
 
       {children
         .filter((c) => selectedChildId === null || c.id === selectedChildId)
@@ -347,66 +312,16 @@ export default function TasksPage() {
               <div className="mb-4">
                 <p className="text-quest-dim text-[11px] tracking-wider mb-2">🙋 申請中</p>
                 <div className="flex flex-col gap-2">
-                  {pending.map((task) => {
-                    const cat = CATEGORY_LABEL[task.category];
-                    const assignedChild = children.find(c => c.id === task.assignedChildId);
-                    return (
-                      <div
-                        key={task.id}
-                        className="bg-quest-card border border-purple-400/30 rounded-xl p-4 flex items-center gap-4"
-                      >
-                        <div className="text-2xl">{task.emoji}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-1.5">
-                            <p className="text-sm font-medium break-all">{task.title}</p>
-                            <span className="text-[9px] text-purple-400/70 border border-purple-400/30 rounded px-1 shrink-0 mt-0.5">仮</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
-                            <span>{cat.emoji} {cat.name}</span>
-                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
-                            {task.photoBonus && (
-                              <span title="写真添付あり" className="text-quest-gold/70">📷</span>
-                            )}
-                            {task.carryOver && (
-                              <span title="未完了を翌日に持ち越す" className="text-blue-400/70">🔁</span>
-                            )}
-                            {task.isTemporary ? (
-                              <span className="text-amber-400/70">一時</span>
-                            ) : (
-                              <span className="text-quest-dim/60">
-                                {DAY_LABELS.filter((_, i) => task.repeatDays.includes(i)).join("/")}
-                              </span>
-                            )}
-                            {task.requestedDate && (
-                              <span className="text-purple-400/60">
-                                申請日:{new Date(task.requestedDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => startEdit(task)}
-                            className="text-xs text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-2 py-1"
-                          >
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleApprove(task.id)}
-                            className="text-xs text-purple-400 hover:text-purple-300 border border-purple-400/30 rounded-lg px-2 py-1"
-                          >
-                            承認
-                          </button>
-                          <button
-                            onClick={() => handleDelete(task.id)}
-                            className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
-                          >
-                            却下
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {pending.map((task) => (
+                    <PendingTaskCard
+                      key={task.id}
+                      task={task}
+                      children={children}
+                      onEdit={startEdit}
+                      onApprove={handleApprove}
+                      onDelete={handleDelete}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -416,107 +331,17 @@ export default function TasksPage() {
               <div className="mb-4">
                 <p className="text-quest-dim text-[11px] tracking-wider mb-2">📅 通常タスク</p>
                 <div className="flex flex-col gap-2">
-                  {regular.map((task) => {
-                    const cat = CATEGORY_LABEL[task.category];
-                    const streakEntry = (task.taskStreaks ?? []).find((s) => s.childId === child.id);
-                    const streak = isTaskStreakActive(task.repeatDays, streakEntry?.lastAchievedDate ?? null)
-                      ? (streakEntry?.currentStreak ?? 0)
-                      : 0;
-                    const isOffDay = !task.repeatDays.includes(todayDow);
-                    const assignedChild = children.find(c => c.id === task.assignedChildId);
-                    const carryLabel = formatPendingCarryBadge(task.carryOverMissedCount);
-                    const hasBadges = task.completedToday || streak >= 1 || task.lastSkippedDate || carryLabel;
-                    return (
-                      <div
-                        key={task.id}
-                        className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
-                          task.completedToday || isOffDay
-                            ? "border-quest-border/30"
-                            : "border-quest-border"
-                        }`}
-                      >
-                        <div className={`text-2xl ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
-                        <div className="flex-1 min-w-0">
-                          {hasBadges && (
-                            <div className="flex flex-wrap items-center gap-1 mb-1">
-                              {task.completedToday && (
-                                <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1">
-                                  ✓ 完了
-                                </span>
-                              )}
-                              {!task.completedToday && streak >= 1 && (
-                                <span className="text-[9px] text-orange-400 border border-orange-400/30 rounded px-1">
-                                  🔥{streak}日
-                                </span>
-                              )}
-                              {task.lastSkippedDate && (
-                                <span
-                                  title={`直近のスキップ: ${new Date(task.lastSkippedDate).toLocaleDateString("ja-JP")}`}
-                                  className="text-[9px] text-orange-300 bg-orange-400/10 border border-orange-400/40 rounded px-1"
-                                >
-                                  ⏭ {formatSkipBadge(task.lastSkippedDate)}
-                                </span>
-                              )}
-                              {carryLabel && (
-                                <span
-                                  title={`未完了が続いている回数: ${task.carryOverMissedCount}回`}
-                                  className="text-[9px] text-red-300 bg-red-400/10 border border-red-400/40 rounded px-1"
-                                >
-                                  🔁 {carryLabel}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <p className={`text-sm font-medium break-all ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
-                          <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
-                            <span>{cat.emoji} {cat.name}</span>
-                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
-                            {task.photoBonus && (
-                              <span title="写真添付あり" className="text-quest-gold/70">📷</span>
-                            )}
-                            {task.carryOver && (
-                              <span title="未完了を翌日に持ち越す" className="text-blue-400/70">🔁</span>
-                            )}
-                          </div>
-                          <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
-                            {DAY_LABELS.map((label, i) => (
-                              <span
-                                key={i}
-                                className={`text-[9px] w-4 h-4 flex items-center justify-center rounded ${
-                                  task.repeatDays.includes(i)
-                                    ? "bg-quest-gold/20 text-quest-gold"
-                                    : "text-quest-dim/30"
-                                }`}
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {!task.completedToday && isOffDay && (
-                            <span className="text-[9px] text-quest-dim border border-quest-border rounded px-1">
-                              対象外
-                            </span>
-                          )}
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => startEdit(task)}
-                              className="text-xs text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-2 py-1"
-                            >
-                              編集
-                           </button>
-                           <button
-                             onClick={() => handleDelete(task.id)}
-                             className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
-                           >
-                             削除
-                           </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {regular.map((task) => (
+                    <RegularTaskCard
+                      key={task.id}
+                      task={task}
+                      childId={child.id}
+                      children={children}
+                      todayDow={todayDow}
+                      onEdit={startEdit}
+                      onDelete={handleDelete}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -526,40 +351,14 @@ export default function TasksPage() {
               <div className="mb-4">
                 <p className="text-quest-dim text-[11px] tracking-wider mb-2">⚡ 一時タスク</p>
                 <div className="flex flex-col gap-2">
-                  {temporary.map((task) => {
-                    const cat = CATEGORY_LABEL[task.category];
-                    const assignedChild = children.find(c => c.id === task.assignedChildId);
-                    const dateStr = task.targetDate
-                      ? new Date(task.targetDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })
-                      : "今日";
-                    return (
-                      <div
-                        key={task.id}
-                        className="bg-quest-card border border-quest-border rounded-xl p-4 flex items-center gap-4"
-                      >
-                        <div className="text-2xl">{task.emoji}</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium break-all">{task.title}</p>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-quest-dim">
-                            <span>{cat.emoji} {cat.name}</span>
-                            <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
-                            {task.photoBonus && (
-                              <span title="写真添付あり" className="text-quest-gold/70">📷</span>
-                            )}
-                            <span className="text-amber-400/70">📅 {dateStr}</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleDelete(task.id)}
-                            className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
-                          >
-                            削除
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {temporary.map((task) => (
+                    <TemporaryTaskCard
+                      key={task.id}
+                      task={task}
+                      children={children}
+                      onDelete={handleDelete}
+                    />
+                  ))}
                 </div>
               </div>
             )}

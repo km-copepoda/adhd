@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import { xpRangeLabel } from "@/lib/xp";
 import { computeQuestSuccessDisplay } from "@/lib/questProgress";
 import { fireCompletionConfetti } from "@/lib/confetti";
+import QuestActionSuccess from "@/components/questAction/QuestActionSuccess";
+import QuestPhotoUpload from "@/components/questAction/QuestPhotoUpload";
+import QuestSkipFooter from "@/components/questAction/QuestSkipFooter";
 import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
@@ -43,8 +46,6 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const cat = CATEGORY_LABEL[quest.template.category];
   const streak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
@@ -122,93 +123,11 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
         onClick={(e) => e.stopPropagation()}
       >
         {isSuccess ? (
-          /* ── Success state ── */
-          <div className="text-center py-8 px-5">
-            {sheetState === "success-complete" ? (
-              <>
-                <div
-                  style={{
-                    animation: "successPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both",
-                  }}
-                >
-                  <p className="text-7xl mb-2">🎉</p>
-                </div>
-                <p
-                  className="text-2xl font-black mb-1"
-                  style={{
-                    animation: "successFadeUp 0.4s ease 0.15s both",
-                    color: "#FFD700",
-                    textShadow: "0 0 20px rgba(255,215,0,0.6)",
-                  }}
-                >
-                  クエスト完了！
-                </p>
-                <p
-                  className="text-xs text-quest-dim mb-5"
-                  style={{ animation: "successFadeUp 0.4s ease 0.25s both" }}
-                >
-                  親の確認でポイント確定
-                </p>
-                {/* Quest progress */}
-                {questsTotal > 0 && (() => {
-                  const { completed, remaining, allDone } = computeQuestSuccessDisplay(questsCompleted, questsTotal);
-                  return (
-                    <div
-                      className="rounded-xl px-4 py-3 text-sm"
-                      style={{
-                        animation: "successFadeUp 0.4s ease 0.35s both",
-                        background: allDone
-                          ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,107,0.1))"
-                          : "var(--color-quest-bg)",
-                        border: allDone ? "1px solid rgba(255,215,0,0.4)" : undefined,
-                      }}
-                    >
-                      <p className="text-quest-dim text-xs mb-1">今日のクエスト</p>
-                      <p className="font-bold text-quest-text">
-                        {completed} / {questsTotal} 完了
-                      </p>
-                      {allDone ? (
-                        <p
-                          className="font-black mt-1 text-base"
-                          style={{
-                            color: "#FFD700",
-                            textShadow: "0 0 12px rgba(255,215,0,0.7)",
-                            animation: "successPulse 0.8s ease 0.5s both",
-                          }}
-                        >
-                          🏆 全部クリア！すごい！
-                        </p>
-                      ) : (
-                        <p className="text-quest-dim text-xs mt-1">あと{remaining}個！がんばれ！</p>
-                      )}
-                    </div>
-                  );
-                })()}
-                <style>{`
-                  @keyframes successPop {
-                    0% { transform: scale(0.3) rotate(-15deg); opacity: 0; }
-                    70% { transform: scale(1.2) rotate(5deg); }
-                    100% { transform: scale(1) rotate(0deg); opacity: 1; }
-                  }
-                  @keyframes successFadeUp {
-                    from { opacity: 0; transform: translateY(12px); }
-                    to { opacity: 1; transform: translateY(0); }
-                  }
-                  @keyframes successPulse {
-                    0% { transform: scale(0.8); opacity: 0; }
-                    60% { transform: scale(1.1); }
-                    100% { transform: scale(1); opacity: 1; }
-                  }
-                `}</style>
-              </>
-            ) : (
-              <>
-                <p className="text-5xl mb-3">😴</p>
-                <p className="text-xl font-bold text-quest-gold">スキップを申請したよ</p>
-                <p className="text-xs text-quest-dim mt-2">親が確認するよ</p>
-              </>
-            )}
-          </div>
+          <QuestActionSuccess
+            variant={sheetState === "success-complete" ? "complete" : "skip"}
+            questsCompleted={questsCompleted}
+            questsTotal={questsTotal}
+          />
         ) : (
           <>
             {/* ── Scrollable upper area ── */}
@@ -240,56 +159,11 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
 
               {/* Photo upload section — only shown when photoBonus is enabled */}
               {photoBonus && (
-                <div className="mb-3">
-                  {photoPreview ? (
-                    <button
-                      onClick={() => galleryInputRef.current?.click()}
-                      className="w-full rounded-xl border-2 border-dashed border-blue-400/50 bg-blue-400/5 py-3 flex flex-col items-center gap-1"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photoPreview} alt="プレビュー" className="max-h-40 rounded-lg object-contain" />
-                      <span className="text-[11px] text-quest-dim mt-1">タップで選び直す</span>
-                    </button>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="rounded-xl border-2 border-dashed border-blue-400/40 bg-blue-400/5 py-3 flex flex-col items-center gap-1"
-                      >
-                        <span className="text-2xl">📷</span>
-                        <span className="text-xs text-quest-dim">カメラで撮る</span>
-                      </button>
-                      <button
-                        onClick={() => galleryInputRef.current?.click()}
-                        className="rounded-xl border-2 border-dashed border-blue-400/40 bg-blue-400/5 py-3 flex flex-col items-center gap-1"
-                      >
-                        <span className="text-2xl">🖼</span>
-                        <span className="text-xs text-quest-dim">ギャラリーから</span>
-                      </button>
-                    </div>
-                  )}
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handlePhotoSelect}
-                  />
-                  <input
-                    ref={galleryInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoSelect}
-                  />
-                  {!photoPreview && (
-                    <p className="text-[11px] text-quest-dim text-center mt-1">写真を添付すると +1pt</p>
-                  )}
-                  {uploadError && (
-                    <p className="text-xs text-red-400 mt-1 text-center">{uploadError}</p>
-                  )}
-                </div>
+                <QuestPhotoUpload
+                  photoPreview={photoPreview}
+                  uploadError={uploadError}
+                  onPhotoSelect={handlePhotoSelect}
+                />
               )}
 
               {/* Complete button */}
@@ -321,48 +195,15 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
             </div>
 
             {/* ── Always-visible skip footer ── */}
-            <div
-              className="shrink-0 px-5 pt-2"
-              style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
-            >
-              <div className="border-t border-quest-border/40 mb-3" />
-
-              {!showSkip ? (
-                <button
-                  onClick={() => setShowSkip(true)}
-                  className="w-full py-3 rounded-xl border border-red-400/40 text-red-400 text-sm font-medium flex items-center justify-center gap-2 hover:bg-red-400/10 active:scale-[0.99] transition-all"
-                >
-                  😴 今日はスキップする
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-quest-dim text-center">スキップする理由を入力してね</p>
-                  <input
-                    type="text"
-                    value={skipReason}
-                    onChange={(e) => setSkipReason(e.target.value)}
-                    placeholder="理由を入力（必須）"
-                    className="w-full bg-quest-bg border border-red-400/30 rounded-xl px-3 py-2.5 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-red-400/50"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setShowSkip(false); setSkipReason(""); }}
-                      className="flex-none px-4 py-3 rounded-xl border border-quest-border text-quest-dim text-sm hover:bg-quest-border/20 transition-colors"
-                    >
-                      戻る
-                    </button>
-                    <button
-                      onClick={handleSkip}
-                      disabled={!skipReason.trim() || isSubmitting}
-                      className="flex-1 py-3 rounded-xl border border-red-400/50 bg-red-400/10 text-red-400 text-sm font-medium hover:bg-red-400/20 transition-colors disabled:opacity-40"
-                    >
-                      {isSubmitting ? "申請中..." : "😴 スキップを申請する"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <QuestSkipFooter
+              showSkip={showSkip}
+              skipReason={skipReason}
+              isSubmitting={isSubmitting}
+              onShowSkip={() => setShowSkip(true)}
+              onCancelSkip={() => { setShowSkip(false); setSkipReason(""); }}
+              onSkipReasonChange={setSkipReason}
+              onSkipSubmit={handleSkip}
+            />
           </>
         )}
       </div>
