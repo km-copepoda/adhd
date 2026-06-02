@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { toHalfWidth } from "@/lib/input";
-import { useImeSafeText } from "@/hooks/useImeSafeText";
+import { normalizeFamilyCode, normalizeChildCode } from "@/lib/input";
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
@@ -12,15 +11,6 @@ export default function OnboardingPage() {
   const [familyCode, setFamilyCode] = useState("");
   const [childCode, setChildCode] = useState("");
   const [loginError, setLoginError] = useState("");
-
-  // IME ON 状態で英字を入れると二重発火する問題への対策。
-  // ファミリー/ユーザーコードはどちらも ASCII のみなので合成を抑止する。
-  const familyCodeHandlers = useImeSafeText(setFamilyCode, (raw) =>
-    toHalfWidth(raw).toUpperCase().slice(0, 6),
-  );
-  const childCodeHandlers = useImeSafeText(setChildCode, (raw) =>
-    toHalfWidth(raw).replace(/\D/g, "").slice(0, 4),
-  );
 
   // ファミリーコード + ユーザーコードでログイン
   async function handleLogin() {
@@ -79,7 +69,7 @@ export default function OnboardingPage() {
           <input
             type="text"
             value={familyCode}
-            {...familyCodeHandlers}
+            onChange={(e) => setFamilyCode(normalizeFamilyCode(e.target.value))}
             inputMode="text"
             autoCapitalize="characters"
             autoComplete="off"
@@ -100,7 +90,7 @@ export default function OnboardingPage() {
             type="text"
             inputMode="numeric"
             value={childCode}
-            {...childCodeHandlers}
+            onChange={(e) => setChildCode(normalizeChildCode(e.target.value))}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
