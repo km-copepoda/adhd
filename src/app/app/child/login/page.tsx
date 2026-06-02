@@ -14,7 +14,13 @@ export default function OnboardingPage() {
 
   // ファミリーコード + ユーザーコードでログイン
   async function handleLogin() {
-    if (familyCode.length < 4 || childCode.length < 4) {
+    // blur せずに直接ボタンを押した場合に備え、送信直前に正規化を再適用する
+    const normalizedFamily = normalizeFamilyCode(familyCode);
+    const normalizedChild = normalizeChildCode(childCode);
+    setFamilyCode(normalizedFamily);
+    setChildCode(normalizedChild);
+
+    if (normalizedFamily.length < 4 || normalizedChild.length < 4) {
       setLoginError("コードを入力してね");
       return;
     }
@@ -34,7 +40,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/auth/child-rejoin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ familyCode, childCode }),
+        body: JSON.stringify({ familyCode: normalizedFamily, childCode: normalizedChild }),
       });
       if (!res.ok) {
         const resData = await res.json().catch(() => ({}));
@@ -69,7 +75,9 @@ export default function OnboardingPage() {
           <input
             type="text"
             value={familyCode}
-            onChange={(e) => setFamilyCode(normalizeFamilyCode(e.target.value))}
+            onChange={(e) => setFamilyCode(e.target.value)}
+            onBlur={() => setFamilyCode(normalizeFamilyCode(familyCode))}
+            maxLength={12}
             inputMode="text"
             autoCapitalize="characters"
             autoComplete="off"
@@ -90,7 +98,9 @@ export default function OnboardingPage() {
             type="text"
             inputMode="numeric"
             value={childCode}
-            onChange={(e) => setChildCode(normalizeChildCode(e.target.value))}
+            onChange={(e) => setChildCode(e.target.value)}
+            onBlur={() => setChildCode(normalizeChildCode(childCode))}
+            maxLength={8}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
