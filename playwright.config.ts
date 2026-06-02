@@ -32,20 +32,20 @@ export default defineConfig({
       testMatch: /\/(s1|s2|s3|s14)-.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
-    // 親アカウントで実行するテスト（全フロー・スキップ承認・期限設定・履歴・完了を含む）
+    // 親アカウントで実行するテスト（全フロー・スキップ承認・期限設定・履歴・完了・宝箱プールを含む）
     {
       name: "as-parent",
-      testMatch: /\/(s4|s6|s9|s10|s12|s13|s16|s17|s18)-.*\.spec\.ts/,
+      testMatch: /\/(s4|s6|s9|s10|s12|s13|s16|s17|s18|s22|s23)-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/parent.json",
       },
       dependencies: ["setup"],
     },
-    // 子供アカウント（ライトモード）で実行するテスト（育成画面を含む）
+    // 子供アカウント（ライトモード）で実行するテスト（育成画面・宝箱・コレクション・ひろばを含む）
     {
       name: "as-child",
-      testMatch: /\/(s5|s7|s8|s11)-.*\.spec\.ts/,
+      testMatch: /\/(s5|s7|s8|s11|s19|s20|s21)-.*\.spec\.ts/,
       use: {
         ...devices["Pixel 5"],
         storageState: "playwright/.auth/child-light.json",
