@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { toHalfWidth } from "@/lib/input";
-import { useImeSafeText } from "@/hooks/useImeSafeText";
+import { normalizeFamilyCode, normalizeChildCode } from "@/lib/input";
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
@@ -13,18 +12,15 @@ export default function OnboardingPage() {
   const [childCode, setChildCode] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // IME ON 状態で英字を入れると二重発火する問題への対策。
-  // ファミリー/ユーザーコードはどちらも ASCII のみなので合成を抑止する。
-  const familyCodeHandlers = useImeSafeText(setFamilyCode, (raw) =>
-    toHalfWidth(raw).toUpperCase().slice(0, 6),
-  );
-  const childCodeHandlers = useImeSafeText(setChildCode, (raw) =>
-    toHalfWidth(raw).replace(/\D/g, "").slice(0, 4),
-  );
-
   // ファミリーコード + ユーザーコードでログイン
   async function handleLogin() {
-    if (familyCode.length < 4 || childCode.length < 4) {
+    // blur せずに直接ボタンを押した場合に備え、送信直前に正規化を再適用する
+    const normalizedFamily = normalizeFamilyCode(familyCode);
+    const normalizedChild = normalizeChildCode(childCode);
+    setFamilyCode(normalizedFamily);
+    setChildCode(normalizedChild);
+
+    if (normalizedFamily.length < 4 || normalizedChild.length < 4) {
       setLoginError("コードを入力してね");
       return;
     }
@@ -44,7 +40,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/auth/child-rejoin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ familyCode, childCode }),
+        body: JSON.stringify({ familyCode: normalizedFamily, childCode: normalizedChild }),
       });
       if (!res.ok) {
         const resData = await res.json().catch(() => ({}));
@@ -79,7 +75,9 @@ export default function OnboardingPage() {
           <input
             type="text"
             value={familyCode}
-            {...familyCodeHandlers}
+            onChange={(e) => setFamilyCode(e.target.value)}
+            onBlur={() => setFamilyCode(normalizeFamilyCode(familyCode))}
+            maxLength={12}
             inputMode="text"
             autoCapitalize="characters"
             autoComplete="off"
@@ -100,7 +98,9 @@ export default function OnboardingPage() {
             type="text"
             inputMode="numeric"
             value={childCode}
-            {...childCodeHandlers}
+            onChange={(e) => setChildCode(e.target.value)}
+            onBlur={() => setChildCode(normalizeChildCode(childCode))}
+            maxLength={8}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
