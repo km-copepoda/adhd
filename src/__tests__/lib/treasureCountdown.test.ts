@@ -31,7 +31,8 @@ describe("getTreasureCountdown", () => {
     expect(r.kind).toBe("to_all_complete");
     if (r.kind === "to_all_complete") {
       expect(r.remaining).toBe(2);
-      expect(r.text).toMatch(/ぜんぶ|全部/);
+      // レア確率UP宝箱（ALL_COMPLETE は boosted: true）への期待を訴求する文言
+      expect(r.text).toMatch(/レア|確率UP|キラキラ/);
     }
   });
 

@@ -56,7 +56,7 @@ export function getTreasureCountdown(input: {
     return {
       kind: "to_all_complete",
       remaining,
-      text: `ぜんぶ終わるまであと ${remaining} 個！`,
+      text: `レア確率UPの宝箱まであと ${remaining} 個！`,
     };
   }
 
