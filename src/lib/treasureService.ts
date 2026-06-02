@@ -181,8 +181,6 @@ export interface OpenTreasureResult {
   logId: string;
   /** 親が設定したごほうび。当選しなかった場合は null（その代わり collectionItem が入る）。 */
   item: { id: string; title: string; rarity: TreasureRarity } | null;
-  pityTriggered: boolean;
-  nextPityCount: number;
   /** 親ごほうびが当選しなかったときに付与される季節コレクションアイテム。当選時は null。 */
   collectionItem: OpenedCollectionItem | null;
 }
@@ -193,7 +191,6 @@ export interface OpenTreasureResult {
  *  - 抽選で親ごほうびに当選 → item を入れて返す（collectionItem は null）
  *  - 親ごほうび不当選 (プール空 or rng が外れ) → 現在シーズンのコレクションアイテムを 1個付与
  *    (仕様: docs/未実装仕様書/treasure-collection-items.md)
- *  - pity は drawTreasure の戻り値に従う（プール空時は据え置き）
  */
 export async function openOldestTreasure(
   childId: string,
@@ -206,12 +203,6 @@ export async function openOldestTreasure(
     orderBy: { createdAt: "asc" },
   });
   if (!log) return null;
-
-  const child = await prisma.user.findUnique({
-    where: { id: childId },
-    select: { treasurePityCount: true },
-  });
-  const pity = child?.treasurePityCount ?? 0;
 
   const items = await prisma.treasureItem.findMany({
     where: { childId, isActive: true },
@@ -226,7 +217,6 @@ export async function openOldestTreasure(
 
   const draw = drawTreasure(pool, {
     boosted: log.boosted,
-    pityCount: pity,
     rng: options.rng,
   });
 
@@ -249,9 +239,6 @@ export async function openOldestTreasure(
         image: picked.image,
         count: owned.count,
       };
-      // 獲得のたびに毎回ひろばに書き込む（ダブりも含む）。
-      // key=${itemId}#${count} で unique を回避するため triggerCollectionItemLog が
-      // 同日複数件の書き込みを許容する。
       await triggerCollectionItemLog(childId, picked.id, owned.count);
     }
   }
@@ -266,20 +253,11 @@ export async function openOldestTreasure(
     },
   });
 
-  if (draw.nextPityCount !== pity) {
-    await prisma.user.update({
-      where: { id: childId },
-      data: { treasurePityCount: draw.nextPityCount },
-    });
-  }
-
   return {
     logId: log.id,
     item: drawnItem
       ? { id: drawnItem.id, title: drawnItem.title, rarity: drawnItem.rarity }
       : null,
-    pityTriggered: draw.pityTriggered,
-    nextPityCount: draw.nextPityCount,
     collectionItem,
   };
 }

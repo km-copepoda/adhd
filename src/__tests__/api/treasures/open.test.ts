@@ -45,8 +45,6 @@ describe("POST /api/treasures/open", () => {
     mockOpen.mockResolvedValue({
       logId: "log-1",
       item: { id: "i1", title: "おやつ", rarity: "COMMON" },
-      pityTriggered: false,
-      nextPityCount: 0,
       collectionItem: null,
     });
     mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as any);
@@ -73,8 +71,6 @@ describe("POST /api/treasures/open", () => {
     mockOpen.mockResolvedValue({
       logId: "log-2",
       item: null,
-      pityTriggered: false,
-      nextPityCount: 1,
       collectionItem: {
         id: "summer-01",
         name: "カブトムシ",
@@ -98,19 +94,17 @@ describe("POST /api/treasures/open", () => {
     expect(mockSendPushToParent).not.toHaveBeenCalled();
   });
 
-  it("天井発動 (pityTriggered=true) フラグを返す", async () => {
+  it("レスポンスに pityTriggered フィールドは含まない (pity 廃止)", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     mockOpen.mockResolvedValue({
       logId: "log-3",
       item: { id: "i1", title: "本", rarity: "RARE" },
-      pityTriggered: true,
-      nextPityCount: 0,
       collectionItem: null,
     });
     mockPrisma.user.findFirst.mockResolvedValue(null);
 
     const res = await POST();
     const json = await res.json();
-    expect(json.pityTriggered).toBe(true);
+    expect(json).not.toHaveProperty("pityTriggered");
   });
 });

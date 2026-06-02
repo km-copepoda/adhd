@@ -29,7 +29,6 @@ beforeEach(() => {
         ok: true,
         json: () =>
           Promise.resolve({
-            pityTriggered: false,
             item: null,
             collectionItem: {
               id: "summer-01",

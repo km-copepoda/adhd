@@ -15,7 +15,6 @@ describe("TreasureOpenCutscene", () => {
     render(
       <TreasureOpenCutscene
         result={{
-          pityTriggered: false,
           item: { id: "i1", title: "ガチャあたり！", rarity: "RARE" },
           collectionItem: null,
         }}
@@ -31,7 +30,6 @@ describe("TreasureOpenCutscene", () => {
     render(
       <TreasureOpenCutscene
         result={{
-          pityTriggered: false,
           item: null,
           collectionItem: {
             id: "summer-01",
@@ -56,7 +54,6 @@ describe("TreasureOpenCutscene", () => {
     render(
       <TreasureOpenCutscene
         result={{
-          pityTriggered: false,
           item: null,
           collectionItem: {
             id: "summer-01",
@@ -77,7 +74,7 @@ describe("TreasureOpenCutscene", () => {
   it("item も collectionItem も無いとき null を返す (防御)", () => {
     const { container } = render(
       <TreasureOpenCutscene
-        result={{ pityTriggered: false, item: null, collectionItem: null }}
+        result={{ item: null, collectionItem: null }}
         onClose={() => {}}
       />
     );

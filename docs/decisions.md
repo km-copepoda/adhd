@@ -1419,3 +1419,32 @@
 - `src/app/api/treasures/pending/route.ts` — レスポンスに `fulfilled` 追加
 - `src/app/app/parent/(app)/treasures/pending/page.tsx` — 渡した/取り消しトグル
 - テスト 2 ファイル: `src/__tests__/api/treasures/fulfill.test.ts` + `src/__tests__/components/parent-treasures-pending-fulfill.test.tsx`
+
+## 2026-06-02: 宝箱の天井(pity)システムを廃止（5回連続ハズレ→強制ピック を撤回）
+
+### 決定内容
+- `drawTreasure` から `pityCount` / `nextPityCount` / `pityTriggered` / `PITY_THRESHOLD` を撤廃。MISS は常に MISS のまま返す
+- `User.treasurePityCount` カラムを削除（マイグレーション `20260602000001_drop_user_treasure_pity_count`）
+- `OpenTreasureResult` / `/api/treasures/open` / `/api/parent/child-view/treasures/open` のレスポンスから `pityTriggered` / `nextPityCount` を削除
+- `TreasureOpenCutscene` の親ごほうび当選サブタイトルは固定で「宝箱をひらいた！」（旧: 天井発動時のみ「ようやくキタ！」を出していた分岐を撤去）
+
+### 理由
+- pity は元々「何度引いても外れだけが続くのは UX として辛い」を救済するための仕組みだった
+- 2026-05-31 のコレクションアイテム導入で「親ごほうび不当選 → 必ず季節コレクションアイテム獲得」に変わったため、**そもそも“何ももらえない外れ”が発生しなくなった**
+- すなわち pity が救済しようとしていた状況が構造的に消滅 → pity の存在意義も消える
+- 「5回連続 MISS で親ごほうびを強制ピックする」挙動が残っていると、本来コレクション枠の確定取得だったはずの引きが pity 発動で親ごほうびに上書きされてしまい、コレクション獲得頻度が説明と乖離する副作用がある
+
+### やってはいけないこと
+- 「ハズレ続き救済」を別形で復活させる（例: コレクションのレア確定）。本決定の核心は「もはや救済が要らない」点であって、別経路で代替を作るとコレクションの素直な確率設計が崩れる
+- `treasurePityCount` カラム削除のためのデータバックフィルを書く（カラムが消えるだけで他に参照する箇所は無い）
+- `drawTreasure` の戻り値に `nextPityCount` 互換のフィールドを残す（API True Source を二箇所に持つ問題が再発する。呼び出し側は draw 結果のみで分岐する）
+
+### 該当箇所
+- `src/lib/treasure.ts` — `drawTreasure` から pity 関連を除去
+- `src/lib/treasureService.ts` — `openOldestTreasure` から `treasurePityCount` の読み書きを除去 / `OpenTreasureResult` 縮小
+- `src/app/api/treasures/open/route.ts` + child-view variant — レスポンスから `pityTriggered` 削除
+- `src/components/child/TreasureOpenCutscene.tsx` — サブタイトル分岐撤去
+- `src/components/child/TreasureStock.tsx` + 子・親代理 treasures ページ — 型から `pityTriggered` 削除
+- `prisma/schema.prisma` — `User.treasurePityCount` 削除
+- `prisma/migrations/20260602000001_drop_user_treasure_pity_count/migration.sql`
+- テスト 5 ファイル（treasure / treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / child・parent treasures page）から pity 関連 mock/assertion を撤去

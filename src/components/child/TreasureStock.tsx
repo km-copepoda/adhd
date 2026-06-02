@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import TreasureOpenCutscene from "./TreasureOpenCutscene";
 
 interface TreasureOpenResult {
-  pityTriggered: boolean;
   item: { id: string; title: string; rarity: "COMMON" | "UNCOMMON" | "RARE" } | null;
   collectionItem: {
     id: string;

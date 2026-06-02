@@ -62,7 +62,6 @@ model User {
   rebirthPending         Boolean            @default(false)
   rebirthEggBonus        String?
   usedEggBonuses         String             @default("[]")
-  treasurePityCount      Int                @default(0)
   familyId               String?
   family                 Family?            @relation(fields: [familyId], references: [id])
   quests                 QuestInstance[]

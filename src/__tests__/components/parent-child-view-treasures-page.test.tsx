@@ -83,7 +83,7 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
       }
       if (typeof url === "string" && url.includes("/treasures/open") && init?.method === "POST") {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({
-          ok: true, pityTriggered: false,
+          ok: true,
           item: { id: "i1", title: "あめ", rarity: "COMMON" },
           collectionItem: null,
           remainingUnlocked: 0,
@@ -123,7 +123,7 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
       }
       if (typeof url === "string" && url.includes("/treasures/open") && init?.method === "POST") {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({
-          ok: true, pityTriggered: false, item: null,
+          ok: true, item: null,
           collectionItem: {
             id: "summer-01",
             name: "カブトムシ",

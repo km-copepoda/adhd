@@ -2,7 +2,7 @@
 //
 // POST /api/treasures/open
 // 戻り値:
-//   { ok, pityTriggered, item: {id,title,rarity} | null,
+//   { ok, item: {id,title,rarity} | null,
 //     collectionItem: {id,name,rarity,season,description,image,count} | null,
 //     remainingUnlocked: number }
 // 親ごほうびに当選しなかった場合は collectionItem に現在シーズンのコレクションアイテムが入る。
@@ -50,12 +50,10 @@ export async function POST() {
     childId: user.id,
     logId: result.logId,
     parentReward: !!result.item,
-    pityTriggered: result.pityTriggered,
   });
 
   return NextResponse.json({
     ok: true,
-    pityTriggered: result.pityTriggered,
     item: result.item,
     collectionItem: result.collectionItem,
     remainingUnlocked,

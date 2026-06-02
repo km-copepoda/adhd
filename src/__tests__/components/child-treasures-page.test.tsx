@@ -110,7 +110,6 @@ describe("/app/child/treasures 宝箱専用画面", () => {
           ok: true,
           json: () =>
             Promise.resolve({
-              pityTriggered: false,
               item: null,
               collectionItem: {
                 id: "summer-01",

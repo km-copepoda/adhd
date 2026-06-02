@@ -48,7 +48,6 @@ interface StatusResponse {
 }
 
 interface TreasureOpenResult {
-  pityTriggered: boolean;
   item: { id: string; title: string; rarity: Rarity } | null;
   collectionItem: {
     id: string;

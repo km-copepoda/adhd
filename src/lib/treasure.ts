@@ -1,5 +1,4 @@
 // 宝箱（ごほうび）抽選の純粋関数ロジック
-// 設計: docs/reword-system-design.md セクション 5〜8
 //
 // 振る舞い:
 //  - 「排他的単発抽選」: rng を 1 回だけ消費し、その値で RARE / UNCOMMON / COMMON / MISS を排他選択
@@ -9,17 +8,14 @@
 //      u in [1/4,               1.0)             → MISS
 //    boosted=true なら各レア度の幅を 1.5 倍（合計 hit 率 1/4 → 3/8）
 //  - 当選レア度のアイテムがプールに無ければ次に低いレア度に降格、いずれも無ければハズレ
-//  - プールが空なら null (天井カウンタも進めない)
-//  - pityCount >= PITY_THRESHOLD のときに自然ハズレなら、プールから1個強制ピック (天井発動)
-//  - 当たり/天井発動時は pity を 0 にリセット、ハズレは +1
+//  - プールが空なら null
 //
-//  決定: 2026-05-30 (docs/decisions.md) — 旧「レア度ごと独立抽選」を撤廃し、個別レート =
-//  実出力（28回引けば COMMON 4 / UNCOMMON 2 / RARE 1 / MISS 21）の関係を保証する。
+//  決定: 2026-05-30 「排他的単発抽選」/ 2026-06-02 pity (天井) を撤廃
+//        (ハズレ枠 = コレクションアイテム獲得が必ず付くため pity の存在意義が消えた)
 //
 // rng 消費順:
 //  1. rarity 判定（1 回）
 //  2. (HIT 時) 当選レア度（または降格先）のプール内アイテム選択
-//  2. (天井発動時) プール全体からアイテム選択
 
 export type TreasureRarity = "COMMON" | "UNCOMMON" | "RARE";
 
@@ -30,8 +26,6 @@ export const RARITY_BASE_PROBABILITY: Record<TreasureRarity, number> = {
 };
 
 export const RARITY_BOOSTED_MULTIPLIER = 1.5;
-
-export const PITY_THRESHOLD = 5;
 
 export const RARITY_ORDER: Record<TreasureRarity, number> = {
   COMMON: 1,
@@ -50,15 +44,12 @@ export interface TreasurePoolItem {
 
 export interface DrawTreasureOptions {
   boosted?: boolean;
-  pityCount?: number;
   rng?: () => number;
 }
 
 export interface DrawTreasureResult {
   itemId: string | null;
   rarity: TreasureRarity | null;
-  nextPityCount: number;
-  pityTriggered: boolean;
 }
 
 function pickRandomFrom<T>(items: T[], rng: () => number): T {
@@ -70,10 +61,10 @@ export function drawTreasure(
   pool: TreasurePoolItem[],
   options: DrawTreasureOptions = {},
 ): DrawTreasureResult {
-  const { boosted = false, pityCount = 0, rng = Math.random } = options;
+  const { boosted = false, rng = Math.random } = options;
 
   if (pool.length === 0) {
-    return { itemId: null, rarity: null, nextPityCount: pityCount, pityTriggered: false };
+    return { itemId: null, rarity: null };
   }
 
   const multiplier = boosted ? RARITY_BOOSTED_MULTIPLIER : 1;
@@ -98,16 +89,10 @@ export function drawTreasure(
       const items = pool.filter((p) => p.rarity === t);
       if (items.length === 0) continue;
       const picked = pickRandomFrom(items, rng);
-      return { itemId: picked.id, rarity: picked.rarity, nextPityCount: 0, pityTriggered: false };
+      return { itemId: picked.id, rarity: picked.rarity };
     }
-    // 当選レア度以下にもプール内アイテムが無い → ハズレ扱い (pity を進める)
   }
 
-  // ハズレ → 天井チェック
-  if (pityCount >= PITY_THRESHOLD) {
-    const picked = pickRandomFrom(pool, rng);
-    return { itemId: picked.id, rarity: picked.rarity, nextPityCount: 0, pityTriggered: true };
-  }
-
-  return { itemId: null, rarity: null, nextPityCount: pityCount + 1, pityTriggered: false };
+  // ハズレ (後段でコレクションアイテム枠に回る)
+  return { itemId: null, rarity: null };
 }

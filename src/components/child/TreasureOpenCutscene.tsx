@@ -16,7 +16,6 @@ interface CollectionItemResult {
 }
 
 interface Result {
-  pityTriggered: boolean;
   /** 親が設定したごほうび。当選しなかった場合 null（その代わり collectionItem が入る） */
   item: { id: string; title: string; rarity: TreasureRarity } | null;
   /** 親ごほうび不当選時に付与されたコレクションアイテム */
@@ -58,7 +57,7 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
         glowColor={glow}
         title={result.item.title}
         titleColor="text-quest-gold"
-        subtitle={result.pityTriggered ? "ようやくキタ！" : "宝箱をひらいた！"}
+        subtitle="宝箱をひらいた！"
         description={formatChildRarity(result.item.rarity)}
         bonus={{ text: "おうちの人に「もらった！」を伝えよう", color: "text-quest-mint" }}
       />
