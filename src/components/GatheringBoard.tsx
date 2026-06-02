@@ -8,7 +8,7 @@ import {
   formatBulletinDateHeading,
   coalesceTaskProgress,
   coalesceBurst,
-} from "@/lib/gathering";
+} from "@/lib/bulletinLog.data";
 
 type LogEntry = {
   id: string;

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage, getXpInfo, REBIRTH_THRESHOLD } from "@/lib/constants";
+import { getMonsterStage } from "@/lib/monsters";
+import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";

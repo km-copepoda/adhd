@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
-import { todayJST, countScheduledOccurrences } from "@/lib/date";
-import { ensureTodayQuests } from "@/lib/quests";
+import { todayJST } from "@/lib/date";
+import { getParentTaskSummaries } from "@/lib/taskSummary";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -20,117 +20,8 @@ export async function GET() {
     return NextResponse.json(tasks);
   }
 
-  // PARENT: 子供が画面を開いていなくても今日のクエストを materialize しておく。
-  // （carryOver フラグ付きタスクの「忘れた→翌日持ち越し」が、子供が一度もアクセスしなくても機能するように）
-  const children = await prisma.user.findMany({
-    where: { familyId: user.familyId, role: "CHILD" },
-    select: { id: true },
-  });
-  await Promise.all(
-    children.map((c) => ensureTodayQuests({ childId: c.id, familyId: user.familyId! }))
-  );
-
-  // PARENT: return all family tasks with assignedChild info
-  const tasks = await prisma.taskTemplate.findMany({
-    where: { familyId: user.familyId, isActive: true },
-    include: {
-      assignedChild: { select: { id: true, monsterName: true } },
-      taskStreaks: {
-        select: { childId: true, currentStreak: true, bestStreak: true, lastAchievedDate: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const today = todayJST();
-  const taskIds = tasks.map((t) => t.id);
-  const completedQuests = await prisma.questInstance.findMany({
-    where: {
-      templateId: { in: taskIds },
-      date: today,
-      status: { in: ["APPROVED", "SKIPPED"] },
-    },
-    select: { templateId: true },
-  });
-  const completedSet = new Set(completedQuests.map((q) => q.templateId));
-
-  // 直近7日間のSKIPPEDを取得（該当曜日でない日にも親がスキップに気づけるよう、タスクカードにバッジ表示するため）
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
-  const recentSkipped = await prisma.questInstance.findMany({
-    where: {
-      templateId: { in: taskIds },
-      status: "SKIPPED",
-      date: { gte: sevenDaysAgo, lte: today },
-    },
-    select: { templateId: true, date: true },
-    orderBy: { date: "desc" },
-  });
-  const lastSkippedMap = new Map<string, Date>();
-  for (const q of recentSkipped) {
-    if (!lastSkippedMap.has(q.templateId) && q.date) {
-      lastSkippedMap.set(q.templateId, q.date);
-    }
-  }
-
-  // carryOver=true タスクの「過去から持ち越し中のPENDING」を検出（親画面で未完了放置を可視化するため）
-  const carryOverTaskIds = tasks.filter((t) => (t as { carryOver?: boolean }).carryOver).map((t) => t.id);
-  const oldestPendingMap = new Map<string, Date>();
-  if (carryOverTaskIds.length > 0) {
-    const carryOverPending = await prisma.questInstance.findMany({
-      where: {
-        templateId: { in: carryOverTaskIds },
-        status: "PENDING",
-        date: { lt: today },
-      },
-      select: { templateId: true, date: true },
-      orderBy: { date: "asc" },
-    });
-    // 直近の APPROVED/SKIPPED より古い PENDING は stale データとして無視する
-    // （carryOver を後から ON にした等で、完了済みより古い PENDING が DB に残っているケース）
-    const latestSettled = await prisma.questInstance.findMany({
-      where: {
-        templateId: { in: carryOverTaskIds },
-        status: { in: ["APPROVED", "SKIPPED"] },
-      },
-      select: { templateId: true, date: true },
-      orderBy: { date: "desc" },
-    });
-    const latestSettledMap = new Map<string, Date>();
-    for (const q of latestSettled) {
-      if (!latestSettledMap.has(q.templateId) && q.date) {
-        latestSettledMap.set(q.templateId, q.date);
-      }
-    }
-    for (const q of carryOverPending) {
-      if (!q.date) continue;
-      const settled = latestSettledMap.get(q.templateId);
-      if (settled && q.date <= settled) continue;
-      if (!oldestPendingMap.has(q.templateId)) {
-        oldestPendingMap.set(q.templateId, q.date);
-      }
-    }
-  }
-
-  return NextResponse.json(
-    tasks.map((t) => {
-      const oldest = oldestPendingMap.get(t.id);
-      const repeatDays = (t as { repeatDays?: number[] }).repeatDays ?? [];
-      // carryOver タスクの「N回未完了」: 最古 PENDING の日付から today までの inclusive 範囲で、repeatDays に当たる出現回数。
-      // isTemporary 等で repeatDays が空の場合は出現が 1 度しか定義されないので 1 にフォールバック。
-      const carryOverMissedCount = oldest
-        ? repeatDays.length > 0
-          ? countScheduledOccurrences(oldest, today, repeatDays)
-          : 1
-        : null;
-      return {
-        ...t,
-        completedToday: completedSet.has(t.id),
-        lastSkippedDate: lastSkippedMap.get(t.id) ?? null,
-        carryOverMissedCount,
-      };
-    })
-  );
+  const summaries = await getParentTaskSummaries(user.familyId);
+  return NextResponse.json(summaries);
 }
 
 export async function POST(request: Request) {
@@ -141,14 +32,14 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  
-  if (!body.title || typeof body.title !== "string" || body.title.trim().length === 0 ) {
-      return NextResponse.json({ error: "タスク名は必須です" }, { status: 400 });
+
+  if (!body.title || typeof body.title !== "string" || body.title.trim().length === 0) {
+    return NextResponse.json({ error: "タスク名は必須です" }, { status: 400 });
   }
   if (body.title.length > 32) {
-      return NextResponse.json({ error: "タスク名は32文字以内にしてください" }, { status: 400 });
+    return NextResponse.json({ error: "タスク名は32文字以内にしてください" }, { status: 400 });
   }
-  
+
   const isTemporary: boolean = body.isTemporary === true;
 
   // CHILD: always assign to self

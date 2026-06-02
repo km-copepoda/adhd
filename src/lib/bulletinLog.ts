@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { todayJST } from "@/lib/date";
-import { buildBulletinMessage, getProgressMilestones, type BulletinLogType } from "@/lib/gathering";
+import { buildBulletinMessage, getProgressMilestones, type BulletinLogType } from "@/lib/bulletinLog.data";
 import { log } from "@/lib/logger";
 
 /** 子供が属するグループIDを取得（未参加ならnull） */
