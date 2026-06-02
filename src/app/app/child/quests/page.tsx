@@ -12,6 +12,7 @@ import TreasureStock from "@/components/child/TreasureStock";
 import TreasureGetCutscene from "@/components/child/TreasureGetCutscene";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
+import { getTreasureCountdown, ALL_DONE_MESSAGES } from "@/lib/treasureCountdown";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { calcActualXP, sumQuestXp } from "@/lib/xp";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
@@ -59,6 +60,10 @@ export default function QuestsPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
+  const [minTasksForStreak, setMinTasksForStreak] = useState<number>(1);
+  const [allDoneMessageIndex] = useState<number>(() =>
+    Math.floor(Math.random() * ALL_DONE_MESSAGES.length),
+  );
   const [now, setNow] = useState(() => new Date());
   const [stampQueue, setStampQueue] = useState<StampCelebration[]>([]);
   const pendingTreasureGetRef = useRef<number>(0);
@@ -88,7 +93,12 @@ export default function QuestsPage() {
   useEffect(() => {
     fetch("/api/users/me")
       .then((r) => r.json())
-      .then((d) => setReportDeadlineTime(d.reportDeadlineTime ?? null))
+      .then((d) => {
+        setReportDeadlineTime(d.reportDeadlineTime ?? null);
+        if (typeof d.minTasksForStreak === "number") {
+          setMinTasksForStreak(d.minTasksForStreak);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -368,6 +378,33 @@ export default function QuestsPage() {
               }}
             />
           </div>
+          {/* Treasure countdown banner */}
+          {(() => {
+            const countdown = getTreasureCountdown({
+              completedCount,
+              totalCount: quests.length,
+              minTasks: minTasksForStreak,
+              allDoneMessageIndex,
+            });
+            if (countdown.kind === "none") return null;
+            const styles =
+              countdown.kind === "all_done"
+                ? "bg-amber-900/20 border-amber-500/40 text-amber-300"
+                : countdown.kind === "to_streak"
+                  ? "bg-purple-900/20 border-purple-500/30 text-purple-300"
+                  : "bg-yellow-900/20 border-yellow-500/30 text-yellow-300";
+            const icon =
+              countdown.kind === "all_done" ? "🎉" : countdown.kind === "to_streak" ? "🎁" : "✨";
+            return (
+              <div
+                className={`mt-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${styles}`}
+                data-testid="treasure-countdown"
+              >
+                <span>{icon}</span>
+                <span className="flex-1 font-bold">{countdown.text}</span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Monster mini card */}
