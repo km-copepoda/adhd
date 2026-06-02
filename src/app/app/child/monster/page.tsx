@@ -172,6 +172,8 @@ export default function MonsterPage() {
         localStorage.setItem("lastSeenEvolutionStage", "0");
         setShowEggSelection(false);
         setReborn(true);
+        // BottomNav 育成バッジ (rebirthPending) を Realtime 取りこぼし時にも即クリア
+        window.dispatchEvent(new CustomEvent("monster-changed"));
       }
     } finally {
       selfRebirthRef.current = false;

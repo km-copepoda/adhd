@@ -142,10 +142,15 @@ export default function BottomNav() {
     const onTreasureChanged = () => fetchTreasureCount();
     window.addEventListener("treasure-changed", onTreasureChanged);
 
+    // 転生など monster 系の変更を即時反映（Realtime 取りこぼし時の冗長経路）
+    const onMonsterChanged = () => fetchMonsterStatus();
+    window.addEventListener("monster-changed", onMonsterChanged);
+
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("treasure-changed", onTreasureChanged);
+      window.removeEventListener("monster-changed", onMonsterChanged);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
