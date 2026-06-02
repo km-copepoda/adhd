@@ -8,5 +8,6 @@ export async function GET() {
   }
   return NextResponse.json({
     reportDeadlineTime: (user as { reportDeadlineTime?: string | null }).reportDeadlineTime ?? null,
+    minTasksForStreak: (user as { minTasksForStreak?: number }).minTasksForStreak ?? 1,
   });
 }
