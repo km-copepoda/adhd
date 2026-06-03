@@ -244,6 +244,27 @@ describe("generateTreasuresOnReport", () => {
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
   });
 
+  // シナリオ: 3 タスク全完了で STREAK + ALL_COMPLETE 生成済み (OPENED でも可) の状態で、
+  // 親 or 子があとからタスクを追加 (totalCount=4) → その追加タスクも完了して再び 4/4 になっても、
+  // 当日同 trigger が既にあるので追加の宝箱は出ない (1日 1セットの上限を守る)
+  it("全完了後にタスク追加→再全完了でも追加の宝箱は出ない", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { id: "e1", trigger: "STREAK" } as any,
+      { id: "e2", trigger: "ALL_COMPLETE" } as any,
+    ]);
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 4,
+      totalCount: 4,
+      skippedCount: 0,
+      minTasks: 1,
+      isProxy: false,
+    });
+    expect(ids).toEqual([]);
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+  });
+
   it("既存 PROXY があれば STREAK は作らない (PROXY は STREAK の代替)", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([
       { id: "p1", trigger: "PROXY" } as any,
