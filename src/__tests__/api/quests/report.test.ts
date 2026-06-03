@@ -320,6 +320,7 @@ describe("POST /api/quests/[id]/report", () => {
         date: baseQuest.date,
         reportedCount: 1,
         totalCount: 3,
+        skippedCount: 0,
         minTasks: 1,
         isProxy: false,
       });
@@ -352,6 +353,7 @@ describe("POST /api/quests/[id]/report", () => {
         date: baseQuest.date,
         reportedCount: 3,
         totalCount: 3,
+        skippedCount: 1, // SKIPPED が 1 件含まれるので boost 抑止用に渡る
         minTasks: 1,
         isProxy: false,
       });

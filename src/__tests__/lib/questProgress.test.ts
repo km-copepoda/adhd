@@ -3,6 +3,7 @@ import {
   computeQuestSuccessDisplay,
   computeCompletedCount,
   computeRemainingCount,
+  computeSkippedCount,
   sortQuestsByCompletion,
   sortQuestsForDeclaration,
 } from "@/lib/questProgress";
@@ -95,6 +96,29 @@ describe("computeRemainingCount", () => {
   it("computeCompletedCount + computeRemainingCount = total になる", () => {
     const quests = [q("PENDING"), q("REPORTED"), q("APPROVED"), q("REJECTED"), q("SKIPPED"), q("SKIP_REPORTED")];
     expect(computeCompletedCount(quests) + computeRemainingCount(quests)).toBe(quests.length);
+  });
+});
+
+describe("computeSkippedCount", () => {
+  const q = (status: string) => ({ status });
+
+  it("SKIP_REPORTED と SKIPPED をカウントする", () => {
+    const quests = [q("SKIP_REPORTED"), q("SKIPPED"), q("REPORTED"), q("APPROVED")];
+    expect(computeSkippedCount(quests)).toBe(2);
+  });
+
+  it("REPORTED / APPROVED / PENDING / REJECTED はカウントしない", () => {
+    const quests = [q("REPORTED"), q("APPROVED"), q("PENDING"), q("REJECTED")];
+    expect(computeSkippedCount(quests)).toBe(0);
+  });
+
+  it("空配列は 0", () => {
+    expect(computeSkippedCount([])).toBe(0);
+  });
+
+  it("全部スキップなら全数を返す", () => {
+    const quests = [q("SKIPPED"), q("SKIP_REPORTED"), q("SKIPPED")];
+    expect(computeSkippedCount(quests)).toBe(3);
   });
 });
 

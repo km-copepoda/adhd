@@ -22,6 +22,16 @@ export function computeRemainingCount(quests: { status: string }[]): number {
   return quests.filter((q) => REMAINING_STATUSES.has(q.status)).length;
 }
 
+const SKIPPED_STATUSES = new Set(["SKIP_REPORTED", "SKIPPED"]);
+/**
+ * スキップ扱いのクエスト数を返す。
+ * SKIP_REPORTED（親承認待ち）と SKIPPED（親承認済み）を含む。
+ * ALL_COMPLETE 宝箱の boost 判定 (スキップが混じったら 1.5倍宝箱を出さない) に使う。
+ */
+export function computeSkippedCount(quests: { status: string }[]): number {
+  return quests.filter((q) => SKIPPED_STATUSES.has(q.status)).length;
+}
+
 /**
  * 未完了（PENDING/REJECTED）を上に、完了（REPORTED/APPROVED/SKIP_REPORTED/SKIPPED）を下に並べ替える。
  * 同じグループ内では元の順序を保つ（安定ソート）。

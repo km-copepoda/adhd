@@ -40,6 +40,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -67,6 +68,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -80,6 +82,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 5,
       totalCount: 5,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: true,
     });
@@ -94,6 +97,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 0,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -110,6 +114,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 1,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -137,6 +142,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -152,6 +158,52 @@ describe("generateTreasuresOnReport", () => {
     );
   });
 
+  it("全完了だがスキップを含む → ALL_COMPLETE は boosted=false で生成", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create
+      .mockResolvedValueOnce({ id: "t-streak" } as any)
+      .mockResolvedValueOnce({ id: "t-all" } as any);
+
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      skippedCount: 1, // 1 個でもスキップがあれば boost なし
+      minTasks: 1,
+      isProxy: false,
+    });
+
+    expect(ids).toEqual(["t-streak", "t-all"]);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[1][0].data).toEqual(
+      expect.objectContaining({ trigger: "ALL_COMPLETE", boosted: false, status: "LOCKED" }),
+    );
+  });
+
+  it("全タスクスキップ (totalCount === skippedCount) → ALL_COMPLETE は boosted=false", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create
+      .mockResolvedValueOnce({ id: "t-streak" } as any)
+      .mockResolvedValueOnce({ id: "t-all" } as any);
+
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      skippedCount: 3,
+      minTasks: 1,
+      isProxy: false,
+    });
+
+    expect(ids).toEqual(["t-streak", "t-all"]);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[1][0].data).toEqual(
+      expect.objectContaining({ trigger: "ALL_COMPLETE", boosted: false }),
+    );
+  });
+
   it("既存 STREAK がある日に再報告しても重複生成しない", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([
       { id: "existing", trigger: "STREAK" } as any,
@@ -163,6 +215,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -183,6 +236,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -199,6 +253,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 1,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -217,6 +272,7 @@ describe("generateTreasuresOnReport", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -250,6 +306,7 @@ describe("cancelTreasuresOnReject", () => {
       date: dateJST,
       reportedCount: 0,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -267,6 +324,7 @@ describe("cancelTreasuresOnReject", () => {
       date: dateJST,
       reportedCount: 2,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });
@@ -288,6 +346,7 @@ describe("cancelTreasuresOnReject", () => {
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
       isProxy: false,
     });

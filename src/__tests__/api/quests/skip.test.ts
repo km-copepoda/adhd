@@ -161,6 +161,7 @@ describe("POST /api/quests/[id]/skip", () => {
       date: expect.any(Date),
       reportedCount: 3, // SKIP_REPORTED も computeCompletedCount に含まれる
       totalCount: 3,
+      skippedCount: 3,
       minTasks: 1,
       isProxy: false,
     });
@@ -186,6 +187,7 @@ describe("POST /api/quests/[id]/skip", () => {
       date: expect.any(Date),
       reportedCount: 1,
       totalCount: 3,
+      skippedCount: 1,
       minTasks: 1,
       isProxy: false,
     });

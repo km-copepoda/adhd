@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { routeLogger } from "@/lib/logger";
-import { computeCompletedCount } from "@/lib/questProgress";
+import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { cancelTreasuresOnReject } from "@/lib/treasureService";
 
 export async function POST(
@@ -73,6 +73,7 @@ export async function POST(
       date: quest.date,
       reportedCount: computeCompletedCount(todayQuests),
       totalCount: todayQuests.length,
+      skippedCount: computeSkippedCount(todayQuests),
       minTasks: quest.child.minTasksForStreak,
       isProxy: false,
     });

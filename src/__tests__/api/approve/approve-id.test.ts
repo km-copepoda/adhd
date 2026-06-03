@@ -787,6 +787,7 @@ describe("POST /api/approve/[id]", () => {
         date: dateJST,
         reportedCount: 1,
         totalCount: 3,
+        skippedCount: 0,
         minTasks: 1,
         isProxy: false,
       });

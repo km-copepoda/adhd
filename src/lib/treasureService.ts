@@ -23,8 +23,11 @@ import { triggerCollectionItemLog } from "@/lib/bulletinLog";
 export interface TreasureCondition {
   childId: string;
   date: Date;
+  /** 「対処済み」クエスト数 (REPORTED + APPROVED + SKIP_REPORTED + SKIPPED)。computeCompletedCount と同じ。 */
   reportedCount: number;
   totalCount: number;
+  /** スキップ扱い (SKIP_REPORTED + SKIPPED) の件数。ALL_COMPLETE の boost 判定に使う。 */
+  skippedCount: number;
   minTasks: number;
   isProxy: boolean;
 }
@@ -36,7 +39,8 @@ export interface TreasureCondition {
  *    プール 0 でも子供は確定報酬を受け取れる）
  *  - reportedCount >= minTasks → STREAK 1個
  *    ただし当日 PROXY が既にあれば STREAK は作らない（PROXY は STREAK の代替）
- *  - reportedCount = totalCount (全完了) → さらに ALL_COMPLETE (boosted) 1個
+ *  - reportedCount = totalCount (全完了) → さらに ALL_COMPLETE 1個
+ *    skippedCount === 0 のときのみ boosted=true (1.5倍)、スキップが混じれば boosted=false
  *    ALL_COMPLETE は PROXY と共存可（全タスク完了のボーナス枠として独立）
  *  - 同じ trigger の宝箱がその日既にあれば飛ばす（冪等）
  */
@@ -76,7 +80,8 @@ export async function generateTreasuresOnReport(
         childId: cond.childId,
         date: cond.date,
         trigger: "ALL_COMPLETE",
-        boosted: true,
+        // スキップが 1 件でも混じれば boost を抑止 (純粋完了のみ 1.5倍宝箱)
+        boosted: cond.skippedCount === 0,
         status: "LOCKED",
       },
     });

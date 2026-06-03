@@ -1491,3 +1491,28 @@
 - `src/lib/treasure.ts` — `RARITY_BASE_PROBABILITY.RARE` を `1/45` に変更、冒頭コメントの境界記述を更新
 - `src/__tests__/lib/treasure.test.ts` — RARE 定数・境界・統計テスト・boosted 境界テストの期待値を新確率に更新（boosted RARE 境界が 0.0333 まで縮むため rng=0.025 へ）
 - `src/__tests__/lib/treasureService.test.ts` — boosted 検証コメントの合計 hit 率記述のみ更新
+
+## 2026-06-03: ALL_COMPLETE 宝箱の boost (1.5倍) はスキップ 0 件のときに限定
+
+### 決定
+- `generateTreasuresOnReport` の ALL_COMPLETE 生成で `boosted: true` を出すのは **当日のスキップ件数が 0 のとき** だけに変更
+- スキップ (`SKIP_REPORTED` または `SKIPPED`) が 1 件でも含まれる日に全タスク対処完了した場合、ALL_COMPLETE は **boosted=false** (通常の宝箱) で生成する
+- `TreasureCondition` に `skippedCount: number` フィールドを追加。各 API ルート (`/api/quests/[id]/report`, `/skip`, `/api/approve/[id]` reject) は `computeSkippedCount(todayQuests)` を計算して渡す
+- 純粋関数として `src/lib/questProgress.ts` に `computeSkippedCount` を追加 (SKIP_REPORTED + SKIPPED をカウント)
+
+### 理由
+- 2026-03-15 決定によりスキップは「対処済み」として `computeCompletedCount` に算入される。これにより「全タスクをスキップしただけでも ALL_COMPLETE が 1.5倍宝箱で出てしまう」状況が発生していた
+- 親視点ではスキップは「今日できなかった」の意思表示であって「やり切った達成」とは別物。1.5倍ボーナス枠は「純粋に全部やり切った日」の祝福であってほしい
+- ただし「スキップを含む全完了」も `reportedCount === totalCount` の到達ではあるので **ALL_COMPLETE 宝箱自体は引き続き出す**。出すが boost は乗せない、という形でスキップの正当性 (2026-03-15 ストリーク算入) と「達成の純度差」を両立させる
+- STREAK 宝箱や minTasks 判定は **触らない**。スキップを「対処済み」に数える 2026-03-15 ストリーク方針はそのまま維持
+
+### やってはいけないこと
+- スキップを含む全完了で ALL_COMPLETE をそもそも生成しないようにする (2026-03-15 でスキップを「対処済み」と認めた決定と整合しなくなる。子供が「スキップしたら宝箱が減った」と認知する逆インセンティブも避ける)
+- `computeCompletedCount` を「REPORTED + APPROVED のみ」に絞ってスキップを排除する。ストリーク・進捗バケット・minTasks 全てが連動して破壊される
+- `skippedCount` を `TreasureCondition` から省略可能にする。各ルートで明示的に算出することで「boost 判定の根拠」を呼び出し側コードで見えるようにする
+
+### 該当箇所
+- `src/lib/questProgress.ts` — `computeSkippedCount` 追加
+- `src/lib/treasureService.ts` — `TreasureCondition.skippedCount` 追加、ALL_COMPLETE 生成時 `boosted: cond.skippedCount === 0`
+- `src/app/api/quests/[id]/report/route.ts` / `src/app/api/quests/[id]/skip/route.ts` / `src/app/api/approve/[id]/route.ts` — `computeSkippedCount(todayQuests)` を渡す
+- テスト: `src/__tests__/lib/questProgress.test.ts`, `src/__tests__/lib/treasureService.test.ts`, `src/__tests__/api/quests/{report,skip}.test.ts`, `src/__tests__/api/approve/approve-id.test.ts`

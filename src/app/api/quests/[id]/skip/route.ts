@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
-import { computeCompletedCount } from "@/lib/questProgress";
+import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
 
 export async function POST(
@@ -70,6 +70,7 @@ export async function POST(
     date: quest.date,
     reportedCount: computeCompletedCount(todayQuests),
     totalCount: todayQuests.length,
+    skippedCount: computeSkippedCount(todayQuests),
     minTasks: user.minTasksForStreak,
     isProxy: false,
   });
