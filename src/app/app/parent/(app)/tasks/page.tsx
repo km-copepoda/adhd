@@ -178,7 +178,7 @@ export default function TasksPage() {
     }
   }
 
-  function startEdit(task: Task) {
+  function startEdit(task: Pick<Task, "id" | "title" | "category" | "repeatDays" | "targetDate" | "photoBonus" | "carryOver" | "assignedChildId" | "isTemporary">) {
     setForm({
       title: task.title,
       category: task.category,
