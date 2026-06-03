@@ -1620,3 +1620,30 @@
 - `src/lib/treasureService.ts` — `TreasureCondition.skippedCount` 追加、ALL_COMPLETE 生成時 `boosted: cond.skippedCount === 0`
 - `src/app/api/quests/[id]/report/route.ts` / `src/app/api/quests/[id]/skip/route.ts` / `src/app/api/approve/[id]/route.ts` — `computeSkippedCount(todayQuests)` を渡す
 - テスト: `src/__tests__/lib/questProgress.test.ts`, `src/__tests__/lib/treasureService.test.ts`, `src/__tests__/api/quests/{report,skip}.test.ts`, `src/__tests__/api/approve/approve-id.test.ts`
+
+---
+
+## 2026-06-03: 進化／孵化カットインの発火位置を子レイアウト常駐へ移す
+
+### 決定
+- 進化・孵化のカットイン演出を **子レイアウト (`src/app/app/child/layout.tsx`) に常駐する `MonsterCutsceneListener`** から発火する設計に変更
+- 旧仕様では `useMonsterStatus`（育成ページ専用フック）が User Realtime UPDATE を監視し、`/app/child/monster` を開いているときだけカットインを出していた
+- 新仕様では、Listener が `/app/child/*` 配下のどのページに居ても User UPDATE を捕捉し、`evolutionStage` の増加で即時にカットインを重ねる
+- `lastSeenEvolutionStage` の書き込みは Listener に一本化（`useMonsterStatus` 側の書き込みは撤去）。転生時の手動リセット (`localStorage.setItem(..., "0")`) も Listener が User UPDATE 反映でカバーするため不要に
+- カットインの onClose、achievement、rebirth カットインは引き続き育成ページ側に残す（rebirth は自己起点アクション、achievement はストリーク到達時のページ固有 UX のため）
+
+### 理由
+- 親がスタンプ承認 → 進化、の流れで子がクエスト画面に居ると、旧設計ではカットインが一切出ず体験が欠落していた（育成画面に行くまで気付けず、その上タイミング次第で気付かないこともあった）
+- localStorage 比較に依存していた cross-session 検知は、初訪問時 `lastSeen === -1` で抑止されるため「初評価で進化を見逃した」と等価のすり抜けが発生し得た
+- 子レイアウトに Listener を常駐させることで「現在表示中のページに関わらず、進化はその瞬間に祝福する」を保証し、検知ロジックも一箇所に集約できる
+
+### やってはいけないこと
+- `useMonsterStatus` 側で `showEvolution` / `hatched` を再導入する（カットインが二重発火する）
+- `lastSeenEvolutionStage` を Listener 以外から書き換える（race condition で検知漏れが起きる）
+
+### 該当箇所
+- `src/components/child/MonsterCutsceneListener.tsx` — 新規
+- `src/app/app/child/layout.tsx` — Listener をマウント
+- `src/hooks/useMonsterStatus.ts` — `showEvolution`/`hatched`/`prevStageRef`/`selfRebirthRef` および lastSeen 書き込みを撤去
+- `src/app/app/child/monster/page.tsx` — 進化／孵化用 `CutsceneOverlay` ブロックを削除（rebirth・achievement は残置）
+- テスト: `src/__tests__/components/monster-cutscene-listener.test.tsx`

@@ -24,25 +24,18 @@ export default function MonsterPage() {
     data,
     streak,
     loading,
-    showEvolution,
-    setShowEvolution,
-    hatched,
-    setHatched,
     reborn,
     setReborn,
     unlockedAchievement,
     setUnlockedAchievement,
     setData,
     fetchStatus,
-    prevStageRef,
-    selfRebirthRef,
   } = useMonsterStatus();
   const [showEggSelection, setShowEggSelection] = useState(false);
   const [rebirthLoading, setRebirthLoading] = useState(false);
 
   const handleRebirth = async (eggType: string) => {
     setRebirthLoading(true);
-    selfRebirthRef.current = true;
     try {
       const res = await fetch("/api/rebirth", {
         method: "POST",
@@ -61,15 +54,12 @@ export default function MonsterPage() {
           rebirthPending: newData.rebirthPending ?? false,
           rebirthEggBonus: newData.rebirthEggBonus ?? null,
         });
-        prevStageRef.current = 0;
-        localStorage.setItem("lastSeenEvolutionStage", "0");
         setShowEggSelection(false);
         setReborn(true);
         // BottomNav 育成バッジ (rebirthPending) を Realtime 取りこぼし時にも即クリア
         window.dispatchEvent(new CustomEvent("monster-changed"));
       }
     } finally {
-      selfRebirthRef.current = false;
       setRebirthLoading(false);
     }
   };
@@ -98,35 +88,7 @@ export default function MonsterPage() {
 
   return (
     <div className="px-4 pt-6">
-      {/* Evolution cut-in overlay */}
-      {showEvolution && data && (() => {
-        const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
-        return (
-          <CutsceneOverlay
-            onClose={() => setShowEvolution(false)}
-            imageSrc={m.image}
-            imageAlt={m.name}
-            title="進化した！"
-            subtitle={m.name}
-            description={m.description}
-          />
-        );
-      })()}
-
-      {/* Hatch cut-in overlay (egg → first form) */}
-      {hatched && data && (() => {
-        const m = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
-        return (
-          <CutsceneOverlay
-            onClose={() => setHatched(false)}
-            imageSrc={m.image}
-            imageAlt={m.name}
-            title="うまれた！"
-            subtitle={m.name}
-            description={m.description}
-          />
-        );
-      })()}
+      {/* 進化／孵化のカットインは MonsterCutsceneListener（子レイアウト常駐）で出す */}
 
       {/* Rebirth cut-in overlay */}
       {reborn && (() => {
