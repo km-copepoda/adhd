@@ -7,7 +7,7 @@
 import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ALL_BADGES, checkAndUnlockBadges } from "@/lib/badges";
+import { ALL_BADGES, checkAndUnlockBadges, getBadgeProgress, loadBadgeContext } from "@/lib/badges";
 import { triggerBadgeLog } from "@/lib/bulletinLog";
 import { resolveTargetChild } from "@/lib/parentChildView";
 
@@ -35,11 +35,14 @@ export async function GET(request: Request) {
     });
   }
 
-  const unlockedRecords = await prisma.userBadge.findMany({
-    where: { userId: child.id },
-    select: { badgeId: true, unlockedAt: true },
-    orderBy: { unlockedAt: "desc" },
-  });
+  const [ctx, unlockedRecords] = await Promise.all([
+    loadBadgeContext(child.id),
+    prisma.userBadge.findMany({
+      where: { userId: child.id },
+      select: { badgeId: true, unlockedAt: true },
+      orderBy: { unlockedAt: "desc" },
+    }),
+  ]);
 
   const unlockedMap = new Map(unlockedRecords.map((r: any) => [r.badgeId, r.unlockedAt]));
 
@@ -48,6 +51,7 @@ export async function GET(request: Request) {
     unlocked: unlockedMap.has(badge.id),
     unlockedAt: unlockedMap.get(badge.id) ?? null,
     isNew: newlyUnlocked.some((b) => b.id === badge.id),
+    progress: getBadgeProgress(badge.id, ctx),
   }));
 
   return NextResponse.json({

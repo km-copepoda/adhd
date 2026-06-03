@@ -1,7 +1,8 @@
 import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ALL_BADGES, checkAndUnlockBadges } from "@/lib/badges";
+import { ALL_BADGES, checkAndUnlockBadges, getBadgeProgress } from "@/lib/badges";
+import { loadBadgeContext } from "@/lib/badges";
 import { triggerBadgeLog } from "@/lib/bulletinLog";
 
 /**
@@ -27,12 +28,15 @@ export async function GET() {
     });
   }
 
-  // 解除済みバッジ一覧を取得
-  const unlockedRecords = await prisma.userBadge.findMany({
-    where: { userId: user.id },
-    select: { badgeId: true, unlockedAt: true },
-    orderBy: { unlockedAt: "desc" },
-  });
+  // 進捗ヒント用にコンテキスト再ロード + 解除済み一覧
+  const [ctx, unlockedRecords] = await Promise.all([
+    loadBadgeContext(user.id),
+    prisma.userBadge.findMany({
+      where: { userId: user.id },
+      select: { badgeId: true, unlockedAt: true },
+      orderBy: { unlockedAt: "desc" },
+    }),
+  ]);
 
   const unlockedMap = new Map(unlockedRecords.map(r => [r.badgeId, r.unlockedAt]));
 
@@ -41,6 +45,7 @@ export async function GET() {
     unlocked: unlockedMap.has(badge.id),
     unlockedAt: unlockedMap.get(badge.id) ?? null,
     isNew: newlyUnlocked.some(b => b.id === badge.id),
+    progress: getBadgeProgress(badge.id, ctx),
   }));
 
   return NextResponse.json({

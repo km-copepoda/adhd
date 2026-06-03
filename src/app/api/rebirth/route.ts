@@ -1,7 +1,8 @@
 import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { triggerMonsterRebornLog } from "@/lib/bulletinLog";
+import { triggerMonsterRebornLog, triggerBadgeLog } from "@/lib/bulletinLog";
+import { checkAndUnlockBadges } from "@/lib/badges";
 
 const VALID_EGG_TYPES = ["NORMAL", "STUDY", "STAMINA", "LIFE"] as const;
 
@@ -57,6 +58,17 @@ export async function POST(request: Request) {
   // 転生ログ — after() でレスポンス送信後に実行（サーバレスで取りこぼさないため）
   const eggLabel: Record<string, string> = { NORMAL: "ふつう", STUDY: "べんきょう", STAMINA: "たいりょく", LIFE: "せいかつ" };
   after(() => triggerMonsterRebornLog(user.id, eggLabel[eggType] ?? eggType).catch(() => {}));
+
+  // バッジ判定（rebirth_egg_used / rebirth_* 系を即時解錠）
+  after(() =>
+    checkAndUnlockBadges(user.id)
+      .then(newBadges => {
+        for (const badge of newBadges) {
+          triggerBadgeLog(user.id, badge.name).catch(() => {});
+        }
+      })
+      .catch(() => {}),
+  );
 
   return NextResponse.json({ ok: true });
 }
