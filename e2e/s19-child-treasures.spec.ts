@@ -12,13 +12,13 @@ import { test, expect } from "./fixtures";
 test.describe("S19: 子供の宝箱ページ", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/app/child/treasures");
-    await expect(page.getByRole("heading", { name: "宝箱" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "宝箱", exact: true })).toBeVisible({
       timeout: 15000,
     });
   });
 
   test("ページの見出し「宝箱」が表示される", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "宝箱" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "宝箱", exact: true })).toBeVisible();
   });
 
   test("承認まち / あけられる カウントラベルが表示される", async ({ page }) => {

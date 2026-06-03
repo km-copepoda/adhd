@@ -75,7 +75,7 @@ test.describe("S22: 親のごほうび設定", () => {
     // 該当行の削除ボタンをクリック
     const row = page.locator("li").filter({ hasText: title });
     page.on("dialog", (d) => d.accept());
-    await row.getByRole("button", { name: /削除|削除$/ }).click();
+    await row.getByRole("button", { name: /^削除$/ }).click();
 
     await expect(page.getByText(title)).not.toBeVisible({ timeout: 10000 });
   });

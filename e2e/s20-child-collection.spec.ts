@@ -28,8 +28,8 @@ test.describe("S20: 子供のコレクションページ", () => {
     await expect(page.getByRole("heading", { name: /モンスター図鑑/ })).toBeVisible({
       timeout: 10000,
     });
-    // 全 X / Y 体表示
-    await expect(page.getByText(/\d+ \/ \d+ 体/)).toBeVisible();
+    // 全 X / Y 体表示（トップサマリーと各系統ヘッダーの両方がマッチするため first）
+    await expect(page.getByText(/\d+ \/ \d+ 体/).first()).toBeVisible();
   });
 
   test("「🎁 アイテム」タブをクリックするとアイテムコンテンツが表示される", async ({ page }) => {
