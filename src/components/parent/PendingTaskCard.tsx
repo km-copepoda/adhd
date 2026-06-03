@@ -11,6 +11,7 @@ type PendingTask = {
   category: Category;
   repeatDays: number[];
   isTemporary: boolean;
+  targetDate: string | null;
   requestedDate: string | null;
   photoBonus: boolean;
   carryOver: boolean;
