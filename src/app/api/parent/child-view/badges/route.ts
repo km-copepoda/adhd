@@ -56,7 +56,8 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     badges,
-    unlockedCount: unlockedMap.size,
+    // 廃止された旧IDが UserBadge に残っていても、ALL_BADGES と交差した数のみカウント
+    unlockedCount: badges.filter((b) => b.unlocked).length,
     totalCount: ALL_BADGES.length,
     newlyUnlocked: newlyUnlocked.map((b) => b.id),
   });
