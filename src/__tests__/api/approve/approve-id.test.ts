@@ -642,9 +642,14 @@ describe("POST /api/approve/[id]", () => {
         childId: "child-1",
         templateId: "tpl-1",
         template: { category: "STUDY", createdBy: "PARENT" },
-        child: { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        child: { id: "child-1", minTasksForStreak: 1, evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
       } as any);
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "PENDING" } as any,
+        { status: "REPORTED" } as any,
+        { status: "REPORTED" } as any,
+      ]);
 
       const res = await POST(
         makeRequest("/api/approve/q-skip2", { action: "reject" }),
@@ -657,6 +662,66 @@ describe("POST /api/approve/[id]", () => {
         where: { id: "q-skip2" },
         data: { status: "PENDING", comment: null },
       });
+    });
+
+    // スキップ却下で reportedCount が落ちる (SKIP_REPORTED→PENDING) ため、
+    // 既存 LOCKED 宝箱 (ALL_COMPLETE の boosted=false 等) を再評価する必要がある
+    it("スキップ申請を差し戻すと cancelTreasuresOnReject を呼んで stale な LOCKED を整理する", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      const dateJST = new Date("2026-03-13");
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-skip3",
+        status: "SKIP_REPORTED",
+        date: dateJST,
+        childId: "child-1",
+        templateId: "tpl-1",
+        template: { category: "STUDY", createdBy: "PARENT" },
+        child: { id: "child-1", minTasksForStreak: 1, evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      // 却下後の集計: 3 件中 PENDING (戻った本人) + REPORTED 1 + REPORTED 1
+      //   → reportedCount=2, totalCount=3, skippedCount=0
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "PENDING" } as any,
+        { status: "REPORTED" } as any,
+        { status: "REPORTED" } as any,
+      ]);
+
+      await POST(
+        makeRequest("/api/approve/q-skip3", { action: "reject" }),
+        makeParams("q-skip3"),
+      );
+
+      expect(mockCancelTreasures).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: dateJST,
+        reportedCount: 2,
+        totalCount: 3,
+        skippedCount: 0,
+        minTasks: 1,
+        isProxy: false,
+      });
+    });
+
+    it("スキップ申請承認 (SKIPPED) では cancelTreasuresOnReject を呼ばない", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q-skip-ok",
+        status: "SKIP_REPORTED",
+        date: new Date("2026-03-13"),
+        childId: "child-1",
+        templateId: "tpl-1",
+        template: { category: "STUDY", createdBy: "PARENT" },
+        child: { id: "child-1", minTasksForStreak: 1, evolutionPath: "", evolutionStage: 0, studyPt: 0, staminaPt: 0, lifePt: 0 },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+      await POST(
+        makeRequest("/api/approve/q-skip-ok", { action: "approve" }),
+        makeParams("q-skip-ok"),
+      );
+      // SKIP_REPORTED→SKIPPED は reportedCount も skippedCount も変えないので再評価不要
+      expect(mockCancelTreasures).not.toHaveBeenCalled();
     });
   });
 

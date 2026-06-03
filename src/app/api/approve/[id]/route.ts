@@ -35,6 +35,24 @@ export async function POST(
         where: { id },
         data: { status: "PENDING", comment: null },
       });
+      // スキップ却下で「対処済み」が 1 件減り、ALL_COMPLETE 等の LOCKED 宝箱の
+      // 前提が崩れる可能性があるので再評価する。
+      // - reportedCount が minTasks を割れば LOCKED 全部 CANCELLED
+      // - 全完了でなくなれば ALL_COMPLETE のみ CANCELLED
+      //   (再報告で生成し直されるので、最新の skippedCount に応じた boost で出る)
+      const todayQuests = await prisma.questInstance.findMany({
+        where: { childId: quest.childId, date: quest.date },
+        select: { status: true },
+      });
+      await cancelTreasuresOnReject({
+        childId: quest.childId,
+        date: quest.date,
+        reportedCount: computeCompletedCount(todayQuests),
+        totalCount: todayQuests.length,
+        skippedCount: computeSkippedCount(todayQuests),
+        minTasks: quest.child.minTasksForStreak,
+        isProxy: false,
+      });
       rlog.info("Skip rejected, reset to PENDING", { questId: id, childId: quest.childId });
     } else {
       await approveSkipQuestInstance(quest);
