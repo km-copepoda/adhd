@@ -11,7 +11,7 @@ import QuestAddForm from "@/components/child/QuestAddForm";
 import QuestListItem from "@/components/child/QuestListItem";
 import StampCelebrationOverlay from "@/components/child/StampCelebrationOverlay";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
-import { computeCompletedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
+import { computeCompletedCount, computeSkippedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { getTreasureCountdown, ALL_DONE_MESSAGES } from "@/lib/treasureCountdown";
 import { sumQuestXp } from "@/lib/xp";
 import { shouldShowReportHint } from "@/lib/quest-hint";
@@ -124,6 +124,7 @@ export default function QuestsPage() {
   }
 
   const completedCount = computeCompletedCount(quests);
+  const skippedCount = computeSkippedCount(quests);
   const sortedQuests = sortQuestsForDeclaration(quests);
 
   async function handleDeclare(questId: string) {
@@ -231,6 +232,7 @@ export default function QuestsPage() {
               completedCount,
               totalCount: quests.length,
               minTasks: minTasksForStreak,
+              skippedCount,
               allDoneMessageIndex,
             });
             if (countdown.kind === "none") return null;

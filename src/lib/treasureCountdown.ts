@@ -35,9 +35,11 @@ export function getTreasureCountdown(input: {
   completedCount: number;
   totalCount: number;
   minTasks: number;
+  /** スキップ (SKIP_REPORTED + SKIPPED) 件数。> 0 なら ALL_COMPLETE 宝箱は boosted=false で出るため、訴求文言からレア確率UPを外す。 */
+  skippedCount?: number;
   allDoneMessageIndex?: number;
 }): TreasureCountdown {
-  const { completedCount, totalCount } = input;
+  const { completedCount, totalCount, skippedCount = 0 } = input;
   if (totalCount <= 0) return { kind: "none" };
 
   const effectiveMinTasks = Math.min(Math.max(1, input.minTasks), totalCount);
@@ -53,11 +55,11 @@ export function getTreasureCountdown(input: {
 
   if (completedCount >= effectiveMinTasks) {
     const remaining = totalCount - completedCount;
-    return {
-      kind: "to_all_complete",
-      remaining,
-      text: `レア確率UPの宝箱まであと ${remaining} 個！`,
-    };
+    const text =
+      skippedCount > 0
+        ? `宝箱まであと ${remaining} 個！`
+        : `レア確率UPの宝箱まであと ${remaining} 個！`;
+    return { kind: "to_all_complete", remaining, text };
   }
 
   const remaining = effectiveMinTasks - completedCount;

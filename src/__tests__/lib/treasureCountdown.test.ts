@@ -36,6 +36,35 @@ describe("getTreasureCountdown", () => {
     }
   });
 
+  it("skippedCount>0 のとき to_all_complete はレア確率UPを訴求しない (普通の宝箱)", () => {
+    const r = getTreasureCountdown({
+      completedCount: 3,
+      totalCount: 5,
+      minTasks: 3,
+      skippedCount: 1,
+    });
+    expect(r.kind).toBe("to_all_complete");
+    if (r.kind === "to_all_complete") {
+      expect(r.remaining).toBe(2);
+      // スキップを含む日は ALL_COMPLETE が boosted=false なので「レア確率UP」を訴求しない
+      expect(r.text).not.toMatch(/レア|確率UP|キラキラ/);
+      expect(r.text).toMatch(/宝箱/);
+    }
+  });
+
+  it("skippedCount=0 のときは従来どおりレア確率UP訴求", () => {
+    const r = getTreasureCountdown({
+      completedCount: 3,
+      totalCount: 5,
+      minTasks: 3,
+      skippedCount: 0,
+    });
+    expect(r.kind).toBe("to_all_complete");
+    if (r.kind === "to_all_complete") {
+      expect(r.text).toMatch(/レア|確率UP|キラキラ/);
+    }
+  });
+
   it("minTasks 超過～全完了未満で to_all_complete", () => {
     const r = getTreasureCountdown({ completedCount: 4, totalCount: 5, minTasks: 3 });
     expect(r.kind).toBe("to_all_complete");
