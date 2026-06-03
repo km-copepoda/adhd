@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkBadgeConditions, ALL_BADGES, type BadgeContext } from "@/lib/badges";
+import { checkBadgeConditions, ALL_BADGES, getBadgeProgress, type BadgeContext } from "@/lib/badges";
 
 // デフォルトコンテキスト（全条件が未達成の状態）
 const defaultCtx: BadgeContext = {
@@ -468,6 +468,53 @@ describe("checkBadgeConditions (2026-06 改訂版: 序盤を絞った100バッ�
     ];
     it.each(removed)("%s は ALL_BADGES に含まれない", id => {
       expect(ALL_BADGES.find(b => b.id === id)).toBeUndefined();
+    });
+  });
+
+  // ─── getBadgeProgress: 進捗ヒント用 ──────────────────
+  describe("getBadgeProgress", () => {
+    it("数値系バッジ: current/target を返す", () => {
+      expect(getBadgeProgress("quest_10", ctx({ approvedCount: 7 }))).toEqual({ current: 7, target: 10 });
+      expect(getBadgeProgress("streak_5", ctx({ bestTaskStreak: 4 }))).toEqual({ current: 4, target: 5 });
+      expect(getBadgeProgress("photo_15", ctx({ photoCount: 0 }))).toEqual({ current: 0, target: 15 });
+      expect(getBadgeProgress("treasure_25", ctx({ treasureOpenedCount: 12 }))).toEqual({ current: 12, target: 25 });
+      expect(getBadgeProgress("item_30", ctx({ collectionItemCount: 5 }))).toEqual({ current: 5, target: 30 });
+    });
+
+    it("数値系バッジ: 達成後も current/target を返す（current >= target）", () => {
+      expect(getBadgeProgress("quest_10", ctx({ approvedCount: 25 }))).toEqual({ current: 25, target: 10 });
+    });
+
+    it("ようこそ系: target=1 で current を返す", () => {
+      expect(getBadgeProgress("first_quest", ctx({ approvedCount: 0 }))).toEqual({ current: 0, target: 1 });
+      expect(getBadgeProgress("first_self_approved", ctx({ selfTaskApprovedCount: 0 }))).toEqual({ current: 0, target: 1 });
+    });
+
+    it("ブール系バッジ: null を返す", () => {
+      expect(getBadgeProgress("collection_all", ctx({}))).toBeNull();
+      expect(getBadgeProgress("collection_study", ctx({}))).toBeNull();
+      expect(getBadgeProgress("multi_tasker", ctx({}))).toBeNull();
+      expect(getBadgeProgress("speed_star", ctx({}))).toBeNull();
+      expect(getBadgeProgress("streak_comeback", ctx({}))).toBeNull();
+      expect(getBadgeProgress("comeback_14", ctx({}))).toBeNull();
+      expect(getBadgeProgress("comeback_7x2", ctx({}))).toBeNull();
+      expect(getBadgeProgress("newyear", ctx({}))).toBeNull();
+      expect(getBadgeProgress("item_80_all", ctx({}))).toBeNull();
+      expect(getBadgeProgress("rebirth_egg_used", ctx({}))).toBeNull();
+    });
+
+    it("first_hatch（OR条件）: ブール系として null を返す", () => {
+      expect(getBadgeProgress("first_hatch", ctx({}))).toBeNull();
+    });
+
+    it("未知のバッジID: null を返す", () => {
+      expect(getBadgeProgress("nonexistent_badge", ctx({}))).toBeNull();
+    });
+
+    it("ALL_BADGES の全 ID について getBadgeProgress が例外を投げない", () => {
+      for (const badge of ALL_BADGES) {
+        expect(() => getBadgeProgress(badge.id, ctx({}))).not.toThrow();
+      }
     });
   });
 

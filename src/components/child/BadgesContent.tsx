@@ -182,6 +182,9 @@ function BadgeCard({ badge }: { badge: BadgeData }) {
         <span className="text-[10px] text-quest-dim leading-tight">
           {badge.description}
         </span>
+        {!badge.unlocked && badge.progress && badge.progress.current < badge.progress.target && (
+          <ProgressHint current={badge.progress.current} target={badge.progress.target} />
+        )}
         {badge.unlocked && badge.unlockedAt && (
           <span className="text-[9px] text-quest-gold/60 mt-0.5">
             {new Date(badge.unlockedAt).toLocaleDateString("ja-JP", {
@@ -191,6 +194,25 @@ function BadgeCard({ badge }: { badge: BadgeData }) {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function ProgressHint({ current, target }: { current: number; target: number }) {
+  const safeCurrent = Math.max(0, Math.min(current, target));
+  const pct = Math.round((safeCurrent / target) * 100);
+  const remaining = target - safeCurrent;
+  return (
+    <div className="w-full mt-1">
+      <div className="h-1 bg-quest-border/50 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-quest-gold/60 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[9px] text-quest-dim mt-0.5 block">
+        あと {remaining} で解錠
+      </span>
     </div>
   );
 }

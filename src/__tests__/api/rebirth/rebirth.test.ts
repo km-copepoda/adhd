@@ -2,11 +2,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/rebirth/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { checkAndUnlockBadges } from "@/lib/badges";
+import { triggerBadgeLog } from "@/lib/bulletinLog";
 import { childUser, parentUser } from "../../helpers/fixtures";
 import { makeRequest } from "../../helpers/request";
 
+vi.mock("@/lib/badges", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/badges")>("@/lib/badges");
+  return {
+    ...actual,
+    checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
+  };
+});
+
+vi.mock("@/lib/bulletinLog", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/bulletinLog")>("@/lib/bulletinLog");
+  return {
+    ...actual,
+    triggerBadgeLog: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+const mockCheckAndUnlockBadges = vi.mocked(checkAndUnlockBadges);
+const mockTriggerBadgeLog = vi.mocked(triggerBadgeLog);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -207,5 +227,41 @@ describe("POST /api/rebirth", () => {
     const res = await POST(req);
     const json = await res.json();
     expect(json).toEqual({ ok: true });
+  });
+
+  it("転生成功時に checkAndUnlockBadges を呼ぶ（rebirth_egg_used 即時解錠）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...childUser({ id: "child-1" }),
+      rebirthPending: true,
+      usedEggBonuses: "[]",
+    } as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
+
+    const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    await new Promise(r => setImmediate(r));
+
+    expect(mockCheckAndUnlockBadges).toHaveBeenCalledWith("child-1");
+  });
+
+  it("新規解錠バッジを掲示板に流す（triggerBadgeLog 呼び出し）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...childUser({ id: "child-1" }),
+      rebirthPending: true,
+      usedEggBonuses: "[]",
+    } as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockCheckAndUnlockBadges.mockResolvedValue([
+      { id: "rebirth_egg_used", name: "卵えらびマスター", emoji: "🥚", description: "..." },
+    ]);
+
+    const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
+    await POST(req);
+    await new Promise(r => setImmediate(r));
+
+    expect(mockTriggerBadgeLog).toHaveBeenCalledWith("child-1", "卵えらびマスター");
   });
 });

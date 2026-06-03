@@ -4,8 +4,8 @@ import type { Badge, BadgeContext } from "@/lib/badges.data";
 import { ALL_COLLECTION_ITEMS } from "@/lib/collectionItems";
 
 // Re-export types and data for consumers
-export { ALL_BADGES, checkBadgeConditions } from "@/lib/badges.data";
-export type { Badge, BadgeContext } from "@/lib/badges.data";
+export { ALL_BADGES, checkBadgeConditions, getBadgeProgress } from "@/lib/badges.data";
+export type { Badge, BadgeContext, BadgeProgress } from "@/lib/badges.data";
 
 // ─── ISO週キー計算 ────────────────────────────────────────────────────────
 

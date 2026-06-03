@@ -395,3 +395,144 @@ export function checkBadgeConditions(ctx: BadgeContext): Set<string> {
   }
   return earned;
 }
+
+// ─── 進捗ヒント（純粋関数） ───────────────────────────────────────────────
+//
+// 数値系バッジは { current, target } を返し、UI で「あと N で解錠」表示に使う。
+// ブール系（OR条件・hasXxx 系）は target が意味を持たないので null を返す。
+
+export type BadgeProgress = { current: number; target: number };
+
+const BADGE_PROGRESS_MAP: Record<string, (ctx: BadgeContext) => BadgeProgress> = {
+  // ようこそ系（first_hatch は OR 条件のため除外）
+  "first_quest":         c => ({ current: c.approvedCount, target: 1 }),
+  "first_self_approved": c => ({ current: c.selfTaskApprovedCount, target: 1 }),
+
+  // 累計クエスト系
+  "quest_10":   c => ({ current: c.approvedCount, target: 10 }),
+  "quest_25":   c => ({ current: c.approvedCount, target: 25 }),
+  "quest_50":   c => ({ current: c.approvedCount, target: 50 }),
+  "quest_100":  c => ({ current: c.approvedCount, target: 100 }),
+  "quest_200":  c => ({ current: c.approvedCount, target: 200 }),
+  "quest_300":  c => ({ current: c.approvedCount, target: 300 }),
+  "quest_500":  c => ({ current: c.approvedCount, target: 500 }),
+  "quest_1000": c => ({ current: c.approvedCount, target: 1000 }),
+
+  // タスクストリーク系（streak_comeback は hasComeback7 のため除外）
+  "streak_5":   c => ({ current: c.bestTaskStreak, target: 5 }),
+  "streak_10":  c => ({ current: c.bestTaskStreak, target: 10 }),
+  "streak_14":  c => ({ current: c.bestTaskStreak, target: 14 }),
+  "streak_21":  c => ({ current: c.bestTaskStreak, target: 21 }),
+  "streak_30":  c => ({ current: c.bestTaskStreak, target: 30 }),
+  "streak_100": c => ({ current: c.bestTaskStreak, target: 100 }),
+
+  // ログインストリーク系
+  "login_7":   c => ({ current: c.loginBestStreak, target: 7 }),
+  "login_14":  c => ({ current: c.loginBestStreak, target: 14 }),
+  "login_30":  c => ({ current: c.loginBestStreak, target: 30 }),
+  "login_100": c => ({ current: c.loginBestStreak, target: 100 }),
+
+  // XP系
+  "xp_50":   c => ({ current: c.totalXp, target: 50 }),
+  "xp_100":  c => ({ current: c.totalXp, target: 100 }),
+  "xp_300":  c => ({ current: c.totalXp, target: 300 }),
+  "xp_500":  c => ({ current: c.totalXp, target: 500 }),
+  "xp_1000": c => ({ current: c.totalXp, target: 1000 }),
+
+  // 写真系
+  "photo_15":  c => ({ current: c.photoCount, target: 15 }),
+  "photo_30":  c => ({ current: c.photoCount, target: 30 }),
+  "photo_100": c => ({ current: c.photoCount, target: 100 }),
+  "photo_200": c => ({ current: c.photoCount, target: 200 }),
+
+  // 期限ボーナス系
+  "deadline_10":  c => ({ current: c.deadlineBonusCount, target: 10 }),
+  "deadline_50":  c => ({ current: c.deadlineBonusCount, target: 50 }),
+  "deadline_100": c => ({ current: c.deadlineBonusCount, target: 100 }),
+  "deadline_200": c => ({ current: c.deadlineBonusCount, target: 200 }),
+
+  // 時間帯・速報系
+  "morning_10":   c => ({ current: c.morningReportCount, target: 10 }),
+  "morning_30":   c => ({ current: c.morningReportCount, target: 30 }),
+  "afternoon_15": c => ({ current: c.afternoonReportCount, target: 15 }),
+  "quick_10":     c => ({ current: c.quickReportCount, target: 10 }),
+  "quick_30":     c => ({ current: c.quickReportCount, target: 30 }),
+
+  // 1日の達成系
+  "perfect_5":   c => ({ current: c.perfectDaysCount, target: 5 }),
+  "perfect_15":  c => ({ current: c.perfectDaysCount, target: 15 }),
+  "perfect_30":  c => ({ current: c.perfectDaysCount, target: 30 }),
+  "perfect_50":  c => ({ current: c.perfectDaysCount, target: 50 }),
+  "day_4quests": c => ({ current: c.maxQuestsPerDay, target: 4 }),
+  "day_6quests": c => ({ current: c.maxQuestsPerDay, target: 6 }),
+
+  // 週の達成系
+  "week_5":    c => ({ current: c.weeksWithFivePlusDays, target: 1 }),
+  "week_5x3":  c => ({ current: c.weeksWithFivePlusDays, target: 3 }),
+  "week_5x10": c => ({ current: c.weeksWithFivePlusDays, target: 10 }),
+  "week_7":    c => ({ current: c.weeksWithSevenDays, target: 1 }),
+  "week_7x5":  c => ({ current: c.weeksWithSevenDays, target: 5 }),
+
+  // 月の達成系
+  "month_15":         c => ({ current: c.monthsWithFifteenPlusDays, target: 1 }),
+  "month_20":         c => ({ current: c.monthsWithTwentyPlusDays, target: 1 }),
+  "month_perfect":    c => ({ current: c.perfectMonthsCount, target: 1 }),
+  "month_perfect_x3": c => ({ current: c.perfectMonthsCount, target: 3 }),
+  "month_15x6":       c => ({ current: c.monthsWithFifteenPlusDays, target: 6 }),
+
+  // 転生系
+  "rebirth_1":  c => ({ current: c.rebirthCount, target: 1 }),
+  "rebirth_2":  c => ({ current: c.rebirthCount, target: 2 }),
+  "rebirth_3":  c => ({ current: c.rebirthCount, target: 3 }),
+  "rebirth_5":  c => ({ current: c.rebirthCount, target: 5 }),
+  "rebirth_10": c => ({ current: c.rebirthCount, target: 10 }),
+
+  // コレクション系（collection_study/stamina/life/all はブール、除外）
+  "collection_3": c => ({ current: c.collectionCount, target: 3 }),
+  "collection_6": c => ({ current: c.collectionCount, target: 6 }),
+
+  // 自発性・粘り強さ系
+  "self_task_5":  c => ({ current: c.selfTaskApprovedCount, target: 5 }),
+  "self_task_15": c => ({ current: c.selfTaskApprovedCount, target: 15 }),
+  "self_task_30": c => ({ current: c.selfTaskApprovedCount, target: 30 }),
+  "habit_14":     c => ({ current: c.maxSingleTaskBestStreak, target: 14 }),
+  "habit_30":     c => ({ current: c.maxSingleTaskBestStreak, target: 30 }),
+  "habit_60":     c => ({ current: c.maxSingleTaskBestStreak, target: 60 }),
+  "skip_aware":   c => ({ current: c.skipCount, target: 10 }),
+
+  // 曜日・季節系（newyear はブール、除外）
+  "monday_10":    c => ({ current: c.mondayCount, target: 10 }),
+  "weekend_20":   c => ({ current: c.weekendCount, target: 20 }),
+  "spring":       c => ({ current: c.springDays, target: 15 }),
+  "summer":       c => ({ current: c.summerDays, target: 20 }),
+  "autumn":       c => ({ current: c.autumnDays, target: 20 }),
+  "winter":       c => ({ current: c.winterDays, target: 20 }),
+  "month_end_10": c => ({ current: c.monthEndCount, target: 10 }),
+
+  // 複合・終盤系（multi_tasker/speed_star/comeback_* はブール、除外）
+  "milestone_25": c => ({ current: c.unlockedBadgeCount, target: 25 }),
+  "milestone_50": c => ({ current: c.unlockedBadgeCount, target: 50 }),
+  "milestone_75": c => ({ current: c.unlockedBadgeCount, target: 75 }),
+  "milestone_90": c => ({ current: c.unlockedBadgeCount, target: 90 }),
+  "triple_crown": c => ({ current: c.tripleCrownDaysCount, target: 25 }),
+  "retry_10":     c => ({ current: c.retrySuccessCount, target: 10 }),
+
+  // 宝箱系
+  "treasure_first": c => ({ current: c.treasureOpenedCount, target: 1 }),
+  "treasure_25":    c => ({ current: c.treasureOpenedCount, target: 25 }),
+  "treasure_rare":  c => ({ current: c.rareTreasureCount, target: 1 }),
+
+  // コレクションアイテム系（item_80_all はブール、除外）
+  "item_first":      c => ({ current: c.collectionItemCount, target: 1 }),
+  "item_30":         c => ({ current: c.collectionItemCount, target: 30 }),
+  "season_complete": c => ({ current: c.collectionSeasonsComplete, target: 1 }),
+};
+
+/**
+ * バッジ ID と現在のコンテキストから進捗を返す（純粋関数）。
+ * 数値系バッジは { current, target }、ブール系・未定義IDは null。
+ */
+export function getBadgeProgress(badgeId: string, ctx: BadgeContext): BadgeProgress | null {
+  const fn = BADGE_PROGRESS_MAP[badgeId];
+  return fn ? fn(ctx) : null;
+}

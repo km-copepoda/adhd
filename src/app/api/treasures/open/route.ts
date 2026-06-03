@@ -7,12 +7,14 @@
 //     remainingUnlocked: number }
 // 親ごほうびに当選しなかった場合は collectionItem に現在シーズンのコレクションアイテムが入る。
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { openOldestTreasure } from "@/lib/treasureService";
 import { sendPushToParent } from "@/lib/push";
+import { checkAndUnlockBadges } from "@/lib/badges";
+import { triggerBadgeLog } from "@/lib/bulletinLog";
 
 export async function POST() {
   const rlog = routeLogger("POST", "/api/treasures/open");
@@ -51,6 +53,17 @@ export async function POST() {
     logId: result.logId,
     parentReward: !!result.item,
   });
+
+  // 宝箱・コレクション系バッジを即時解錠（レスポンス送信後に実行）
+  after(() =>
+    checkAndUnlockBadges(user.id)
+      .then(newBadges => {
+        for (const badge of newBadges) {
+          triggerBadgeLog(user.id, badge.name).catch(() => {});
+        }
+      })
+      .catch(() => {}),
+  );
 
   return NextResponse.json({
     ok: true,

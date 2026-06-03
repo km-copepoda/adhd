@@ -1525,4 +1525,38 @@
 - `src/lib/badges.ts` — `loadBadgeContext` に `treasureLog` / `userCollectionItem` 集計と `usedEggBonuses` 判定を追加
 - `src/__tests__/lib/badges.test.ts` — 新バッジ8個の境界テストと、削除バッジ8個の不在テストを追加
 
+---
+
+## 2026-06-03: バッジ即時解錠フック + 進捗ヒント UI
+
+### 決定
+- **即時解錠**: `checkAndUnlockBadges + triggerBadgeLog` を以下3つのAPIルートに `after()` で fire-and-forget 追加
+  - `POST /api/treasures/open`（子: 宝箱開封）— `treasure_first` `treasure_25` `treasure_rare` `item_first` `item_30` `season_complete` `item_80_all` の即時発火
+  - `POST /api/parent/child-view/treasures/open`（親代理: 宝箱開封）— 同上を子のIDで判定
+  - `POST /api/rebirth`（子: 転生）— `rebirth_egg_used` 即時発火
+- **進捗ヒント**:
+  - `src/lib/badges.data.ts` に純粋関数 `getBadgeProgress(badgeId, ctx): { current, target } | null` を新規追加。ブール条件（hasXxx・OR条件）は null、数値条件は `{current, target}` を返す
+  - `GET /api/badges` および親代理 `GET /api/parent/child-view/badges` のレスポンスで各バッジに `progress` フィールドを含める
+  - `BadgesContent.tsx` の `BadgeCard` で **未解錠 + 進捗あり** のバッジに「あと N で解錠」ヒント＋進捗バーを表示
+
+### 理由
+- 旧設計では宝箱・コレクション・転生卵バッジが追加されただけで、解錠フックが承認フロー / `/api/badges` 訪問の2経路にしかなく、即時感がなかった（次に承認イベントが起きるまで掲示板にもトーストにも流れない）
+- 進捗ヒントは ADHD 児童向けという文脈で特に重要。未解錠バッジが完全にブラックボックスだと「次に何をすれば良いか」が分からず、達成動機が削がれる
+
+### やってはいけないこと
+- `checkAndUnlockBadges` をクライアントから直接呼ぶ（API ルートの `after()` 経由でのみ。クライアントから呼ぶ経路を作ると認証・整合性チェックを再実装する羽目になる）
+- `loadBadgeContext` の重複呼び出しを「重複だから」と排除しようと、`checkAndUnlockBadges` のシグネチャを `{ newBadges, ctx }` に変更する（既存6箇所の呼び出し全てを修正する破壊的変更になる。`/api/badges` の二重ロード（~50ms）はバッジページ訪問頻度から見て許容コスト）
+- 進捗ヒントの target をクライアント側のハードコードで持つ（バッジ閾値変更時に二重メンテになる。必ず `getBadgeProgress` 経由でサーバから配信する）
+- ブール系バッジ（`collection_all`, `multi_tasker`, `hasComeback*` 等）に無理やり `{ current, target }` をひねり出して「あと 0 / 1 で解錠」と表示する（条件が複合的で 0/1 トグルなので「あと N」表現が成立しない）
+
+### 該当箇所
+- `src/app/api/treasures/open/route.ts` + `src/app/api/parent/child-view/treasures/open/route.ts` + `src/app/api/rebirth/route.ts` — `after()` フック追加
+- `src/lib/badges.data.ts` — `BadgeProgress` 型と `getBadgeProgress` / `BADGE_PROGRESS_MAP` 追加
+- `src/lib/badges.ts` — `getBadgeProgress` / `BadgeProgress` を re-export
+- `src/app/api/badges/route.ts` + `src/app/api/parent/child-view/badges/route.ts` — `loadBadgeContext` 並列ロードして各バッジに `progress` を付加
+- `src/lib/badgeFilter.ts` — `BadgeData` 型に `progress?` フィールド追加
+- `src/components/child/BadgesContent.tsx` — `ProgressHint` サブコンポーネント追加、未解錠バッジに表示
+- テスト: `treasures/open.test.ts` / `parent/child-view/treasures-open.test.ts` / `rebirth.test.ts` / `badges/route.test.ts` / `parent/child-view/badges.test.ts` / `lib/badges.test.ts`
+
+
 
