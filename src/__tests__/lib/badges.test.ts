@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkBadgeConditions, type BadgeContext } from "@/lib/badges";
+import { checkBadgeConditions, ALL_BADGES, type BadgeContext } from "@/lib/badges";
 
 // デフォルトコンテキスト（全条件が未達成の状態）
 const defaultCtx: BadgeContext = {
@@ -55,472 +55,376 @@ function ctx(overrides: Partial<BadgeContext>): BadgeContext {
   return { ...defaultCtx, ...overrides };
 }
 
-describe("checkBadgeConditions", () => {
-  // ─── はじめて系 ─────────────────────────────────────────
-  describe("first_hatch (#1)", () => {
-    it("evolutionStage >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ evolutionStage: 1 })).has("first_hatch")).toBe(true);
-      expect(checkBadgeConditions(ctx({ evolutionStage: 3 })).has("first_hatch")).toBe(true);
-    });
-    it("転生済み（rebirthCount >= 1）でも解除", () => {
-      expect(checkBadgeConditions(ctx({ rebirthCount: 1 })).has("first_hatch")).toBe(true);
-    });
-    it("evolutionStage=0 かつ rebirthCount=0 なら未解除", () => {
-      expect(checkBadgeConditions(ctx({})).has("first_hatch")).toBe(false);
-    });
-  });
-
-  describe("first_quest (#2)", () => {
+describe("checkBadgeConditions (2026-06 改訂版: 序盤を絞った100バッジ)", () => {
+  // ─── ようこそ系（序盤1-2個のみ） ────────────────────────
+  describe("first_quest (#1)", () => {
     it("approvedCount >= 1 で解除", () => {
       expect(checkBadgeConditions(ctx({ approvedCount: 1 })).has("first_quest")).toBe(true);
-    });
-    it("approvedCount = 0 なら未解除", () => {
       expect(checkBadgeConditions(ctx({})).has("first_quest")).toBe(false);
     });
   });
 
-  describe("first_photo (#4)", () => {
-    it("photoCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ photoCount: 1 })).has("first_photo")).toBe(true);
-    });
-    it("photoCount = 0 なら未解除", () => {
-      expect(checkBadgeConditions(ctx({})).has("first_photo")).toBe(false);
-    });
-  });
-
-  describe("first_self_task (#5)", () => {
-    it("selfTaskCreatedCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ selfTaskCreatedCount: 1 })).has("first_self_task")).toBe(true);
+  describe("first_hatch (#2)", () => {
+    it("evolutionStage >= 1 または rebirthCount >= 1 で解除", () => {
+      expect(checkBadgeConditions(ctx({ evolutionStage: 1 })).has("first_hatch")).toBe(true);
+      expect(checkBadgeConditions(ctx({ rebirthCount: 1 })).has("first_hatch")).toBe(true);
+      expect(checkBadgeConditions(ctx({})).has("first_hatch")).toBe(false);
     });
   });
 
-  describe("first_self_approved (#6)", () => {
+  describe("first_self_approved (#3)", () => {
     it("selfTaskApprovedCount >= 1 で解除", () => {
       expect(checkBadgeConditions(ctx({ selfTaskApprovedCount: 1 })).has("first_self_approved")).toBe(true);
+      expect(checkBadgeConditions(ctx({})).has("first_self_approved")).toBe(false);
     });
   });
 
-  describe("first_skip (#7)", () => {
-    it("skipCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ skipCount: 1 })).has("first_skip")).toBe(true);
+  describe("廃止された序盤バッジは存在しない", () => {
+    const removed = [
+      "first_approval", "first_photo", "first_self_task", "first_skip", "first_retry",
+      "first_evo2", "first_evo3",
+      "deadline_first", "morning_first", "afternoon_first", "quick_first", "perfect_first",
+    ];
+    it.each(removed)("%s は ALL_BADGES に含まれない", id => {
+      expect(ALL_BADGES.find(b => b.id === id)).toBeUndefined();
     });
   });
 
-  describe("first_retry (#8)", () => {
-    it("retrySuccessCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ retrySuccessCount: 1 })).has("first_retry")).toBe(true);
+  // ─── 累計クエスト系（10〜1000、承認系は統合済み） ──────
+  describe("quest count badges", () => {
+    it("quest_10: approvedCount >= 10", () => {
+      expect(checkBadgeConditions(ctx({ approvedCount: 10 })).has("quest_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ approvedCount: 9 })).has("quest_10")).toBe(false);
     });
-  });
-
-  describe("first_evo2 (#9)", () => {
-    it("evolutionStage >= 2 で解除", () => {
-      expect(checkBadgeConditions(ctx({ evolutionStage: 2 })).has("first_evo2")).toBe(true);
+    it("quest_25: approvedCount >= 25", () => {
+      expect(checkBadgeConditions(ctx({ approvedCount: 25 })).has("quest_25")).toBe(true);
+      expect(checkBadgeConditions(ctx({ approvedCount: 24 })).has("quest_25")).toBe(false);
     });
-    it("転生済み（rebirthCount >= 1）でも解除", () => {
-      expect(checkBadgeConditions(ctx({ rebirthCount: 1 })).has("first_evo2")).toBe(true);
+    it("quest_500: approvedCount >= 500", () => {
+      expect(checkBadgeConditions(ctx({ approvedCount: 500 })).has("quest_500")).toBe(true);
+      expect(checkBadgeConditions(ctx({ approvedCount: 499 })).has("quest_500")).toBe(false);
     });
-    it("evolutionStage=1 かつ rebirthCount=0 では未解除", () => {
-      expect(checkBadgeConditions(ctx({ evolutionStage: 1 })).has("first_evo2")).toBe(false);
+    it("quest_1000: approvedCount >= 1000", () => {
+      expect(checkBadgeConditions(ctx({ approvedCount: 1000 })).has("quest_1000")).toBe(true);
+      expect(checkBadgeConditions(ctx({ approvedCount: 999 })).has("quest_1000")).toBe(false);
     });
-  });
-
-  describe("first_evo3 (#10)", () => {
-    it("evolutionStage = 3 で解除", () => {
-      expect(checkBadgeConditions(ctx({ evolutionStage: 3 })).has("first_evo3")).toBe(true);
-    });
-    it("転生済みで解除", () => {
-      expect(checkBadgeConditions(ctx({ rebirthCount: 1 })).has("first_evo3")).toBe(true);
-    });
-    it("evolutionStage = 2 かつ rebirthCount=0 では未解除", () => {
-      expect(checkBadgeConditions(ctx({ evolutionStage: 2 })).has("first_evo3")).toBe(false);
+    it("旧 approval_* 系は廃止（quest_* に統合）", () => {
+      ["approval_10", "approval_30", "approval_50", "approval_100", "approval_200"].forEach(id => {
+        expect(ALL_BADGES.find(b => b.id === id)).toBeUndefined();
+      });
     });
   });
 
   // ─── タスクストリーク系 ────────────────────────────────
-  describe("streak_3 (#11)", () => {
-    it("bestTaskStreak >= 3 で解除", () => {
-      expect(checkBadgeConditions(ctx({ bestTaskStreak: 3 })).has("streak_3")).toBe(true);
+  describe("task streak badges", () => {
+    it("streak_5: bestTaskStreak >= 5", () => {
+      expect(checkBadgeConditions(ctx({ bestTaskStreak: 5 })).has("streak_5")).toBe(true);
+      expect(checkBadgeConditions(ctx({ bestTaskStreak: 4 })).has("streak_5")).toBe(false);
     });
-    it("bestTaskStreak = 2 では未解除", () => {
-      expect(checkBadgeConditions(ctx({ bestTaskStreak: 2 })).has("streak_3")).toBe(false);
+    it("streak_100: bestTaskStreak >= 100", () => {
+      expect(checkBadgeConditions(ctx({ bestTaskStreak: 100 })).has("streak_100")).toBe(true);
+      expect(checkBadgeConditions(ctx({ bestTaskStreak: 99 })).has("streak_100")).toBe(false);
     });
-  });
-
-  describe("streak_30 (#15)", () => {
-    it("bestTaskStreak >= 30 で解除", () => {
-      expect(checkBadgeConditions(ctx({ bestTaskStreak: 30 })).has("streak_30")).toBe(true);
-      expect(checkBadgeConditions(ctx({ bestTaskStreak: 29 })).has("streak_30")).toBe(false);
+    it("streak_3 は廃止", () => {
+      expect(ALL_BADGES.find(b => b.id === "streak_3")).toBeUndefined();
     });
-  });
-
-  describe("streak_comeback (#16)", () => {
-    it("hasComeback7=true で解除", () => {
+    it("streak_comeback は残置（hasComeback7）", () => {
       expect(checkBadgeConditions(ctx({ hasComeback7: true })).has("streak_comeback")).toBe(true);
     });
-    it("hasComeback7=false なら未解除", () => {
-      expect(checkBadgeConditions(ctx({})).has("streak_comeback")).toBe(false);
-    });
   });
 
-  // ─── ログインストリーク系 ────────────────────────────────
-  describe("login_7 (#18)", () => {
-    it("loginBestStreak >= 7 で解除", () => {
+  // ─── ログインストリーク系 ────────────────────────────
+  describe("login streak badges", () => {
+    it("login_7: loginBestStreak >= 7", () => {
       expect(checkBadgeConditions(ctx({ loginBestStreak: 7 })).has("login_7")).toBe(true);
       expect(checkBadgeConditions(ctx({ loginBestStreak: 6 })).has("login_7")).toBe(false);
     });
-  });
-
-  describe("login_morning7 (#21)", () => {
-    it("morningReportCount >= 7 で解除", () => {
-      expect(checkBadgeConditions(ctx({ morningReportCount: 7 })).has("login_morning7")).toBe(true);
-      expect(checkBadgeConditions(ctx({ morningReportCount: 6 })).has("login_morning7")).toBe(false);
+    it("login_200: loginBestStreak >= 200", () => {
+      expect(checkBadgeConditions(ctx({ loginBestStreak: 200 })).has("login_200")).toBe(true);
+      expect(checkBadgeConditions(ctx({ loginBestStreak: 199 })).has("login_200")).toBe(false);
+    });
+    it("login_3 は廃止", () => {
+      expect(ALL_BADGES.find(b => b.id === "login_3")).toBeUndefined();
     });
   });
 
-  // ─── クエスト数系 ─────────────────────────────────────
-  describe("quest_10 (#22)", () => {
-    it("approvedCount >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ approvedCount: 10 })).has("quest_10")).toBe(true);
-      expect(checkBadgeConditions(ctx({ approvedCount: 9 })).has("quest_10")).toBe(false);
+  // ─── XP系 ────────────────────────────────────────────
+  describe("xp badges", () => {
+    it("xp_50: totalXp >= 50", () => {
+      expect(checkBadgeConditions(ctx({ totalXp: 50 })).has("xp_50")).toBe(true);
+      expect(checkBadgeConditions(ctx({ totalXp: 49 })).has("xp_50")).toBe(false);
+    });
+    it("xp_1000: totalXp >= 1000", () => {
+      expect(checkBadgeConditions(ctx({ totalXp: 1000 })).has("xp_1000")).toBe(true);
+      expect(checkBadgeConditions(ctx({ totalXp: 999 })).has("xp_1000")).toBe(false);
+    });
+    it("xp_10/xp_30 は廃止（序盤バッジ削減）", () => {
+      expect(ALL_BADGES.find(b => b.id === "xp_10")).toBeUndefined();
+      expect(ALL_BADGES.find(b => b.id === "xp_30")).toBeUndefined();
     });
   });
 
-  describe("quest_300 (#27)", () => {
-    it("approvedCount >= 300 で解除", () => {
-      expect(checkBadgeConditions(ctx({ approvedCount: 300 })).has("quest_300")).toBe(true);
-      expect(checkBadgeConditions(ctx({ approvedCount: 299 })).has("quest_300")).toBe(false);
+  // ─── 写真系 ──────────────────────────────────────────
+  describe("photo badges", () => {
+    it("photo_15: photoCount >= 15", () => {
+      expect(checkBadgeConditions(ctx({ photoCount: 15 })).has("photo_15")).toBe(true);
+      expect(checkBadgeConditions(ctx({ photoCount: 14 })).has("photo_15")).toBe(false);
     });
-  });
-
-  // ─── XP系（totalXp は累計XP、進化リセット後も蓄積される）────
-  describe("xp badges reflect lifetime XP", () => {
-    it("totalXp >= 100 で xp_100 が解除（累計XPのため進化後も到達可能）", () => {
-      expect(checkBadgeConditions(ctx({ totalXp: 100 })).has("xp_100")).toBe(true);
+    it("photo_200: photoCount >= 200", () => {
+      expect(checkBadgeConditions(ctx({ photoCount: 200 })).has("photo_200")).toBe(true);
+      expect(checkBadgeConditions(ctx({ photoCount: 199 })).has("photo_200")).toBe(false);
     });
-    it("totalXp >= 200 で xp_200 が解除", () => {
-      expect(checkBadgeConditions(ctx({ totalXp: 200 })).has("xp_200")).toBe(true);
-      expect(checkBadgeConditions(ctx({ totalXp: 199 })).has("xp_200")).toBe(false);
-    });
-  });
-
-  // ─── コレクション系はcollectedPaths長を使う ────
-  describe("collection badges use path count, not rebirth count", () => {
-    it("collectionCount=3（3つの進化パス）で collection_3 が解除", () => {
-      expect(checkBadgeConditions(ctx({ collectionCount: 3 })).has("collection_3")).toBe(true);
-    });
-    it("collectionCount=2 では collection_3 が未解除", () => {
-      expect(checkBadgeConditions(ctx({ collectionCount: 2 })).has("collection_3")).toBe(false);
-    });
-  });
-
-  // ─── XP系 ───────────────────────────────────────────
-  describe("xp_10 (#33)", () => {
-    it("totalXp >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ totalXp: 10 })).has("xp_10")).toBe(true);
-      expect(checkBadgeConditions(ctx({ totalXp: 9 })).has("xp_10")).toBe(false);
-    });
-  });
-
-  // ─── 写真系 ─────────────────────────────────────────
-  describe("photo_5 (#38)", () => {
-    it("photoCount >= 5 で解除", () => {
-      expect(checkBadgeConditions(ctx({ photoCount: 5 })).has("photo_5")).toBe(true);
-      expect(checkBadgeConditions(ctx({ photoCount: 4 })).has("photo_5")).toBe(false);
-    });
-  });
-
-  describe("photo_100 (#41)", () => {
-    it("photoCount >= 100 で解除", () => {
-      expect(checkBadgeConditions(ctx({ photoCount: 100 })).has("photo_100")).toBe(true);
-      expect(checkBadgeConditions(ctx({ photoCount: 99 })).has("photo_100")).toBe(false);
+    it("photo_5 は廃止（序盤バッジ削減）", () => {
+      expect(ALL_BADGES.find(b => b.id === "photo_5")).toBeUndefined();
     });
   });
 
   // ─── 期限ボーナス系 ──────────────────────────────────
-  describe("deadline_first (#42)", () => {
-    it("deadlineBonusCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 1 })).has("deadline_first")).toBe(true);
+  describe("deadline badges", () => {
+    it("deadline_10: deadlineBonusCount >= 10", () => {
+      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 10 })).has("deadline_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 9 })).has("deadline_10")).toBe(false);
     });
-  });
-
-  describe("deadline_50 (#45)", () => {
-    it("deadlineBonusCount >= 50 で解除", () => {
-      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 50 })).has("deadline_50")).toBe(true);
-      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 49 })).has("deadline_50")).toBe(false);
+    it("deadline_200: deadlineBonusCount >= 200", () => {
+      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 200 })).has("deadline_200")).toBe(true);
+      expect(checkBadgeConditions(ctx({ deadlineBonusCount: 199 })).has("deadline_200")).toBe(false);
     });
   });
 
   // ─── 時間帯系 ────────────────────────────────────────
-  describe("morning_first (#46)", () => {
-    it("morningReportCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ morningReportCount: 1 })).has("morning_first")).toBe(true);
+  describe("time-of-day badges", () => {
+    it("morning_10: morningReportCount >= 10", () => {
+      expect(checkBadgeConditions(ctx({ morningReportCount: 10 })).has("morning_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ morningReportCount: 9 })).has("morning_10")).toBe(false);
     });
-  });
-
-  describe("morning_7 (#47)", () => {
-    it("morningReportCount >= 7 で解除", () => {
-      expect(checkBadgeConditions(ctx({ morningReportCount: 7 })).has("morning_7")).toBe(true);
-      expect(checkBadgeConditions(ctx({ morningReportCount: 6 })).has("morning_7")).toBe(false);
+    it("morning_60: morningReportCount >= 60", () => {
+      expect(checkBadgeConditions(ctx({ morningReportCount: 60 })).has("morning_60")).toBe(true);
     });
-  });
-
-  describe("afternoon_first (#48)", () => {
-    it("afternoonReportCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ afternoonReportCount: 1 })).has("afternoon_first")).toBe(true);
+    it("afternoon_15: afternoonReportCount >= 15", () => {
+      expect(checkBadgeConditions(ctx({ afternoonReportCount: 15 })).has("afternoon_15")).toBe(true);
+      expect(checkBadgeConditions(ctx({ afternoonReportCount: 14 })).has("afternoon_15")).toBe(false);
     });
-  });
-
-  describe("afternoon_10 (#49)", () => {
-    it("afternoonReportCount >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ afternoonReportCount: 10 })).has("afternoon_10")).toBe(true);
-      expect(checkBadgeConditions(ctx({ afternoonReportCount: 9 })).has("afternoon_10")).toBe(false);
-    });
-  });
-
-  describe("quick_first (#50)", () => {
-    it("quickReportCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ quickReportCount: 1 })).has("quick_first")).toBe(true);
-    });
-  });
-
-  describe("quick_10 (#51)", () => {
-    it("quickReportCount >= 10 で解除", () => {
+    it("quick_10: quickReportCount >= 10", () => {
       expect(checkBadgeConditions(ctx({ quickReportCount: 10 })).has("quick_10")).toBe(true);
       expect(checkBadgeConditions(ctx({ quickReportCount: 9 })).has("quick_10")).toBe(false);
+    });
+    it("quick_30: quickReportCount >= 30", () => {
+      expect(checkBadgeConditions(ctx({ quickReportCount: 30 })).has("quick_30")).toBe(true);
     });
   });
 
   // ─── 1日の達成系 ─────────────────────────────────────
-  describe("perfect_first (#52)", () => {
-    it("perfectDaysCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ perfectDaysCount: 1 })).has("perfect_first")).toBe(true);
+  describe("daily achievement badges", () => {
+    it("perfect_5: perfectDaysCount >= 5", () => {
+      expect(checkBadgeConditions(ctx({ perfectDaysCount: 5 })).has("perfect_5")).toBe(true);
+      expect(checkBadgeConditions(ctx({ perfectDaysCount: 4 })).has("perfect_5")).toBe(false);
     });
-  });
-
-  describe("perfect_15 (#54)", () => {
-    it("perfectDaysCount >= 15 で解除", () => {
-      expect(checkBadgeConditions(ctx({ perfectDaysCount: 15 })).has("perfect_15")).toBe(true);
-      expect(checkBadgeConditions(ctx({ perfectDaysCount: 14 })).has("perfect_15")).toBe(false);
+    it("perfect_50: perfectDaysCount >= 50", () => {
+      expect(checkBadgeConditions(ctx({ perfectDaysCount: 50 })).has("perfect_50")).toBe(true);
     });
-  });
-
-  describe("day_3quests (#55)", () => {
-    it("maxQuestsPerDay >= 3 で解除", () => {
-      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 3 })).has("day_3quests")).toBe(true);
-      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 2 })).has("day_3quests")).toBe(false);
+    it("day_4quests: maxQuestsPerDay >= 4", () => {
+      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 4 })).has("day_4quests")).toBe(true);
+      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 3 })).has("day_4quests")).toBe(false);
     });
-  });
-
-  describe("day_5quests (#56)", () => {
-    it("maxQuestsPerDay >= 5 で解除", () => {
-      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 5 })).has("day_5quests")).toBe(true);
-      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 4 })).has("day_5quests")).toBe(false);
+    it("day_6quests: maxQuestsPerDay >= 6", () => {
+      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 6 })).has("day_6quests")).toBe(true);
+      expect(checkBadgeConditions(ctx({ maxQuestsPerDay: 5 })).has("day_6quests")).toBe(false);
+    });
+    it("day_3quests / day_5quests は廃止（1日3個は容易すぎ）", () => {
+      expect(ALL_BADGES.find(b => b.id === "day_3quests")).toBeUndefined();
+      expect(ALL_BADGES.find(b => b.id === "day_5quests")).toBeUndefined();
     });
   });
 
   // ─── 週・月の達成系 ──────────────────────────────────
-  describe("week_5 (#57)", () => {
-    it("weeksWithFivePlusDays >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ weeksWithFivePlusDays: 1 })).has("week_5")).toBe(true);
+  describe("weekly/monthly badges", () => {
+    it("week_5x10: weeksWithFivePlusDays >= 10", () => {
+      expect(checkBadgeConditions(ctx({ weeksWithFivePlusDays: 10 })).has("week_5x10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ weeksWithFivePlusDays: 9 })).has("week_5x10")).toBe(false);
+    });
+    it("week_7x5: weeksWithSevenDays >= 5", () => {
+      expect(checkBadgeConditions(ctx({ weeksWithSevenDays: 5 })).has("week_7x5")).toBe(true);
+    });
+    it("month_perfect_x3: perfectMonthsCount >= 3", () => {
+      expect(checkBadgeConditions(ctx({ perfectMonthsCount: 3 })).has("month_perfect_x3")).toBe(true);
+      expect(checkBadgeConditions(ctx({ perfectMonthsCount: 2 })).has("month_perfect_x3")).toBe(false);
+    });
+    it("month_15x6: monthsWithFifteenPlusDays >= 6", () => {
+      expect(checkBadgeConditions(ctx({ monthsWithFifteenPlusDays: 6 })).has("month_15x6")).toBe(true);
+    });
+    it("month_10 は廃止（中盤バッジ絞り込み）", () => {
+      expect(ALL_BADGES.find(b => b.id === "month_10")).toBeUndefined();
     });
   });
 
-  describe("week_7 (#59)", () => {
-    it("weeksWithSevenDays >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ weeksWithSevenDays: 1 })).has("week_7")).toBe(true);
+  // ─── 転生系 ──────────────────────────────────────────
+  describe("rebirth badges", () => {
+    it("rebirth_10: rebirthCount >= 10", () => {
+      expect(checkBadgeConditions(ctx({ rebirthCount: 10 })).has("rebirth_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ rebirthCount: 9 })).has("rebirth_10")).toBe(false);
     });
-  });
-
-  describe("month_perfect (#64)", () => {
-    it("perfectMonthsCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ perfectMonthsCount: 1 })).has("month_perfect")).toBe(true);
-    });
-  });
-
-  // ─── 転生系 ─────────────────────────────────────────
-  describe("rebirth_1 (#65)", () => {
-    it("rebirthCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ rebirthCount: 1 })).has("rebirth_1")).toBe(true);
-      expect(checkBadgeConditions(ctx({})).has("rebirth_1")).toBe(false);
-    });
-  });
-
-  describe("rebirth_7 (#69)", () => {
-    it("rebirthCount >= 7 で解除", () => {
-      expect(checkBadgeConditions(ctx({ rebirthCount: 7 })).has("rebirth_7")).toBe(true);
-      expect(checkBadgeConditions(ctx({ rebirthCount: 6 })).has("rebirth_7")).toBe(false);
+    it("rebirth_7 は廃止（rebirth_10 に統合）", () => {
+      expect(ALL_BADGES.find(b => b.id === "rebirth_7")).toBeUndefined();
     });
   });
 
   // ─── コレクション系 ──────────────────────────────────
-  describe("collection_3 (#70)", () => {
-    it("collectionCount >= 3 で解除", () => {
-      expect(checkBadgeConditions(ctx({ collectionCount: 3 })).has("collection_3")).toBe(true);
-      expect(checkBadgeConditions(ctx({ collectionCount: 2 })).has("collection_3")).toBe(false);
-    });
-  });
-
-  describe("collection_study (#72)", () => {
-    it("hasStudyCollection で解除", () => {
-      expect(checkBadgeConditions(ctx({ hasStudyCollection: true })).has("collection_study")).toBe(true);
-      expect(checkBadgeConditions(ctx({})).has("collection_study")).toBe(false);
-    });
-  });
-
-  describe("collection_all (#75)", () => {
-    it("hasAllTypesCollection で解除", () => {
+  describe("collection badges", () => {
+    it("collection_all: hasAllTypesCollection で解除", () => {
       expect(checkBadgeConditions(ctx({ hasAllTypesCollection: true })).has("collection_all")).toBe(true);
-      expect(checkBadgeConditions(ctx({ hasStudyCollection: true, hasStaminaCollection: true })).has("collection_all")).toBe(false);
+    });
+    it("collection_6: collectionCount >= 6", () => {
+      expect(checkBadgeConditions(ctx({ collectionCount: 6 })).has("collection_6")).toBe(true);
     });
   });
 
   // ─── 自発性・粘り強さ系 ──────────────────────────────
-  describe("self_task_3 (#76)", () => {
-    it("selfTaskApprovedCount >= 3 で解除", () => {
-      expect(checkBadgeConditions(ctx({ selfTaskApprovedCount: 3 })).has("self_task_3")).toBe(true);
-      expect(checkBadgeConditions(ctx({ selfTaskApprovedCount: 2 })).has("self_task_3")).toBe(false);
+  describe("self-task / habit / mental badges", () => {
+    it("self_task_5: selfTaskApprovedCount >= 5", () => {
+      expect(checkBadgeConditions(ctx({ selfTaskApprovedCount: 5 })).has("self_task_5")).toBe(true);
+      expect(checkBadgeConditions(ctx({ selfTaskApprovedCount: 4 })).has("self_task_5")).toBe(false);
     });
-  });
-
-  describe("habit_14 (#79)", () => {
-    it("maxSingleTaskBestStreak >= 14 で解除", () => {
-      expect(checkBadgeConditions(ctx({ maxSingleTaskBestStreak: 14 })).has("habit_14")).toBe(true);
-      expect(checkBadgeConditions(ctx({ maxSingleTaskBestStreak: 13 })).has("habit_14")).toBe(false);
+    it("self_task_30: selfTaskApprovedCount >= 30", () => {
+      expect(checkBadgeConditions(ctx({ selfTaskApprovedCount: 30 })).has("self_task_30")).toBe(true);
     });
-  });
-
-  describe("habit_30 (#80)", () => {
-    it("maxSingleTaskBestStreak >= 30 で解除", () => {
-      expect(checkBadgeConditions(ctx({ maxSingleTaskBestStreak: 30 })).has("habit_30")).toBe(true);
-      expect(checkBadgeConditions(ctx({ maxSingleTaskBestStreak: 29 })).has("habit_30")).toBe(false);
+    it("habit_60: maxSingleTaskBestStreak >= 60", () => {
+      expect(checkBadgeConditions(ctx({ maxSingleTaskBestStreak: 60 })).has("habit_60")).toBe(true);
     });
-  });
-
-  describe("skip_recovery (#81)", () => {
-    it("skipThenNextDayCount >= 1 で解除", () => {
-      expect(checkBadgeConditions(ctx({ skipThenNextDayCount: 1 })).has("skip_recovery")).toBe(true);
+    it("skip_aware: skipCount >= 10（旧5から引き上げ）", () => {
+      expect(checkBadgeConditions(ctx({ skipCount: 10 })).has("skip_aware")).toBe(true);
+      expect(checkBadgeConditions(ctx({ skipCount: 9 })).has("skip_aware")).toBe(false);
     });
-  });
-
-  describe("skip_aware (#82)", () => {
-    it("skipCount >= 5 で解除", () => {
-      expect(checkBadgeConditions(ctx({ skipCount: 5 })).has("skip_aware")).toBe(true);
-      expect(checkBadgeConditions(ctx({ skipCount: 4 })).has("skip_aware")).toBe(false);
-    });
-  });
-
-  describe("retry_5 (#83)", () => {
-    it("retrySuccessCount >= 5 で解除", () => {
-      expect(checkBadgeConditions(ctx({ retrySuccessCount: 5 })).has("retry_5")).toBe(true);
-      expect(checkBadgeConditions(ctx({ retrySuccessCount: 4 })).has("retry_5")).toBe(false);
+    it("self_task_3 / skip_recovery は廃止", () => {
+      expect(ALL_BADGES.find(b => b.id === "self_task_3")).toBeUndefined();
+      expect(ALL_BADGES.find(b => b.id === "skip_recovery")).toBeUndefined();
     });
   });
 
   // ─── 曜日・季節系 ────────────────────────────────────
-  describe("monday_5 (#84)", () => {
-    it("mondayCount >= 5 で解除", () => {
-      expect(checkBadgeConditions(ctx({ mondayCount: 5 })).has("monday_5")).toBe(true);
-      expect(checkBadgeConditions(ctx({ mondayCount: 4 })).has("monday_5")).toBe(false);
+  describe("day-of-week / season badges", () => {
+    it("monday_10: mondayCount >= 10（旧5から引き上げ）", () => {
+      expect(checkBadgeConditions(ctx({ mondayCount: 10 })).has("monday_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ mondayCount: 9 })).has("monday_10")).toBe(false);
+    });
+    it("weekend_20: weekendCount >= 20", () => {
+      expect(checkBadgeConditions(ctx({ weekendCount: 20 })).has("weekend_20")).toBe(true);
+    });
+    it("spring: springDays >= 15", () => {
+      expect(checkBadgeConditions(ctx({ springDays: 15 })).has("spring")).toBe(true);
+      expect(checkBadgeConditions(ctx({ springDays: 14 })).has("spring")).toBe(false);
+    });
+    it("summer: summerDays >= 20", () => {
+      expect(checkBadgeConditions(ctx({ summerDays: 20 })).has("summer")).toBe(true);
+      expect(checkBadgeConditions(ctx({ summerDays: 19 })).has("summer")).toBe(false);
+    });
+    it("month_end_10: monthEndCount >= 10（旧5から引き上げ）", () => {
+      expect(checkBadgeConditions(ctx({ monthEndCount: 10 })).has("month_end_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ monthEndCount: 9 })).has("month_end_10")).toBe(false);
+    });
+    it("monday_5 / weekend_10 / month_end は廃止（旧ID）", () => {
+      expect(ALL_BADGES.find(b => b.id === "monday_5")).toBeUndefined();
+      expect(ALL_BADGES.find(b => b.id === "weekend_10")).toBeUndefined();
+      expect(ALL_BADGES.find(b => b.id === "month_end")).toBeUndefined();
     });
   });
 
-  describe("weekend_10 (#85)", () => {
-    it("weekendCount >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ weekendCount: 10 })).has("weekend_10")).toBe(true);
-      expect(checkBadgeConditions(ctx({ weekendCount: 9 })).has("weekend_10")).toBe(false);
+  // ─── マイルストーン・複合系 ──────────────────────────
+  describe("milestone & composite badges", () => {
+    it("milestone_25: unlockedBadgeCount >= 25", () => {
+      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 25 })).has("milestone_25")).toBe(true);
     });
-  });
-
-  describe("spring (#86)", () => {
-    it("springDays >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ springDays: 10 })).has("spring")).toBe(true);
-      expect(checkBadgeConditions(ctx({ springDays: 9 })).has("spring")).toBe(false);
+    it("milestone_90: unlockedBadgeCount >= 90", () => {
+      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 90 })).has("milestone_90")).toBe(true);
+      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 89 })).has("milestone_90")).toBe(false);
     });
-  });
-
-  describe("newyear (#90)", () => {
-    it("hasNewYearQuest=true で解除", () => {
-      expect(checkBadgeConditions(ctx({ hasNewYearQuest: true })).has("newyear")).toBe(true);
+    it("milestone_10 は廃止（序盤バッジ削減）", () => {
+      expect(ALL_BADGES.find(b => b.id === "milestone_10")).toBeUndefined();
     });
-  });
-
-  describe("month_end (#91)", () => {
-    it("monthEndCount >= 5 で解除", () => {
-      expect(checkBadgeConditions(ctx({ monthEndCount: 5 })).has("month_end")).toBe(true);
-      expect(checkBadgeConditions(ctx({ monthEndCount: 4 })).has("month_end")).toBe(false);
+    it("triple_crown: tripleCrownDaysCount >= 25（旧10から引き上げ）", () => {
+      expect(checkBadgeConditions(ctx({ tripleCrownDaysCount: 25 })).has("triple_crown")).toBe(true);
+      expect(checkBadgeConditions(ctx({ tripleCrownDaysCount: 24 })).has("triple_crown")).toBe(false);
     });
-  });
-
-  // ─── マイルストーン系 ────────────────────────────────
-  describe("milestone_10 (#92)", () => {
-    it("unlockedBadgeCount >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 10 })).has("milestone_10")).toBe(true);
-      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 9 })).has("milestone_10")).toBe(false);
+    it("retry_10: retrySuccessCount >= 10（旧5から引き上げ）", () => {
+      expect(checkBadgeConditions(ctx({ retrySuccessCount: 10 })).has("retry_10")).toBe(true);
+      expect(checkBadgeConditions(ctx({ retrySuccessCount: 9 })).has("retry_10")).toBe(false);
     });
-  });
-
-  describe("milestone_75 (#95)", () => {
-    it("unlockedBadgeCount >= 75 で解除", () => {
-      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 75 })).has("milestone_75")).toBe(true);
-      expect(checkBadgeConditions(ctx({ unlockedBadgeCount: 74 })).has("milestone_75")).toBe(false);
+    it("retry_5 は廃止（retry_10 に統合）", () => {
+      expect(ALL_BADGES.find(b => b.id === "retry_5")).toBeUndefined();
     });
-  });
-
-  // ─── 複合チャレンジ系 ────────────────────────────────
-  describe("comeback_7x2 (#96)", () => {
-    it("hasComeback7After2Breaks=true で解除", () => {
+    it("multi_tasker / speed_star / comeback_14 / comeback_7x2 は残置", () => {
+      expect(checkBadgeConditions(ctx({ hasMagicDay: true })).has("multi_tasker")).toBe(true);
+      expect(checkBadgeConditions(ctx({ hasWeekWithDailyDeadline: true })).has("speed_star")).toBe(true);
+      expect(checkBadgeConditions(ctx({ hasComeback14: true })).has("comeback_14")).toBe(true);
       expect(checkBadgeConditions(ctx({ hasComeback7After2Breaks: true })).has("comeback_7x2")).toBe(true);
     });
   });
 
-  describe("multi_tasker (#97)", () => {
-    it("hasMagicDay=true で解除", () => {
-      expect(checkBadgeConditions(ctx({ hasMagicDay: true })).has("multi_tasker")).toBe(true);
+  // ─── 序盤の体感: 最初の1クエスト承認で何個解放されるか ──
+  describe("早期解放の挙動: 序盤は最大2個まで（中盤からはもっと絞る）", () => {
+    it("初回承認だけでは first_quest のみ（合計1個）", () => {
+      const earned = checkBadgeConditions(ctx({
+        approvedCount: 1,
+        totalXp: 1,
+      }));
+      expect(earned.size).toBe(1);
+      expect(earned.has("first_quest")).toBe(true);
     });
-  });
 
-  describe("speed_star (#98)", () => {
-    it("hasWeekWithDailyDeadline=true で解除", () => {
-      expect(checkBadgeConditions(ctx({ hasWeekWithDailyDeadline: true })).has("speed_star")).toBe(true);
+    it("写真付き・期限ボーナス付きの3pt初回タスクでも、first_quest のみ", () => {
+      const earned = checkBadgeConditions(ctx({
+        approvedCount: 1,
+        totalXp: 3,
+        photoCount: 1,
+        deadlineBonusCount: 1,
+        morningReportCount: 1,
+        quickReportCount: 1,
+      }));
+      // 旧設計では7個以上同時解放されていたが、新設計では1個のみ
+      expect(earned.size).toBe(1);
+      expect(earned.has("first_quest")).toBe(true);
     });
-  });
 
-  describe("triple_crown (#99)", () => {
-    it("tripleCrownDaysCount >= 10 で解除", () => {
-      expect(checkBadgeConditions(ctx({ tripleCrownDaysCount: 10 })).has("triple_crown")).toBe(true);
-      expect(checkBadgeConditions(ctx({ tripleCrownDaysCount: 9 })).has("triple_crown")).toBe(false);
+    it("ステージ1進化（first_hatch）と初承認が同時でも、合計2個まで", () => {
+      const earned = checkBadgeConditions(ctx({
+        approvedCount: 1,
+        evolutionStage: 1,
+      }));
+      expect(earned.size).toBe(2);
+      expect(earned.has("first_quest")).toBe(true);
+      expect(earned.has("first_hatch")).toBe(true);
     });
-  });
 
-  describe("comeback_14 (#100)", () => {
-    it("hasComeback14=true で解除", () => {
-      expect(checkBadgeConditions(ctx({ hasComeback14: true })).has("comeback_14")).toBe(true);
+    it("4日連続承認では、まだ streak_5 も login_7 も未解放（中盤の閾値）", () => {
+      const earned = checkBadgeConditions(ctx({
+        approvedCount: 4,
+        bestTaskStreak: 4,
+        loginBestStreak: 4,
+        totalXp: 4,
+      }));
+      expect(earned.has("streak_5")).toBe(false);
+      expect(earned.has("login_7")).toBe(false);
+      expect(earned.has("quest_10")).toBe(false);
+      // ようこそ系 first_quest だけ
+      expect(earned.size).toBe(1);
     });
-  });
-
-  // ─── 複数バッジ同時解除 ──────────────────────────────
-  it("複数条件を同時に満たした場合、複数バッジを解除", () => {
-    const earned = checkBadgeConditions(ctx({
-      approvedCount: 10,
-      photoCount: 5,
-      bestTaskStreak: 7,
-    }));
-    expect(earned.has("quest_10")).toBe(true);
-    expect(earned.has("approval_10")).toBe(true);
-    expect(earned.has("photo_5")).toBe(true);
-    expect(earned.has("streak_7")).toBe(true);
-    expect(earned.has("first_quest")).toBe(true);
   });
 
   // ─── 全バッジ数チェック ──────────────────────────────
-  it("ALL_BADGES は100個である", async () => {
-    const { ALL_BADGES } = await import("@/lib/badges");
+  it("ALL_BADGES は100個である", () => {
     expect(ALL_BADGES).toHaveLength(100);
   });
 
-  it("全バッジIDがユニーク", async () => {
-    const { ALL_BADGES } = await import("@/lib/badges");
+  it("全バッジIDがユニーク", () => {
     const ids = ALL_BADGES.map(b => b.id);
     expect(new Set(ids).size).toBe(100);
+  });
+
+  it("全バッジが id, name, emoji, description を持つ", () => {
+    for (const badge of ALL_BADGES) {
+      expect(badge.id).toBeTruthy();
+      expect(badge.name).toBeTruthy();
+      expect(badge.emoji).toBeTruthy();
+      expect(badge.description).toBeTruthy();
+    }
   });
 });

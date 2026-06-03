@@ -1448,3 +1448,42 @@
 - `prisma/schema.prisma` — `User.treasurePityCount` 削除
 - `prisma/migrations/20260602000001_drop_user_treasure_pity_count/migration.sql`
 - テスト 5 ファイル（treasure / treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / child・parent treasures page）から pity 関連 mock/assertion を撤去
+
+---
+
+## 2026-06-03: 実績100バッジの全面見直し（序盤を絞り中盤からの達成感を強化）
+
+### 決定
+- 100個のバッジ定義（`src/lib/badges.data.ts`）を全面リバランス。総数100個は維持
+- 「ようこそ系」を旧10個 → 3個に縮小: `first_quest` / `first_hatch` / `first_self_approved` のみ
+- 旧 `first_approval` `first_photo` `first_self_task` `first_skip` `first_retry` `first_evo2` `first_evo3` `deadline_first` `morning_first` `afternoon_first` `quick_first` `perfect_first` は廃止
+- 旧 `approval_*`（10/30/50/100/200）を廃止し `quest_*` に統合（条件が `approvedCount` で完全重複していたため）
+- 累計クエスト系を 9段階に拡張: `quest_10 / 25 / 50 / 100 / 200 / 300 / 500 / 750 / 1000`
+- 中盤閾値を全体的に底上げ:
+  - `streak_3` 廃止 → `streak_5` から開始（5/10/14/21/30/50/100）
+  - `login_3` 廃止 → `login_7` から開始（7/14/30/60/100/200）
+  - `xp_10/30` 廃止 → `xp_50` から開始（50/100/300/500/1000）
+  - `photo_5` 廃止 → `photo_15` から開始（15/30/60/100/200）
+  - `monday_5 → monday_10` / `weekend_10 → weekend_20` / `month_end → month_end_10` / `spring 10→15日` / `summer/autumn/winter 15→20日`
+  - `skip_aware` 5→10回 / `retry_5 → retry_10` / `triple_crown` 10→25日
+  - `morning_first/morning_7` 廃止 → `morning_10/30/60`、`afternoon_first` 廃止 → `afternoon_15/50`、`quick_first` 廃止 → `quick_10/30`
+  - `perfect_first` 廃止 → `perfect_5` から開始（5/15/30/50）
+  - `day_3quests` 廃止 → `day_4quests / day_6quests`
+- 終盤バッジを新設: `week_5x10` `week_7x5` `month_perfect_x3` `month_15x6` `rebirth_10` `habit_60` `milestone_90` `streak_50` `streak_100` `login_60` `login_100` `login_200` 等
+- 既存ユーザが旧IDで解錠していた `UserBadge` レコードは UI 上は表示されなくなる（`ALL_BADGES` ベースで描画するため）。DB上は残置で問題なし
+
+### 理由
+- 旧設計では「初回◯◯」系が10個＋低閾値の累計系が多数あり、最初の1〜数クエストで5〜10個が一気に解放される状態だった。「次に何の実績を狙おう」というモチベが生まれず、序盤の達成感が逆に薄くなっていた
+- 序盤を `first_quest`（初回承認時）と `first_hatch`（初進化時）の最大2個に絞ることで、最初の解放が「珍しい・嬉しい」体験になる
+- 中盤閾値の引き上げで、解放ペースをゆるやかに長期化。終盤バッジを追加して 100/200/500/1000 級の長期目標も用意
+
+### やってはいけないこと
+- 「廃止IDをDBから一括削除する」マイグレーションを書く（既存ユーザが過去に何を解錠したかの記録自体は残しておく方が安全。UI 描画は `ALL_BADGES` 経由なので未定義IDは自然に非表示になる）
+- 旧IDを別名で再導入する（`first_photo` → `photo_1` 等）。閾値を上げてもバッジ自体の数が増え 100 個縛りを破る
+- `BadgeContext` フィールドを新規追加して条件を細分化する（既存フィールドで十分賄える設計にしてあり、`loadBadgeContext` の集計コストを増やさない方針）
+
+### 該当箇所
+- `src/lib/badges.data.ts` — `ALL_BADGES` と `BADGE_CONDITIONS` を全面書き換え
+- `src/__tests__/lib/badges.test.ts` — 旧IDの境界テストを新IDに置換、序盤同時解放数（初回承認で1個・初進化同時で2個）を境界テスト化
+- `BadgeContext` 型・`loadBadgeContext` は無変更（既存フィールドで全条件を表現可能）
+
