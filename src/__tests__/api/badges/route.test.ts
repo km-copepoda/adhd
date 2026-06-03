@@ -86,6 +86,28 @@ describe("GET /api/badges", () => {
     expect(mockTriggerBadgeLog).not.toHaveBeenCalled();
   });
 
+  it("UserBadge に廃止された旧ID が残っていても unlockedCount は ALL_BADGES の ID のみ数える", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockCheckAndUnlockBadges.mockResolvedValue([]);
+    mockPrisma.userBadge.findMany.mockResolvedValue([
+      { badgeId: "first_quest", unlockedAt: new Date("2026-06-01") },
+      { badgeId: "first_approval", unlockedAt: new Date("2026-04-10") }, // 廃止ID
+      { badgeId: "streak_3", unlockedAt: new Date("2026-04-11") },       // 廃止ID
+      { badgeId: "xp_10", unlockedAt: new Date("2026-04-12") },          // 廃止ID
+    ] as any);
+
+    const res = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.unlockedCount).toBe(1);
+    expect(json.totalCount).toBe(100);
+    // 旧IDのバッジは badges 配列に含まれない（ALL_BADGES ベース描画）
+    const ids = json.badges.map((b: any) => b.id);
+    expect(ids).not.toContain("first_approval");
+    expect(ids).not.toContain("streak_3");
+    expect(ids).not.toContain("xp_10");
+  });
+
   it("レスポンスの各バッジに progress フィールドを含む（数値系は {current,target}、ブール系は null）", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     const res = await GET();

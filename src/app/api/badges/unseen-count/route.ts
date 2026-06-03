@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ALL_BADGES } from "@/lib/badges";
 
 /**
  * GET /api/badges/unseen-count
@@ -13,8 +14,12 @@ export async function GET() {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
+  // 廃止された旧IDが UserBadge に残っていても、ALL_BADGES と交差した数のみカウント
   const count = await prisma.userBadge.count({
-    where: { userId: user.id },
+    where: {
+      userId: user.id,
+      badgeId: { in: ALL_BADGES.map(b => b.id) },
+    },
   });
 
   return NextResponse.json({ unlockedCount: count });

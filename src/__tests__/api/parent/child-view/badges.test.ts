@@ -86,7 +86,7 @@ describe("GET /api/parent/child-view/badges", () => {
     mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
     mockCheckAndUnlockBadges.mockResolvedValue([]);
     mockPrisma.userBadge.findMany.mockResolvedValue([
-      { badgeId: "first_step", unlockedAt: new Date("2026-05-01") },
+      { badgeId: "first_quest", unlockedAt: new Date("2026-05-01") },
     ] as any);
 
     const res = await GET(makeReq("child-1"));
@@ -99,6 +99,28 @@ describe("GET /api/parent/child-view/badges", () => {
     expect(mockCheckAndUnlockBadges).toHaveBeenCalledWith("child-1");
     const findManyCall = (mockPrisma.userBadge.findMany as any).mock.calls[0][0];
     expect(findManyCall.where.userId).toBe("child-1");
+  });
+
+  it("UserBadge に廃止された旧ID が残っていても unlockedCount は ALL_BADGES の ID のみ数える", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockCheckAndUnlockBadges.mockResolvedValue([]);
+    mockPrisma.userBadge.findMany.mockResolvedValue([
+      { badgeId: "first_quest", unlockedAt: new Date("2026-06-01") },
+      { badgeId: "first_approval", unlockedAt: new Date("2026-04-10") }, // 廃止ID
+      { badgeId: "streak_3", unlockedAt: new Date("2026-04-11") },       // 廃止ID
+      { badgeId: "xp_10", unlockedAt: new Date("2026-04-12") },          // 廃止ID
+    ] as any);
+
+    const res = await GET(makeReq("child-1"));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.unlockedCount).toBe(1);
+    expect(json.totalCount).toBe(100);
+    const ids = json.badges.map((b: any) => b.id);
+    expect(ids).not.toContain("first_approval");
+    expect(ids).not.toContain("streak_3");
+    expect(ids).not.toContain("xp_10");
   });
 
   it("新規解除されたバッジを掲示板に流す（triggerBadgeLog 呼び出し）", async () => {
