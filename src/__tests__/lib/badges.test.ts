@@ -49,6 +49,12 @@ const defaultCtx: BadgeContext = {
   hasWeekWithDailyDeadline: false,
   tripleCrownDaysCount: 0,
   unlockedBadgeCount: 0,
+  treasureOpenedCount: 0,
+  rareTreasureCount: 0,
+  collectionItemCount: 0,
+  collectionSeasonsComplete: 0,
+  hasAllCollectionItems: false,
+  rebirthEggUsed: false,
 };
 
 function ctx(overrides: Partial<BadgeContext>): BadgeContext {
@@ -139,9 +145,9 @@ describe("checkBadgeConditions (2026-06 改訂版: 序盤を絞った100バッ�
       expect(checkBadgeConditions(ctx({ loginBestStreak: 7 })).has("login_7")).toBe(true);
       expect(checkBadgeConditions(ctx({ loginBestStreak: 6 })).has("login_7")).toBe(false);
     });
-    it("login_200: loginBestStreak >= 200", () => {
-      expect(checkBadgeConditions(ctx({ loginBestStreak: 200 })).has("login_200")).toBe(true);
-      expect(checkBadgeConditions(ctx({ loginBestStreak: 199 })).has("login_200")).toBe(false);
+    it("login_100: loginBestStreak >= 100", () => {
+      expect(checkBadgeConditions(ctx({ loginBestStreak: 100 })).has("login_100")).toBe(true);
+      expect(checkBadgeConditions(ctx({ loginBestStreak: 99 })).has("login_100")).toBe(false);
     });
     it("login_3 は廃止", () => {
       expect(ALL_BADGES.find(b => b.id === "login_3")).toBeUndefined();
@@ -197,8 +203,9 @@ describe("checkBadgeConditions (2026-06 改訂版: 序盤を絞った100バッ�
       expect(checkBadgeConditions(ctx({ morningReportCount: 10 })).has("morning_10")).toBe(true);
       expect(checkBadgeConditions(ctx({ morningReportCount: 9 })).has("morning_10")).toBe(false);
     });
-    it("morning_60: morningReportCount >= 60", () => {
-      expect(checkBadgeConditions(ctx({ morningReportCount: 60 })).has("morning_60")).toBe(true);
+    it("morning_30: morningReportCount >= 30", () => {
+      expect(checkBadgeConditions(ctx({ morningReportCount: 30 })).has("morning_30")).toBe(true);
+      expect(checkBadgeConditions(ctx({ morningReportCount: 29 })).has("morning_30")).toBe(false);
     });
     it("afternoon_15: afternoonReportCount >= 15", () => {
       expect(checkBadgeConditions(ctx({ afternoonReportCount: 15 })).has("afternoon_15")).toBe(true);
@@ -406,6 +413,61 @@ describe("checkBadgeConditions (2026-06 改訂版: 序盤を絞った100バッ�
       expect(earned.has("quest_10")).toBe(false);
       // ようこそ系 first_quest だけ
       expect(earned.size).toBe(1);
+    });
+  });
+
+  // ─── 宝箱系（新規追加） ──────────────────────────────
+  describe("treasure badges", () => {
+    it("treasure_first: treasureOpenedCount >= 1", () => {
+      expect(checkBadgeConditions(ctx({ treasureOpenedCount: 1 })).has("treasure_first")).toBe(true);
+      expect(checkBadgeConditions(ctx({})).has("treasure_first")).toBe(false);
+    });
+    it("treasure_25: treasureOpenedCount >= 25", () => {
+      expect(checkBadgeConditions(ctx({ treasureOpenedCount: 25 })).has("treasure_25")).toBe(true);
+      expect(checkBadgeConditions(ctx({ treasureOpenedCount: 24 })).has("treasure_25")).toBe(false);
+    });
+    it("treasure_rare: rareTreasureCount >= 1（RARE当選）", () => {
+      expect(checkBadgeConditions(ctx({ rareTreasureCount: 1 })).has("treasure_rare")).toBe(true);
+      expect(checkBadgeConditions(ctx({})).has("treasure_rare")).toBe(false);
+    });
+  });
+
+  // ─── コレクションアイテム系（新規追加） ──────────────
+  describe("collection item badges", () => {
+    it("item_first: collectionItemCount >= 1", () => {
+      expect(checkBadgeConditions(ctx({ collectionItemCount: 1 })).has("item_first")).toBe(true);
+      expect(checkBadgeConditions(ctx({})).has("item_first")).toBe(false);
+    });
+    it("item_30: collectionItemCount >= 30（種類）", () => {
+      expect(checkBadgeConditions(ctx({ collectionItemCount: 30 })).has("item_30")).toBe(true);
+      expect(checkBadgeConditions(ctx({ collectionItemCount: 29 })).has("item_30")).toBe(false);
+    });
+    it("season_complete: collectionSeasonsComplete >= 1（1シーズン20種制覇）", () => {
+      expect(checkBadgeConditions(ctx({ collectionSeasonsComplete: 1 })).has("season_complete")).toBe(true);
+      expect(checkBadgeConditions(ctx({ collectionSeasonsComplete: 0 })).has("season_complete")).toBe(false);
+    });
+    it("item_80_all: hasAllCollectionItems で解除", () => {
+      expect(checkBadgeConditions(ctx({ hasAllCollectionItems: true })).has("item_80_all")).toBe(true);
+      expect(checkBadgeConditions(ctx({ collectionItemCount: 79 })).has("item_80_all")).toBe(false);
+    });
+  });
+
+  // ─── 転生卵系（新規追加） ────────────────────────────
+  describe("rebirth egg badges", () => {
+    it("rebirth_egg_used: rebirthEggUsed=true で解除", () => {
+      expect(checkBadgeConditions(ctx({ rebirthEggUsed: true })).has("rebirth_egg_used")).toBe(true);
+      expect(checkBadgeConditions(ctx({})).has("rebirth_egg_used")).toBe(false);
+    });
+  });
+
+  // ─── 入れ替えで廃止されたバッジ ──────────────────────
+  describe("入れ替えで廃止された旧バッジ", () => {
+    const removed = [
+      "quest_750", "streak_50", "login_60", "login_200",
+      "photo_60", "deadline_25", "morning_60", "afternoon_50",
+    ];
+    it.each(removed)("%s は ALL_BADGES に含まれない", id => {
+      expect(ALL_BADGES.find(b => b.id === id)).toBeUndefined();
     });
   });
 

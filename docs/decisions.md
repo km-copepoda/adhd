@@ -1487,3 +1487,42 @@
 - `src/__tests__/lib/badges.test.ts` — 旧IDの境界テストを新IDに置換、序盤同時解放数（初回承認で1個・初進化同時で2個）を境界テスト化
 - `BadgeContext` 型・`loadBadgeContext` は無変更（既存フィールドで全条件を表現可能）
 
+---
+
+## 2026-06-03: 宝箱・コレクションアイテム・転生卵を実績の対象に追加（100バッジ維持）
+
+### 決定
+- 同日の実績全面見直しの直後フォロー。**badge 設計以降に追加された3システム**（宝箱 / 季節コレクションアイテム / 転生卵ボーナス）がバッジで一切拾えていなかった抜けを埋める
+- 中盤の冗長バッジ8個を削除し、新システム向け8個を追加して **総数100個を維持**
+- 削除: `quest_750` / `streak_50` / `login_60` / `login_200` / `photo_60` / `deadline_25` / `morning_60` / `afternoon_50`
+- 追加（宝箱3個）:
+  - `treasure_first` — はじめて宝箱を開けた（`treasureOpenedCount >= 1`）
+  - `treasure_25` — 累計25個開封（`treasureOpenedCount >= 25`）
+  - `treasure_rare` — RARE 当選（`rareTreasureCount >= 1`）
+- 追加（コレクションアイテム4個）:
+  - `item_first` — はじめて季節アイテム獲得（`collectionItemCount >= 1`）
+  - `item_30` — 30種獲得（distinct itemId 単位）
+  - `season_complete` — 春/夏/秋/冬のいずれか1シーズン（20種）制覇
+  - `item_80_all` — 全80種制覇（`hasAllCollectionItems`）
+- 追加（転生卵1個）:
+  - `rebirth_egg_used` — 転生卵ボーナスを1回以上使った（`usedEggBonuses.length >= 1`）
+- `BadgeContext` に6フィールド追加: `treasureOpenedCount` / `rareTreasureCount` / `collectionItemCount` / `collectionSeasonsComplete` / `hasAllCollectionItems` / `rebirthEggUsed`
+- `loadBadgeContext` に Prisma クエリを2つ追加: `prisma.treasureLog.findMany({ status: "OPENED" })`（item.rarity 付き）と `prisma.userCollectionItem.findMany`。`User.usedEggBonuses` (JSON文字列) は既存ユーザクエリで取得
+
+### 理由
+- 宝箱・コレクションアイテム・転生卵は実績設計後に追加された主要システムで、子供の体験面積を大きく占めるようになったにもかかわらず「実績ページで集める対象」として登場していなかった
+- 旧設計では `quest_750`(500-1000の間) / `streak_50`(30-100の間) / `login_60`(30-100の間) など、隣接バッジと数値が近接して達成感の差分が薄いものがあった。これらと入れ替えて意味のあるバッジ密度を確保
+- `collectionItemCount` は **distinct itemId 数** で実装。`UserCollectionItem.count`（同一アイテムのダブり）は使わない（「30個集めた」のユーザ体感は「30種類集めた」が自然）
+
+### やってはいけないこと
+- `treasure_first` / `item_first` を「ようこそ系」と同じ序盤同時解放に持っていく（これらは「初回宝箱開封」「初回コレクション獲得」のタイミングで個別に発火する設計。`first_quest` と同時には起きないので問題なし）
+- `treasureOpenedCount` を全 `TreasureLog` でカウントする（LOCKED / UNLOCKED / CANCELLED を含めると未開封の宝箱が混入し「累計25個開封」の意味が壊れる。必ず `status: "OPENED"` で絞る）
+- `season_complete` を「現シーズン中の獲得」とする（マスターは `src/lib/collectionItems.ts` で 4シーズン × 20種固定。各シーズン20種揃ったかを判定すれば良い）
+- `collectionItemCount` の閾値を上げて「30 → 50」等にする（80種マスターの半分以上を要求するとペース感が崩れる。30は4シーズン中1シーズン以上のボリュームに相当する適切な中盤目標）
+
+### 該当箇所
+- `src/lib/badges.data.ts` — `BadgeContext` に6フィールド追加、`ALL_BADGES` から8個削除＋8個追加、`BADGE_CONDITIONS` 同期
+- `src/lib/badges.ts` — `loadBadgeContext` に `treasureLog` / `userCollectionItem` 集計と `usedEggBonuses` 判定を追加
+- `src/__tests__/lib/badges.test.ts` — 新バッジ8個の境界テストと、削除バッジ8個の不在テストを追加
+
+

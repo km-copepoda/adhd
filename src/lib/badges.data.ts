@@ -77,6 +77,18 @@ export type BadgeContext = {
 
   // マイルストーン（すでに解除済みバッジ数、新規解除分は含まない）
   unlockedBadgeCount: number;
+
+  // 宝箱系（2026-06-03 追加）
+  treasureOpenedCount: number;   // OPENED 状態の TreasureLog 数
+  rareTreasureCount: number;     // RARE 当選の TreasureLog 数
+
+  // コレクションアイテム系（2026-06-03 追加）
+  collectionItemCount: number;       // 獲得済みの種類数（重複は count せず distinct）
+  collectionSeasonsComplete: number; // 春/夏/秋/冬のうち 20種すべて揃ったシーズン数
+  hasAllCollectionItems: boolean;    // 全80種制覇
+
+  // 転生卵ボーナス（2026-06-03 追加）
+  rebirthEggUsed: boolean;       // 転生卵ボーナスを1回以上使用した
 };
 
 // ─── バッジ定義（100個・2026-06 改訂版） ────────────────────────────────
@@ -94,7 +106,7 @@ export const ALL_BADGES: Badge[] = [
   { id: "first_hatch",         emoji: "🥚", name: "たんじょう！",       description: "はじめてモンスターを進化させた" },
   { id: "first_self_approved", emoji: "💡", name: "アイデア採用！",     description: "自分で作ったタスクがはじめて承認された" },
 
-  // ─── #4-12: 累計クエスト系（9個・旧 approval_* と統合） ─
+  // ─── #4-11: 累計クエスト系（8個・旧 approval_* と統合） ─
   { id: "quest_10",   emoji: "🎉", name: "10回クリア！",    description: "累計10クエスト完了" },
   { id: "quest_25",   emoji: "🚀", name: "25回クリア！",    description: "累計25クエスト完了" },
   { id: "quest_50",   emoji: "💯", name: "50回クリア！",    description: "累計50クエスト完了" },
@@ -102,26 +114,22 @@ export const ALL_BADGES: Badge[] = [
   { id: "quest_200",  emoji: "🏆", name: "200回クリア！",   description: "累計200クエスト完了" },
   { id: "quest_300",  emoji: "👑", name: "300回クリア！",   description: "累計300クエスト完了" },
   { id: "quest_500",  emoji: "💎", name: "500回クリア！",   description: "累計500クエスト完了" },
-  { id: "quest_750",  emoji: "🔥", name: "750回クリア！",   description: "累計750クエスト完了" },
   { id: "quest_1000", emoji: "🌈", name: "1000回クリア！",  description: "累計1000クエスト完了" },
 
-  // ─── #13-20: タスクストリーク系（8個） ────────────────
+  // ─── #12-18: タスクストリーク系（7個） ────────────────
   { id: "streak_5",        emoji: "⚡", name: "5日コンボ",         description: "タスクストリーク5日達成" },
   { id: "streak_10",       emoji: "🔥", name: "10日コンボ",        description: "タスクストリーク10日達成" },
   { id: "streak_14",       emoji: "💥", name: "2週間バースト",     description: "タスクストリーク14日達成" },
   { id: "streak_21",       emoji: "🏆", name: "3週間マスター",     description: "タスクストリーク21日達成" },
   { id: "streak_30",       emoji: "💎", name: "1ヶ月チャンピオン", description: "タスクストリーク30日達成" },
-  { id: "streak_50",       emoji: "👑", name: "50日コンボ",        description: "タスクストリーク50日達成" },
   { id: "streak_100",      emoji: "🌈", name: "100日コンボ",       description: "タスクストリーク100日達成" },
   { id: "streak_comeback", emoji: "🌟", name: "ストリーク復活",    description: "ストリークが途切れた後また7日続けた" },
 
-  // ─── #21-26: ログインストリーク系（6個） ──────────────
+  // ─── #19-22: ログインストリーク系（4個） ──────────────
   { id: "login_7",   emoji: "📅", name: "1週間ログイン",   description: "ログインストリーク7日" },
   { id: "login_14",  emoji: "🌱", name: "2週間ログイン",   description: "ログインストリーク14日" },
   { id: "login_30",  emoji: "🌿", name: "1ヶ月ログイン",   description: "ログインストリーク30日" },
-  { id: "login_60",  emoji: "🌳", name: "2ヶ月ログイン",   description: "ログインストリーク60日" },
   { id: "login_100", emoji: "🏆", name: "100日ログイン",   description: "ログインストリーク100日" },
-  { id: "login_200", emoji: "👑", name: "200日ログイン",   description: "ログインストリーク200日" },
 
   // ─── #27-31: 累計XP系（5個・閾値を引き上げ） ──────────
   { id: "xp_50",   emoji: "💰", name: "50pt貯めた",   description: "累計50pt獲得" },
@@ -130,26 +138,22 @@ export const ALL_BADGES: Badge[] = [
   { id: "xp_500",  emoji: "🏆", name: "500pt貯めた",  description: "累計500pt獲得" },
   { id: "xp_1000", emoji: "👑", name: "1000pt貯めた", description: "累計1000pt獲得" },
 
-  // ─── #32-36: 写真系（5個・閾値を引き上げ） ────────────
+  // ─── #28-31: 写真系（4個・閾値を引き上げ） ────────────
   { id: "photo_15",  emoji: "📸", name: "写真15枚",       description: "写真付き報告15回" },
   { id: "photo_30",  emoji: "🤳", name: "写真30枚",       description: "写真付き報告30回" },
-  { id: "photo_60",  emoji: "🎞️", name: "写真60枚",       description: "写真付き報告60回" },
   { id: "photo_100", emoji: "🏆", name: "フォトマスター", description: "写真付き報告100回" },
   { id: "photo_200", emoji: "👑", name: "フォトキング",   description: "写真付き報告200回" },
 
-  // ─── #37-41: 期限ボーナス系（5個） ────────────────────
+  // ─── #32-35: 期限ボーナス系（4個） ────────────────────
   { id: "deadline_10",  emoji: "🎯", name: "期限マスター10",  description: "期限ボーナス付き報告10回" },
-  { id: "deadline_25",  emoji: "⚡", name: "期限マスター25",  description: "期限ボーナス付き報告25回" },
   { id: "deadline_50",  emoji: "💨", name: "神速クリア",      description: "期限ボーナス付き報告50回" },
   { id: "deadline_100", emoji: "🏆", name: "期限ファイター",  description: "期限ボーナス付き報告100回" },
   { id: "deadline_200", emoji: "👑", name: "期限の覇者",      description: "期限ボーナス付き報告200回" },
 
-  // ─── #42-48: 時間帯・速報系（7個） ────────────────────
+  // ─── #36-40: 時間帯・速報系（5個） ────────────────────
   { id: "morning_10",   emoji: "🌅", name: "朝活デビュー",    description: "8時前にクエスト完了10回達成" },
   { id: "morning_30",   emoji: "☀️", name: "朝活の人",        description: "8時前にクエスト完了30回達成" },
-  { id: "morning_60",   emoji: "🌞", name: "朝活マスター",    description: "8時前にクエスト完了60回達成" },
   { id: "afternoon_15", emoji: "☕", name: "放課後ファイター",description: "15〜18時にクエスト完了15回達成" },
-  { id: "afternoon_50", emoji: "🍵", name: "放課後マスター",  description: "15〜18時にクエスト完了50回達成" },
   { id: "quick_10",     emoji: "🚀", name: "思い立ったが吉日",description: "タスク追加から30分以内の完了を10回達成" },
   { id: "quick_30",     emoji: "⚡", name: "即行動の達人",    description: "タスク追加から30分以内の完了を30回達成" },
 
@@ -220,6 +224,20 @@ export const ALL_BADGES: Badge[] = [
   { id: "comeback_14",  emoji: "🌈", name: "カムバックキング",  description: "ストリークが途切れた後また14日続けた" },
   { id: "comeback_7x2", emoji: "🌈", name: "カムバックキング2", description: "ストリークが2回以上途切れた後、また7日続けた" },
   { id: "retry_10",     emoji: "💪", name: "折れない心",        description: "差し戻し後の再報告を10回成功させた" },
+
+  // ─── 宝箱系（3個） ───────────────────────────────────
+  { id: "treasure_first", emoji: "🎁", name: "はじめての宝箱",     description: "はじめて宝箱を開けた" },
+  { id: "treasure_25",    emoji: "🗝️", name: "宝箱コレクター",     description: "累計25個の宝箱を開けた" },
+  { id: "treasure_rare",  emoji: "💎", name: "レア当選！",         description: "レア（RARE）のごほうびを引き当てた" },
+
+  // ─── コレクションアイテム系（4個） ────────────────────
+  { id: "item_first",      emoji: "🌱", name: "はじめてのコレクション", description: "はじめて季節アイテムを獲得した" },
+  { id: "item_30",         emoji: "📦", name: "アイテム30種",         description: "季節アイテムを30種類獲得した" },
+  { id: "season_complete", emoji: "🍀", name: "シーズン制覇",         description: "1シーズン（20種）すべてのアイテムを集めた" },
+  { id: "item_80_all",     emoji: "🌌", name: "全アイテム制覇",       description: "全80種の季節アイテムを集めた" },
+
+  // ─── 転生卵系（1個） ─────────────────────────────────
+  { id: "rebirth_egg_used", emoji: "🥚", name: "卵えらびマスター",   description: "転生卵ボーナスを使った" },
 ];
 
 // ─── バッジ条件チェック（純粋関数） ──────────────────────────────────────
@@ -238,26 +256,22 @@ const BADGE_CONDITIONS: Record<string, (ctx: BadgeContext) => boolean> = {
   "quest_200":  c => c.approvedCount >= 200,
   "quest_300":  c => c.approvedCount >= 300,
   "quest_500":  c => c.approvedCount >= 500,
-  "quest_750":  c => c.approvedCount >= 750,
   "quest_1000": c => c.approvedCount >= 1000,
 
-  // #13-20: タスクストリーク系
+  // タスクストリーク系
   "streak_5":        c => c.bestTaskStreak >= 5,
   "streak_10":       c => c.bestTaskStreak >= 10,
   "streak_14":       c => c.bestTaskStreak >= 14,
   "streak_21":       c => c.bestTaskStreak >= 21,
   "streak_30":       c => c.bestTaskStreak >= 30,
-  "streak_50":       c => c.bestTaskStreak >= 50,
   "streak_100":      c => c.bestTaskStreak >= 100,
   "streak_comeback": c => c.hasComeback7,
 
-  // #21-26: ログインストリーク系
+  // ログインストリーク系
   "login_7":   c => c.loginBestStreak >= 7,
   "login_14":  c => c.loginBestStreak >= 14,
   "login_30":  c => c.loginBestStreak >= 30,
-  "login_60":  c => c.loginBestStreak >= 60,
   "login_100": c => c.loginBestStreak >= 100,
-  "login_200": c => c.loginBestStreak >= 200,
 
   // #27-31: XP系
   "xp_50":   c => c.totalXp >= 50,
@@ -266,26 +280,22 @@ const BADGE_CONDITIONS: Record<string, (ctx: BadgeContext) => boolean> = {
   "xp_500":  c => c.totalXp >= 500,
   "xp_1000": c => c.totalXp >= 1000,
 
-  // #32-36: 写真系
+  // 写真系
   "photo_15":  c => c.photoCount >= 15,
   "photo_30":  c => c.photoCount >= 30,
-  "photo_60":  c => c.photoCount >= 60,
   "photo_100": c => c.photoCount >= 100,
   "photo_200": c => c.photoCount >= 200,
 
-  // #37-41: 期限ボーナス系
+  // 期限ボーナス系
   "deadline_10":  c => c.deadlineBonusCount >= 10,
-  "deadline_25":  c => c.deadlineBonusCount >= 25,
   "deadline_50":  c => c.deadlineBonusCount >= 50,
   "deadline_100": c => c.deadlineBonusCount >= 100,
   "deadline_200": c => c.deadlineBonusCount >= 200,
 
-  // #42-48: 時間帯・速報系
+  // 時間帯・速報系
   "morning_10":   c => c.morningReportCount >= 10,
   "morning_30":   c => c.morningReportCount >= 30,
-  "morning_60":   c => c.morningReportCount >= 60,
   "afternoon_15": c => c.afternoonReportCount >= 15,
-  "afternoon_50": c => c.afternoonReportCount >= 50,
   "quick_10":     c => c.quickReportCount >= 10,
   "quick_30":     c => c.quickReportCount >= 30,
 
@@ -356,6 +366,20 @@ const BADGE_CONDITIONS: Record<string, (ctx: BadgeContext) => boolean> = {
   "comeback_14":  c => c.hasComeback14,
   "comeback_7x2": c => c.hasComeback7After2Breaks,
   "retry_10":     c => c.retrySuccessCount >= 10,
+
+  // 宝箱系
+  "treasure_first": c => c.treasureOpenedCount >= 1,
+  "treasure_25":    c => c.treasureOpenedCount >= 25,
+  "treasure_rare":  c => c.rareTreasureCount >= 1,
+
+  // コレクションアイテム系
+  "item_first":      c => c.collectionItemCount >= 1,
+  "item_30":         c => c.collectionItemCount >= 30,
+  "season_complete": c => c.collectionSeasonsComplete >= 1,
+  "item_80_all":     c => c.hasAllCollectionItems,
+
+  // 転生卵系
+  "rebirth_egg_used": c => c.rebirthEggUsed,
 };
 
 /**
