@@ -18,15 +18,15 @@ function seq(values: number[]): () => number {
 }
 
 // 排他的単発抽選モデル:
-//   u in [0,         1/30)              → RARE
-//   u in [1/30,      1/30 + 1/20)       → UNCOMMON
-//   u in [1/30+1/20, 1/30+1/20+1/10)    → COMMON
-//   u in [11/60,     1.0)               → MISS
-// 合計 hit 率 = 1/10 + 1/20 + 1/30 = 11/60 ≈ 0.1833
-const RARE_HIT = 0.01;       // < 1/30 ≈ 0.0333
-const UNCOMMON_HIT = 0.05;   // in [0.0333, 0.0833)
-const COMMON_HIT = 0.15;     // in [0.0833, 0.1833)
-const MISS = 0.5;            // >= 0.1833
+//   u in [0,         1/45)              → RARE
+//   u in [1/45,      1/45 + 1/20)       → UNCOMMON
+//   u in [1/45+1/20, 1/45+1/20+1/10)    → COMMON
+//   u in [31/180,    1.0)               → MISS
+// 合計 hit 率 = 1/10 + 1/20 + 1/45 = 31/180 ≈ 0.1722
+const RARE_HIT = 0.01;       // < 1/45 ≈ 0.0222
+const UNCOMMON_HIT = 0.05;   // in [0.0222, 0.0722)
+const COMMON_HIT = 0.15;     // in [0.0722, 0.1722)
+const MISS = 0.5;            // >= 0.1722
 
 const pool3 = (): TreasurePoolItem[] => [
   { id: "c1", title: "おやつ", rarity: "COMMON" },
@@ -41,8 +41,8 @@ describe("treasure constants", () => {
   it("UNCOMMON は 1/20", () => {
     expect(RARITY_BASE_PROBABILITY.UNCOMMON).toBeCloseTo(1 / 20, 10);
   });
-  it("RARE は 1/30", () => {
-    expect(RARITY_BASE_PROBABILITY.RARE).toBeCloseTo(1 / 30, 10);
+  it("RARE は 1/45", () => {
+    expect(RARITY_BASE_PROBABILITY.RARE).toBeCloseTo(1 / 45, 10);
   });
   it("ボーナス倍率は 1.5", () => {
     expect(RARITY_BOOSTED_MULTIPLIER).toBe(1.5);
@@ -61,8 +61,8 @@ describe("drawTreasure — プールが空", () => {
   });
 });
 
-describe("drawTreasure — 排他的単発抽選 (合計 hit 率 = 1/10+1/20+1/30 = 11/60)", () => {
-  it("u=0.01 < 1/30 → RARE", () => {
+describe("drawTreasure — 排他的単発抽選 (合計 hit 率 = 1/10+1/20+1/45 = 31/180)", () => {
+  it("u=0.01 < 1/45 → RARE", () => {
     const res = drawTreasure(pool3(), {
       rng: seq([RARE_HIT, 0.0]),
     });
@@ -70,7 +70,7 @@ describe("drawTreasure — 排他的単発抽選 (合計 hit 率 = 1/10+1/20+1/3
     expect(res.itemId).toBe("r1");
   });
 
-  it("u=0.05 in [1/30, 1/30+1/20) → UNCOMMON", () => {
+  it("u=0.05 in [1/45, 1/45+1/20) → UNCOMMON", () => {
     const res = drawTreasure(pool3(), {
       rng: seq([UNCOMMON_HIT, 0.0]),
     });
@@ -78,7 +78,7 @@ describe("drawTreasure — 排他的単発抽選 (合計 hit 率 = 1/10+1/20+1/3
     expect(res.itemId).toBe("u1");
   });
 
-  it("u=0.15 in [1/30+1/20, 11/60) → COMMON", () => {
+  it("u=0.15 in [1/45+1/20, 31/180) → COMMON", () => {
     const res = drawTreasure(pool3(), {
       rng: seq([COMMON_HIT, 0.0]),
     });
@@ -86,7 +86,7 @@ describe("drawTreasure — 排他的単発抽選 (合計 hit 率 = 1/10+1/20+1/3
     expect(res.itemId).toBe("c1");
   });
 
-  it("u=0.5 (>= 11/60) → MISS (itemId=null, rarity=null)", () => {
+  it("u=0.5 (>= 31/180) → MISS (itemId=null, rarity=null)", () => {
     const res = drawTreasure(pool3(), { rng: seq([MISS]) });
     expect(res.itemId).toBeNull();
     expect(res.rarity).toBeNull();
@@ -105,8 +105,8 @@ describe("drawTreasure — 排他的単発抽選 (合計 hit 率 = 1/10+1/20+1/3
   });
 });
 
-describe("drawTreasure — 統計的に 60 回の期待値 ≒ 6:3:2:49", () => {
-  it("seed なし 5000 回試行で各レア度の出現比が 6:3:2（ハズレ 49）に近い (±3σ)", () => {
+describe("drawTreasure — 統計的に 180 回の期待値 ≒ 18:9:4:149", () => {
+  it("seed なし 5000 回試行で各レア度の出現比が 18:9:4（ハズレ 149）に近い (±3σ)", () => {
     const N = 5000;
     const counts = { COMMON: 0, UNCOMMON: 0, RARE: 0, MISS: 0 };
     // Mulberry32 — 決定論シード PRNG（CI でブレないように）
@@ -126,10 +126,10 @@ describe("drawTreasure — 統計的に 60 回の期待値 ≒ 6:3:2:49", () => 
     }
     const expCommon = N / 10;
     const expUncommon = N / 20;
-    const expRare = N / 30;
+    const expRare = N / 45;
     const sigmaCommon = Math.sqrt(N * (1 / 10) * (9 / 10));
     const sigmaUncommon = Math.sqrt(N * (1 / 20) * (19 / 20));
-    const sigmaRare = Math.sqrt(N * (1 / 30) * (29 / 30));
+    const sigmaRare = Math.sqrt(N * (1 / 45) * (44 / 45));
     expect(Math.abs(counts.COMMON - expCommon)).toBeLessThan(3 * sigmaCommon);
     expect(Math.abs(counts.UNCOMMON - expUncommon)).toBeLessThan(3 * sigmaUncommon);
     expect(Math.abs(counts.RARE - expRare)).toBeLessThan(3 * sigmaRare);
@@ -137,10 +137,10 @@ describe("drawTreasure — 統計的に 60 回の期待値 ≒ 6:3:2:49", () => 
 });
 
 describe("drawTreasure — boosted (確率1.5倍、各レア度別)", () => {
-  it("RARE の領域が広がる: 通常 1/30 ≈ 0.0333 → boosted 1.5/30 = 0.05", () => {
+  it("RARE の領域が広がる: 通常 1/45 ≈ 0.0222 → boosted 1.5/45 ≈ 0.0333", () => {
     const res = drawTreasure(pool3(), {
       boosted: true,
-      rng: seq([0.04, 0.0]),
+      rng: seq([0.025, 0.0]),
     });
     expect(res.rarity).toBe("RARE");
   });
@@ -148,12 +148,12 @@ describe("drawTreasure — boosted (確率1.5倍、各レア度別)", () => {
   it("boosted=false で同じ u は UNCOMMON", () => {
     const res = drawTreasure(pool3(), {
       boosted: false,
-      rng: seq([0.04, 0.0]),
+      rng: seq([0.025, 0.0]),
     });
     expect(res.rarity).toBe("UNCOMMON");
   });
 
-  it("boosted 合計 hit 率は 1.5 × 11/60 = 11/40 = 0.275 — u=0.4 はハズレ", () => {
+  it("boosted 合計 hit 率は 1.5 × 31/180 = 31/120 ≈ 0.2583 — u=0.4 はハズレ", () => {
     const res = drawTreasure(pool3(), {
       boosted: true,
       rng: seq([0.4]),
@@ -161,7 +161,7 @@ describe("drawTreasure — boosted (確率1.5倍、各レア度別)", () => {
     expect(res.itemId).toBeNull();
   });
 
-  it("boosted で u=0.2 < 0.275 → COMMON 領域", () => {
+  it("boosted で u=0.2 < 31/120 → COMMON 領域", () => {
     const res = drawTreasure(pool3(), {
       boosted: true,
       rng: seq([0.2, 0.0]),

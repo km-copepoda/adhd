@@ -2,11 +2,11 @@
 //
 // 振る舞い:
 //  - 「排他的単発抽選」: rng を 1 回だけ消費し、その値で RARE / UNCOMMON / COMMON / MISS を排他選択
-//      u in [0,                 1/30)             → RARE
-//      u in [1/30,              1/30+1/20)        → UNCOMMON
-//      u in [1/30+1/20,         1/30+1/20+1/10)   → COMMON
-//      u in [11/60,             1.0)              → MISS
-//    boosted=true なら各レア度の幅を 1.5 倍（合計 hit 率 11/60 → 11/40）
+//      u in [0,                 1/45)             → RARE
+//      u in [1/45,              1/45+1/20)        → UNCOMMON
+//      u in [1/45+1/20,         1/45+1/20+1/10)   → COMMON
+//      u in [31/180,            1.0)              → MISS
+//    boosted=true なら各レア度の幅を 1.5 倍（合計 hit 率 31/180 → 31/120）
 //  - 当選レア度のアイテムがプールに無ければ次に低いレア度に降格、いずれも無ければハズレ
 //  - プールが空なら null
 //
@@ -22,7 +22,7 @@ export type TreasureRarity = "COMMON" | "UNCOMMON" | "RARE";
 export const RARITY_BASE_PROBABILITY: Record<TreasureRarity, number> = {
   COMMON: 1 / 10,
   UNCOMMON: 1 / 20,
-  RARE: 1 / 30,
+  RARE: 1 / 45,
 };
 
 export const RARITY_BOOSTED_MULTIPLIER = 1.5;

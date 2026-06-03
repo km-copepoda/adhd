@@ -1471,3 +1471,23 @@
 - `src/lib/treasure.ts` — `RARITY_BASE_PROBABILITY` 値変更、冒頭コメントの境界記述を更新
 - `src/__tests__/lib/treasure.test.ts` — 定数・境界・統計テスト（5000 試行 ±3σ）の期待値を新確率に更新
 - `src/__tests__/lib/treasureService.test.ts` — boosted 検証コメントを新確率値に更新（rng=0.2 は変更前後ともに boosted で COMMON 当選圏内）
+
+## 2026-06-03: RARE 当選確率をさらに引き下げ (1/30 → 1/45)
+
+### 決定
+- 同日早朝に `{1/10, 1/20, 1/30}` に調整したばかりの確率を、**RARE のみ さらに `1/45` まで絞る**（COMMON 1/10 / UNCOMMON 1/20 は据え置き）
+- 合計 hit 率: 11/60 (≈18.3%) → **31/180 (≈17.2%)**、boosted 時 11/40 (=27.5%) → **31/120 (≈25.8%)**
+- レア度比は 6:3:2 → **18:9:4** へ。RARE が UNCOMMON の 4/9 まで希少化
+
+### 理由
+- 1/30 でも親側の感覚として「RARE がまだ早く出すぎる」というフィードバック。COMMON/UNCOMMON は現実の小さなごほうび（おやつ等）想定で頻度を保ちたいが、RARE は「特別な日のごほうび」想定なのでさらに絞る
+- COMMON/UNCOMMON を据え置くことで、ライト体験の頻度・コレクション獲得頻度はほぼ維持される（合計 hit 率の低下は 1.1pt のみ）。**RARE のレア度ヒエラルキーだけが明確に立つ** チューニング
+
+### 採用しなかった案
+- RARE を 1/60 まで一気に下げる案。boosted (1.5/60 = 1/40) との差が小さくなり、卵ボーナスの体感メリットが薄まる。1/45 なら boosted で 1/30 まで戻り、ボーナスの体感的な意味が残る
+- UNCOMMON も 1/25 等に同時に絞る案。コレクション獲得率が上がりすぎて「コレクションばかり溜まる」体感になる懸念。今回の不満点は RARE のみなので RARE のみピンポイントで調整
+
+### 該当箇所
+- `src/lib/treasure.ts` — `RARITY_BASE_PROBABILITY.RARE` を `1/45` に変更、冒頭コメントの境界記述を更新
+- `src/__tests__/lib/treasure.test.ts` — RARE 定数・境界・統計テスト・boosted 境界テストの期待値を新確率に更新（boosted RARE 境界が 0.0333 まで縮むため rng=0.025 へ）
+- `src/__tests__/lib/treasureService.test.ts` — boosted 検証コメントの合計 hit 率記述のみ更新

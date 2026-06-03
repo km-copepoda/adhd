@@ -612,8 +612,8 @@ describe("openOldestTreasure", () => {
     } as any);
     mockPrisma.treasureItem.findMany.mockResolvedValue([
       // COMMON 1/10 = 0.1、boosted で 1.5/10 = 0.15
-      // 合計 hit 率: 通常 11/60 ≈ 0.183、boosted で 11/40 = 0.275
-      // rng=0.2 → 通常 (>0.183) は MISS、boosted (<0.275) で COMMON 当選
+      // 合計 hit 率: 通常 31/180 ≈ 0.172、boosted で 31/120 ≈ 0.258
+      // rng=0.2 → 通常 (>0.172) は MISS、boosted (<0.258) で COMMON 当選
       { id: "i1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
     ]);
     mockPrisma.treasureLog.update.mockResolvedValue({} as any);
