@@ -6,6 +6,8 @@ export type BadgeData = {
   unlocked: boolean;
   unlockedAt: string | null;
   isNew: boolean;
+  /** 数値系バッジの進捗。ブール系・未解錠以外は null。 */
+  progress?: { current: number; target: number } | null;
 };
 
 export type BadgeFilter = "all" | "unlocked" | "locked";

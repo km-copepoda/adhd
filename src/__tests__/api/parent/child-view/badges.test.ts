@@ -8,9 +8,29 @@ import { childUser, parentUser } from "../../../helpers/fixtures";
 
 vi.mock("@/lib/badges", async () => {
   const actual = await vi.importActual<typeof import("@/lib/badges")>("@/lib/badges");
+  const emptyCtx = {
+    evolutionStage: 0, rebirthCount: 0, totalXp: 0, collectionCount: 0,
+    hasStudyCollection: false, hasStaminaCollection: false, hasLifeCollection: false, hasAllTypesCollection: false,
+    bestTaskStreak: 0, loginCurrentStreak: 0, loginBestStreak: 0,
+    approvedCount: 0, photoCount: 0, deadlineBonusCount: 0, quickReportCount: 0,
+    morningReportCount: 0, afternoonReportCount: 0, retrySuccessCount: 0, skipCount: 0, skipThenNextDayCount: 0,
+    perfectDaysCount: 0, maxQuestsPerDay: 0,
+    weeksWithFivePlusDays: 0, weeksWithSevenDays: 0,
+    monthsWithTenPlusDays: 0, monthsWithFifteenPlusDays: 0, monthsWithTwentyPlusDays: 0, perfectMonthsCount: 0,
+    springDays: 0, summerDays: 0, autumnDays: 0, winterDays: 0,
+    hasNewYearQuest: false, monthEndCount: 0, mondayCount: 0, weekendCount: 0,
+    selfTaskCreatedCount: 0, selfTaskApprovedCount: 0, maxSingleTaskBestStreak: 0,
+    hasComeback7: false, hasComeback14: false, hasComeback7After2Breaks: false,
+    hasMagicDay: false, hasWeekWithDailyDeadline: false, tripleCrownDaysCount: 0,
+    unlockedBadgeCount: 0,
+    treasureOpenedCount: 0, rareTreasureCount: 0,
+    collectionItemCount: 0, collectionSeasonsComplete: 0, hasAllCollectionItems: false,
+    rebirthEggUsed: false,
+  };
   return {
     ...actual,
     checkAndUnlockBadges: vi.fn().mockResolvedValue([]),
+    loadBadgeContext: vi.fn().mockResolvedValue(emptyCtx),
   };
 });
 

@@ -5,11 +5,13 @@
 // （親自身が操作した結果なので二重通知になる）。
 // 抽選そのものは openOldestTreasure を共用するため、抽選確率・コレクション付与は同等。
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { openOldestTreasure } from "@/lib/treasureService";
 import { resolveTargetChild } from "@/lib/parentChildView";
+import { checkAndUnlockBadges } from "@/lib/badges";
+import { triggerBadgeLog } from "@/lib/bulletinLog";
 
 export async function POST(request: Request) {
   const parent = await getCurrentUser();
@@ -38,6 +40,17 @@ export async function POST(request: Request) {
   const remainingUnlocked = await prisma.treasureLog.count({
     where: { childId: child.id, status: "UNLOCKED" },
   });
+
+  // 親代理でも子のバッジ判定を行う（宝箱・コレクション系を即時解錠）
+  after(() =>
+    checkAndUnlockBadges(child.id)
+      .then(newBadges => {
+        for (const badge of newBadges) {
+          triggerBadgeLog(child.id, badge.name).catch(() => {});
+        }
+      })
+      .catch(() => {}),
+  );
 
   return NextResponse.json({
     ok: true,

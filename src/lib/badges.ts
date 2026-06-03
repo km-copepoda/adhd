@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { ALL_BADGES, checkBadgeConditions } from "@/lib/badges.data";
 import type { Badge, BadgeContext } from "@/lib/badges.data";
+import { ALL_COLLECTION_ITEMS } from "@/lib/collectionItems";
 
 // Re-export types and data for consumers
-export { ALL_BADGES, checkBadgeConditions } from "@/lib/badges.data";
-export type { Badge, BadgeContext } from "@/lib/badges.data";
+export { ALL_BADGES, checkBadgeConditions, getBadgeProgress } from "@/lib/badges.data";
+export type { Badge, BadgeContext, BadgeProgress } from "@/lib/badges.data";
 
 // ─── ISO週キー計算 ────────────────────────────────────────────────────────
 
@@ -22,7 +23,17 @@ function getISOWeekKey(dateStr: string): string {
 export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   const JST_OFFSET = 9 * 60 * 60 * 1000;
 
-  const [user, streakData, allQuests, taskStreaks, selfTaskApprovedCount, selfTaskCreatedCount, unlockedBadgeCount] =
+  const [
+    user,
+    streakData,
+    allQuests,
+    taskStreaks,
+    selfTaskApprovedCount,
+    selfTaskCreatedCount,
+    unlockedBadgeCount,
+    openedTreasures,
+    userCollectionItems,
+  ] =
     await Promise.all([
       prisma.user.findUnique({
         where: { id: childId },
@@ -32,6 +43,7 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
           studyPt: true,
           staminaPt: true,
           lifePt: true,
+          usedEggBonuses: true,
         },
       }),
       prisma.streak.findUnique({
@@ -78,6 +90,16 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
         },
       }),
       prisma.userBadge.count({ where: { userId: childId } }),
+      // 宝箱: 開封済みの TreasureLog（rarity 集計のため item を含める）
+      prisma.treasureLog.findMany({
+        where: { childId, status: "OPENED" },
+        select: { item: { select: { rarity: true } } },
+      }),
+      // コレクションアイテム: 所持しているアイテム（種類別）
+      prisma.userCollectionItem.findMany({
+        where: { childId },
+        select: { itemId: true, season: true },
+      }),
     ]);
 
   if (!user) throw new Error(`User ${childId} not found`);
@@ -258,6 +280,28 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   const hasComeback14 = breaks >= 1 && postBreakMax >= 14;
   const hasComeback7After2Breaks = breaks >= 2 && postBreakMax >= 7;
 
+  // 宝箱: 開封数と RARE 当選数
+  const treasureOpenedCount = openedTreasures.length;
+  const rareTreasureCount = openedTreasures.filter(t => t.item?.rarity === "RARE").length;
+
+  // コレクションアイテム: 種類数 / シーズン制覇数 / 全制覇判定
+  const collectionItemCount = userCollectionItems.length;
+  const collectedItemIds = new Set(userCollectionItems.map(i => i.itemId));
+  const totalItemCount = ALL_COLLECTION_ITEMS.length;
+  const hasAllCollectionItems = collectionItemCount >= totalItemCount;
+  const seasons = new Set(ALL_COLLECTION_ITEMS.map(i => i.season));
+  let collectionSeasonsComplete = 0;
+  for (const season of seasons) {
+    const itemsInSeason = ALL_COLLECTION_ITEMS.filter(i => i.season === season);
+    if (itemsInSeason.every(i => collectedItemIds.has(i.id))) {
+      collectionSeasonsComplete++;
+    }
+  }
+
+  // 転生卵ボーナス: 過去に1回でも使ったか
+  const usedEggBonuses = JSON.parse(user.usedEggBonuses || "[]") as string[];
+  const rebirthEggUsed = usedEggBonuses.length > 0;
+
   return {
     evolutionStage: user.evolutionStage,
     rebirthCount,
@@ -305,6 +349,12 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
     hasWeekWithDailyDeadline,
     tripleCrownDaysCount,
     unlockedBadgeCount,
+    treasureOpenedCount,
+    rareTreasureCount,
+    collectionItemCount,
+    collectionSeasonsComplete,
+    hasAllCollectionItems,
+    rebirthEggUsed,
   };
 }
 

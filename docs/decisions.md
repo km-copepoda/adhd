@@ -1491,3 +1491,107 @@
 - `src/lib/treasure.ts` — `RARITY_BASE_PROBABILITY.RARE` を `1/45` に変更、冒頭コメントの境界記述を更新
 - `src/__tests__/lib/treasure.test.ts` — RARE 定数・境界・統計テスト・boosted 境界テストの期待値を新確率に更新（boosted RARE 境界が 0.0333 まで縮むため rng=0.025 へ）
 - `src/__tests__/lib/treasureService.test.ts` — boosted 検証コメントの合計 hit 率記述のみ更新
+
+## 2026-06-03: 実績100バッジの全面見直し（序盤を絞り中盤からの達成感を強化）
+
+### 決定
+- 100個のバッジ定義（`src/lib/badges.data.ts`）を全面リバランス。総数100個は維持
+- 「ようこそ系」を旧10個 → 3個に縮小: `first_quest` / `first_hatch` / `first_self_approved` のみ
+- 旧 `first_approval` `first_photo` `first_self_task` `first_skip` `first_retry` `first_evo2` `first_evo3` `deadline_first` `morning_first` `afternoon_first` `quick_first` `perfect_first` は廃止
+- 旧 `approval_*`（10/30/50/100/200）を廃止し `quest_*` に統合（条件が `approvedCount` で完全重複していたため）
+- 累計クエスト系を 9段階に拡張: `quest_10 / 25 / 50 / 100 / 200 / 300 / 500 / 750 / 1000`
+- 中盤閾値を全体的に底上げ:
+  - `streak_3` 廃止 → `streak_5` から開始（5/10/14/21/30/50/100）
+  - `login_3` 廃止 → `login_7` から開始（7/14/30/60/100/200）
+  - `xp_10/30` 廃止 → `xp_50` から開始（50/100/300/500/1000）
+  - `photo_5` 廃止 → `photo_15` から開始（15/30/60/100/200）
+  - `monday_5 → monday_10` / `weekend_10 → weekend_20` / `month_end → month_end_10` / `spring 10→15日` / `summer/autumn/winter 15→20日`
+  - `skip_aware` 5→10回 / `retry_5 → retry_10` / `triple_crown` 10→25日
+  - `morning_first/morning_7` 廃止 → `morning_10/30/60`、`afternoon_first` 廃止 → `afternoon_15/50`、`quick_first` 廃止 → `quick_10/30`
+  - `perfect_first` 廃止 → `perfect_5` から開始（5/15/30/50）
+  - `day_3quests` 廃止 → `day_4quests / day_6quests`
+- 終盤バッジを新設: `week_5x10` `week_7x5` `month_perfect_x3` `month_15x6` `rebirth_10` `habit_60` `milestone_90` `streak_50` `streak_100` `login_60` `login_100` `login_200` 等
+- 既存ユーザが旧IDで解錠していた `UserBadge` レコードは UI 上は表示されなくなる（`ALL_BADGES` ベースで描画するため）。DB上は残置で問題なし
+
+### 理由
+- 旧設計では「初回◯◯」系が10個＋低閾値の累計系が多数あり、最初の1〜数クエストで5〜10個が一気に解放される状態だった。「次に何の実績を狙おう」というモチベが生まれず、序盤の達成感が逆に薄くなっていた
+- 序盤を `first_quest`（初回承認時）と `first_hatch`（初進化時）の最大2個に絞ることで、最初の解放が「珍しい・嬉しい」体験になる
+- 中盤閾値の引き上げで、解放ペースをゆるやかに長期化。終盤バッジを追加して 100/200/500/1000 級の長期目標も用意
+
+### やってはいけないこと
+- 「廃止IDをDBから一括削除する」マイグレーションを書く（既存ユーザが過去に何を解錠したかの記録自体は残しておく方が安全。UI 描画は `ALL_BADGES` 経由なので未定義IDは自然に非表示になる）
+- 旧IDを別名で再導入する（`first_photo` → `photo_1` 等）。閾値を上げてもバッジ自体の数が増え 100 個縛りを破る
+- `BadgeContext` フィールドを新規追加して条件を細分化する（既存フィールドで十分賄える設計にしてあり、`loadBadgeContext` の集計コストを増やさない方針）
+
+### 該当箇所
+- `src/lib/badges.data.ts` — `ALL_BADGES` と `BADGE_CONDITIONS` を全面書き換え
+- `src/__tests__/lib/badges.test.ts` — 旧IDの境界テストを新IDに置換、序盤同時解放数（初回承認で1個・初進化同時で2個）を境界テスト化
+- `BadgeContext` 型・`loadBadgeContext` は無変更（既存フィールドで全条件を表現可能）
+
+
+## 2026-06-03: 宝箱・コレクションアイテム・転生卵を実績の対象に追加（100バッジ維持）
+
+### 決定
+- 同日の実績全面見直しの直後フォロー。**badge 設計以降に追加された3システム**（宝箱 / 季節コレクションアイテム / 転生卵ボーナス）がバッジで一切拾えていなかった抜けを埋める
+- 中盤の冗長バッジ8個を削除し、新システム向け8個を追加して **総数100個を維持**
+- 削除: `quest_750` / `streak_50` / `login_60` / `login_200` / `photo_60` / `deadline_25` / `morning_60` / `afternoon_50`
+- 追加（宝箱3個）:
+  - `treasure_first` — はじめて宝箱を開けた（`treasureOpenedCount >= 1`）
+  - `treasure_25` — 累計25個開封（`treasureOpenedCount >= 25`）
+  - `treasure_rare` — RARE 当選（`rareTreasureCount >= 1`）
+- 追加（コレクションアイテム4個）:
+  - `item_first` — はじめて季節アイテム獲得（`collectionItemCount >= 1`）
+  - `item_30` — 30種獲得（distinct itemId 単位）
+  - `season_complete` — 春/夏/秋/冬のいずれか1シーズン（20種）制覇
+  - `item_80_all` — 全80種制覇（`hasAllCollectionItems`）
+- 追加（転生卵1個）:
+  - `rebirth_egg_used` — 転生卵ボーナスを1回以上使った（`usedEggBonuses.length >= 1`）
+- `BadgeContext` に6フィールド追加: `treasureOpenedCount` / `rareTreasureCount` / `collectionItemCount` / `collectionSeasonsComplete` / `hasAllCollectionItems` / `rebirthEggUsed`
+- `loadBadgeContext` に Prisma クエリを2つ追加: `prisma.treasureLog.findMany({ status: "OPENED" })`（item.rarity 付き）と `prisma.userCollectionItem.findMany`。`User.usedEggBonuses` (JSON文字列) は既存ユーザクエリで取得
+
+### 理由
+- 宝箱・コレクションアイテム・転生卵は実績設計後に追加された主要システムで、子供の体験面積を大きく占めるようになったにもかかわらず「実績ページで集める対象」として登場していなかった
+- 旧設計では `quest_750`(500-1000の間) / `streak_50`(30-100の間) / `login_60`(30-100の間) など、隣接バッジと数値が近接して達成感の差分が薄いものがあった。これらと入れ替えて意味のあるバッジ密度を確保
+- `collectionItemCount` は **distinct itemId 数** で実装。`UserCollectionItem.count`（同一アイテムのダブり）は使わない（「30個集めた」のユーザ体感は「30種類集めた」が自然）
+
+### やってはいけないこと
+- `treasure_first` / `item_first` を「ようこそ系」と同じ序盤同時解放に持っていく（これらは「初回宝箱開封」「初回コレクション獲得」のタイミングで個別に発火する設計。`first_quest` と同時には起きないので問題なし）
+- `treasureOpenedCount` を全 `TreasureLog` でカウントする（LOCKED / UNLOCKED / CANCELLED を含めると未開封の宝箱が混入し「累計25個開封」の意味が壊れる。必ず `status: "OPENED"` で絞る）
+- `season_complete` を「現シーズン中の獲得」とする（マスターは `src/lib/collectionItems.ts` で 4シーズン × 20種固定。各シーズン20種揃ったかを判定すれば良い）
+- `collectionItemCount` の閾値を上げて「30 → 50」等にする（80種マスターの半分以上を要求するとペース感が崩れる。30は4シーズン中1シーズン以上のボリュームに相当する適切な中盤目標）
+
+### 該当箇所
+- `src/lib/badges.data.ts` — `BadgeContext` に6フィールド追加、`ALL_BADGES` から8個削除＋8個追加、`BADGE_CONDITIONS` 同期
+- `src/lib/badges.ts` — `loadBadgeContext` に `treasureLog` / `userCollectionItem` 集計と `usedEggBonuses` 判定を追加
+- `src/__tests__/lib/badges.test.ts` — 新バッジ8個の境界テストと、削除バッジ8個の不在テストを追加
+
+## 2026-06-03: バッジ即時解錠フック + 進捗ヒント UI
+
+### 決定
+- **即時解錠**: `checkAndUnlockBadges + triggerBadgeLog` を以下3つのAPIルートに `after()` で fire-and-forget 追加
+  - `POST /api/treasures/open`（子: 宝箱開封）— `treasure_first` `treasure_25` `treasure_rare` `item_first` `item_30` `season_complete` `item_80_all` の即時発火
+  - `POST /api/parent/child-view/treasures/open`（親代理: 宝箱開封）— 同上を子のIDで判定
+  - `POST /api/rebirth`（子: 転生）— `rebirth_egg_used` 即時発火
+- **進捗ヒント**:
+  - `src/lib/badges.data.ts` に純粋関数 `getBadgeProgress(badgeId, ctx): { current, target } | null` を新規追加。ブール条件（hasXxx・OR条件）は null、数値条件は `{current, target}` を返す
+  - `GET /api/badges` および親代理 `GET /api/parent/child-view/badges` のレスポンスで各バッジに `progress` フィールドを含める
+  - `BadgesContent.tsx` の `BadgeCard` で **未解錠 + 進捗あり** のバッジに「あと N で解錠」ヒント＋進捗バーを表示
+
+### 理由
+- 旧設計では宝箱・コレクション・転生卵バッジが追加されただけで、解錠フックが承認フロー / `/api/badges` 訪問の2経路にしかなく、即時感がなかった（次に承認イベントが起きるまで掲示板にもトーストにも流れない）
+- 進捗ヒントは ADHD 児童向けという文脈で特に重要。未解錠バッジが完全にブラックボックスだと「次に何をすれば良いか」が分からず、達成動機が削がれる
+
+### やってはいけないこと
+- `checkAndUnlockBadges` をクライアントから直接呼ぶ（API ルートの `after()` 経由でのみ。クライアントから呼ぶ経路を作ると認証・整合性チェックを再実装する羽目になる）
+- `loadBadgeContext` の重複呼び出しを「重複だから」と排除しようと、`checkAndUnlockBadges` のシグネチャを `{ newBadges, ctx }` に変更する（既存6箇所の呼び出し全てを修正する破壊的変更になる。`/api/badges` の二重ロード（~50ms）はバッジページ訪問頻度から見て許容コスト）
+- 進捗ヒントの target をクライアント側のハードコードで持つ（バッジ閾値変更時に二重メンテになる。必ず `getBadgeProgress` 経由でサーバから配信する）
+- ブール系バッジ（`collection_all`, `multi_tasker`, `hasComeback*` 等）に無理やり `{ current, target }` をひねり出して「あと 0 / 1 で解錠」と表示する（条件が複合的で 0/1 トグルなので「あと N」表現が成立しない）
+
+### 該当箇所
+- `src/app/api/treasures/open/route.ts` + `src/app/api/parent/child-view/treasures/open/route.ts` + `src/app/api/rebirth/route.ts` — `after()` フック追加
+- `src/lib/badges.data.ts` — `BadgeProgress` 型と `getBadgeProgress` / `BADGE_PROGRESS_MAP` 追加
+- `src/lib/badges.ts` — `getBadgeProgress` / `BadgeProgress` を re-export
+- `src/app/api/badges/route.ts` + `src/app/api/parent/child-view/badges/route.ts` — `loadBadgeContext` 並列ロードして各バッジに `progress` を付加
+- `src/lib/badgeFilter.ts` — `BadgeData` 型に `progress?` フィールド追加
+- `src/components/child/BadgesContent.tsx` — `ProgressHint` サブコンポーネント追加、未解錠バッジに表示
+- テスト: `treasures/open.test.ts` / `parent/child-view/treasures-open.test.ts` / `rebirth.test.ts` / `badges/route.test.ts` / `parent/child-view/badges.test.ts` / `lib/badges.test.ts`
