@@ -1448,3 +1448,26 @@
 - `prisma/schema.prisma` — `User.treasurePityCount` 削除
 - `prisma/migrations/20260602000001_drop_user_treasure_pity_count/migration.sql`
 - テスト 5 ファイル（treasure / treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / child・parent treasures page）から pity 関連 mock/assertion を撤去
+
+## 2026-06-03: 親ごほうび当選確率を引き下げ (COMMON 1/7→1/10 / UNCOMMON 1/14→1/20 / RARE 1/28→1/30)
+
+### 決定
+- `RARITY_BASE_PROBABILITY` を `{ COMMON: 1/10, UNCOMMON: 1/20, RARE: 1/30 }` に変更
+- 合計 hit 率は **1/4 (=25%) → 11/60 (≈18.3%)**。boosted 時は 3/8 (=37.5%) → 11/40 (=27.5%)
+- レア度比は 4:2:1 → 6:3:2 に微変（RARE がやや希少化、UNCOMMON は概ね据え置き）
+- 排他的単発抽選モデル・boosted 1.5 倍・降格ルールは据え置き
+
+### 理由
+- 実運用で「親が用意したごほうびがポンポン出すぎ」というフィードバック。親側の補充コスト・現実のごほうびの希少性に対して当選率が高すぎた
+- ハズレ枠は必ずコレクションアイテム獲得（2026-05-31 既決定）なので、当選率を下げても「何ももらえない宝箱」は発生しない。**ごほうび当選率を下げる→コレクション獲得頻度が上がる** という素直なトレードオフで、子供の開封モチベーションは保たれる
+- 確率値を「綺麗な分数（1/10, 1/20, 1/30）」に揃えることで、親への説明・将来のチューニング議論が しやすい
+
+### 採用しなかった案
+- 全レア度に一律係数（例えば × 0.7）を掛ける案。レア度比 4:2:1 を保てるが、確率値が `1/10, 1/20, 1/40` のような半端な分数になり説明性が落ちる
+- COMMON のみ引き下げて RARE/UNCOMMON は据え置く案。ライト体験（COMMON）だけが薄まり、頻繁に開封する子供にとって「いつも当たらない」印象が増す。むしろ高レア度側も合わせて絞ったほうが「たまに出るからうれしい」が成立する
+- pity (天井) を再導入する案（2026-06-02 で撤廃済み）。ハズレ枠＝コレクション獲得に置き換わったので、天井で親ごほうびを強制ピックする意義が薄い
+
+### 該当箇所
+- `src/lib/treasure.ts` — `RARITY_BASE_PROBABILITY` 値変更、冒頭コメントの境界記述を更新
+- `src/__tests__/lib/treasure.test.ts` — 定数・境界・統計テスト（5000 試行 ±3σ）の期待値を新確率に更新
+- `src/__tests__/lib/treasureService.test.ts` — boosted 検証コメントを新確率値に更新（rng=0.2 は変更前後ともに boosted で COMMON 当選圏内）
