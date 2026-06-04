@@ -69,6 +69,20 @@ export function FeaturesSection({ s }: { s: Record<string, string> }) {
             <p className={s.featureDesc}>初クエスト・連続ログイン・写真撮影・転生回数など多彩な条件で100種類のバッジを解除。「気づいたら達成していた」という小さな驚きが積み重なり、継続するモチベーションをさらに後押しする。</p>
             <span className={`${s.featureTag} ${s.tagGold}`}>BADGE SYSTEM</span>
           </div>
+
+          <div className={`${s.featureCard} ${s.fPink} ${s.fadeIn}`}>
+            <div className={s.featureIcon}>💎</div>
+            <div className={s.featureTitle}>ごほうび宝箱（必ず当たる）</div>
+            <p className={s.featureDesc}>全タスク完了やストリーク達成で宝箱が出現。開けると親が登録した「親ごほうび」（COMMON 1/10・UNCOMMON 1/20・RARE 1/45）か、外れ枠の季節コレクションアイテムが必ず手に入る。「開けたけど何ももらえない」が構造的に発生しない設計。</p>
+            <span className={`${s.featureTag} ${s.tagPink}`}>TREASURE</span>
+          </div>
+
+          <div className={`${s.featureCard} ${s.fLife} ${s.fadeIn}`}>
+            <div className={s.featureIcon}>📦</div>
+            <div className={s.featureTitle}>季節コレクション 全80種</div>
+            <p className={s.featureDesc}>春・夏・秋・冬それぞれ20種、合計 80 種のアイテムを宝箱から集める。COMMON / UNCOMMON / RARE の3段階レア度。シーズン制覇・全80種制覇は実績バッジにも連動し、長期目標を作る。</p>
+            <span className={`${s.featureTag} ${s.tagLife}`}>COLLECTION</span>
+          </div>
         </div>
       </div>
     </section>

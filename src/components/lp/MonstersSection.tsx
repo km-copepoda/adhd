@@ -14,7 +14,7 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
       <div className={`${s.orb} ${s.monsterOrbM2}`} />
       <div className={s.container} style={{ position: "relative", zIndex: 1 }}>
         <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>MONSTER COLLECTION</h2>
-        <p className={`${s.sectionSub} ${s.fadeIn}`}>3系統 × 2スタイル × ステージ3 = 全79種類のモンスターたち</p>
+        <p className={`${s.sectionSub} ${s.fadeIn}`}>3系統 × 3ステージ = 39系統。「カッコいい」「かわいい」の2スタイルで楽しめる</p>
         <div className={`${s.divider} ${s.fadeIn}`} />
 
         {/* スタイル切り替えトグル */}
@@ -146,7 +146,7 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
         <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
           <div className={`${s.monsterCountBadge} ${s.fadeIn}`}>
             <span>🥚</span>
-            <span>卵 1 + (stage1 <strong>3</strong> + stage2 <strong>9</strong> + stage3 <strong>27</strong>) × 2スタイル = 合計<strong>79</strong>種</span>
+            <span>たまご + stage1 <strong>3</strong> + stage2 <strong>9</strong> + stage3 <strong>27</strong> = <strong>40</strong>系統 × 2スタイル</span>
           </div>
         </div>
       </div>

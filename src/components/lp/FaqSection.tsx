@@ -1,6 +1,7 @@
-import { FAQ_ITEMS } from "@/lib/lp";
+import { FAQ_ITEMS, TREASURE_FAQ_ITEMS } from "@/lib/lp";
 
 export function FaqSection({ s }: { s: Record<string, string> }) {
+  const items = [...FAQ_ITEMS, ...TREASURE_FAQ_ITEMS];
   return (
     <section id="faq" className={`${s.section} ${s.faqSection}`}>
       <div className={s.container}>
@@ -9,7 +10,7 @@ export function FaqSection({ s }: { s: Record<string, string> }) {
         <div className={`${s.divider} ${s.fadeIn}`} />
 
         <div className={s.faqList}>
-          {FAQ_ITEMS.map((item) => (
+          {items.map((item) => (
             <details key={item.question} className={`${s.faqItem} ${s.fadeIn}`}>
               <summary className={s.faqQuestion}>
                 <span className={s.faqQ}>Q.</span>

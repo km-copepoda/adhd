@@ -536,6 +536,107 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          {/* 子ども: 宝箱 */}
+          <div className={`${s.phoneWrap} ${s.fadeIn}`}>
+            <div className={s.phoneLabel}>💎 子ども — 宝箱</div>
+            <div className={`${s.phone} ${s.phoneLarge}`}>
+              <div className={`${s.screen} ${s.screenLarge}`}>
+                <div className={s.sHeader}>
+                  <div className={s.sTitle}>TREASURE</div>
+                  <div className={s.sXp}>💎 未開封 2</div>
+                </div>
+                {/* 新着宝箱のお知らせ */}
+                <div className={s.notifyBubble} style={{ background: "rgba(240,192,64,0.1)", borderLeft: "3px solid var(--gold)" }}>
+                  <div className={s.notifyDot} style={{ background: "var(--gold)" }} />
+                  <div className={s.notifyText} style={{ color: "var(--gold)" }}>✨ 今日のクエストを全部やりとげた！1.5倍宝箱出現</div>
+                </div>
+                <div className={s.sSectionLabel}>開封できる宝箱</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {[
+                    { label: "ぜんぶ完了の宝箱", tag: "1.5倍", boosted: true },
+                    { label: "7日連続ストリーク", tag: "STREAK", boosted: false },
+                  ].map((t) => (
+                    <div key={t.label} style={{ background: "var(--card2)", border: `1px solid ${t.boosted ? "rgba(240,192,64,0.5)" : "var(--border)"}`, borderRadius: 10, padding: 10, display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 26 }}>💎</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, color: "var(--text)" }}>{t.label}</div>
+                        <div style={{ fontSize: 8, color: t.boosted ? "var(--gold)" : "var(--dim)" }}>{t.tag}</div>
+                      </div>
+                      <button type="button" style={{ background: "rgba(240,192,64,0.2)", border: "1px solid rgba(240,192,64,0.5)", color: "var(--gold)", fontSize: 9, padding: "5px 12px", borderRadius: 8 }}>開ける</button>
+                    </div>
+                  ))}
+                </div>
+                <div className={s.sSectionLabel}>最近の中身</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {[
+                    { emo: "🍪", text: "親ごほうび: おやつ1個", rarity: "COMMON", color: "var(--life)" },
+                    { emo: "🌸", text: "コレクション: モンシロチョウ", rarity: "春・COMMON", color: "var(--dim)" },
+                    { emo: "🎮", text: "親ごほうび: ゲーム15分", rarity: "UNCOMMON", color: "var(--evolve)" },
+                  ].map((h, i) => (
+                    <div key={i} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px", display: "flex", alignItems: "center", gap: 8, fontSize: 10 }}>
+                      <span style={{ fontSize: 14 }}>{h.emo}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: "var(--text)" }}>{h.text}</div>
+                        <div style={{ fontSize: 8, color: h.color }}>{h.rarity}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 9, color: "var(--dim)", textAlign: "center", marginTop: 4 }}>外れ枠も必ずコレクションアイテム獲得</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 子ども: コレクション図鑑 */}
+          <div className={`${s.phoneWrap} ${s.fadeIn}`}>
+            <div className={s.phoneLabel}>📦 子ども — コレクション図鑑</div>
+            <div className={`${s.phone} ${s.phoneLarge}`}>
+              <div className={`${s.screen} ${s.screenLarge}`}>
+                <div className={s.sHeader}>
+                  <div className={s.sTitle}>COLLECTION</div>
+                  <div className={s.sXp}>📦 18 / 80</div>
+                </div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {[
+                    { tag: "🌸 春 6/20", color: "var(--life)" },
+                    { tag: "☀️ 夏 5/20", color: "var(--gold)" },
+                    { tag: "🍁 秋 4/20", color: "var(--stamina)" },
+                    { tag: "❄️ 冬 3/20", color: "var(--evolve)" },
+                  ].map((t) => (
+                    <span key={t.tag} style={{ fontSize: 9, color: t.color, border: `1px solid ${t.color}`, borderRadius: 12, padding: "2px 8px", opacity: 0.85 }}>{t.tag}</span>
+                  ))}
+                </div>
+                <div className={s.sSectionLabel}>春（6/20）</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+                  {[
+                    { emo: "🦋", got: true, rare: "C" },
+                    { emo: "🐸", got: true, rare: "C" },
+                    { emo: "🐦", got: true, rare: "U" },
+                    { emo: "🌸", got: false, rare: "R" },
+                    { emo: "🍡", got: true, rare: "C" },
+                    { emo: "🍓", got: true, rare: "C" },
+                    { emo: "🍯", got: false, rare: "U" },
+                    { emo: "💎", got: true, rare: "C" },
+                    { emo: "?", got: false, rare: "?" },
+                    { emo: "?", got: false, rare: "?" },
+                  ].map((m, i) => (
+                    <div key={i} style={{ background: m.got ? "var(--card2)" : "var(--border)", border: `1px solid ${m.got ? "rgba(240,192,64,0.3)" : "var(--border)"}`, borderRadius: 8, padding: 4, aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: m.got ? 1 : 0.35, position: "relative" }}>
+                      <span style={{ fontSize: 16, filter: m.got ? "none" : "grayscale(1)" }}>{m.emo}</span>
+                      {m.got && <span style={{ position: "absolute", top: 2, right: 2, fontSize: 7, color: "var(--gold)" }}>{m.rare}</span>}
+                    </div>
+                  ))}
+                </div>
+                <div className={s.sSectionLabel}>カテゴリ</div>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {["いきもの", "たべもの", "ほうせき", "どうぐ", "しぜん"].map((c) => (
+                    <span key={c} style={{ fontSize: 9, color: "var(--dim)", background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 12, padding: "2px 8px" }}>{c}</span>
+                  ))}
+                </div>
+                <div style={{ fontSize: 9, color: "var(--dim)", textAlign: "center", marginTop: 4 }}>シーズン制覇で実績バッジ解錠</div>
+              </div>
+            </div>
+          </div>
+
           {/* ログイン画面 */}
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>🔐 ログイン画面</div>
