@@ -169,8 +169,15 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 80px 24px;
+  padding: 80px 24px 140px;
   overflow: hidden;
+}
+
+/* 縦に短いビューポートでは SCROLL ヒントが CTA ボタンと重なるため非表示 */
+@media (max-height: 800px) {
+  .heroScroll {
+    display: none;
+  }
 }
 
 .heroOrb1 {

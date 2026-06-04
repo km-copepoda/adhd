@@ -7,7 +7,7 @@ export function PainSection({ s }: { s: Record<string, string> }) {
       <div className={s.container} style={{ position: "relative", zIndex: 1 }}>
         <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>こんな悩み、ありませんか？</h2>
         <p className={`${s.sectionSub} ${s.fadeIn}`}>
-          子どもの「やらない」「忘れる」「先延ばし」── 親が頑張るだけでは限界がある。
+          子どもの「やらない」「忘れる」「先延ばし」── 親の頑張りだけでは限界がある
         </p>
         <div className={`${s.divider} ${s.fadeIn}`} />
 

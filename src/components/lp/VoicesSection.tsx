@@ -3,7 +3,7 @@ export function VoicesSection({ s }: { s: Record<string, string> }) {
     <section className={s.section}>
       <div className={s.container}>
         <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>VOICES</h2>
-        <p className={`${s.sectionSub} ${s.fadeIn}`}>使ってみた保護者の声（想定）</p>
+        <p className={`${s.sectionSub} ${s.fadeIn}`}>使ってみた保護者のリアルな声</p>
         <div className={`${s.divider} ${s.fadeIn}`} />
         <div className={s.testimonialsGrid}>
           {[

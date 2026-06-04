@@ -6,7 +6,7 @@ export function TreasureSection({ s }: { s: Record<string, string> }) {
       <div className={`${s.orb} ${s.hirobaOrb1}`} />
       <div className={`${s.orb} ${s.hirobaOrb2}`} />
       <div className={s.container} style={{ position: "relative", zIndex: 1 }}>
-        <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>TREASURE &amp; COLLECTION</h2>
+        <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>TREASURE BOX</h2>
         <p className={`${s.sectionSub} ${s.fadeIn}`}>
           頑張った日に必ず何かが手に入る、二重のごほうび設計
         </p>

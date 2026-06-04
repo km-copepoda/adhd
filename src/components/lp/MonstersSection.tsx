@@ -14,7 +14,7 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
       <div className={`${s.orb} ${s.monsterOrbM2}`} />
       <div className={s.container} style={{ position: "relative", zIndex: 1 }}>
         <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>MONSTER COLLECTION</h2>
-        <p className={`${s.sectionSub} ${s.fadeIn}`}>3系統 × 3ステージ = 39系統。「カッコいい」「かわいい」の2スタイルで楽しめる</p>
+        <p className={`${s.sectionSub} ${s.fadeIn}`}>3系統 × 3ステージ = 39系統 × 「カッコいい」「かわいい」の2スタイル</p>
         <div className={`${s.divider} ${s.fadeIn}`} />
 
         {/* スタイル切り替えトグル */}

@@ -8,8 +8,7 @@ export function CtaSection({ s }: { s: Record<string, string> }) {
         <div className={s.heroEgg} style={{ marginBottom: 16 }}>🥚</div>
         <h2 className={s.ctaTitle}>さあ、冒険をはじめよう</h2>
         <p className={s.ctaDesc}>
-          子どもの習慣化をゲームに変える。<br />
-          今日の小さなクエストが、明日の大きな力になる。
+          子どもの習慣化をゲームに変える。今日の小さなクエストが、明日の大きな力になる。
         </p>
         <div className={s.ctaBtns}>
           <Link href="/login" className={s.btnGold}>⚔ 無料ではじめる</Link>

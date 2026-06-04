@@ -5,8 +5,7 @@ export function HabitSection({ s }: { s: Record<string, string> }) {
       <div className={s.container}>
         <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>HABIT DESIGN</h2>
         <p className={`${s.sectionSub} ${s.fadeIn}`}>
-          ADHD 傾向のお子さんにも届く、続けたくなる設計が詰まっています。<br />
-          「即時フィードバック」「短いサイクル」「具体的な指示」── 困りごとに合わせた仕組み。
+          即時フィードバック・短いサイクル・具体的な指示 ── 続けたくなる設計
         </p>
         <div className={`${s.divider} ${s.fadeIn}`} />
 
