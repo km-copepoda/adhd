@@ -8,6 +8,7 @@ import { HowItWorksSection } from "@/components/lp/HowItWorksSection";
 import { FeaturesSection } from "@/components/lp/FeaturesSection";
 import { MonstersSection } from "@/components/lp/MonstersSection";
 import { HirobaSection } from "@/components/lp/HirobaSection";
+import { TreasureSection } from "@/components/lp/TreasureSection";
 import { HabitSection } from "@/components/lp/HabitSection";
 import { BeforeAfterSection } from "@/components/lp/BeforeAfterSection";
 import { ScreensSection } from "@/components/lp/ScreensSection";
@@ -47,6 +48,7 @@ export default function LpPage() {
           <li><a href="#pain">こんな悩み</a></li>
           <li><a href="#features">機能</a></li>
           <li><a href="#hiroba">ひろば</a></li>
+          <li><a href="#treasure">宝箱</a></li>
           <li><a href="#habit">続ける仕組み</a></li>
           <li><a href="#beforeafter">変化</a></li>
           <li><a href="#faq">FAQ</a></li>
@@ -65,6 +67,7 @@ export default function LpPage() {
       <FeaturesSection s={styles} />
       <MonstersSection s={styles} />
       <HirobaSection s={styles} />
+      <TreasureSection s={styles} />
       <HabitSection s={styles} />
       <BeforeAfterSection s={styles} />
       <ScreensSection s={styles} />

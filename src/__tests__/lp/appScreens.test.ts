@@ -19,10 +19,12 @@ const EXPECTED_SCREEN_LABELS = [
   "👨‍👩‍👧‍👦 親 — メンバー管理",
   "🌟 進化カットイン",
   "🔐 ログイン画面",
+  "💎 子ども — 宝箱",
+  "📦 子ども — コレクション図鑑",
 ];
 
 describe("LP APP SCREENS", () => {
-  it("11個のスクリーンラベルを持つ（既存4 + 新規7）", () => {
+  it("13個のスクリーンラベルを持つ", () => {
     expect(phoneLabelMatches).toHaveLength(EXPECTED_SCREEN_LABELS.length);
   });
 
