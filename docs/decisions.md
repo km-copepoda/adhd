@@ -1645,5 +1645,35 @@
 - `src/components/child/MonsterCutsceneListener.tsx` — 新規
 - `src/app/app/child/layout.tsx` — Listener をマウント
 - `src/hooks/useMonsterStatus.ts` — `showEvolution`/`hatched`/`prevStageRef`/`selfRebirthRef` および lastSeen 書き込みを撤去
-- `src/app/app/child/monster/page.tsx` — 進化／孵化用 `CutsceneOverlay` ブロックを削除（rebirth・achievement は残置）
+- `src/app/app/child/monster/page.tsx` — 進化／孵化用 `CutsceneOverlay` ブロックを削除(rebirth・achievement は残置)
 - テスト: `src/__tests__/components/monster-cutscene-listener.test.tsx`
+
+## 2026-06-08: 親モード（child-view）に「代理スキップ」と「進化／孵化カットイン」をスコープ追加
+
+### 決定内容
+- 2026-05-11 で MVP 外としていた以下を、親代理操作の体験完結のため追加:
+  1. **代理スキップ**: `POST /api/parent/child-view/quests/[id]/skip-approve` を新設。`{ childId, comment }` を受け、`PENDING` または `SKIP_REPORTED` を `SKIP_REPORTED` 経由せず一気に `SKIPPED` まで確定（report-approve と同じ「即確定」パターン）。`approveSkipQuestInstance` をそのまま呼ぶ。`comment`（スキップ理由）は必須
+  2. **進化／孵化カットイン**: 親モード専用 `src/components/parent/ChildViewMonsterCutsceneListener.tsx` を新設し、`[childId]/layout.tsx` にマウント
+- 既存子供画面の `MonsterCutsceneListener` は CHILD ロール API + Realtime 前提のためそのままでは流用不可。**Realtime は使わず**、ページ側が代理報告/スキップ成功後に `window.dispatchEvent(new CustomEvent("child-view-monster-refresh"))` を発火 → リスナーが再フェッチして stage 差分を検知する設計に
+- localStorage キーは `lastSeenEvolutionStage:<childId>` の child 別命名（兄弟切替時に既読状態が干渉しない）
+- 代理スキップでも子供セルフスキップと同じ社会的フィードバックを保つため、`triggerTaskProgressLog` を `after()` で発火 / `generateProxyTreasure` を minTasks 達成時に呼ぶ（report-approve と同規約）
+
+### 理由
+- 親端末しか持たない家庭で「今日は無理だった」を確定する経路がないと、子供のリズム（スキップは敗北ではなく許容）を親モードに反映できず、PENDING のまま carryOver / 自動承認に流れて UX が硬直していた
+- 進化カットインの欠落は、親代理で stage3 → 鳥/獣/etc に変化した瞬間が child-view 上だと黙って数字が変わるだけで、達成体験のクライマックスが完全に消失していた
+- 2026-05-11 決定の「親モードでは Realtime を起動しない」境界は維持したいので、Realtime ベースの既存 Listener を流用せず、**親の操作起点で明示的に refresh する**設計にした
+- スキップ確定は「即 SKIPPED」（2026-05-11 で「同パターンで追加可能」と明記）に揃え、SKIP_REPORTED 二段階を再現せず一気通貫にする
+
+### やってはいけないこと
+- 既存子供 `/api/quests/[id]/skip` を PARENT ロールで受け付けるよう緩和する（**禁止**: 必ず `/api/parent/child-view/quests/[id]/skip-approve` を経由）
+- `ChildViewMonsterCutsceneListener` で Supabase Realtime を購読する（child-view では Realtime 不使用方針 = 2026-05-11）
+- 代理スキップで `approveSkipQuestInstance` を経由せず直接 `prisma.questInstance.update({ status: "SKIPPED" })` を書く（`recordDailyAchievement` / `unlockTreasuresOnApprove` がすっぽ抜ける）
+- `lastSeenEvolutionStage`（旧キー）を child-view 側で読み書きする（兄弟間の既読状態が混線する）
+
+### 該当箇所
+- `src/app/api/parent/child-view/quests/[id]/skip-approve/route.ts` — 新規
+- `src/components/parent/ChildViewMonsterCutsceneListener.tsx` — 新規（Realtime 不使用版）
+- `src/app/app/parent/child-view/[childId]/layout.tsx` — Listener マウント追加
+- `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `handleSkip` を新 API に接続、報告/スキップ成功後に `child-view-monster-refresh` を dispatch
+- テスト: `src/__tests__/api/parent/child-view/skip-approve.test.ts`, `src/__tests__/components/child-view-monster-cutscene-listener.test.tsx`, `src/__tests__/components/child-view-quests-skip-and-cutscene.test.tsx`
+

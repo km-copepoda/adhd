@@ -1,4 +1,5 @@
 import ChildViewBottomNav from "@/components/parent/ChildViewBottomNav";
+import ChildViewMonsterCutsceneListener from "@/components/parent/ChildViewMonsterCutsceneListener";
 
 export default async function ChildViewChildLayout({
   children,
@@ -11,6 +12,7 @@ export default async function ChildViewChildLayout({
   return (
     <>
       {children}
+      <ChildViewMonsterCutsceneListener childId={childId} />
       <ChildViewBottomNav childId={childId} />
     </>
   );

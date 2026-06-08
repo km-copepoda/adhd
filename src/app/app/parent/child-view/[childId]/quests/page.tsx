@@ -118,12 +118,30 @@ export default function ChildViewQuestsPage() {
     } catch {
       // 旧APIで JSON が無い場合などは無視
     }
+    // 代理操作で進化が走った可能性を ChildViewMonsterCutsceneListener に知らせる（Realtime 不使用のため明示通知）
+    window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
     await refreshQuests();
   }
 
-  async function handleSkip() {
-    // 代理スキップは MVP スコープ外（decisions.md 2026-05-11）
-    setError("代理スキップは現在サポートしていません。子供画面から申請してください。");
+  async function handleSkip(questId: string, reason: string) {
+    const res = await fetch(`/api/parent/child-view/quests/${questId}/skip-approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ childId, comment: reason }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? `スキップに失敗しました（${res.status}）`);
+      return;
+    }
+    try {
+      const data = (await res.json()) as { treasureId?: string | null };
+      if (data.treasureId) pendingTreasureGetRef.current = 1;
+    } catch {
+      // ignore
+    }
+    window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
+    await refreshQuests();
   }
 
   const completedCount = computeCompletedCount(quests);
