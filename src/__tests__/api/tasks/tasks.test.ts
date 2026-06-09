@@ -183,10 +183,11 @@ describe("GET /api/tasks", () => {
 
     const oldPending = new Date("2026-03-15T00:00:00Z"); // 3日前（日曜）
     mockPrisma.questInstance.findMany
-      .mockResolvedValueOnce([] as any)
-      .mockResolvedValueOnce([] as any)
-      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any)
-      .mockResolvedValueOnce([] as any);
+      .mockResolvedValueOnce([] as any) // completedQuests (today)
+      .mockResolvedValueOnce([] as any) // recentSkipped (7日窓 SKIPPED)
+      .mockResolvedValueOnce([] as any) // recentApproved (7日窓 APPROVED, lastSkippedDate クリア判定用)
+      .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any) // carryOverPending
+      .mockResolvedValueOnce([] as any); // latestSettled
 
     const res = await GET();
     const json = await res.json();
@@ -207,6 +208,7 @@ describe("GET /api/tasks", () => {
 
     const oldPending = new Date("2026-03-16T00:00:00Z"); // 先週月曜
     mockPrisma.questInstance.findMany
+      .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any)
@@ -235,6 +237,7 @@ describe("GET /api/tasks", () => {
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([{ templateId: "t1", date: oldPending }] as any)
       .mockResolvedValueOnce([] as any);
 
@@ -258,6 +261,7 @@ describe("GET /api/tasks", () => {
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: approvedDate }] as any) // recentApproved（7日窓内の APPROVED）
       .mockResolvedValueOnce([
         { templateId: "t1", date: stalePending },
         { templateId: "t1", date: realPending },
@@ -283,6 +287,7 @@ describe("GET /api/tasks", () => {
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([{ templateId: "t1", date: approvedDate }] as any) // recentApproved
       .mockResolvedValueOnce([{ templateId: "t1", date: stalePending }] as any)
       .mockResolvedValueOnce([{ templateId: "t1", date: approvedDate }] as any);
 
@@ -305,8 +310,9 @@ describe("GET /api/tasks", () => {
     await GET();
 
     const today = new Date("2026-03-18T00:00:00Z");
+    // calls: 1=completedQuests, 2=recentSkipped, 3=recentApproved, 4=carryOverPending
     expect(mockPrisma.questInstance.findMany).toHaveBeenNthCalledWith(
-      3,
+      4,
       expect.objectContaining({
         where: expect.objectContaining({
           templateId: { in: ["t2"] },
@@ -328,6 +334,7 @@ describe("GET /api/tasks", () => {
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([] as any)
       .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce([] as any) // recentApproved
       // orderBy: date asc を前提に、先頭が最古
       .mockResolvedValueOnce([
         { templateId: "t1", date: oldest },

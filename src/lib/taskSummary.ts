@@ -37,6 +37,41 @@ export function computeOldestPendingDates(
 }
 
 /**
+ * 親画面タスクカードの「⏭ N日前スキップ」バッジ表示用に、
+ * 「以降に APPROVED が無い」最新の SKIPPED 日付を templateId 別に返す。
+ *
+ * SKIPPED より後に APPROVED が記録された template はバッジを出さない
+ * （その後ちゃんと完了しているので、スキップ事実だけが残り続けるのを防ぐ）。
+ *
+ * 入力前提:
+ *   - `skipped` / `approved` は date 降順（先頭が最新）
+ *   - 複数 children が同じ template を共有する場合も templateId 単位で集約する
+ */
+export function computeLastSkippedDates(
+  skipped: QuestRow[],
+  approved: QuestRow[],
+): Map<string, Date> {
+  const latestApprovedMap = new Map<string, Date>();
+  for (const q of approved) {
+    if (!q.date) continue;
+    if (!latestApprovedMap.has(q.templateId)) {
+      latestApprovedMap.set(q.templateId, q.date);
+    }
+  }
+  const out = new Map<string, Date>();
+  for (const q of skipped) {
+    if (!q.date) continue;
+    if (out.has(q.templateId)) continue;
+    const approvedAt = latestApprovedMap.get(q.templateId);
+    // approvedAt > skippedAt なら「その後完了済み」とみなしてバッジを消す。
+    // 同日 (==) は DB unique 制約で起きないが、起きた場合は防御的にバッジを残す。
+    if (approvedAt && approvedAt > q.date) continue;
+    out.set(q.templateId, q.date);
+  }
+  return out;
+}
+
+/**
  * carryOver タスクの「N回未完了」を計算する。
  *
  * 最古 PENDING の日付から today までの inclusive 範囲で、repeatDays に当たる出現回数。
@@ -91,7 +126,8 @@ export async function getParentTaskSummaries(familyId: string) {
   });
   const completedSet = new Set(completedQuests.map((q) => q.templateId));
 
-  // 直近7日間のSKIPPEDを取得（該当曜日でない日にも親がスキップに気づけるよう、タスクカードにバッジ表示するため）
+  // 直近7日間のSKIPPEDを取得（該当曜日でない日にも親がスキップに気づけるよう、タスクカードにバッジ表示するため）。
+  // ただし、その後に APPROVED が記録されていれば「完了済みなのにスキップだけ残る」UX を避けるためバッジを消す。
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
   const recentSkipped = await prisma.questInstance.findMany({
@@ -103,12 +139,18 @@ export async function getParentTaskSummaries(familyId: string) {
     select: { templateId: true, date: true },
     orderBy: { date: "desc" },
   });
-  const lastSkippedMap = new Map<string, Date>();
-  for (const q of recentSkipped) {
-    if (!lastSkippedMap.has(q.templateId) && q.date) {
-      lastSkippedMap.set(q.templateId, q.date);
-    }
-  }
+  // SKIPPED の最古日付以降に APPROVED があるかだけ確認できればよいので、同じ 7 日窓で取得する。
+  // 窓外（8日以上前）の APPROVED は窓外の SKIPPED に対するもので、本ロジックの判定対象外。
+  const recentApproved = await prisma.questInstance.findMany({
+    where: {
+      templateId: { in: taskIds },
+      status: "APPROVED",
+      date: { gte: sevenDaysAgo, lte: today },
+    },
+    select: { templateId: true, date: true },
+    orderBy: { date: "desc" },
+  });
+  const lastSkippedMap = computeLastSkippedDates(recentSkipped, recentApproved);
 
   const carryOverTaskIds = tasks
     .filter((t) => (t as { carryOver?: boolean }).carryOver)

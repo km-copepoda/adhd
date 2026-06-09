@@ -1677,3 +1677,26 @@
 - `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `handleSkip` を新 API に接続、報告/スキップ成功後に `child-view-monster-refresh` を dispatch
 - テスト: `src/__tests__/api/parent/child-view/skip-approve.test.ts`, `src/__tests__/components/child-view-monster-cutscene-listener.test.tsx`, `src/__tests__/components/child-view-quests-skip-and-cutscene.test.tsx`
 
+## 2026-06-09: 親画面タスクカードの「⏭ N日前スキップ」バッジを、その後 APPROVED があれば消す
+
+### 決定内容
+- `src/lib/taskSummary.ts` の `lastSkippedDate` 算出に、純粋関数 `computeLastSkippedDates(skipped, approved)` を追加
+- 直近7日窓の SKIPPED に対し、**同じ template の APPROVED 日付が SKIPPED より後**であればその templateId をマップから除外する（同日 `==` は keep。DB unique 制約で起きないが防御的に keep）
+- `getParentTaskSummaries` は同じ7日窓で `recentApproved` を追加取得し、ヘルパーに渡す
+
+### 理由
+- 旧仕様は「直近7日で最も新しい SKIPPED 日付」を機械的に返していたので、スキップ→翌日完了でも『3日前スキップ』が残り続け、親の認知に「まだスキップ中」という誤情報を与えていた
+- 一方で「該当曜日でない日にも親がスキップに気づける」というバッジの本来の目的は維持したいので、**まだ完了が来ていない場合はバッジを残す**設計を保つ（7日窓も維持）
+- 完了したらバッジが消える、というユーザーの直観に揃える
+
+### やってはいけないこと
+- `latestApprovedMap` の判定を `>=`（同日 keep）から `<` などにして同日 APPROVED で bandages を残す方向に倒す（DB unique 制約上同日衝突は起きないので意味がない上、テストの境界仕様と矛盾する）
+- 7日窓を撤廃して全期間の APPROVED を引きにいく（クエリ重くなる割に、窓外 SKIPPED は元々表示されないので無意味）
+- 窓外（8日以上前）の APPROVED と窓内の SKIPPED の比較を入れる（窓外の SKIPPED は表示候補ですらないので比較する意味がない。同じ7日窓で APPROVED を引けば足りる）
+
+### 該当箇所
+- `src/lib/taskSummary.ts` — `computeLastSkippedDates` 新規 + `getParentTaskSummaries` で利用
+- `src/__tests__/lib/taskSummary.test.ts` — 純粋関数の境界テスト追加
+- `src/__tests__/api/tasks/tasks.test.ts` — `findMany` 呼び出し順の mock チェーンを更新（recentApproved 分が間に1件挟まる）
+
+
