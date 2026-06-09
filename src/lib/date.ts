@@ -31,6 +31,23 @@ export function jstDateOf(d: Date): Date {
   return new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate()));
 }
 
+/**
+ * 過去の日付から「JST の今日」までの経過日数を返す。
+ *
+ * input は `questInstance.date` 等「JST 日付を UTC 0:00 として保存」された値を想定。
+ * 旧実装が `new Date().getUTCDate()` を使っていたため、JST 00:00-09:00（UTC ではまだ前日）
+ * の間は表示が 1 日ずれる不具合があった。auto-approve cron（JST 0:00 起動）直後の朝方に
+ * 「昨日スキップ」のはずが「今日スキップ」と出るリグレッション要因なので、本関数経由に統一する。
+ */
+export function daysSinceJST(input: Date | string, now: Date = new Date()): number {
+  const past = typeof input === "string" ? new Date(input) : input;
+  const pastJst = new Date(past.getTime() + JST_OFFSET_MS);
+  const todayJst = new Date(now.getTime() + JST_OFFSET_MS);
+  const pastDay = Date.UTC(pastJst.getUTCFullYear(), pastJst.getUTCMonth(), pastJst.getUTCDate());
+  const todayDay = Date.UTC(todayJst.getUTCFullYear(), todayJst.getUTCMonth(), todayJst.getUTCDate());
+  return Math.round((todayDay - pastDay) / (24 * 60 * 60 * 1000));
+}
+
 /** JST での今日の曜日（0=Sun ... 6=Sat）*/
 export function dayOfWeekJST(): number {
   return jstNow().getUTCDay();

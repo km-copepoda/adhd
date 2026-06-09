@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask, formatReportedTime, countScheduledOccurrences } from "@/lib/date";
+import { todayJST, dayOfWeekJST, monthStartJST, monthEndJST, todayRangeJST, isVisibleTemporaryTask, formatReportedTime, countScheduledOccurrences, daysSinceJST } from "@/lib/date";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -243,6 +243,62 @@ describe("countScheduledOccurrences", () => {
     expect(
       countScheduledOccurrences(date("2026-03-30"), date("2026-04-06"), [1]),
     ).toBe(2);
+  });
+});
+
+describe("daysSinceJST", () => {
+  // questInstance.date は「JST 日付を UTC 0:00 として保存」される（@db.Date 規約）。
+  // この helper は『JST の今日』 - 『JST の past 日』を返す。
+  // bug 回避: 旧実装は new Date().getUTCDate() で UTC 日付を使っており、
+  // JST 00:00-09:00（UTC 15:00 前日 〜 UTC 00:00）の間は表示が 1 日ずれていた。
+
+  const past = new Date("2026-06-08T00:00:00.000Z"); // JST 2026-06-08
+
+  it("JST 同日（昼間）は 0 を返す", () => {
+    // JST 2026-06-08 15:00 = UTC 2026-06-08 06:00
+    vi.setSystemTime(new Date("2026-06-08T06:00:00Z"));
+    expect(daysSinceJST(past)).toBe(0);
+  });
+
+  it("JST 翌日 09:00（UTC 00:00）は 1 を返す", () => {
+    // JST 2026-06-09 09:00 = UTC 2026-06-09 00:00
+    vi.setSystemTime(new Date("2026-06-09T00:00:00Z"));
+    expect(daysSinceJST(past)).toBe(1);
+  });
+
+  it("【自動承認直後の境界】JST 翌日 00:30（UTC 前日 15:30）でも 1 を返す（旧実装は 0 を返していた）", () => {
+    // JST 2026-06-09 00:30 = UTC 2026-06-08 15:30 — auto-approve cron 直後
+    vi.setSystemTime(new Date("2026-06-08T15:30:00Z"));
+    expect(daysSinceJST(past)).toBe(1);
+  });
+
+  it("JST 翌日 08:59（UTC 前日 23:59）でも 1 を返す（旧実装は 0 を返していた）", () => {
+    // JST 2026-06-09 08:59 = UTC 2026-06-08 23:59
+    vi.setSystemTime(new Date("2026-06-08T23:59:00Z"));
+    expect(daysSinceJST(past)).toBe(1);
+  });
+
+  it("JST 2日後 02:00（UTC 前日 17:00）は 2 を返す（旧実装は 1 を返していた）", () => {
+    // JST 2026-06-10 02:00 = UTC 2026-06-09 17:00
+    vi.setSystemTime(new Date("2026-06-09T17:00:00Z"));
+    expect(daysSinceJST(past)).toBe(2);
+  });
+
+  it("JST 同日 23:59（UTC 14:59）は 0 を返す（日付境界の手前）", () => {
+    // JST 2026-06-08 23:59 = UTC 2026-06-08 14:59
+    vi.setSystemTime(new Date("2026-06-08T14:59:00Z"));
+    expect(daysSinceJST(past)).toBe(0);
+  });
+
+  it("文字列入力（ISO 8601）も受け付ける", () => {
+    vi.setSystemTime(new Date("2026-06-09T00:00:00Z"));
+    expect(daysSinceJST("2026-06-08T00:00:00.000Z")).toBe(1);
+  });
+
+  it("過去より前の日付（負）は 0 以下を返す（防御的、UI 側で『今日』扱い）", () => {
+    // past = 6/8, today = 6/7 → -1
+    vi.setSystemTime(new Date("2026-06-07T06:00:00Z"));
+    expect(daysSinceJST(past)).toBeLessThanOrEqual(0);
   });
 });
 

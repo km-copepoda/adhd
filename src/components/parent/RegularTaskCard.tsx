@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
-import { isTaskStreakActive } from "@/lib/date";
+import { isTaskStreakActive, daysSinceJST } from "@/lib/date";
 import { xpRangeLabel } from "@/lib/xp";
 import type { Category } from "@/types";
 
@@ -39,17 +39,11 @@ type Props = {
   onDelete: (id: string) => void;
 };
 
-function daysSince(dateStr: string): number {
-  const past = new Date(dateStr);
-  const today = new Date();
-  const pastDay = Date.UTC(past.getUTCFullYear(), past.getUTCMonth(), past.getUTCDate());
-  const todayDay = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  return Math.round((todayDay - pastDay) / (24 * 60 * 60 * 1000));
-}
-
 function formatSkipBadge(dateStr: string | null): string | null {
   if (!dateStr) return null;
-  const diffDays = daysSince(dateStr);
+  // JST 基準で経過日数を出す。旧 daysSince は UTC ベースだったため
+  // JST 00:00-09:00 の間（特に auto-approve cron 直後の朝方）に表示が 1 日ずれていた。
+  const diffDays = daysSinceJST(dateStr);
   if (diffDays <= 0) return "今日スキップ";
   if (diffDays === 1) return "昨日スキップ";
   return `${diffDays}日前スキップ`;
