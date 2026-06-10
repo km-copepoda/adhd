@@ -18,11 +18,18 @@ function setupFetch(opts: {
     child: { id: string; name: string | null; monsterName: string | null };
     fulfilled: boolean;
   }>;
+  members?: Array<{ id: string; role: "CHILD" | "PARENT"; name: string | null; monsterName: string | null }>;
   onFulfill?: (id: string, fulfilled: boolean) => void;
 }) {
   const fetchSpy = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (typeof url === "string" && url.includes("/api/treasures/pending")) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ items: opts.items }) });
+    }
+    if (typeof url === "string" && url.includes("/api/family/code")) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ members: opts.members ?? [] }),
+      });
     }
     const m = typeof url === "string" && url.match(/\/api\/treasures\/fulfill\/([^/]+)/);
     if (m && init?.method === "POST") {
@@ -108,5 +115,63 @@ describe("親 pending ページ — 渡したチェック", () => {
     await waitFor(() => {
       expect(onFulfill).toHaveBeenCalledWith("t1", false);
     });
+  });
+});
+
+describe("親 pending ページ — 子供フィルタ", () => {
+  const itemTaro = {
+    id: "t1",
+    openedAt: new Date().toISOString(),
+    item: { id: "i1", title: "おやつ", rarity: "COMMON" as const },
+    child: { id: "c1", name: "太郎", monsterName: "ドラゴン" },
+    fulfilled: false,
+  };
+  const itemHanako = {
+    id: "t2",
+    openedAt: new Date().toISOString(),
+    item: { id: "i2", title: "ジュース", rarity: "COMMON" as const },
+    child: { id: "c2", name: "花子", monsterName: "ユニコーン" },
+    fulfilled: false,
+  };
+  const twoChildren = [
+    { id: "c1", role: "CHILD" as const, name: "太郎", monsterName: "ドラゴン" },
+    { id: "c2", role: "CHILD" as const, name: "花子", monsterName: "ユニコーン" },
+  ];
+
+  it("子供が複数いる場合、画面上部に子供アイコンの切替ボタンが表示される", async () => {
+    setupFetch({ items: [itemTaro, itemHanako], members: twoChildren });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.getByRole("button", { name: /ドラゴン/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /ユニコーン/ })).toBeTruthy();
+  });
+
+  it("子供アイコンをクリックすると履歴がその子供だけに絞り込まれる", async () => {
+    setupFetch({ items: [itemTaro, itemHanako], members: twoChildren });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /ユニコーン/ }));
+    });
+
+    await waitFor(() => expect(screen.queryByText("おやつ")).toBeNull());
+    expect(screen.getByText("ジュース")).toBeTruthy();
+  });
+
+  it("子供が1人だけの場合は切替ボタンを表示しない", async () => {
+    setupFetch({
+      items: [itemTaro],
+      members: [{ id: "c1", role: "CHILD", name: "太郎", monsterName: "ドラゴン" }],
+    });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /ドラゴン/ })).toBeNull();
   });
 });

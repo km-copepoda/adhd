@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
@@ -18,8 +18,16 @@ interface HistoryItem {
   fulfilled: boolean;
 }
 
+interface ChildOption {
+  id: string;
+  name: string | null;
+  monsterName: string | null;
+}
+
 export default function ParentTreasureHistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([]);
+  const [children, setChildren] = useState<ChildOption[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -35,9 +43,30 @@ export default function ParentTreasureHistoryPage() {
     }
   }, []);
 
+  const fetchChildren = useCallback(async () => {
+    const res = await fetch("/api/family/code", { cache: "no-store" });
+    if (!res.ok) return;
+    const json = await res.json();
+    const list: ChildOption[] = (json.members ?? [])
+      .filter((m: { role: string }) => m.role === "CHILD")
+      .map((m: { id: string; name: string | null; monsterName: string | null }) => ({
+        id: m.id,
+        name: m.name,
+        monsterName: m.monsterName,
+      }));
+    setChildren(list);
+    setSelectedChildId((prev) => prev ?? list[0]?.id ?? null);
+  }, []);
+
   useEffect(() => {
     void fetchItems();
-  }, [fetchItems]);
+    void fetchChildren();
+  }, [fetchItems, fetchChildren]);
+
+  const filteredItems = useMemo(() => {
+    if (children.length <= 1 || !selectedChildId) return items;
+    return items.filter((it) => it.child.id === selectedChildId);
+  }, [items, children.length, selectedChildId]);
 
   // 渡したよチェックをトグルする。子画面には露出しない (親メモ専用)。
   // MVP の水掛け論対策 — 2026-05-31 復活 (decisions.md)
@@ -71,15 +100,35 @@ export default function ParentTreasureHistoryPage() {
         子供が宝箱から引き当てたごほうびの履歴です。実際に渡したら「渡した」をチェックしておくと、後で「もらってない」と言われたとき確認できます（このチェックは子供には見えません）。
       </p>
 
+      {children.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          {children.map((child) => (
+            <button
+              key={child.id}
+              type="button"
+              onClick={() => setSelectedChildId(child.id)}
+              className={[
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
+                selectedChildId === child.id
+                  ? "bg-quest-gold/15 border border-quest-gold text-quest-gold"
+                  : "bg-quest-card border border-quest-border text-quest-dim hover:text-quest-text",
+              ].join(" ")}
+            >
+              🧒 {child.monsterName || child.name || "名前未設定"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <LoadingSpinner />
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="bg-quest-card border border-quest-border rounded-xl p-6 text-center">
           <p className="text-sm text-quest-dim">まだもらったごほうびはありません。</p>
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((it) => (
+          {filteredItems.map((it) => (
             <li
               key={it.id}
               className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
