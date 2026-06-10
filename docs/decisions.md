@@ -1699,4 +1699,35 @@
 - `src/__tests__/lib/taskSummary.test.ts` — 純粋関数の境界テスト追加
 - `src/__tests__/api/tasks/tasks.test.ts` — `findMany` 呼び出し順の mock チェーンを更新（recentApproved 分が間に1件挟まる）
 
+## 2026-06-10: 子レイアウトに Duolingo ライクの常駐ストリークバッジを追加
+
+### 決定内容
+- 子供向けレイアウト (`src/app/app/child/layout.tsx`) に **`StreakHeaderBadge`** を常駐し、画面左上に固定で🔥+連続日数を表示する
+- 表示状態は純粋関数 `getStreakDisplayState(currentStreak, lastAchievedDate, todayStr)` で4状態に分類:
+  - `none`: streak 0 → 非表示
+  - `active`: 最終達成日 == 今日 → オレンジ→赤グラデの通常表示
+  - `atRisk`: 最終達成日 == 昨日 → 黄→橙グラデ + pulse + "今日まだ！" 警告ラベル（途切れ阻止 UX）
+  - `broken`: 最終達成日 < 昨日 → 控えめ表示で数字だけ残す（鼓舞）
+- データ取得は `/api/streak` を初回 + visibilitychange + QuestInstance Realtime + `window` の `streak-changed` イベントでリフレッシュ
+- クリックで `/app/child/monster` に遷移し、既存 `StreakCard` で詳細を確認できる
+- 既存 `StreakCard`（モンスター育成ページ）は詳細表示として温存
+
+### 理由
+- 旧 UI ではストリーク値が育成ページの `StreakCard` でのみ見え、毎ページの「途切らせない」プレッシャーが弱かった
+- Duolingo の核心 UX は「常時見える🔥」と「今日やってないと黄色く点滅して急かす」の組み合わせで、これを最小実装した
+- `atRisk` 警告はストリーク継続の最大の動機付け。`lastAchievedDate === yesterday` の境界判定は純粋関数化して月またぎ・年またぎ・うるう年もテスト
+- Realtime + visibilitychange 二重で取りこぼしを防ぐのは `BottomNav` の既存パターンに揃えた
+
+### やってはいけないこと
+- `StreakCard`（育成ページ詳細）を削除する（マイルストーン進捗・最高記録・今月達成数はバッジに収まらない情報なので別 UI として残す）
+- `getStreakDisplayState` の境界判定を `Date.getDay()` 系で書く（CLAUDE.md 規約: 曜日・日数は `getUTC*` か文字列比較）
+- ログイン画面 (`/app/child/login`) でも表示する（`shouldShowBottomNav` で抑制している）
+- バッジ自体に承認/報告のアクションを生やす（あくまで表示・遷移のみ。承認ロジックを増やすと `approve.ts` の正規パターンを外れる）
+
+### 該当箇所
+- `src/lib/streakDisplay.ts` — 純粋関数 `getStreakDisplayState`
+- `src/components/child/StreakHeaderBadge.tsx` — Realtime + visibility + custom event でリフレッシュするクライアントコンポーネント
+- `src/app/app/child/layout.tsx` — バッジをマウント
+- `src/__tests__/lib/streakDisplay.test.ts` — 境界テスト（月/年またぎ・うるう年・null・負値・ISO文字列）
+- `src/__tests__/components/streak-header-badge.test.tsx` — 状態別表示・login画面非表示・遷移先のテスト
 

@@ -3,6 +3,7 @@ import PushSubscriber from "@/components/parent/PushSubscriber";
 import LoginStreakChecker from "@/components/child/LoginStreakChecker";
 import BadgeUnlockToast from "@/components/child/BadgeUnlockToast";
 import MonsterCutsceneListener from "@/components/child/MonsterCutsceneListener";
+import StreakHeaderBadge from "@/components/child/StreakHeaderBadge";
 
 export default function ChildLayout({
   children,
@@ -13,6 +14,7 @@ export default function ChildLayout({
     <div className="min-h-dvh max-w-md mx-auto relative pb-20">
       {children}
       <BottomNav />
+      <StreakHeaderBadge />
       <LoginStreakChecker />
       <BadgeUnlockToast />
       <MonsterCutsceneListener />
