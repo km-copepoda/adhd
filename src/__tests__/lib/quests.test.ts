@@ -64,6 +64,78 @@ describe("ensureTodayQuests", () => {
     expect(mockPrisma.questInstance.upsert).not.toHaveBeenCalled();
   });
 
+  it("carryOver=true の既存インスタンスチェックは PENDING/REPORTED/SKIP_REPORTED 全てを対象にすること", async () => {
+    vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
+
+    const templates = [
+      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findFirst.mockResolvedValue(null);
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.questInstance.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          templateId: "tpl-1",
+          childId: "child-1",
+          status: { in: ["PENDING", "REPORTED", "SKIP_REPORTED"] },
+        }),
+      })
+    );
+  });
+
+  it("carryOver=true で昨日の REPORTED が残っている場合、今日 PENDING を新規 upsert しないこと", async () => {
+    vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
+
+    const templates = [
+      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    // DB の where 条件を簡易シミュレート: status: PENDING 単一指定では REPORTED は引っかからない
+    mockPrisma.questInstance.findFirst.mockImplementation((args: any) => {
+      const status = args?.where?.status;
+      const existing = { id: "q-yesterday", status: "REPORTED" };
+      if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("REPORTED")) {
+        return Promise.resolve(existing as any);
+      }
+      // status: "PENDING" 単一指定など、REPORTED を含まないクエリでは見つからない
+      return Promise.resolve(null);
+    });
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.questInstance.upsert).not.toHaveBeenCalled();
+  });
+
+  it("carryOver=true で昨日の SKIP_REPORTED が残っている場合、今日 PENDING を新規 upsert しないこと", async () => {
+    vi.setSystemTime(new Date("2026-03-13T09:00:00"));
+
+    const templates = [
+      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findFirst.mockImplementation((args: any) => {
+      const status = args?.where?.status;
+      const existing = { id: "q-yesterday", status: "SKIP_REPORTED" };
+      if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("SKIP_REPORTED")) {
+        return Promise.resolve(existing as any);
+      }
+      return Promise.resolve(null);
+    });
+    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.questInstance.upsert).not.toHaveBeenCalled();
+  });
+
   it("carryOver=true で PENDING がない場合、upsert すること", async () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
