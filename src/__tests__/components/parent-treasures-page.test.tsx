@@ -78,7 +78,7 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
     });
   });
 
-  it("子供の name が空でも monsterName を「対象の子供」セレクトに表示する", async () => {
+  it("子供の name が空でも monsterName を子供切替ボタンに表示する", async () => {
     fetchMock.mockImplementation((url: string) => {
       if (url.includes("/api/family/code")) {
         return Promise.resolve({
@@ -106,8 +106,42 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
     render(<ParentTreasuresPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("option", { name: "りゅうくん" })).toBeDefined();
-      expect(screen.getByRole("option", { name: "ねこさん" })).toBeDefined();
+      expect(screen.getByRole("button", { name: /りゅうくん/ })).toBeDefined();
+      expect(screen.getByRole("button", { name: /ねこさん/ })).toBeDefined();
     });
+  });
+
+  it("子供が複数いる場合、画面上部に子供アイコンの切替ボタンが表示され、select は使わない", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/api/family/code")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              code: "ABC123",
+              members: [
+                { id: "c1", name: "太郎", monsterName: "ドラゴン", role: "CHILD" },
+                { id: "c2", name: "花子", monsterName: "ユニコーン", role: "CHILD" },
+              ],
+            }),
+        });
+      }
+      if (url.includes("/api/treasures")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ items: [] }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+
+    render(<ParentTreasuresPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /ドラゴン/ })).toBeDefined();
+      expect(screen.getByRole("button", { name: /ユニコーン/ })).toBeDefined();
+    });
+    // 「対象の子供」セレクトは廃止
+    expect(screen.queryByText("対象の子供")).toBeNull();
   });
 });
