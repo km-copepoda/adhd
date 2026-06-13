@@ -11,6 +11,7 @@ type Rarity = TreasureRarity;
 interface ChildOption {
   id: string;
   name: string;
+  monsterName: string | null;
 }
 
 interface PoolItem {
@@ -43,6 +44,7 @@ export default function ParentTreasuresPage() {
         .map((m: { id: string; name: string | null; monsterName: string | null }) => ({
           id: m.id,
           name: m.monsterName || m.name || "未設定",
+          monsterName: m.monsterName,
         }));
       setChildren(list);
       if (list.length > 0) setSelectedChildId(list[0].id);
@@ -120,20 +122,23 @@ export default function ParentTreasuresPage() {
         ℹ️ 親が「子供モード」で代理報告した場合は宝箱が出ません（子供の自発的なやる気を大事にする設計です）。
       </p>
 
-      {children.length > 0 && (
-        <div className="mb-4">
-          <label className="block text-xs font-bold mb-1">対象の子供</label>
-          <select
-            value={selectedChildId}
-            onChange={(e) => setSelectedChildId(e.target.value)}
-            className="w-full bg-quest-bg border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text focus:outline-none focus:border-quest-gold/30"
-          >
-            {children.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+      {children.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          {children.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedChildId(c.id)}
+              className={[
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors",
+                selectedChildId === c.id
+                  ? "bg-quest-gold/15 border border-quest-gold text-quest-gold"
+                  : "bg-quest-card border border-quest-border text-quest-dim hover:text-quest-text",
+              ].join(" ")}
+            >
+              🧒 {c.name}
+            </button>
+          ))}
         </div>
       )}
 
