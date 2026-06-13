@@ -127,10 +127,17 @@ export async function ensureTodayQuests(params: {
   const carryOverTemplates = templates.filter((t) => (t as any).carryOver);
   const normalTemplates = templates.filter((t) => !(t as any).carryOver);
 
+  // PENDING だけでなく REPORTED / SKIP_REPORTED も「親の承認待ちで残っているアクティブ」として扱う。
+  // ここで REPORTED を見落とすと、昨日の PENDING を今日報告した直後に新しい今日 PENDING が upsert され、
+  // 重複アクティブ縮約（cleanupStaleCarryOverInstances）で REJECTED(DUPLICATE_PENDING_CLEANUP) に落ちる。
   const carryOverChecks = await Promise.all(
     carryOverTemplates.map(async (template) => {
       const existing = await prisma.questInstance.findFirst({
-        where: { templateId: template.id, childId, status: "PENDING" },
+        where: {
+          templateId: template.id,
+          childId,
+          status: { in: ["PENDING", "REPORTED", "SKIP_REPORTED"] },
+        },
       });
       return { template, hasPending: !!existing };
     })
