@@ -62,7 +62,7 @@ export default function ChildViewSelectorPage() {
           どの子のクエストを操作しますか？親が代理で報告するとそのまま承認扱いになります。
         </p>
         <p className="text-quest-dim/80 text-[11px] mb-6">
-          ℹ️ 代理操作では宝箱（ごほうび）は出ません。
+          ℹ️ 代理報告でも 1日のタスク達成数が条件を満たせば宝箱がもらえます（その日に子供本人の報告で宝箱を獲得済みの場合は重複しません）。
         </p>
 
         {children.length === 0 ? (

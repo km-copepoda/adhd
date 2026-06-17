@@ -81,12 +81,15 @@ afterEach(() => {
 });
 
 describe("ChildViewSelectorPage", () => {
-  it("親代理操作では宝箱が出ない旨を案内する", async () => {
+  it("親代理報告でも宝箱が出る旨を案内する（2026-05-30 仕様変更後）", async () => {
     render(<ChildViewSelectorPage />);
     await waitFor(() => expect(screen.getByText("ラーン")).toBeTruthy());
     const body = document.body.textContent ?? "";
     expect(body).toMatch(/宝箱|ごほうび/);
-    expect(body).toMatch(/出ません|出ない|対象外/);
+    expect(body).toMatch(/出ます|生成|もらえ/);
+    // 旧仕様の「出ません/出ない/対象外」は残っていないこと
+    expect(body).not.toMatch(/宝箱（ごほうび）は出ません/);
+    expect(body).not.toMatch(/宝箱が出ません/);
   });
 
   it("各子供のアイコンに子供のモンスター画像を表示する（絵文字ではない）", async () => {
