@@ -11,6 +11,7 @@ import TreasureGetCutscene from "@/components/child/TreasureGetCutscene";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, sortQuestsByCompletion } from "@/lib/questProgress";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
+import { displayRejectionReason } from "@/lib/rejectionReason";
 
 type Quest = {
   id: string;
@@ -260,9 +261,9 @@ export default function ChildViewQuestsPage() {
                   </div>
                 </div>
 
-                {isRejected && quest.rejectionReason && (
+                {isRejected && displayRejectionReason(quest.rejectionReason) && (
                   <div className="bg-red-400/5 border border-red-400/20 border-t-0 rounded-b-xl px-4 py-3 text-xs text-red-300/70">
-                    {quest.rejectionReason}
+                    {displayRejectionReason(quest.rejectionReason)}
                   </div>
                 )}
               </div>

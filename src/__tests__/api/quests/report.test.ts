@@ -383,5 +383,136 @@ describe("POST /api/quests/[id]/report", () => {
       expect(res.status).toBe(200);
       expect(json.treasureIds).toEqual([]);
     });
+
+    // 持ち越し（carryOver）タスクの古日付報告で宝箱が古日付＆水増し集計で
+    // 出てしまうバグ（quest.date が 9日前のとき、その日には他タスクが無いので
+    // totalCount=1 になり STREAK+boosted ALL_COMPLETE で 2個出る）の回帰防止。
+    describe("carryOver の古日付（quest.date < today）での報告", () => {
+      it("宝箱の date と集計を今日基準に切り替えること", async () => {
+        vi.setSystemTime(new Date("2026-03-28T03:00:00Z")); // JST 12:00 → today=2026-03-28
+        const today = new Date("2026-03-28T00:00:00.000Z");
+        const oldDate = new Date("2026-03-19T00:00:00.000Z"); // 9日前
+
+        mockGetCurrentUser.mockResolvedValue({
+          ...baseUser,
+          minTasksForStreak: 1,
+          reportDeadlineTime: null,
+        } as any);
+        mockPrisma.questInstance.findUnique.mockResolvedValue({
+          ...baseQuest,
+          date: oldDate,
+          template: { ...baseQuest.template, carryOver: true },
+        } as any);
+        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        // 今日（2026-03-28）には PENDING タスクが 2件 ある（carryOver 自身は別日付なので含まれない）
+        mockPrisma.questInstance.findMany.mockResolvedValue([
+          { status: "PENDING" } as any,
+          { status: "PENDING" } as any,
+        ]);
+        mockGenerateTreasures.mockResolvedValue(["t-streak"]);
+
+        await POST(
+          makeRequest("/api/quests/q1/report", { comment: "" }),
+          makeParams("q1"),
+        );
+
+        // findMany は今日基準で集計
+        expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              childId: "child-1",
+              date: today,
+            }),
+          }),
+        );
+
+        // generateTreasures は今日の date で呼ばれ、carryOver の REPORTED 自身を 1件加えた集計
+        // 今日 PENDING2件 + carryOver REPORTED1件 = total 3, reported 1, skipped 0
+        // → ALL_COMPLETE は発火しない (1 < 3)
+        expect(mockGenerateTreasures).toHaveBeenCalledWith({
+          childId: "child-1",
+          date: today,
+          reportedCount: 1,
+          totalCount: 3,
+          skippedCount: 0,
+          minTasks: 1,
+          isProxy: false,
+        });
+        vi.useRealTimers();
+      });
+
+      it("quest.date === today の carryOver タスクは従来通り quest.date で集計", async () => {
+        vi.setSystemTime(new Date("2026-03-28T03:00:00Z"));
+        const today = new Date("2026-03-28T00:00:00.000Z");
+
+        mockGetCurrentUser.mockResolvedValue({
+          ...baseUser,
+          minTasksForStreak: 1,
+          reportDeadlineTime: null,
+        } as any);
+        mockPrisma.questInstance.findUnique.mockResolvedValue({
+          ...baseQuest,
+          date: today,
+          template: { ...baseQuest.template, carryOver: true },
+        } as any);
+        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        mockPrisma.questInstance.findMany.mockResolvedValue([
+          { status: "REPORTED" } as any, // 今回の REPORTED は既に findMany に含まれる
+          { status: "PENDING" } as any,
+        ]);
+
+        await POST(
+          makeRequest("/api/quests/q1/report", { comment: "" }),
+          makeParams("q1"),
+        );
+
+        expect(mockGenerateTreasures).toHaveBeenCalledWith({
+          childId: "child-1",
+          date: today,
+          reportedCount: 1,
+          totalCount: 2,
+          skippedCount: 0,
+          minTasks: 1,
+          isProxy: false,
+        });
+        vi.useRealTimers();
+      });
+
+      it("非 carryOver タスクは quest.date < today でも従来通り quest.date 集計", async () => {
+        vi.setSystemTime(new Date("2026-03-28T03:00:00Z"));
+        const oldDate = new Date("2026-03-19T00:00:00.000Z");
+
+        mockGetCurrentUser.mockResolvedValue({
+          ...baseUser,
+          minTasksForStreak: 1,
+          reportDeadlineTime: null,
+        } as any);
+        mockPrisma.questInstance.findUnique.mockResolvedValue({
+          ...baseQuest,
+          date: oldDate,
+          template: { ...baseQuest.template, carryOver: false },
+        } as any);
+        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        mockPrisma.questInstance.findMany.mockResolvedValue([
+          { status: "REPORTED" } as any,
+        ]);
+
+        await POST(
+          makeRequest("/api/quests/q1/report", { comment: "" }),
+          makeParams("q1"),
+        );
+
+        expect(mockGenerateTreasures).toHaveBeenCalledWith({
+          childId: "child-1",
+          date: oldDate,
+          reportedCount: 1,
+          totalCount: 1,
+          skippedCount: 0,
+          minTasks: 1,
+          isProxy: false,
+        });
+        vi.useRealTimers();
+      });
+    });
   });
 });

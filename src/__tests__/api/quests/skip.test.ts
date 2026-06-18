@@ -192,4 +192,84 @@ describe("POST /api/quests/[id]/skip", () => {
       isProxy: false,
     });
   });
+
+  // carryOver の古日付スキップ申請: report と同じく宝箱集計を今日基準に切替えること
+  describe("carryOver の古日付（quest.date < today）でのスキップ申請", () => {
+    it("宝箱の date と集計を今日基準に切り替えること", async () => {
+      vi.setSystemTime(new Date("2026-03-28T03:00:00Z")); // JST 12:00 → today=2026-03-28
+      const today = new Date("2026-03-28T00:00:00.000Z");
+      const oldDate = new Date("2026-03-19T00:00:00.000Z"); // 9日前
+
+      mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(
+        questInstance({
+          id: "q1",
+          status: "PENDING",
+          date: oldDate,
+          template: { id: "tpl-1", carryOver: true } as any,
+        }) as any,
+      );
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      // 今日（2026-03-28）には PENDING タスクが 2件（carryOver 自身は別日付なので含まれない）
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "PENDING" } as any,
+        { status: "PENDING" } as any,
+      ]);
+
+      await POST(makeSkipRequest({ comment: "やっぱり今日できない" }), makeParams("q1"));
+
+      // findMany は今日の date で呼ばれること
+      expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            childId: "child-1",
+            date: today,
+          }),
+        }),
+      );
+      // 今日 PENDING 2件 + carryOver SKIP_REPORTED 1件 → reported 1, total 3, skipped 1
+      expect(mockGenerateTreasures).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: today,
+        reportedCount: 1,
+        totalCount: 3,
+        skippedCount: 1,
+        minTasks: 1,
+        isProxy: false,
+      });
+      vi.useRealTimers();
+    });
+
+    it("非 carryOver タスクは quest.date < today でも従来通り quest.date で集計", async () => {
+      vi.setSystemTime(new Date("2026-03-28T03:00:00Z"));
+      const oldDate = new Date("2026-03-19T00:00:00.000Z");
+
+      mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(
+        questInstance({
+          id: "q1",
+          status: "PENDING",
+          date: oldDate,
+          template: { id: "tpl-1", carryOver: false } as any,
+        }) as any,
+      );
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "SKIP_REPORTED" } as any,
+      ]);
+
+      await POST(makeSkipRequest({ comment: "skip" }), makeParams("q1"));
+
+      expect(mockGenerateTreasures).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: oldDate,
+        reportedCount: 1,
+        totalCount: 1,
+        skippedCount: 1,
+        minTasks: 1,
+        isProxy: false,
+      });
+      vi.useRealTimers();
+    });
+  });
 });

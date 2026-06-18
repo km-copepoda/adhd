@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { isBeforeDeadline } from "@/lib/date";
+import { isBeforeDeadline, todayJST } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
@@ -80,16 +80,29 @@ export async function POST(
 
   // 宝箱（ごほうび）生成: 当日の進捗状況を再集計して、LOCKED 宝箱を作る
   // この経路は子供本人の報告なので isProxy=false 固定（親代理は別ルート）
-  const todayQuests = await prisma.questInstance.findMany({
-    where: { childId: user.id, date: quest.date },
+  //
+  // carryOver タスクが古い日付（quest.date < today）で報告された場合、quest.date 基準で
+  // 集計すると「その日付には他タスクが無い → totalCount=1 で全完了扱い → STREAK + boosted
+  // ALL_COMPLETE が古日付で生成される」というバグになる。古日付 carryOver 報告は今日の
+  // 行動として扱い、宝箱の date と集計も今日基準に切替える。carryOver 自身は別日付に
+  // 紐づくため findMany には含まれず、別途 1件として加算する。
+  const today = todayJST();
+  const isCarryOverPastReport =
+    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
+  const aggregationDate = isCarryOverPastReport ? today : quest.date;
+  const sameDateQuests = await prisma.questInstance.findMany({
+    where: { childId: user.id, date: aggregationDate },
     select: { status: true },
   });
-  const reportedCount = computeCompletedCount(todayQuests);
-  const skippedCount = computeSkippedCount(todayQuests);
-  const totalCount = todayQuests.length;
+  const aggregateQuests = isCarryOverPastReport
+    ? [...sameDateQuests, { status: "REPORTED" as const }]
+    : sameDateQuests;
+  const reportedCount = computeCompletedCount(aggregateQuests);
+  const skippedCount = computeSkippedCount(aggregateQuests);
+  const totalCount = aggregateQuests.length;
   const treasureIds = await generateTreasuresOnReport({
     childId: user.id,
-    date: quest.date,
+    date: aggregationDate,
     reportedCount,
     totalCount,
     skippedCount,

@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { todayJST } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
@@ -60,17 +61,25 @@ export async function POST(
     }
   }
 
-  // 宝箱生成: スキップ申請も SKIP_REPORTED として完了扱いに含まれる
-  const todayQuests = await prisma.questInstance.findMany({
-    where: { childId: user.id, date: quest.date },
+  // 宝箱生成: スキップ申請も SKIP_REPORTED として完了扱いに含まれる。
+  // carryOver の古日付スキップは今日基準に切替（report と同じ理由。詳細は report ルート参照）。
+  const today = todayJST();
+  const isCarryOverPastSkip =
+    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
+  const aggregationDate = isCarryOverPastSkip ? today : quest.date;
+  const sameDateQuests = await prisma.questInstance.findMany({
+    where: { childId: user.id, date: aggregationDate },
     select: { status: true },
   });
+  const aggregateQuests = isCarryOverPastSkip
+    ? [...sameDateQuests, { status: "SKIP_REPORTED" as const }]
+    : sameDateQuests;
   const treasureIds = await generateTreasuresOnReport({
     childId: user.id,
-    date: quest.date,
-    reportedCount: computeCompletedCount(todayQuests),
-    totalCount: todayQuests.length,
-    skippedCount: computeSkippedCount(todayQuests),
+    date: aggregationDate,
+    reportedCount: computeCompletedCount(aggregateQuests),
+    totalCount: aggregateQuests.length,
+    skippedCount: computeSkippedCount(aggregateQuests),
     minTasks: user.minTasksForStreak,
     isProxy: false,
   });

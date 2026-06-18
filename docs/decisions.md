@@ -1731,3 +1731,30 @@
 - `src/__tests__/lib/streakDisplay.test.ts` — 境界テスト（月/年またぎ・うるう年・null・負値・ISO文字列）
 - `src/__tests__/components/streak-header-badge.test.tsx` — 状態別表示・login画面非表示・遷移先のテスト
 
+## 2026-06-19: 持ち越し（carryOver）古日付の報告/スキップで宝箱集計を今日基準に切替＋システム rejectionReason を UI 非表示化
+
+### 決定内容
+- `/api/quests/[id]/report` と `/api/quests/[id]/skip` で、対象が **carryOver=true かつ `quest.date < today`** の場合、宝箱集計と TreasureLog.date を **今日基準** に切替える（従来は `quest.date` 基準）
+  - findMany は `date: todayJST()` で問い合わせ、carryOver 自身の REPORTED / SKIP_REPORTED を 1件として加算した集計を `generateTreasuresOnReport` に渡す
+- `src/lib/rejectionReason.ts` を新設し `isSystemRejectionReason` / `displayRejectionReason` の純粋関数を切り出す。`DUPLICATE_PENDING_CLEANUP` / `STALE_CARRYOVER_CLEANUP` の 2つはユーザー画面で **非表示** にする（生の英数字識別子の露出をやめる）
+- 適用箇所: `src/components/child/QuestListItem.tsx` と `src/app/app/parent/child-view/[childId]/quests/page.tsx` の差し戻し理由バナー
+
+### 理由
+- 2026-04-22 (`carryOver` 導入) と 2026-05-28 (宝箱導入) の交差点で出るエッジケース。9日前から持ち越されていた PENDING を今日報告すると、宝箱集計が `quest.date=9日前` で行われていた:
+  - 9日前の `questInstance.findMany({ date })` は通常その carryOver 1件しか返さない → `reportedCount=1, totalCount=1, skippedCount=0` → **STREAK + boosted ALL_COMPLETE = 2個** が古日付で生成される
+  - 「今日 1件報告しただけで宝箱 2個＆ALL_COMPLETE 1.5倍」は「今日全完了」の体験設計（2026-05-28 / 2026-06-03）と矛盾
+- `rejectionReason` の生文字（`DUPLICATE_PENDING_CLEANUP` 等）は 2026-04-27 で `cleanupStaleCarryOverInstances` が遅延クリーンアップ用に書き込むだけの**内部識別子**で、ユーザーに見せる前提ではなかった。`QuestListItem.tsx` が rejectionReason を生のまま描画していたため、子供画面に英大文字スネークケースが露出して UX を損ねていた
+
+### やってはいけないこと
+- 非 carryOver タスクの古日付報告（一時タスクの遡及報告など）で aggregationDate を今日に切替える（一時タスクは `quest.date` がその日付の意味を持つ）
+- `displayRejectionReason` を **親の差し戻しフロー** (`/api/approve/[id]`) で適用する（親が手動入力した理由は引き続き表示する。フィルタはあくまで `cleanupStaleCarryOverInstances` 由来のシステム識別子のみ）
+- システム識別子を増やすときに `SYSTEM_REJECTION_REASONS` 集合を更新せずに放置する（新しい識別子も非表示にする運用前提）
+
+### 該当箇所
+- `src/lib/rejectionReason.ts` — 純粋関数 `isSystemRejectionReason` / `displayRejectionReason`
+- `src/app/api/quests/[id]/report/route.ts` — `isCarryOverPastReport` 分岐で aggregationDate と集計を切替
+- `src/app/api/quests/[id]/skip/route.ts` — `isCarryOverPastSkip` で同様に切替
+- `src/components/child/QuestListItem.tsx` / `src/app/app/parent/child-view/[childId]/quests/page.tsx` — フィルタ通過後のみバナー表示
+- `src/__tests__/lib/rejectionReason.test.ts` — 純粋関数の境界テスト
+- `src/__tests__/api/quests/report.test.ts` / `src/__tests__/api/quests/skip.test.ts` — carryOver 古日付の集計切替・非 carryOver は従来通りの 2軸テスト
+

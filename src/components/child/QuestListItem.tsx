@@ -3,6 +3,7 @@
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { calcActualXP } from "@/lib/xp";
+import { displayRejectionReason } from "@/lib/rejectionReason";
 import type { Quest } from "@/hooks/useChildQuests";
 
 type Props = {
@@ -161,13 +162,13 @@ export default function QuestListItem({ quest, onOpen, onDeclare }: Props) {
         </div>
       )}
 
-      {/* 差し戻し理由バナー */}
-      {isRejected && quest.rejectionReason && (
+      {/* 差し戻し理由バナー（システム由来の DUPLICATE_PENDING_CLEANUP / STALE_CARRYOVER_CLEANUP は非表示） */}
+      {isRejected && displayRejectionReason(quest.rejectionReason) && (
         <div className="bg-red-400/5 border border-red-400/20 border-t-0 rounded-b-xl px-4 py-3 flex items-start gap-2">
           <span className="text-red-400 text-xs mt-0.5 shrink-0">⚠</span>
           <div>
             <p className="text-xs text-red-400/80 font-medium">差し戻し理由</p>
-            <p className="text-xs text-red-300/70 mt-0.5">{quest.rejectionReason}</p>
+            <p className="text-xs text-red-300/70 mt-0.5">{displayRejectionReason(quest.rejectionReason)}</p>
             <p className="text-[10px] text-quest-dim mt-1">タップしてもう一度報告してね</p>
           </div>
         </div>
