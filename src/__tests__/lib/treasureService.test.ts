@@ -282,6 +282,39 @@ describe("generateTreasuresOnReport", () => {
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
   });
 
+  // 差し戻し → 再報告のシナリオ: 一度 STREAK を作って親が差し戻し、cancelTreasuresOnReject で
+  // CANCELLED になった後、子供が再報告して再びストリーク条件を満たした場合に
+  // 新しい STREAK を作り直せる必要がある (CANCELLED は "存在しない" 扱い)。
+  it("既存 STREAK が CANCELLED のみなら再生成する (差し戻し→再報告)", async () => {
+    // CANCELLED は findMany で除外されている前提なので、戻り値は空
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockResolvedValue({ id: "t-streak-2" } as any);
+
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 1,
+      totalCount: 3,
+      skippedCount: 0,
+      minTasks: 1,
+      isProxy: false,
+    });
+
+    expect(ids).toEqual(["t-streak-2"]);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ trigger: "STREAK", status: "LOCKED" }),
+    });
+    // CANCELLED を除外するクエリになっていることを確認
+    expect(mockPrisma.treasureLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { not: "CANCELLED" },
+        }),
+      }),
+    );
+  });
+
   it("既存 PROXY + 全完了 → ALL_COMPLETE のみ作る (PROXY とは共存)", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([
       { id: "p1", trigger: "PROXY" } as any,

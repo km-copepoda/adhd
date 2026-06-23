@@ -50,11 +50,15 @@ export async function generateTreasuresOnReport(
   if (cond.isProxy) return [];
   if (cond.reportedCount < cond.minTasks) return [];
 
+  // CANCELLED は「差し戻しで取り消された宝箱」なので "存在しない" 扱いにする。
+  // これを含めると、差し戻し→再報告で再びストリーク条件を満たしても新規 STREAK が
+  // 作られないバグになる (generateProxyTreasure と同じフィルタ規約)。
   const existing = await prisma.treasureLog.findMany({
     where: {
       childId: cond.childId,
       date: cond.date,
       trigger: { in: ["STREAK", "ALL_COMPLETE", "PROXY"] },
+      status: { not: "CANCELLED" },
     },
     select: { trigger: true },
   });
