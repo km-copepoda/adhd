@@ -1758,3 +1758,36 @@
 - `src/__tests__/lib/rejectionReason.test.ts` — 純粋関数の境界テスト
 - `src/__tests__/api/quests/report.test.ts` / `src/__tests__/api/quests/skip.test.ts` — carryOver 古日付の集計切替・非 carryOver は従来通りの 2軸テスト
 
+## 2026-06-24: 宝箱の天井(pity)システムを復活（10回連続ハズレ→次は強制 HIT）
+
+### 決定内容
+- `drawTreasure` に `PITY_THRESHOLD = 10` / `pityCount` 入力 / `pityTriggered` `nextPityCount` 出力を再導入
+- `User.treasurePityCount` カラムを再追加（マイグレーション `20260624000001_restore_user_treasure_pity_count`）
+- `openOldestTreasure` で `treasurePityCount` を読み込んで draw に渡し、`nextPityCount` が変化したときだけ書き戻す（変化なしなら User.update をスキップ）
+- pity 発動時の挙動: プール内で **低レア度→高レア度** の順にピック（COMMON 優先）。pity 発動 = HIT 扱いなのでコレクションアイテムは付与しない（2026-06-02 で確認した方針を踏襲）
+- プール空時は pity 発動不可。ただし `nextPityCount` は加算する（後でプールが追加されたら即発動できるよう）
+
+### 理由
+- 2026-06-02 で「コレクション獲得で外れの救済は不要」として撤廃したが、実運用で**確率 1/10 でも 2週間ほど親ごほうび当選が出ないパターン**が発生し、子供のモチベーションを下げるケースが観測された
+- コレクションアイテム獲得は維持しつつも、子供にとっての「あたり」体験＝親ごほうび当選であり、これが長期間出ない状態はゲーミフィケーション的に致命的
+- 「10回に1回は必ず親ごほうびが当たる」保証を入れることで、最長乾季を上限 9 引きに固定でき、家庭での開封ペース（≒ 1日 1〜2 引き）でも 1 週間以内には必ず当たる
+- 2026-06-02 の懸念「pity 発動でコレクション枠が上書きされる副作用」は、**pity を HIT 扱いで独立処理する**（コレクションは付与しない）旧仕様で既に解決されている
+
+### 採用しなかった案
+- 閾値を 5 のまま（旧仕様）にする → 確率 1/10 のチューニング後では救済が早すぎ「ほぼ毎回 pity」になりすぎる
+- pityCount を draw 入出力でなく `treasureService` 内で直接管理 → `treasure.ts` を純粋関数として保つ責務分離が崩れる（lib 規約: データ・ロジック・DB を混在させない）
+- pity 発動時に高レア度から拾う（演出が派手） → 親が貴重品としていれた RARE が天井ピックで消費されてしまう。COMMON 優先で「数で補う」設計を継続
+
+### やってはいけないこと
+- `nextPityCount` を呼び出し側で計算する（draw 内の判定ロジックと二重実装になる）
+- pity 発動 HIT で `collectionItem` を付与する（HIT 扱いの原則を崩す。pity = MISS を HIT に書き換える機構）
+- `treasurePityCount` 変化チェックを省略して常に User.update を呼ぶ（HIT 時の pityCount=0→0 のような無変化更新で DB ノイズが増える）
+
+### 該当箇所
+- `src/lib/treasure.ts` — `PITY_THRESHOLD` / `pityCount` 入出力を再導入
+- `src/lib/treasureService.ts` — `openOldestTreasure` で User.treasurePityCount を読み書き
+- `prisma/schema.prisma` — `User.treasurePityCount Int @default(0)` を再追加
+- `prisma/migrations/20260624000001_restore_user_treasure_pity_count/migration.sql`
+- `src/__tests__/lib/treasure.test.ts` — pity 単体テスト（境界・10回保証シナリオ含む）追加
+- `src/__tests__/lib/treasureService.test.ts` — User.findUnique/update の連携テスト追加・旧「pity 廃止」前提のアサーション更新
+

@@ -76,6 +76,10 @@ model User {
   questDeclarations      QuestDeclaration[]
   treasureItems          TreasureItem[]
   treasureLogs           TreasureLog[]
+  /// 宝箱抽選の天井 (pity) カウンタ。親ごほうび不当選で +1、当選 or pity 発動でリセット。
+  /// PITY_THRESHOLD (10) に到達した次の引きは強制 HIT に書き換える。
+  /// 決定: 2026-06-02 撤廃 → 2026-06-24 復活 (decisions.md 参照)
+  treasurePityCount      Int                @default(0)
   collectionItems        UserCollectionItem[]
   createdAt              DateTime           @default(now())
 

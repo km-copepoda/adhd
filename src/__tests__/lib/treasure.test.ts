@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   drawTreasure,
+  PITY_THRESHOLD,
   RARITY_BASE_PROBABILITY,
   RARITY_BOOSTED_MULTIPLIER,
   RARITY_ORDER,
@@ -259,5 +260,134 @@ describe("drawTreasure — rng デフォルト", () => {
       const res = drawTreasure(pool3());
       expect(["COMMON", "UNCOMMON", "RARE", null]).toContain(res.rarity);
     }
+  });
+});
+
+// ─── pity (天井) — 2026-06-24 復活 ─────────────────────────────────────────────
+// 仕様: PITY_THRESHOLD 回連続でハズレた次の引きは強制 HIT (低レア度から拾う)。
+//       自然 HIT したらカウントは 0 にリセット。pity 発動 = HIT 扱いなのでコレクションは付与しない。
+describe("drawTreasure — pity (天井)", () => {
+  it("PITY_THRESHOLD は 10", () => {
+    expect(PITY_THRESHOLD).toBe(10);
+  });
+
+  it("自然 HIT 時: pityTriggered=false, nextPityCount=0 (リセット)", () => {
+    const res = drawTreasure(pool3(), {
+      pityCount: 5,
+      rng: seq([COMMON_HIT, 0.0]),
+    });
+    expect(res.rarity).toBe("COMMON");
+    expect(res.pityTriggered).toBe(false);
+    expect(res.nextPityCount).toBe(0);
+  });
+
+  it("自然 MISS で閾値未満: pityTriggered=false, nextPityCount=pityCount+1", () => {
+    const res = drawTreasure(pool3(), {
+      pityCount: 3,
+      rng: seq([MISS]),
+    });
+    expect(res.itemId).toBeNull();
+    expect(res.pityTriggered).toBe(false);
+    expect(res.nextPityCount).toBe(4);
+  });
+
+  it("pityCount 省略時は 0 として扱う", () => {
+    const res = drawTreasure(pool3(), { rng: seq([MISS]) });
+    expect(res.nextPityCount).toBe(1);
+    expect(res.pityTriggered).toBe(false);
+  });
+
+  it("9回連続ハズレ (pityCount=9) で次の MISS は強制 HIT に書き換わる", () => {
+    const res = drawTreasure(pool3(), {
+      pityCount: PITY_THRESHOLD - 1,
+      rng: seq([MISS]),
+    });
+    expect(res.pityTriggered).toBe(true);
+    expect(res.itemId).not.toBeNull();
+    expect(res.nextPityCount).toBe(0);
+  });
+
+  it("pity 発動時は最も低レア度のアイテムをピック (COMMON 優先)", () => {
+    const res = drawTreasure(pool3(), {
+      pityCount: PITY_THRESHOLD - 1,
+      rng: seq([MISS, 0.0]),
+    });
+    expect(res.pityTriggered).toBe(true);
+    expect(res.rarity).toBe("COMMON");
+    expect(res.itemId).toBe("c1");
+  });
+
+  it("pity 発動時: COMMON が無ければ UNCOMMON、それも無ければ RARE をピック", () => {
+    const noCommon: TreasurePoolItem[] = [
+      { id: "u1", title: "アイス", rarity: "UNCOMMON" },
+      { id: "r1", title: "本", rarity: "RARE" },
+    ];
+    const res = drawTreasure(noCommon, {
+      pityCount: PITY_THRESHOLD - 1,
+      rng: seq([MISS, 0.0]),
+    });
+    expect(res.pityTriggered).toBe(true);
+    expect(res.rarity).toBe("UNCOMMON");
+
+    const rareOnly: TreasurePoolItem[] = [
+      { id: "r1", title: "本", rarity: "RARE" },
+    ];
+    const res2 = drawTreasure(rareOnly, {
+      pityCount: PITY_THRESHOLD - 1,
+      rng: seq([MISS, 0.0]),
+    });
+    expect(res2.pityTriggered).toBe(true);
+    expect(res2.rarity).toBe("RARE");
+  });
+
+  it("自然 HIT した場合は pity 発動扱いにしない (pityCount=9 でも)", () => {
+    const res = drawTreasure(pool3(), {
+      pityCount: PITY_THRESHOLD - 1,
+      rng: seq([COMMON_HIT, 0.0]),
+    });
+    expect(res.pityTriggered).toBe(false);
+    expect(res.rarity).toBe("COMMON");
+    expect(res.nextPityCount).toBe(0);
+  });
+
+  it("プールが空ならpityは発動できない (MISS のまま、nextPityCount は加算)", () => {
+    const res = drawTreasure([], {
+      pityCount: PITY_THRESHOLD - 1,
+      rng: seq([MISS]),
+    });
+    expect(res.itemId).toBeNull();
+    expect(res.pityTriggered).toBe(false);
+    expect(res.nextPityCount).toBe(PITY_THRESHOLD);
+  });
+
+  it("「10回に1回は必ず当たる」保証: 9連続MISS+10回目MISSのrngでも10回目はHIT", () => {
+    let pityCount = 0;
+    const results: Array<{ hit: boolean; triggered: boolean }> = [];
+    // すべて MISS の rng で 10 回引く
+    for (let i = 0; i < 10; i++) {
+      const res = drawTreasure(pool3(), {
+        pityCount,
+        rng: seq([MISS, 0.0]),
+      });
+      results.push({ hit: res.itemId !== null, triggered: res.pityTriggered });
+      pityCount = res.nextPityCount;
+    }
+    // 1〜9 回目: MISS, 10 回目: pity 発動 HIT
+    for (let i = 0; i < 9; i++) {
+      expect(results[i].hit).toBe(false);
+      expect(results[i].triggered).toBe(false);
+    }
+    expect(results[9].hit).toBe(true);
+    expect(results[9].triggered).toBe(true);
+  });
+
+  it("境界値: pityCount=PITY_THRESHOLD-2 で MISS なら nextPityCount=PITY_THRESHOLD-1、まだ pity 未発動", () => {
+    const res = drawTreasure(pool3(), {
+      pityCount: PITY_THRESHOLD - 2,
+      rng: seq([MISS]),
+    });
+    expect(res.pityTriggered).toBe(false);
+    expect(res.itemId).toBeNull();
+    expect(res.nextPityCount).toBe(PITY_THRESHOLD - 1);
   });
 });

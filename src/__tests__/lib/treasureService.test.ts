@@ -496,6 +496,12 @@ describe("generateProxyTreasure", () => {
 
 // ─── openOldestTreasure ─────────────────────────────────────────────────────
 describe("openOldestTreasure", () => {
+  beforeEach(() => {
+    // pity カウンタの既定値 (各テストで上書き可)
+    mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 0 } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+  });
+
   it("UNLOCKED 宝箱が無いとき null", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
     const result = await openOldestTreasure("c1");
@@ -527,11 +533,11 @@ describe("openOldestTreasure", () => {
         openedAt: expect.any(Date),
       }),
     });
-    // pity 廃止により User.update は呼ばれない
+    // pityCount=0 → HIT → nextPityCount=0 (変化なし) なので User.update は呼ばれない
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
-  it("親ごほうび当選時は User を一切更新しない (pity 廃止)", async () => {
+  it("親ごほうび当選時で pityCount=0 のままなら User.update はスキップする", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue({
       id: "log-1b",
       childId: "c1",
@@ -544,8 +550,13 @@ describe("openOldestTreasure", () => {
 
     const result = await openOldestTreasure("c1", { rng: () => 0.0 });
     expect(result!.collectionItem).toBeNull();
+    // 値が変わらないときは update をスキップ (DB ノイズを減らす)
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
-    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    // pity カウンタを読み出すために findUnique は必ず呼ぶ
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      select: { treasurePityCount: true },
+    });
   });
 
   it("プールが空ならコレクションアイテムを付与 (item=null)", async () => {
@@ -571,7 +582,11 @@ describe("openOldestTreasure", () => {
         collectionItemId: expect.stringMatching(/^summer-\d+$/),
       }),
     });
-    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    // MISS なので pityCount 0→1 で User.update が呼ばれる
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      data: { treasurePityCount: 1 },
+    });
     expect(result!.collectionItem).not.toBeNull();
     expect(result!.collectionItem!.season).toBe("summer");
     expect(mockPrisma.userCollectionItem.upsert).toHaveBeenCalled();
@@ -597,7 +612,11 @@ describe("openOldestTreasure", () => {
     });
 
     expect(result!.item).toBeNull();
-    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    // MISS で pityCount 0→1
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "c1" },
+      data: { treasurePityCount: 1 },
+    });
     expect(result!.collectionItem).not.toBeNull();
     expect(result!.collectionItem!.season).toBe("summer");
   });
@@ -619,6 +638,95 @@ describe("openOldestTreasure", () => {
     });
     expect(result!.collectionItem).toBeNull();
     expect(mockPrisma.userCollectionItem.upsert).not.toHaveBeenCalled();
+  });
+
+  // ─── pity (天井) 統合テスト — 2026-06-24 復活 ────────────────────────────
+  describe("pity (天井) — User.treasurePityCount 連携", () => {
+    it("HIT 時: pityCount を 0 にリセットする (5 → 0)", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 5 } as any);
+      mockPrisma.treasureLog.findFirst.mockResolvedValue({
+        id: "log-pity-hit", childId: "c1", boosted: false,
+      } as any);
+      mockPrisma.treasureItem.findMany.mockResolvedValue([
+        { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
+      ]);
+      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+
+      const result = await openOldestTreasure("c1", { rng: () => 0.0 });
+      expect(result!.item?.id).toBe("item-1");
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "c1" },
+        data: { treasurePityCount: 0 },
+      });
+    });
+
+    it("MISS 時: pityCount を +1 する (3 → 4)", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 3 } as any);
+      mockPrisma.treasureLog.findFirst.mockResolvedValue({
+        id: "log-pity-miss", childId: "c1", boosted: false,
+      } as any);
+      mockPrisma.treasureItem.findMany.mockResolvedValue([
+        { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
+      ]);
+      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+
+      const result = await openOldestTreasure("c1", {
+        rng: () => 0.99,
+        now: new Date("2026-07-15T03:00:00Z"),
+      });
+      expect(result!.item).toBeNull();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "c1" },
+        data: { treasurePityCount: 4 },
+      });
+    });
+
+    it("pityCount=9 で MISS rng → pity 発動: 親ごほうび確定 + pityCount=0 リセット", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 9 } as any);
+      mockPrisma.treasureLog.findFirst.mockResolvedValue({
+        id: "log-pity-trigger", childId: "c1", boosted: false,
+      } as any);
+      mockPrisma.treasureItem.findMany.mockResolvedValue([
+        { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
+      ]);
+      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+
+      const result = await openOldestTreasure("c1", {
+        rng: () => 0.99,
+        now: new Date("2026-07-15T03:00:00Z"),
+      });
+      // pity 発動 → 親ごほうび当選扱い、コレクションは付与しない
+      expect(result!.item?.id).toBe("item-1");
+      expect(result!.collectionItem).toBeNull();
+      expect(mockPrisma.userCollectionItem.upsert).not.toHaveBeenCalled();
+      // pityCount リセット
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "c1" },
+        data: { treasurePityCount: 0 },
+      });
+    });
+
+    it("pityCount=9 でプール空 → pity 発動できず MISS のままだが pityCount は +1", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 9 } as any);
+      mockPrisma.treasureLog.findFirst.mockResolvedValue({
+        id: "log-pity-empty", childId: "c1", boosted: false,
+      } as any);
+      mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+
+      const result = await openOldestTreasure("c1", {
+        now: new Date("2026-07-15T03:00:00Z"),
+      });
+      // プール空なので親ごほうび当選不可、コレクション付与
+      expect(result!.item).toBeNull();
+      expect(result!.collectionItem).not.toBeNull();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "c1" },
+        data: { treasurePityCount: 10 },
+      });
+    });
   });
 
   it("ダブり獲得時 collectionItem.count に upsert 結果の値が入る", async () => {

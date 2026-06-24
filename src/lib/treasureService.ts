@@ -198,8 +198,12 @@ export interface OpenTreasureResult {
  * 最古の UNLOCKED 宝箱を開封し、抽選結果を確定する。
  *  - 該当なし → null
  *  - 抽選で親ごほうびに当選 → item を入れて返す（collectionItem は null）
+ *  - pity 発動で親ごほうびに昇格 → item を入れて返す（collectionItem は null）
  *  - 親ごほうび不当選 (プール空 or rng が外れ) → 現在シーズンのコレクションアイテムを 1個付与
  *    (仕様: docs/未実装仕様書/treasure-collection-items.md)
+ *
+ *  pity (天井): User.treasurePityCount を読み込み drawTreasure に渡し、結果の nextPityCount を保存。
+ *    HIT or pity 発動でリセット (0)、MISS で +1。10回連続 MISS の次は強制 HIT。
  */
 export async function openOldestTreasure(
   childId: string,
@@ -212,6 +216,12 @@ export async function openOldestTreasure(
     orderBy: { createdAt: "asc" },
   });
   if (!log) return null;
+
+  const child = await prisma.user.findUnique({
+    where: { id: childId },
+    select: { treasurePityCount: true },
+  });
+  const pityCount = child?.treasurePityCount ?? 0;
 
   const items = await prisma.treasureItem.findMany({
     where: { childId, isActive: true },
@@ -226,6 +236,7 @@ export async function openOldestTreasure(
 
   const draw = drawTreasure(pool, {
     boosted: log.boosted,
+    pityCount,
     rng: options.rng,
   });
 
@@ -261,6 +272,13 @@ export async function openOldestTreasure(
       openedAt: now,
     },
   });
+
+  if (draw.nextPityCount !== pityCount) {
+    await prisma.user.update({
+      where: { id: childId },
+      data: { treasurePityCount: draw.nextPityCount },
+    });
+  }
 
   return {
     logId: log.id,
