@@ -1758,3 +1758,32 @@
 - `src/__tests__/lib/rejectionReason.test.ts` — 純粋関数の境界テスト
 - `src/__tests__/api/quests/report.test.ts` / `src/__tests__/api/quests/skip.test.ts` — carryOver 古日付の集計切替・非 carryOver は従来通りの 2軸テスト
 
+## 2026-06-24: チェックインカレンダーの導入
+
+### 決定内容
+- 親が `User.checkinDeadlineTime`（"HH:mm" or null）を設定すると、子供がクエスト画面を開いた瞬間にチェックイン判定（締切前=success, 締切後=fail）を行う
+- 新規モデル `CheckinLog (childId, date, success, checkedInAt)`（1日1レコード、`@@unique([childId, date])`）でカレンダー表示用に履歴を保持
+- `Streak` に `checkinCurrentStreak` / `checkinBestStreak` / `lastCheckinDate` を追加
+- 副作用のあるチェックイン記録は **GET /api/quests/today を変えず**、別途 `POST /api/checkin/today` で発火（既存 `POST /api/streak/login-check` のパターン踏襲）
+- カレンダー取得は `GET /api/checkin/calendar?month=YYYY-MM`
+- **報酬なし** — 子供の反応を見てから XP / 宝箱の追加を検討（過去案: XP/宝箱/ブーストはカテゴリ偏り・インフレ・地味で却下）
+
+### 理由
+- 「学校から帰ったらまずアプリを開く」習慣を ADHD 子供に身につけるための独立した動機付け（タスク達成ストリークとは別軸）
+- 既存の `lastLoginDate` だけでは月間履歴を再構築できないため新規テーブルが必要
+- GET エンドポイントに副作用を入れると冪等性が崩れる + 既存 `quests/today` レスポンス形（配列）を破壊するため、既存 login-check と同じ別 POST 方式を採用
+
+### やってはいけないこと
+- チェックイン成功を既存ストリーク（タスク達成連続）の判定や宝箱出現条件に混ぜる（独立軸を維持）
+- 締切ちょうど（`now === deadline`）を成功扱いする（`isBeforeCheckinDeadline` は `<` で判定。境界値テストあり）
+- `checkinLog.create` を `Streak.update` より前後どちらかだけにする（両方更新しないと表示と内部状態がズレる）
+
+### 該当箇所
+- `prisma/schema.prisma` — `User.checkinDeadlineTime` / `Streak` 3フィールド / `CheckinLog` モデル
+- `src/lib/checkin.logic.ts` — `isValidCheckinDeadlineTime` / `isBeforeCheckinDeadline` / `computeNextCheckinStreak`（純粋関数）
+- `src/lib/checkin.calendar.ts` — `buildCalendarGrid`（月曜始まり、enabledSince 対応）
+- `src/lib/checkin.ts` — `recordCheckin`（DB 操作、冪等）
+- `src/app/api/checkin/today/route.ts` / `src/app/api/checkin/calendar/route.ts`
+- `src/components/child/CheckinCalendar.tsx` / `src/app/app/child/quests/page.tsx`（マウント時 POST + カレンダー表示）
+- `src/app/app/parent/(app)/family/page.tsx` — 締切時刻設定 UI
+

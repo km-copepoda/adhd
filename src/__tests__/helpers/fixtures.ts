@@ -28,6 +28,7 @@ interface UserFixture {
   rebirthEggBonus: string | null;
   usedEggBonuses: string;
   reportDeadlineTime: string | null;
+  checkinDeadlineTime: string | null;
   family?: { id: string; code: string };
 }
 
@@ -53,6 +54,7 @@ export function parentUser(overrides?: Partial<UserFixture>): UserFixture {
     rebirthEggBonus: null,
     usedEggBonuses: "[]",
     reportDeadlineTime: null,
+    checkinDeadlineTime: null,
     ...overrides,
   };
 }
@@ -79,6 +81,7 @@ export function childUser(overrides?: Partial<UserFixture>): UserFixture {
     rebirthEggBonus: null,
     usedEggBonuses: "[]",
     reportDeadlineTime: null,
+    checkinDeadlineTime: null,
     ...overrides,
   };
 }
@@ -187,6 +190,9 @@ interface StreakFixture {
   loginCurrentStreak: number;
   loginBestStreak: number;
   lastLoginDate: Date | null;
+  checkinCurrentStreak: number;
+  checkinBestStreak: number;
+  lastCheckinDate: Date | null;
 }
 
 export function streak(overrides?: Partial<StreakFixture>): StreakFixture {
@@ -199,6 +205,9 @@ export function streak(overrides?: Partial<StreakFixture>): StreakFixture {
     loginCurrentStreak: 0,
     loginBestStreak: 0,
     lastLoginDate: null,
+    checkinCurrentStreak: 0,
+    checkinBestStreak: 0,
+    lastCheckinDate: null,
     ...overrides,
   };
 }

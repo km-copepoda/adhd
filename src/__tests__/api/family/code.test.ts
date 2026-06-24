@@ -55,6 +55,7 @@ describe("GET /api/family/code", () => {
       childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,
+      checkinDeadlineTime: null,
       questTimeNotifyEnabled: true,
       studyPt: 0,
       staminaPt: 0,

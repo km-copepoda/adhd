@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { isValidCheckinDeadlineTime } from "@/lib/checkin.logic";
 
 /** PATCH /api/family/settings — ファミリー設定更新（親のみ）*/
 export async function PATCH(request: Request) {
@@ -37,6 +38,34 @@ export async function PATCH(request: Request) {
     });
 
     rlog.info("Child reportDeadlineTime updated", { childId, value });
+  }
+
+  // checkinDeadlineTime: チェックインカレンダーの締切時刻（子供単位、"HH:mm" or null）
+  if ("checkinDeadlineTime" in body && "childId" in body) {
+    const value: string | null = body.checkinDeadlineTime;
+    const childId: string = body.childId;
+
+    if (value !== null && !isValidCheckinDeadlineTime(value)) {
+      return NextResponse.json(
+        { error: "checkinDeadlineTime は HH:mm 形式で指定してください" },
+        { status: 400 },
+      );
+    }
+
+    const child = await prisma.user.findFirst({
+      where: { id: childId, familyId: user.familyId, role: "CHILD" },
+      select: { id: true },
+    });
+    if (!child) {
+      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+    }
+
+    await prisma.user.update({
+      where: { id: childId },
+      data: { checkinDeadlineTime: value },
+    });
+
+    rlog.info("Child checkinDeadlineTime updated", { childId, value });
   }
 
   // questTimeNotifyEnabled: クエストタイム自動通知の ON/OFF（子供単位）

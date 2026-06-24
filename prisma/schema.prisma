@@ -58,6 +58,7 @@ model User {
   lifePt                 Int                @default(0)
   minTasksForStreak      Int                @default(1)
   reportDeadlineTime     String?
+  checkinDeadlineTime    String?
   questTimeNotifyEnabled Boolean            @default(true)
   rebirthPending         Boolean            @default(false)
   rebirthEggBonus        String?
@@ -77,6 +78,7 @@ model User {
   treasureItems          TreasureItem[]
   treasureLogs           TreasureLog[]
   collectionItems        UserCollectionItem[]
+  checkinLogs            CheckinLog[]
   createdAt              DateTime           @default(now())
 
   @@unique([familyId, childCode])
@@ -137,17 +139,36 @@ model QuestInstance {
 }
 
 model Streak {
-  id                 String    @id @default(cuid())
-  childId            String    @unique
-  child              User      @relation(fields: [childId], references: [id])
-  currentStreak      Int       @default(0)
-  bestStreak         Int       @default(0)
-  lastAchievedDate   DateTime? @db.Date
-  loginCurrentStreak Int       @default(0)
-  loginBestStreak    Int       @default(0)
-  lastLoginDate      DateTime? @db.Date
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  childId               String    @unique
+  child                 User      @relation(fields: [childId], references: [id])
+  currentStreak         Int       @default(0)
+  bestStreak            Int       @default(0)
+  lastAchievedDate      DateTime? @db.Date
+  loginCurrentStreak    Int       @default(0)
+  loginBestStreak       Int       @default(0)
+  lastLoginDate         DateTime? @db.Date
+  checkinCurrentStreak  Int       @default(0)
+  checkinBestStreak     Int       @default(0)
+  lastCheckinDate       DateTime? @db.Date
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+/// チェックインカレンダー: 子供が締切時刻までにクエスト画面を開いた／開かなかったを日別に記録する。
+/// 親が `checkinDeadlineTime` を設定したときのみ有効。1日1レコード。
+/// 当日一度も開かなかった場合はレコードなし → カレンダー表示時にクライアントが失敗として扱う。
+model CheckinLog {
+  id          String   @id @default(cuid())
+  childId     String
+  child       User     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  success     Boolean
+  checkedInAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@unique([childId, date])
+  @@index([childId])
 }
 
 model TaskStreak {

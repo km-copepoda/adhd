@@ -33,6 +33,7 @@ export async function GET() {
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
+      checkinDeadlineTime: (u.checkinDeadlineTime as string | null) ?? null,
       questTimeNotifyEnabled: (u.questTimeNotifyEnabled as boolean | undefined) ?? true,
       studyPt: (u.studyPt as number) ?? 0,
       staminaPt: (u.staminaPt as number) ?? 0,
