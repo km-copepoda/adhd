@@ -4,7 +4,9 @@ import { useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HeatmapGrid from "@/components/parent/HeatmapGrid";
 import HistoryItemCard from "@/components/parent/HistoryItemCard";
+import ParentCheckinCalendar from "@/components/parent/ParentCheckinCalendar";
 import { useHistoryData } from "@/hooks/useHistoryData";
+import { todayStringJST } from "@/lib/date";
 
 export default function HistoryContent() {
   const today = new Date();
@@ -105,6 +107,14 @@ export default function HistoryContent() {
         onNextMonth={() => setViewMonth(new Date(year, month + 1, 1))}
         onSelectDate={setSelectedDate}
       />
+
+      {selectedChildId && (
+        <ParentCheckinCalendar
+          childId={selectedChildId}
+          viewMonth={viewMonth}
+          todayStr={todayStringJST()}
+        />
+      )}
 
       <div className="mb-4">
         <h2 className="text-quest-text font-medium">

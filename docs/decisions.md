@@ -1850,3 +1850,37 @@
 - `src/components/child/CheckinCalendar.tsx` — 7 セル横並び、`empty` で `"-"` 描画
 - `src/__tests__/lib/checkin-calendar.test.ts` / `src/__tests__/api/checkin/calendar.test.ts` / `src/__tests__/components/CheckinCalendar.test.tsx` — 新仕様に追従
 
+## 2026-06-25: 親側のチェックイン履歴を「記録 > 過去」に追加（専用 API）
+
+### 決定内容
+- 親の `/app/parent/records` 「📅 過去」タブの `HistoryContent` で、`HeatmapGrid` の下に **選択中の子供の月間チェックインカレンダー** (`ParentCheckinCalendar`) を表示する
+- 新規 API `GET /api/parent/checkin/calendar?childId=X&month=YYYY-MM` を立てる（PARENT 認可 + `resolveTargetChild` で同 family 検証）
+- 新規純粋関数 `buildMonthGrid` を `checkin.calendar.ts` に追加（月内 1〜末日のセル配列。週並び先頭オフセットは描画側で `cells[0].weekday` から計算）
+- `CalendarCell.weekday` は JS `Date.getUTCDay()` 準拠（日=0..土=6）に統一。子画面の `buildWeekStrip` も同じ規約に揃え、月曜始まり表示は子コンポーネントで配列順を組み替える
+- ログが 1 件もない子供の `enabledSince` は **今日 JST** を返す（子 API と統一）。これで親が過去月を遡っても全日 empty (`"-"`) になる
+
+### 理由
+- 親に **独立ページを新設すると階層が深くなる**。「記録 > 過去」は既にタスク達成ヒートマップで月ナビゲーションを持っているため、同じ月選択を共有して縦に追加するのが情報設計として自然
+- ヒートマップに**重ねる**案も検討したが、タスク達成度（色グラデーション）とチェックイン結果（アイコン）は軸が違うため視覚的に混雑する。**別カードで縦並び**にする
+- 子画面 API (`/api/checkin/calendar`) を流用せずに **PARENT 用の専用ルート** にしたのは、認可（同 family の子供かチェック）の責務を route 単位で明確化するため
+- `weekday` の規約統一は、HeatmapGrid (`Date.getDay()` = 日=0..土=6) との整合性を取るため。子画面の月曜始まり表示はコンポーネント側の責務に閉じ込める
+
+### 採用しなかった案
+- 既存 `/api/checkin/calendar` に親モードを足す（クエリで分岐） → 認可ロジックが太り、route 内分岐が増える
+- ヒートマップセルにチェックイン結果を重ねる → 情報過多
+- 月遷移をチェックイン専用に独立させる → ヒートマップと月がズレて UX が混乱
+
+### やってはいけないこと
+- 親 API で `resolveTargetChild` を介さずに `findUnique({ id: childId })` を直接書く（他家庭の子の履歴を漏らす穴になる）
+- `buildMonthGrid` と `buildWeekStrip` で `weekday` の規約をズラす（描画ラベルがバグる）
+- ログが無いときの `enabledSince` を null や月初に戻す（過去月でも fail（😢）が出てしまい今回の修正趣旨と矛盾する）
+
+### 該当箇所
+- `src/lib/checkin.calendar.ts` — `buildMonthGrid` を追加、`weekday` を JS 標準に統一
+- `src/app/api/parent/checkin/calendar/route.ts` — 新規。PARENT + 同 family 検証
+- `src/components/parent/ParentCheckinCalendar.tsx` — 月グリッド描画（HeatmapGrid と同じ日曜始まり）
+- `src/components/parent/HistoryContent.tsx` — HeatmapGrid 直下に組み込み
+- `src/__tests__/lib/checkin-calendar.test.ts` — `buildMonthGrid` の境界・うるう年・分類テスト
+- `src/__tests__/api/parent/checkin/calendar.test.ts` — 認可・month 検証・enabledSince の各境界
+- `src/__tests__/components/ParentCheckinCalendar.test.tsx` — 表示状態・childId 再フェッチ
+

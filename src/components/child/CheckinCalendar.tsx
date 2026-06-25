@@ -19,7 +19,8 @@ interface Props {
   justNow?: boolean;
 }
 
-const DAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
+// 日=0..土=6 (JS Date.getUTCDay() 準拠) で引く
+const DAY_LABELS_SUN_START = ["日", "月", "火", "水", "木", "金", "土"];
 const STRIP_DAYS = 7;
 
 export default function CheckinCalendar({ deadline, todayStr, justNow }: Props) {
@@ -92,9 +93,10 @@ function Cell({
     if (cell.state === "future") return "";
     return "";
   })();
-  const weekdayLabel = DAY_LABELS[cell.weekday];
+  const weekdayLabel = DAY_LABELS_SUN_START[cell.weekday];
+  // 土=6 を青、日=0 を赤
   const weekdayClass =
-    cell.weekday === 5 ? "text-blue-400" : cell.weekday === 6 ? "text-red-400" : "text-quest-dim";
+    cell.weekday === 6 ? "text-blue-400" : cell.weekday === 0 ? "text-red-400" : "text-quest-dim";
   return (
     <div
       data-testid={`cell-${cell.date}`}

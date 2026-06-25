@@ -7,7 +7,7 @@ export interface CalendarCell {
   date: string;
   /** 1〜31 */
   day: number;
-  /** 曜日 0=月..6=日（JST 月曜始まり） */
+  /** 曜日 JS Date.getUTCDay() 準拠 (日=0..土=6) */
   weekday: number;
   state: CellState;
 }
@@ -39,11 +39,10 @@ export function buildWeekStrip(input: BuildStripInput): CalendarCell[] {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(todayUTC.getTime() - i * 86400000);
     const dateStr = formatYmd(d);
-    const weekday = (d.getUTCDay() + 6) % 7; // 月=0..日=6
     cells.push({
       date: dateStr,
       day: d.getUTCDate(),
-      weekday,
+      weekday: d.getUTCDay(), // 日=0..土=6
       state: classify(dateStr, logMap, todayStr, deadline, now, enabledSince),
     });
   }
@@ -67,6 +66,41 @@ function classify(
   // 今日
   const questDate = parseDateUTC(dateStr);
   return isBeforeCheckinDeadline(now, questDate, deadline) ? "today" : "fail";
+}
+
+export interface BuildMonthInput {
+  year: number;
+  month: number; // 1..12
+  logs: { date: string; success: boolean }[];
+  /** "YYYY-MM-DD" 今日 JST */
+  todayStr: string;
+  deadline: string;
+  now: Date;
+  /** "YYYY-MM-DD" これより前の日はログ無しでも empty */
+  enabledSince?: string;
+}
+
+/**
+ * 月内の各日（1〜末日）について CalendarCell を返す。
+ * 週並びへの先頭オフセットは描画側で `cells[0].weekday` を使って計算する。
+ * weekday は 日=0..土=6（HeatmapGrid に合わせる）。
+ */
+export function buildMonthGrid(input: BuildMonthInput): CalendarCell[] {
+  const { year, month, logs, todayStr, deadline, now, enabledSince } = input;
+  const logMap = new Map(logs.map((l) => [l.date, l.success]));
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const cells: CalendarCell[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(Date.UTC(year, month - 1, d));
+    const dateStr = formatYmd(date);
+    cells.push({
+      date: dateStr,
+      day: d,
+      weekday: date.getUTCDay(), // 日=0..土=6
+      state: classify(dateStr, logMap, todayStr, deadline, now, enabledSince),
+    });
+  }
+  return cells;
 }
 
 function parseDateUTC(dateStr: string): Date {
