@@ -26,6 +26,7 @@ type Member = {
   childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
+  checkinDeadlineTime: string | null;
   questTimeNotifyEnabled: boolean;
   studyPt: number;
   staminaPt: number;
@@ -49,6 +50,8 @@ export default function FamilyPage() {
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
   const [deadlineTimes, setDeadlineTimes] = useState<Record<string, string>>({});
   const [savingDeadlineId, setSavingDeadlineId] = useState<string | null>(null);
+  const [checkinTimes, setCheckinTimes] = useState<Record<string, string>>({});
+  const [savingCheckinId, setSavingCheckinId] = useState<string | null>(null);
   const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -67,10 +70,15 @@ export default function FamilyPage() {
         if (data) {
           setFamily(data);
           const times: Record<string, string> = {};
+          const checkinT: Record<string, string> = {};
           for (const m of data.members ?? []) {
-            if (m.role === "CHILD") times[m.id] = m.reportDeadlineTime ?? "";
+            if (m.role === "CHILD") {
+              times[m.id] = m.reportDeadlineTime ?? "";
+              checkinT[m.id] = m.checkinDeadlineTime ?? "";
+            }
           }
           setDeadlineTimes(times);
+          setCheckinTimes(checkinT);
         }
       })
       .catch((e) => console.error("Failed to fetch family:", e))
@@ -162,6 +170,30 @@ export default function FamilyPage() {
       });
     } finally {
       setSavingDeadlineId(null);
+    }
+  }
+
+  async function handleSaveCheckinDeadline(childId: string) {
+    setSavingCheckinId(childId);
+    try {
+      const value = checkinTimes[childId]?.trim() || null;
+      await fetch("/api/family/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId, checkinDeadlineTime: value }),
+      });
+      setFamily((prev) =>
+        prev
+          ? {
+              ...prev,
+              members: prev.members.map((m) =>
+                m.id === childId ? { ...m, checkinDeadlineTime: value } : m,
+              ),
+            }
+          : prev,
+      );
+    } finally {
+      setSavingCheckinId(null);
     }
   }
 
@@ -434,6 +466,32 @@ export default function FamilyPage() {
                   {deadlineTimes[member.id] && (
                     <button
                       onClick={() => { setDeadlineTimes((prev) => ({ ...prev, [member.id]: "" })); }}
+                      className="text-[10px] text-quest-dim hover:text-quest-text"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] text-quest-dim/60">📅 チェックイン締切（JST）— この時刻までにクエスト画面を開くとチェックイン成功。未設定で機能OFF</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={checkinTimes[member.id] ?? ""}
+                    onChange={(e) => setCheckinTimes((prev) => ({ ...prev, [member.id]: e.target.value }))}
+                    className="bg-quest-card border border-quest-border rounded px-2 py-1 text-xs text-quest-text focus:outline-none focus:border-quest-gold/30"
+                  />
+                  <button
+                    onClick={() => handleSaveCheckinDeadline(member.id)}
+                    disabled={savingCheckinId === member.id}
+                    className="text-[10px] px-2 py-1 rounded bg-quest-gold/20 text-quest-gold border border-quest-gold/30 hover:bg-quest-gold/30 disabled:opacity-50"
+                  >
+                    {savingCheckinId === member.id ? "保存中..." : "保存"}
+                  </button>
+                  {checkinTimes[member.id] && (
+                    <button
+                      onClick={() => { setCheckinTimes((prev) => ({ ...prev, [member.id]: "" })); }}
                       className="text-[10px] text-quest-dim hover:text-quest-text"
                     >
                       クリア

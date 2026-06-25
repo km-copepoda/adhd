@@ -91,3 +91,54 @@ describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });
+
+describe("PATCH /api/family/settings — checkinDeadlineTime", () => {
+  it("HH:mm 形式で更新できること", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    const res = await PATCH(
+      makeRequest({ childId: "child-1", checkinDeadlineTime: "16:00" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "child-1" },
+      data: { checkinDeadlineTime: "16:00" },
+    });
+  });
+
+  it("null でクリアできること", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
+    mockPrisma.user.update.mockResolvedValue({} as any);
+
+    const res = await PATCH(
+      makeRequest({ childId: "child-1", checkinDeadlineTime: null }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "child-1" },
+      data: { checkinDeadlineTime: null },
+    });
+  });
+
+  it("不正な時刻フォーマットは 400", async () => {
+    const res = await PATCH(
+      makeRequest({ childId: "child-1", checkinDeadlineTime: "25:00" }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("ファミリー外の子供 ID は 404", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    const res = await PATCH(
+      makeRequest({ childId: "child-other", checkinDeadlineTime: "16:00" }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});

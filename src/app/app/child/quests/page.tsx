@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getDeadlineDisplay } from "@/lib/date";
+import { getDeadlineDisplay, todayStringJST } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
@@ -10,6 +10,7 @@ import TreasureGetCutscene from "@/components/child/TreasureGetCutscene";
 import QuestAddForm from "@/components/child/QuestAddForm";
 import QuestListItem from "@/components/child/QuestListItem";
 import StampCelebrationOverlay from "@/components/child/StampCelebrationOverlay";
+import CheckinCalendar from "@/components/child/CheckinCalendar";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, computeSkippedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { getTreasureCountdown, ALL_DONE_MESSAGES } from "@/lib/treasureCountdown";
@@ -35,6 +36,8 @@ export default function QuestsPage() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
+  const [checkinDeadlineTime, setCheckinDeadlineTime] = useState<string | null>(null);
+  const [checkinJustNow, setCheckinJustNow] = useState<boolean>(false);
   const [minTasksForStreak, setMinTasksForStreak] = useState<number>(1);
   const [allDoneMessageIndex] = useState<number>(() =>
     Math.floor(Math.random() * ALL_DONE_MESSAGES.length),
@@ -48,9 +51,20 @@ export default function QuestsPage() {
       .then((r) => r.json())
       .then((d) => {
         setReportDeadlineTime(d.reportDeadlineTime ?? null);
+        setCheckinDeadlineTime(d.checkinDeadlineTime ?? null);
         if (typeof d.minTasksForStreak === "number") {
           setMinTasksForStreak(d.minTasksForStreak);
         }
+      })
+      .catch(() => {});
+  }, []);
+
+  // チェックイン記録: マウント時に1回だけ POST し、justNow を取得
+  useEffect(() => {
+    fetch("/api/checkin/today", { method: "POST" })
+      .then((r) => r.json())
+      .then((d: { enabled?: boolean; justNow?: boolean }) => {
+        if (d.enabled && d.justNow) setCheckinJustNow(true);
       })
       .catch(() => {});
   }, []);
@@ -255,6 +269,15 @@ export default function QuestsPage() {
             );
           })()}
         </div>
+
+        {/* Checkin calendar */}
+        {checkinDeadlineTime && (
+          <CheckinCalendar
+            deadline={checkinDeadlineTime}
+            todayStr={todayStringJST()}
+            justNow={checkinJustNow}
+          />
+        )}
 
         {/* Monster mini card */}
         {monsterMini && (
