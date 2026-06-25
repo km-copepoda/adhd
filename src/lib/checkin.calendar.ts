@@ -3,82 +3,75 @@ import { isBeforeCheckinDeadline } from "@/lib/checkin.logic";
 export type CellState = "success" | "fail" | "today" | "future" | "empty";
 
 export interface CalendarCell {
-  /** "YYYY-MM-DD"。月外は前月/翌月の日付 */
+  /** "YYYY-MM-DD" */
   date: string;
-  /** 1〜31。月外も含む */
+  /** 1〜31 */
   day: number;
-  /** その月の日かどうか */
-  inMonth: boolean;
+  /** 曜日 0=月..6=日（JST 月曜始まり） */
+  weekday: number;
   state: CellState;
 }
 
-export interface BuildGridInput {
-  year: number;
-  month: number; // 1..12
+export interface BuildStripInput {
+  /** 末尾（右端）の日付 "YYYY-MM-DD"（通常は今日 JST） */
+  todayStr: string;
+  /** ストリップに並べる日数（デフォルト 7） */
+  days?: number;
   logs: { date: string; success: boolean }[];
-  todayStr: string; // "YYYY-MM-DD" (JST)
-  deadline: string; // "HH:MM"
+  /** "HH:MM" */
+  deadline: string;
   now: Date;
-  /** "YYYY-MM-DD"。これより前の月内日は empty（機能ON以前） */
+  /** "YYYY-MM-DD"。これより前の日はログなしでも empty（機能が有効になる前は表示しない） */
   enabledSince?: string;
 }
 
-/** 月曜始まりの週グリッドを返す（6週 × 7日） */
-export function buildCalendarGrid(input: BuildGridInput): CalendarCell[][] {
-  const { year, month, logs, todayStr, deadline, now, enabledSince } = input;
+/**
+ * 直近 N 日（既定 7 日）のチェックインストリップを返す。
+ * 左端が最古、右端が今日。
+ */
+export function buildWeekStrip(input: BuildStripInput): CalendarCell[] {
+  const { todayStr, logs, deadline, now, enabledSince } = input;
+  const days = input.days ?? 7;
   const logMap = new Map(logs.map((l) => [l.date, l.success]));
 
-  const monthStart = new Date(Date.UTC(year, month - 1, 1));
-  const startWeekday = monthStart.getUTCDay(); // 0=Sun..6=Sat
-  // 月曜始まり: Mon=0, Tue=1, ..., Sun=6
-  const offset = (startWeekday + 6) % 7;
-  const gridStart = new Date(monthStart.getTime() - offset * 86400000);
-
-  const weeks: CalendarCell[][] = [];
-  for (let w = 0; w < 6; w++) {
-    const week: CalendarCell[] = [];
-    for (let d = 0; d < 7; d++) {
-      const cellDate = new Date(gridStart.getTime() + (w * 7 + d) * 86400000);
-      const dateStr = formatYmd(cellDate);
-      const day = cellDate.getUTCDate();
-      const inMonth =
-        cellDate.getUTCFullYear() === year && cellDate.getUTCMonth() === month - 1;
-      week.push({
-        date: dateStr,
-        day,
-        inMonth,
-        state: classify(dateStr, inMonth, logMap, todayStr, deadline, now, enabledSince),
-      });
-    }
-    weeks.push(week);
+  const todayUTC = parseDateUTC(todayStr);
+  const cells: CalendarCell[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(todayUTC.getTime() - i * 86400000);
+    const dateStr = formatYmd(d);
+    const weekday = (d.getUTCDay() + 6) % 7; // 月=0..日=6
+    cells.push({
+      date: dateStr,
+      day: d.getUTCDate(),
+      weekday,
+      state: classify(dateStr, logMap, todayStr, deadline, now, enabledSince),
+    });
   }
-  // 末尾の全 empty 行を削る（最終週が前月でない＆全 empty なら 5週で終わるよう）
-  while (weeks.length > 1 && weeks[weeks.length - 1].every((c) => !c.inMonth)) {
-    weeks.pop();
-  }
-  return weeks;
+  return cells;
 }
 
 function classify(
   dateStr: string,
-  inMonth: boolean,
   logMap: Map<string, boolean>,
   todayStr: string,
   deadline: string,
   now: Date,
   enabledSince?: string,
 ): CellState {
-  if (!inMonth) return "empty";
   if (enabledSince && dateStr < enabledSince) return "empty";
   const log = logMap.get(dateStr);
   if (log === true) return "success";
   if (log === false) return "fail";
-  // ログなし
   if (dateStr > todayStr) return "future";
   if (dateStr < todayStr) return "fail";
   // 今日
-  const questDate = new Date(dateStr + "T00:00:00Z");
+  const questDate = parseDateUTC(dateStr);
   return isBeforeCheckinDeadline(now, questDate, deadline) ? "today" : "fail";
+}
+
+function parseDateUTC(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 function formatYmd(d: Date): string {

@@ -1,93 +1,116 @@
 import { describe, it, expect } from "vitest";
-import {
-  buildCalendarGrid,
-  type CalendarCell,
-} from "@/lib/checkin.calendar";
+import { buildWeekStrip } from "@/lib/checkin.calendar";
 
-describe("buildCalendarGrid", () => {
-  // 2026-06 は月初が月曜（JST）。月曜始まりカレンダーで先頭が 6/1
-  it("2026-06 のカレンダーは月曜始まりで 6/1 が先頭", () => {
-    const grid = buildCalendarGrid({
-      year: 2026,
-      month: 6,
+describe("buildWeekStrip", () => {
+  it("既定 7 日、右端が今日・左端が 6 日前", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
       logs: [],
-      todayStr: "2026-06-23",
       deadline: "16:00",
-      now: new Date("2026-06-23T06:30:00Z"), // JST 15:30
+      now: new Date("2026-06-25T06:30:00Z"), // JST 15:30
     });
-    // 月曜始まり: 月火水木金土日 = 7列
-    expect(grid[0]).toHaveLength(7);
-    expect(grid[0][0].date).toBe("2026-06-01"); // 月曜
+    expect(cells).toHaveLength(7);
+    expect(cells[0].date).toBe("2026-06-19");
+    expect(cells[6].date).toBe("2026-06-25");
   });
 
-  it("成功日には success、今日は today、未来は future、過去無記録は fail", () => {
-    const grid = buildCalendarGrid({
-      year: 2026,
-      month: 6,
+  it("days を指定すると日数を変えられる", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
+      days: 3,
+      logs: [],
+      deadline: "16:00",
+      now: new Date("2026-06-25T06:30:00Z"),
+    });
+    expect(cells.map((c) => c.date)).toEqual([
+      "2026-06-23",
+      "2026-06-24",
+      "2026-06-25",
+    ]);
+  });
+
+  it("weekday は月曜始まり (月=0..日=6)", () => {
+    // 2026-06-25 は木曜 → weekday=3
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
+      logs: [],
+      deadline: "16:00",
+      now: new Date("2026-06-25T06:30:00Z"),
+    });
+    expect(cells[6].weekday).toBe(3); // 木
+    expect(cells[5].weekday).toBe(2); // 水
+    expect(cells[0].weekday).toBe(4); // 金（6/19）
+  });
+
+  it("成功ログは success、失敗ログは fail", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
       logs: [
-        { date: "2026-06-01", success: true },
-        { date: "2026-06-02", success: false },
+        { date: "2026-06-23", success: true },
+        { date: "2026-06-24", success: false },
       ],
-      todayStr: "2026-06-23",
       deadline: "16:00",
-      now: new Date("2026-06-23T06:30:00Z"), // JST 15:30 (before deadline)
+      now: new Date("2026-06-25T06:30:00Z"),
     });
-    const flat: CalendarCell[] = grid.flat();
-    const byDate = new Map(flat.map((c) => [c.date, c]));
-
-    expect(byDate.get("2026-06-01")!.state).toBe("success");
-    expect(byDate.get("2026-06-02")!.state).toBe("fail");
-    // 過去日でログなしは fail
-    expect(byDate.get("2026-06-03")!.state).toBe("fail");
-    // 今日は締切前なので today
-    expect(byDate.get("2026-06-23")!.state).toBe("today");
-    // 未来日
-    expect(byDate.get("2026-06-24")!.state).toBe("future");
+    const byDate = new Map(cells.map((c) => [c.date, c]));
+    expect(byDate.get("2026-06-23")!.state).toBe("success");
+    expect(byDate.get("2026-06-24")!.state).toBe("fail");
   });
 
-  it("今日が締切後で未チェックインなら fail", () => {
-    const grid = buildCalendarGrid({
-      year: 2026,
-      month: 6,
+  it("過去日でログなし＆enabledSince 未指定なら fail", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
       logs: [],
-      todayStr: "2026-06-23",
       deadline: "16:00",
-      now: new Date("2026-06-23T08:00:00Z"), // JST 17:00 (after deadline)
+      now: new Date("2026-06-25T06:30:00Z"),
     });
-    const cell = grid.flat().find((c) => c.date === "2026-06-23")!;
-    expect(cell.state).toBe("fail");
+    expect(cells[0].state).toBe("fail"); // 6/19
+    expect(cells[5].state).toBe("fail"); // 6/24
   });
 
-  it("月外日（先月・来月）は empty", () => {
-    const grid = buildCalendarGrid({
-      year: 2026,
-      month: 7, // 7月: 7/1 は水曜 → 月火が前月のはみ出し
+  it("enabledSince より前の日はログ無しなら empty（'-' 表示用）", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
       logs: [],
-      todayStr: "2026-07-15",
       deadline: "16:00",
-      now: new Date("2026-07-15T06:30:00Z"),
+      enabledSince: "2026-06-24",
+      now: new Date("2026-06-25T06:30:00Z"),
     });
-    const first = grid[0];
-    // 月外（7月以外）は empty
-    expect(first[0].state).toBe("empty"); // 月（6/29）
-    expect(first[1].state).toBe("empty"); // 火（6/30）
-    expect(first[2].date).toBe("2026-07-01");
+    const byDate = new Map(cells.map((c) => [c.date, c]));
+    expect(byDate.get("2026-06-19")!.state).toBe("empty");
+    expect(byDate.get("2026-06-23")!.state).toBe("empty");
+    expect(byDate.get("2026-06-24")!.state).toBe("fail"); // 当日からは判定対象
   });
 
-  it("enabledSince より前の月内日は empty（設定前は表示しない）", () => {
-    const grid = buildCalendarGrid({
-      year: 2026,
-      month: 6,
-      logs: [],
-      todayStr: "2026-06-23",
+  it("enabledSince より前は empty を優先（リリース前にログは存在しない前提）", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
+      logs: [{ date: "2026-06-20", success: true }],
       deadline: "16:00",
-      enabledSince: "2026-06-10",
-      now: new Date("2026-06-23T06:30:00Z"),
+      enabledSince: "2026-06-24",
+      now: new Date("2026-06-25T06:30:00Z"),
     });
-    const flat = grid.flat();
-    const c5 = flat.find((c) => c.date === "2026-06-05")!;
-    const c10 = flat.find((c) => c.date === "2026-06-10")!;
-    expect(c5.state).toBe("empty");
-    expect(c10.state).toBe("fail"); // enabledSince 当日のログなしは fail
+    const byDate = new Map(cells.map((c) => [c.date, c]));
+    expect(byDate.get("2026-06-20")!.state).toBe("empty");
+  });
+
+  it("今日が締切前で未チェックイン → today", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
+      logs: [],
+      deadline: "16:00",
+      now: new Date("2026-06-25T06:30:00Z"), // JST 15:30
+    });
+    expect(cells[6].state).toBe("today");
+  });
+
+  it("今日が締切後で未チェックイン → fail", () => {
+    const cells = buildWeekStrip({
+      todayStr: "2026-06-25",
+      logs: [],
+      deadline: "16:00",
+      now: new Date("2026-06-25T08:00:00Z"), // JST 17:00
+    });
+    expect(cells[6].state).toBe("fail");
   });
 });

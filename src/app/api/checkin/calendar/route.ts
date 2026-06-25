@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
-const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
+const DEFAULT_DAYS = 7;
+const MAX_DAYS = 31;
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -14,51 +15,73 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const monthParam = url.searchParams.get("month") ?? "";
-  const m = MONTH_PATTERN.exec(monthParam);
-  if (!m) {
-    return NextResponse.json({ error: "month は YYYY-MM 形式" }, { status: 400 });
-  }
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  if (month < 1 || month > 12) {
-    return NextResponse.json({ error: "month は 01〜12" }, { status: 400 });
+  const daysParam = url.searchParams.get("days");
+  let days = DEFAULT_DAYS;
+  if (daysParam !== null) {
+    const n = Number(daysParam);
+    if (!Number.isInteger(n) || n < 1 || n > MAX_DAYS) {
+      return NextResponse.json(
+        { error: `days は 1〜${MAX_DAYS} の整数` },
+        { status: 400 },
+      );
+    }
+    days = n;
   }
 
   const u = user as { checkinDeadlineTime?: string | null };
   if (!u.checkinDeadlineTime) {
     return NextResponse.json({
       enabled: false,
-      year,
-      month,
+      days,
       deadline: null,
       logs: [],
+      enabledSince: null,
       currentStreak: 0,
       bestStreak: 0,
     });
   }
 
-  const start = new Date(Date.UTC(year, month - 1, 1));
-  const end = new Date(Date.UTC(year, month, 0)); // 月末
+  // 直近 days 日分の範囲（JST 0:00 起点 = UTC 0:00 として保存されている）
+  const todayStr = todayJstStr();
+  const todayUTC = new Date(todayStr + "T00:00:00Z");
+  const start = new Date(todayUTC.getTime() - (days - 1) * 86400000);
 
-  const [logs, streak] = await Promise.all([
+  const [logs, earliest, streak] = await Promise.all([
     prisma.checkinLog.findMany({
-      where: { childId: user.id, date: { gte: start, lte: end } },
+      where: { childId: user.id, date: { gte: start, lte: todayUTC } },
       orderBy: { date: "asc" },
       select: { date: true, success: true },
+    }),
+    prisma.checkinLog.findFirst({
+      where: { childId: user.id },
+      orderBy: { date: "asc" },
+      select: { date: true },
     }),
     prisma.streak.findUnique({ where: { childId: user.id } }),
   ]);
 
+  // ログが 1 件もないときは「今日からが機能の有効期間」とみなして
+  // 過去日を空表示にする（リリース直後／親が設定した直後で過去全部 fail を防ぐ）
+  const enabledSince = earliest ? formatYmd(earliest.date) : todayStr;
+
   return NextResponse.json({
     enabled: true,
-    year,
-    month,
+    days,
     deadline: u.checkinDeadlineTime,
-    logs: logs.map((l) => ({ date: formatYmd(l.date), success: l.success })),
+    logs: logs.map((l: { date: Date; success: boolean }) => ({
+      date: formatYmd(l.date),
+      success: l.success,
+    })),
+    enabledSince,
     currentStreak: streak?.checkinCurrentStreak ?? 0,
     bestStreak: streak?.checkinBestStreak ?? 0,
   });
+}
+
+function todayJstStr(): string {
+  const nowUtc = Date.now();
+  const jst = new Date(nowUtc + 9 * 3600000);
+  return formatYmd(jst);
 }
 
 function formatYmd(d: Date): string {

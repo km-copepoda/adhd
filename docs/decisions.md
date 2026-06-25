@@ -1758,7 +1758,6 @@
 - `src/__tests__/lib/rejectionReason.test.ts` — 純粋関数の境界テスト
 - `src/__tests__/api/quests/report.test.ts` / `src/__tests__/api/quests/skip.test.ts` — carryOver 古日付の集計切替・非 carryOver は従来通りの 2軸テスト
 
-<<<<<<< HEAD
 ## 2026-06-24: 宝箱の天井(pity)システムを復活（10回連続ハズレ→次は強制 HIT）
 
 ### 決定内容
@@ -1791,7 +1790,6 @@
 - `prisma/migrations/20260624000001_restore_user_treasure_pity_count/migration.sql`
 - `src/__tests__/lib/treasure.test.ts` — pity 単体テスト（境界・10回保証シナリオ含む）追加
 - `src/__tests__/lib/treasureService.test.ts` — User.findUnique/update の連携テスト追加・旧「pity 廃止」前提のアサーション更新
-=======
 ## 2026-06-24: チェックインカレンダーの導入
 
 ### 決定内容
@@ -1820,5 +1818,35 @@
 - `src/app/api/checkin/today/route.ts` / `src/app/api/checkin/calendar/route.ts`
 - `src/components/child/CheckinCalendar.tsx` / `src/app/app/child/quests/page.tsx`（マウント時 POST + カレンダー表示）
 - `src/app/app/parent/(app)/family/page.tsx` — 締切時刻設定 UI
->>>>>>> vk/ddbe-checkin-calendar
+
+## 2026-06-25: チェックインカレンダーを子画面で月→週(7日)表示に変更
+
+### 決定内容
+- 子画面のチェックイン表示を **月間グリッド（6週×7日）** から **直近 7 日の横ストリップ** に変更
+- 過去日でログが無く、かつ `enabledSince` より前の日は **`"-"` (empty)** で表示（従来は一律 `fail`=😢）
+- `enabledSince` は API 側で「該当子の `CheckinLog` の最古日付」から導出。1 件もなければ「今日」を入れて過去全部を `-` にする
+- API は `?month=YYYY-MM` を廃止し `?days=N`（既定 7、最大 31）に変更。レスポンスに `enabledSince` を追加
+- 純粋関数を `buildCalendarGrid` → `buildWeekStrip` に置き換え。月間グリッド生成は撤去
+
+### 理由
+- 月間カレンダーは子画面のファーストビューを圧迫していた（クエスト一覧より前に 42 セルを置くと縦スクロールが必要）
+- リリース直後やチェックイン未設定期間の過去日が全部 😢 になり、「ずっと失敗してる」ような不快感を与えていた
+- `enabledSince` を導入することで「機能が無かった日」を視覚的に除外でき、心理的負担を回避
+
+### 採用しなかった案
+- 月間表示を残しつつ縮小 → スマホ縦画面ではどう縮めても窮屈、可読性が落ちる
+- 今日含む現在週（月〜日）の固定枠 → 週初には過去 1 日しか可視化されず、ストリーク継続感が弱い。直近 7 日のローリング窓のほうが体感的に分かりやすい
+- リリース日定数 (`CHECKIN_RELEASE_DATE`) を埋め込む → 親が後から設定した子供にも過去全部 😢 が出る問題が残るため不採用。`CheckinLog` の最古日付から導出するほうが個別化されて正確
+- 親側にも縮小版を入れる → 親はまだチェックイン UI を持っていないので今回は対象外
+
+### やってはいけないこと
+- `?days` を 31 を超えて受け付ける（クエリ範囲が膨らみ Streak テーブル / インデックスとのバランスが崩れる）
+- `enabledSince` を「今日」より未来の値にする（empty 判定が今日も巻き込む）
+- `empty` セルに数字を非表示にする（曜日と日付は出して「機能が無かった日」と分かるようにしておく）
+
+### 該当箇所
+- `src/lib/checkin.calendar.ts` — `buildWeekStrip`（旧 `buildCalendarGrid` を撤去）
+- `src/app/api/checkin/calendar/route.ts` — `?days=N` 化、`enabledSince` を返す
+- `src/components/child/CheckinCalendar.tsx` — 7 セル横並び、`empty` で `"-"` 描画
+- `src/__tests__/lib/checkin-calendar.test.ts` / `src/__tests__/api/checkin/calendar.test.ts` / `src/__tests__/components/CheckinCalendar.test.tsx` — 新仕様に追従
 

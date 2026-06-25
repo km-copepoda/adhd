@@ -12,14 +12,13 @@ beforeEach(() => {
         json: () =>
           Promise.resolve({
             enabled: true,
-            year: 2026,
-            month: 6,
+            days: 7,
             deadline: "16:00",
             logs: [
-              { date: "2026-06-01", success: true },
-              { date: "2026-06-02", success: false },
               { date: "2026-06-23", success: true },
+              { date: "2026-06-25", success: true },
             ],
+            enabledSince: "2026-06-22",
             currentStreak: 6,
             bestStreak: 12,
           }),
@@ -34,40 +33,53 @@ afterEach(() => {
 });
 
 describe("CheckinCalendar", () => {
-  it("API レスポンスから月見出しを表示する", async () => {
+  it("見出しに「直近7日」を表示する", async () => {
     await act(async () => {
-      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-23" />);
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
     });
     await waitFor(() => {
-      expect(screen.getByText(/6月/)).toBeTruthy();
+      expect(screen.getByText(/直近7日/)).toBeTruthy();
     });
   });
 
   it("連続日数を表示する", async () => {
     await act(async () => {
-      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-23" />);
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
     });
     await waitFor(() => {
       expect(screen.getByTestId("checkin-current-streak").textContent).toContain("6");
     });
   });
 
-  it("成功日のセルに success-state クラスを付ける", async () => {
+  it("成功日のセルに success state を付ける", async () => {
     await act(async () => {
-      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-23" />);
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
     });
     await waitFor(() => {
-      const cell = screen.getByTestId("cell-2026-06-01");
+      const cell = screen.getByTestId("cell-2026-06-23");
       expect(cell.getAttribute("data-state")).toBe("success");
     });
   });
 
-  it("過去日のログなしセルは fail", async () => {
+  it("enabledSince より前の日（ログなし）は empty で「-」表示", async () => {
     await act(async () => {
-      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-23" />);
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
     });
     await waitFor(() => {
-      const cell = screen.getByTestId("cell-2026-06-05");
+      // 6/19 は enabledSince=2026-06-22 より前 → empty
+      const cell = screen.getByTestId("cell-2026-06-19");
+      expect(cell.getAttribute("data-state")).toBe("empty");
+      expect(cell.textContent).toContain("-");
+    });
+  });
+
+  it("過去日でログなし、かつ enabledSince 以降は fail（😢）のまま", async () => {
+    await act(async () => {
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
+    });
+    await waitFor(() => {
+      // 6/24 は enabledSince=2026-06-22 以降だがログ無し → fail
+      const cell = screen.getByTestId("cell-2026-06-24");
       expect(cell.getAttribute("data-state")).toBe("fail");
     });
   });
@@ -77,14 +89,24 @@ describe("CheckinCalendar", () => {
       render(
         <CheckinCalendar
           deadline="16:00"
-          todayStr="2026-06-23"
+          todayStr="2026-06-25"
           justNow={true}
         />,
       );
     });
     await waitFor(() => {
-      const cell = screen.getByTestId("cell-2026-06-23");
+      const cell = screen.getByTestId("cell-2026-06-25");
       expect(cell.getAttribute("data-animate")).toBe("true");
+    });
+  });
+
+  it("ちょうど 7 セル描画する", async () => {
+    await act(async () => {
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
+    });
+    await waitFor(() => {
+      const cells = screen.getAllByTestId(/^cell-/);
+      expect(cells).toHaveLength(7);
     });
   });
 });
