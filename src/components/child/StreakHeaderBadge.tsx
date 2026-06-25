@@ -76,7 +76,6 @@ export default function StreakHeaderBadge() {
     atRisk:
       "bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg shadow-yellow-500/50 animate-pulse",
     broken: "bg-quest-card text-quest-dim border border-quest-border",
-    none: "",
   };
 
   return (
