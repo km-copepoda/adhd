@@ -1884,3 +1884,27 @@
 - `src/__tests__/api/parent/checkin/calendar.test.ts` — 認可・month 検証・enabledSince の各境界
 - `src/__tests__/components/ParentCheckinCalendar.test.tsx` — 表示状態・childId 再フェッチ
 
+## 2026-06-29: チェックイン成功時にフルカットイン演出を追加 + 左上常駐ストリークバッジを撤去
+
+### 決定
+- チェックイン初回成功時 (`/api/checkin/today` の `justNow=true`) に、宝箱発見 (`TreasureGetCutscene`) / モンスター進化 (`CutsceneOverlay`) と同等の **画面全体を覆うフルカットイン** を出す（新規 `CheckinSuccessCutscene`）。`currentStreak` を受けて 0/1/2+ で文言を出し分け（0→「チェックイン成功！」のみ、1→「今日から連続スタート！」、2+→「🔥 N日連続！」）
+- 2026-06-10 で導入した子レイアウト常駐の **`StreakHeaderBadge`（左上 🔥 + 連続日数）を撤去**。`src/components/child/StreakHeaderBadge.tsx`・`src/lib/streakDisplay.ts`・対応テスト 2 本を削除し、`src/app/app/child/layout.tsx` から render を外す
+
+### 理由
+- チェックイン成功は「アプリを開く習慣」の最重要トリガーだが、仕様書時点では「スタンプがポコッ」のセル内アニメーションのみで達成感が薄かった。タスク報告時の `TreasureGetCutscene` や進化時の `CutsceneOverlay` と同等の演出に格上げし、初回チェックイン時点でワクワクの山場を作る
+- 左上の `StreakHeaderBadge` は Duolingo 風の「途切らせない圧」を狙ったが、ユーザ判断で常駐の視覚ノイズが過剰だった。タスク達成ストリークの動機付けは育成ページの `StreakCard` とチェックインカレンダーの「🔥 N日連続！」表示でカバーできるため、常駐バッジは不要と判断
+- 子供がアプリを開いた瞬間に出る演出は **チェックイン成功カットイン** 1 つに統一することで、UI のレイヤーをシンプルに保つ
+
+### やってはいけないこと
+- カットインを `justNow=false`（冪等な 2 回目以降の呼び出し）でも出す（同日 2 回開くたびに発火するとうるさい）
+- カットイン側で `currentStreak >= 1` の判定を `>= 2` に置き換える（`1` のときに「連続スタート」コピーが出なくなり、初日の達成感が消える）
+- `StreakHeaderBadge` 撤去のついでに `streak-changed` カスタムイベントの dispatch 側を探す（grep 確認済み: 旧バッジが唯一の listener で dispatch 側コードは存在しない）
+
+### 該当箇所
+- `src/components/child/CheckinSuccessCutscene.tsx` — 新規。`CutsceneOverlay` を 🌟 + 黄金グローでラップ
+- `src/app/app/child/quests/page.tsx` — `/api/checkin/today` レスポンスから `currentStreak` を捕捉し、`justNow` 時にカットイン表示
+- `src/app/app/child/layout.tsx` — `StreakHeaderBadge` の import と render を削除
+- `src/components/child/StreakHeaderBadge.tsx` / `src/lib/streakDisplay.ts` — 削除
+- `src/__tests__/components/CheckinSuccessCutscene.test.tsx` — 新規。文言出し分け・onClose・境界値（streak=0）
+- `src/__tests__/components/streak-header-badge.test.tsx` / `src/__tests__/lib/streakDisplay.test.ts` — 削除
+

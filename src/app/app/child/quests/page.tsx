@@ -11,6 +11,7 @@ import QuestAddForm from "@/components/child/QuestAddForm";
 import QuestListItem from "@/components/child/QuestListItem";
 import StampCelebrationOverlay from "@/components/child/StampCelebrationOverlay";
 import CheckinCalendar from "@/components/child/CheckinCalendar";
+import CheckinSuccessCutscene from "@/components/child/CheckinSuccessCutscene";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, computeSkippedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { getTreasureCountdown, ALL_DONE_MESSAGES } from "@/lib/treasureCountdown";
@@ -38,6 +39,7 @@ export default function QuestsPage() {
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [checkinDeadlineTime, setCheckinDeadlineTime] = useState<string | null>(null);
   const [checkinJustNow, setCheckinJustNow] = useState<boolean>(false);
+  const [checkinCutsceneStreak, setCheckinCutsceneStreak] = useState<number | null>(null);
   const [minTasksForStreak, setMinTasksForStreak] = useState<number>(1);
   const [allDoneMessageIndex] = useState<number>(() =>
     Math.floor(Math.random() * ALL_DONE_MESSAGES.length),
@@ -63,8 +65,11 @@ export default function QuestsPage() {
   useEffect(() => {
     fetch("/api/checkin/today", { method: "POST" })
       .then((r) => r.json())
-      .then((d: { enabled?: boolean; justNow?: boolean }) => {
-        if (d.enabled && d.justNow) setCheckinJustNow(true);
+      .then((d: { enabled?: boolean; justNow?: boolean; currentStreak?: number }) => {
+        if (d.enabled && d.justNow) {
+          setCheckinJustNow(true);
+          setCheckinCutsceneStreak(d.currentStreak ?? 0);
+        }
       })
       .catch(() => {});
   }, []);
@@ -364,6 +369,14 @@ export default function QuestsPage() {
         <TreasureGetCutscene
           count={showTreasureGet}
           onClose={() => setShowTreasureGet(0)}
+        />
+      )}
+
+      {/* チェックイン成功演出 */}
+      {checkinCutsceneStreak !== null && (
+        <CheckinSuccessCutscene
+          currentStreak={checkinCutsceneStreak}
+          onClose={() => setCheckinCutsceneStreak(null)}
         />
       )}
 
