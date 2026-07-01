@@ -6,7 +6,7 @@ import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
-import { computeCompletedCount } from "@/lib/questProgress";
+import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
 
 export async function POST(
@@ -82,28 +82,26 @@ export async function POST(
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
   await approveQuestInstance(updatedQuest as any, stamp ?? undefined);
 
-  // 親代理経路でも minTasks 到達時に PROXY 宝箱を即 UNLOCKED で生成する
-  // （2026-05-30 決定 / 2026-05-31 で trigger を AUTO から PROXY にリネーム）。
-  // 親端末しかない家庭で「あと一個で宝箱出るよ」の体験を完結させるための導線。
+  // 親代理経路でも PROXY / ALL_COMPLETE 宝箱を即 UNLOCKED で生成する。
+  // (2026-07-02) 全完了時に子セルフ経路と同じ ALL_COMPLETE ボーナスも出すように変更。
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
   const todayQuests = await prisma.questInstance.findMany({
     where: { childId: child.id, date: quest.date },
     select: { status: true },
   });
   const reportedCount = computeCompletedCount(todayQuests);
-  // treasureId は親側 UI のカットイン演出トリガー。生成されなかった日 (プール未設定 /
-  // minTasks 未達 / 同日 AUTO 既存) は null を返す。子供セルフ報告 API (treasureIds)
-  // と意味的に揃える（あちらは1報告で最大2個、こちらは1日1個なので単数）。
-  let treasureId: string | null = null;
-  if (reportedCount >= minTasks) {
-    treasureId = await generateProxyTreasure({
-      childId: child.id,
-      date: quest.date,
-      reportedCount,
-      totalCount: todayQuests.length,
-      minTasks,
-    });
-  }
+  const skippedCount = computeSkippedCount(todayQuests);
+  const treasureIds =
+    reportedCount >= minTasks
+      ? await generateProxyTreasure({
+          childId: child.id,
+          date: quest.date,
+          reportedCount,
+          totalCount: todayQuests.length,
+          skippedCount,
+          minTasks,
+        })
+      : [];
 
   // TASK_* 進捗ログは通常 /api/quests/[id]/report が発火する。代理報告でも子供本人の社会的フィードバック
   // を維持するため、ここで明示的に同等の after() 発火を行う（decisions.md 2026-05-11 / 2026-05-01）
@@ -113,7 +111,7 @@ export async function POST(
     questId: id,
     childId: child.id,
     parentId: parent.id,
-    treasureId,
+    treasureIds,
   });
-  return NextResponse.json({ ok: true, treasureId });
+  return NextResponse.json({ ok: true, treasureIds });
 }

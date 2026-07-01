@@ -19,7 +19,7 @@ vi.mock("@/lib/bulletinLog", () => ({
 }));
 
 vi.mock("@/lib/treasureService", () => ({
-  generateProxyTreasure: vi.fn().mockResolvedValue(null),
+  generateProxyTreasure: vi.fn().mockResolvedValue([]),
 }));
 
 const mockPrisma = vi.mocked(prisma);
@@ -305,7 +305,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
     }
 
-    it("minTasks 達成時に generateProxyTreasure を呼ぶ（reportedCount / totalCount / minTasks 込み）", async () => {
+    it("minTasks 達成時に generateProxyTreasure を呼ぶ（reportedCount / totalCount / skippedCount / minTasks 込み）", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
       // approve 後の集計：今日 1件 APPROVED（自分自身）, 全1件 → minTasks=1 達成
       mockPrisma.questInstance.findMany.mockResolvedValue([
@@ -320,6 +320,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
         date: new Date("2026-03-12T00:00:00Z"),
         reportedCount: 1,
         totalCount: 1,
+        skippedCount: 0,
         minTasks: 1,
       });
     });
@@ -354,7 +355,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       });
       mockGenerateProxyTreasure.mockImplementation(async () => {
         callOrder.push("generateTreasure");
-        return "log-1";
+        return ["log-1"];
       });
 
       await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
@@ -378,19 +379,31 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     // 親代理側のクエスト画面にもカットイン演出を出すため、生成された宝箱の id を
     // レスポンスに含めて UI から検出できるようにする。子供セルフ報告 API
     // (/api/quests/[id]/report) が treasureIds を返すのと同じ規約に揃える。
-    it("宝箱が生成されたら treasureId をレスポンスに含める", async () => {
+    it("宝箱が生成されたら treasureIds をレスポンスに含める", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
       mockPrisma.questInstance.findMany.mockResolvedValue([
         { status: "APPROVED" },
       ] as any);
-      mockGenerateProxyTreasure.mockResolvedValue("treasure-log-xyz");
+      mockGenerateProxyTreasure.mockResolvedValue(["treasure-log-xyz"]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       const body = await res.json();
-      expect(body.treasureId).toBe("treasure-log-xyz");
+      expect(body.treasureIds).toEqual(["treasure-log-xyz"]);
     });
 
-    it("宝箱条件を満たさない場合は treasureId=null", async () => {
+    it("全完了で PROXY + ALL_COMPLETE の 2 個が生成された場合、両方 treasureIds に含める", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+      ] as any);
+      mockGenerateProxyTreasure.mockResolvedValue(["proxy-log", "all-complete-log"]);
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      const body = await res.json();
+      expect(body.treasureIds).toEqual(["proxy-log", "all-complete-log"]);
+    });
+
+    it("宝箱条件を満たさない場合は treasureIds=空配列", async () => {
       setupApprovedQuest({ minTasksForStreak: 3 });
       mockPrisma.questInstance.findMany.mockResolvedValue([
         { status: "APPROVED" },
@@ -400,19 +413,19 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       const body = await res.json();
-      expect(body.treasureId).toBeNull();
+      expect(body.treasureIds).toEqual([]);
     });
 
-    it("プール未設定や同日 AUTO 既存等で生成関数が null を返した場合も treasureId=null", async () => {
+    it("プール未設定や同日 STREAK/PROXY 既存等で生成関数が空配列を返した場合も treasureIds=空配列", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
       mockPrisma.questInstance.findMany.mockResolvedValue([
         { status: "APPROVED" },
       ] as any);
-      mockGenerateProxyTreasure.mockResolvedValue(null);
+      mockGenerateProxyTreasure.mockResolvedValue([]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       const body = await res.json();
-      expect(body.treasureId).toBeNull();
+      expect(body.treasureIds).toEqual([]);
     });
   });
 });

@@ -83,7 +83,7 @@ describe("ChildViewQuestsPage: 代理スキップ", () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
       }
       if (url.includes("/skip-approve") && init?.method === "POST") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureId: null }) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureIds: [] }) });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     }) as unknown as typeof fetch;
@@ -127,7 +127,7 @@ describe("ChildViewQuestsPage: 代理スキップ", () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
       }
       if (url.includes("/skip-approve") && init?.method === "POST") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureId: null }) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureIds: [] }) });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     }) as unknown as typeof fetch;
@@ -159,7 +159,7 @@ describe("ChildViewQuestsPage: 進化カットインのトリガー", () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
       }
       if (url.includes("/report-approve") && init?.method === "POST") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureId: null }) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureIds: [] }) });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     }) as unknown as typeof fetch;
@@ -196,7 +196,7 @@ describe("ChildViewQuestsPage: 進化カットインのトリガー", () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
       }
       if (url.includes("/skip-approve") && init?.method === "POST") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureId: null }) });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureIds: [] }) });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
     }) as unknown as typeof fetch;

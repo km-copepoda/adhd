@@ -417,42 +417,48 @@ describe("generateProxyTreasure", () => {
 
   it("プールが空でも生成する (開封時にコレクションアイテムが必ず付与される)", async () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
-    mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "tp" } as any);
-    const id = await generateProxyTreasure({
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create
+      .mockResolvedValueOnce({ id: "tp" } as any)
+      .mockResolvedValueOnce({ id: "tp-all" } as any);
+    const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
     });
-    expect(id).toBe("tp");
-    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(1);
+    // 全完了なので PROXY + ALL_COMPLETE の 2 個
+    expect(ids).toEqual(["tp", "tp-all"]);
   });
 
-  it("minTasks 未達なら null", async () => {
-    const id = await generateProxyTreasure({
+  it("minTasks 未達なら空配列", async () => {
+    const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 0,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
     });
-    expect(id).toBeNull();
+    expect(ids).toEqual([]);
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
   });
 
-  it("条件を満たす → trigger=PROXY, status=UNLOCKED で1個だけ生成", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "ta" } as any);
-    const id = await generateProxyTreasure({
+  it("条件を満たす + 未全完了 → PROXY 1個のみ", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "tp" } as any);
+    const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
-      reportedCount: 3,
+      reportedCount: 1,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
     });
-    expect(id).toBe("ta");
+    expect(ids).toEqual(["tp"]);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(1);
     expect(mockPrisma.treasureLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         childId: "c1",
@@ -464,33 +470,123 @@ describe("generateProxyTreasure", () => {
     });
   });
 
-  it("当日既に PROXY 宝箱があれば作らない (冪等)", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({ id: "existing" } as any);
-    const id = await generateProxyTreasure({
+  it("全完了 → PROXY + ALL_COMPLETE(boosted) の即 UNLOCKED 2個", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create
+      .mockResolvedValueOnce({ id: "tp" } as any)
+      .mockResolvedValueOnce({ id: "tp-all" } as any);
+    const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
       reportedCount: 3,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
     });
-    expect(id).toBeNull();
+    expect(ids).toEqual(["tp", "tp-all"]);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[0][0].data).toEqual(
+      expect.objectContaining({ trigger: "PROXY", boosted: false, status: "UNLOCKED" }),
+    );
+    expect(calls[1][0].data).toEqual(
+      expect.objectContaining({ trigger: "ALL_COMPLETE", boosted: true, status: "UNLOCKED" }),
+    );
+  });
+
+  it("全完了だがスキップを含む → ALL_COMPLETE は boosted=false", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create
+      .mockResolvedValueOnce({ id: "tp" } as any)
+      .mockResolvedValueOnce({ id: "tp-all" } as any);
+    const ids = await generateProxyTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      skippedCount: 1,
+      minTasks: 1,
+    });
+    expect(ids).toEqual(["tp", "tp-all"]);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[1][0].data).toEqual(
+      expect.objectContaining({ trigger: "ALL_COMPLETE", boosted: false }),
+    );
+  });
+
+  it("当日既に PROXY 宝箱があれば PROXY は作らない (冪等) — 全完了なら ALL_COMPLETE のみ作る", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { trigger: "PROXY" } as any,
+    ]);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "tp-all" } as any);
+    const ids = await generateProxyTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      skippedCount: 0,
+      minTasks: 1,
+    });
+    expect(ids).toEqual(["tp-all"]);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ trigger: "ALL_COMPLETE", status: "UNLOCKED" }),
+    });
+  });
+
+  it("当日既に STREAK 宝箱があれば PROXY は作らない — 全完了なら ALL_COMPLETE を追加 (混合家庭)", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { trigger: "STREAK" } as any,
+    ]);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "tp-all" } as any);
+    const ids = await generateProxyTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      skippedCount: 0,
+      minTasks: 1,
+    });
+    expect(ids).toEqual(["tp-all"]);
+    expect(mockPrisma.treasureLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ trigger: "ALL_COMPLETE", status: "UNLOCKED" }),
+    });
+    // 集約クエリで CANCELLED を除外していることも担保
+    const callArg = (mockPrisma.treasureLog.findMany as any).mock.calls[0][0];
+    expect(callArg.where.trigger).toEqual({ in: ["STREAK", "ALL_COMPLETE", "PROXY"] });
+    expect(callArg.where.status).toEqual({ not: "CANCELLED" });
+  });
+
+  it("当日既に STREAK + ALL_COMPLETE があれば何も作らない (完全冪等)", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { trigger: "STREAK" } as any,
+      { trigger: "ALL_COMPLETE" } as any,
+    ]);
+    const ids = await generateProxyTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 3,
+      totalCount: 3,
+      skippedCount: 0,
+      minTasks: 1,
+    });
+    expect(ids).toEqual([]);
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
   });
 
-  it("当日既に STREAK 宝箱 (status 問わず) があれば PROXY は作らない", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({ id: "streak-1" } as any);
-    const id = await generateProxyTreasure({
+  it("未全完了で PROXY 既存なら何も作らない", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { trigger: "PROXY" } as any,
+    ]);
+    const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
-      reportedCount: 3,
+      reportedCount: 2,
       totalCount: 3,
+      skippedCount: 0,
       minTasks: 1,
     });
-    expect(id).toBeNull();
+    expect(ids).toEqual([]);
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
-    const callArg = (mockPrisma.treasureLog.findFirst as any).mock.calls[0][0];
-    expect(callArg.where.trigger).toEqual({ in: ["STREAK", "ALL_COMPLETE", "PROXY"] });
-    expect(callArg.where.status).toEqual({ not: "CANCELLED" });
   });
 });
 

@@ -1908,3 +1908,30 @@
 - `src/__tests__/components/CheckinSuccessCutscene.test.tsx` — 新規。文言出し分け・onClose・境界値（streak=0）
 - `src/__tests__/components/streak-header-badge.test.tsx` / `src/__tests__/lib/streakDisplay.test.ts` — 削除
 
+## 2026-07-02: 親代理経路でも全完了時に ALL_COMPLETE 宝箱を生成する（PROXY と共存）
+
+### 決定
+- `generateProxyTreasure` を「1日 1個 (PROXY のみ)」から「PROXY + ALL_COMPLETE の最大 2 個」に拡張
+  - `reportedCount >= minTasks` かつ STREAK/PROXY 非存在 → PROXY を UNLOCKED 生成
+  - `reportedCount === totalCount` かつ ALL_COMPLETE 非存在 → ALL_COMPLETE を UNLOCKED 追加生成（`skippedCount === 0` のときのみ boosted）
+- 戻り値を `string | null` から `string[]` に変更。呼び出し元 (`report-approve` / `skip-approve`) のレスポンスも `treasureId` → `treasureIds` にリネームし、子セルフ報告 API と規約を揃える
+- 親代理 UI (`child-view/[childId]/quests/page.tsx`) は `treasureIds.length` をカットイン件数として使用
+
+### 理由
+- ユーザ報告: 親端末しかない家庭で「タスク全部完了したのに宝箱が出ない」というバグ体験。実際、PROXY は minTasks 到達時にしか出ず、その後の全完了ボーナスは無かった
+- 子セルフ報告経路では STREAK + ALL_COMPLETE の 2 個が出るのに、親代理経路では 1 個だけという非対称性は「親端末しかない家庭でも子供の達成体験を提供する」(2026-05-11 / 2026-05-30) 方針と矛盾
+- 2026-05-31「ALL_COMPLETE は…PROXY と共存可」で設計としては共存が明記されていたが、実装が追いついていなかった。今回の変更で設計と実装が一致する
+- 混合家庭（子セルフで STREAK が既にある + 親が残りを代理完了）でも、親代理の最後のクエストで ALL_COMPLETE が出るようになり、体験の断絶が消える
+
+### やってはいけないこと
+- 2026-05-30 の「PROXY は 1 日 1 個のみ」に戻す（全完了ボーナスの体験を再び失う）
+- ALL_COMPLETE を LOCKED で生成する（親代理は承認待ちフェーズが無いので即 UNLOCKED が正）
+- `report-approve` / `skip-approve` のレスポンスで `treasureId` (単数) を復活させる（子セルフ API との規約統一が崩れる）
+
+### 該当箇所
+- `src/lib/treasureService.ts` — `generateProxyTreasure` の実装
+- `src/app/api/parent/child-view/quests/[id]/report-approve/route.ts` — `treasureIds` レスポンス + `skippedCount` 引き回し
+- `src/app/api/parent/child-view/quests/[id]/skip-approve/route.ts` — 同上
+- `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `treasureIds.length` を件数として利用
+- テスト: `treasureService.test.ts` / `report-approve.test.ts` / `skip-approve.test.ts` / `child-view-quests-page.test.tsx` / `child-view-quests-skip-and-cutscene.test.tsx`
+

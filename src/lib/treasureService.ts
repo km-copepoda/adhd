@@ -136,43 +136,65 @@ export async function cancelTreasuresOnReject(cond: TreasureCondition): Promise<
 }
 
 /**
- * 親代理 report-approve 時の宝箱生成（即 UNLOCKED で1個のみ）。
- * 条件: reportedCount >= minTasks
- * 当日に **STREAK / ALL_COMPLETE / PROXY のいずれか** (非 CANCELLED) があれば作らない。
- *   PROXY は「子セルフ報告で宝箱が出ない家庭への補填」枠なので、子供が既に
- *   STREAK / ALL_COMPLETE を得ている混合家庭では追加で出さない（重複防止）。
- * プール 0 でも生成する（開封時にコレクションアイテムが必ず出るため）。
+ * 親代理 report-approve / skip-approve 時の宝箱生成（即 UNLOCKED）。
+ *  - reportedCount >= minTasks かつ 当日 STREAK/PROXY が無ければ PROXY を 1 個生成
+ *    （PROXY は STREAK の代替枠。子セルフの STREAK があるならスキップ）
+ *  - reportedCount === totalCount かつ 当日 ALL_COMPLETE が無ければ ALL_COMPLETE を追加生成
+ *    （子セルフ経路と対称に「全完了ボーナス」を演出。skippedCount===0 のときのみ boost）
+ *  - どちらも即 UNLOCKED（親代理は承認待ちフェーズを持たないため LOCKED は使わない）
+ *  - プール 0 でも生成する（開封時にコレクションアイテムが必ず出る）
  */
 export async function generateProxyTreasure(input: {
   childId: string;
   date: Date;
   reportedCount: number;
   totalCount: number;
+  skippedCount: number;
   minTasks: number;
-}): Promise<string | null> {
-  if (input.reportedCount < input.minTasks) return null;
+}): Promise<string[]> {
+  if (input.reportedCount < input.minTasks) return [];
 
-  const existing = await prisma.treasureLog.findFirst({
+  const existing = await prisma.treasureLog.findMany({
     where: {
       childId: input.childId,
       date: input.date,
       trigger: { in: ["STREAK", "ALL_COMPLETE", "PROXY"] },
       status: { not: "CANCELLED" },
     },
-    select: { id: true },
+    select: { trigger: true },
   });
-  if (existing) return null;
+  const has = new Set(existing.map((e) => e.trigger));
 
-  const t = await prisma.treasureLog.create({
-    data: {
-      childId: input.childId,
-      date: input.date,
-      trigger: "PROXY",
-      boosted: false,
-      status: "UNLOCKED",
-    },
-  });
-  return t.id;
+  const created: string[] = [];
+  if (!has.has("STREAK") && !has.has("PROXY")) {
+    const t = await prisma.treasureLog.create({
+      data: {
+        childId: input.childId,
+        date: input.date,
+        trigger: "PROXY",
+        boosted: false,
+        status: "UNLOCKED",
+      },
+    });
+    created.push(t.id);
+  }
+  if (
+    input.reportedCount >= input.totalCount &&
+    input.totalCount > 0 &&
+    !has.has("ALL_COMPLETE")
+  ) {
+    const t = await prisma.treasureLog.create({
+      data: {
+        childId: input.childId,
+        date: input.date,
+        trigger: "ALL_COMPLETE",
+        boosted: input.skippedCount === 0,
+        status: "UNLOCKED",
+      },
+    });
+    created.push(t.id);
+  }
+  return created;
 }
 
 export interface OpenedCollectionItem {

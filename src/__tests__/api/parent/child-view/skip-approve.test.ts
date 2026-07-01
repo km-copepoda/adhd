@@ -19,7 +19,7 @@ vi.mock("@/lib/bulletinLog", () => ({
 }));
 
 vi.mock("@/lib/treasureService", () => ({
-  generateProxyTreasure: vi.fn().mockResolvedValue(null),
+  generateProxyTreasure: vi.fn().mockResolvedValue([]),
 }));
 
 const mockPrisma = vi.mocked(prisma);
@@ -261,7 +261,7 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     mockPrisma.questInstance.findMany.mockResolvedValue([
       { status: "SKIPPED" },
     ] as any);
-    mockGenerateProxyTreasure.mockResolvedValue("treasure-log-skip");
+    mockGenerateProxyTreasure.mockResolvedValue(["treasure-log-skip"]);
 
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
@@ -273,10 +273,11 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
       date: new Date("2026-03-12T00:00:00Z"),
       reportedCount: 1,
       totalCount: 1,
+      skippedCount: 1,
       minTasks: 1,
     });
     const body = await res.json();
-    expect(body.treasureId).toBe("treasure-log-skip");
+    expect(body.treasureIds).toEqual(["treasure-log-skip"]);
   });
 
   it("minTasks 未達なら generateProxyTreasure は呼ばない", async () => {
@@ -306,6 +307,6 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     expect(res.status).toBe(200);
     expect(mockGenerateProxyTreasure).not.toHaveBeenCalled();
     const body = await res.json();
-    expect(body.treasureId).toBeNull();
+    expect(body.treasureIds).toEqual([]);
   });
 });

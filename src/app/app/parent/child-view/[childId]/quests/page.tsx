@@ -114,8 +114,9 @@ export default function ChildViewQuestsPage() {
       return;
     }
     try {
-      const data = (await res.json()) as { treasureId?: string | null };
-      if (data.treasureId) pendingTreasureGetRef.current = 1;
+      const data = (await res.json()) as { treasureIds?: string[] };
+      const count = data.treasureIds?.length ?? 0;
+      if (count > 0) pendingTreasureGetRef.current = count;
     } catch {
       // 旧APIで JSON が無い場合などは無視
     }
@@ -136,8 +137,9 @@ export default function ChildViewQuestsPage() {
       return;
     }
     try {
-      const data = (await res.json()) as { treasureId?: string | null };
-      if (data.treasureId) pendingTreasureGetRef.current = 1;
+      const data = (await res.json()) as { treasureIds?: string[] };
+      const count = data.treasureIds?.length ?? 0;
+      if (count > 0) pendingTreasureGetRef.current = count;
     } catch {
       // ignore
     }

@@ -5,7 +5,7 @@ import { approveSkipQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
-import { computeCompletedCount } from "@/lib/questProgress";
+import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
 
 export async function POST(
@@ -61,23 +61,25 @@ export async function POST(
   // 親代理「即 SKIPPED」: SKIP_REPORTED を経由せず一気に SKIPPED まで確定（report-approve と同じ思想）
   await approveSkipQuestInstance({ id: quest.id, childId: child.id, date: quest.date });
 
-  // PROXY 宝箱: minTasks 到達なら 1個だけ即 UNLOCKED で生成する（report-approve と同規約）
+  // PROXY / ALL_COMPLETE 宝箱: minTasks 到達 or 全完了で即 UNLOCKED 生成（report-approve と同規約）
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
   const todayQuests = await prisma.questInstance.findMany({
     where: { childId: child.id, date: quest.date },
     select: { status: true },
   });
   const reportedCount = computeCompletedCount(todayQuests);
-  let treasureId: string | null = null;
-  if (reportedCount >= minTasks) {
-    treasureId = await generateProxyTreasure({
-      childId: child.id,
-      date: quest.date,
-      reportedCount,
-      totalCount: todayQuests.length,
-      minTasks,
-    });
-  }
+  const skippedCount = computeSkippedCount(todayQuests);
+  const treasureIds =
+    reportedCount >= minTasks
+      ? await generateProxyTreasure({
+          childId: child.id,
+          date: quest.date,
+          reportedCount,
+          totalCount: todayQuests.length,
+          skippedCount,
+          minTasks,
+        })
+      : [];
 
   // 掲示板の TASK_* 進捗ログ: スキップも computeCompletedCount に含まれるため、子供本人の
   // スキップ申請と同じく進捗マイルストーンが落ちる可能性がある。代理経路でも発火する。
@@ -87,7 +89,7 @@ export async function POST(
     questId: id,
     childId: child.id,
     parentId: parent.id,
-    treasureId,
+    treasureIds,
   });
-  return NextResponse.json({ ok: true, treasureId });
+  return NextResponse.json({ ok: true, treasureIds });
 }

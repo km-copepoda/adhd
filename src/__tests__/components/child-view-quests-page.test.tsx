@@ -163,7 +163,7 @@ describe("ChildViewQuestsPage: モンスターミニカード（キャラクタ�
     expect(screen.getByText(/stage 1 \/ 3/)).toBeTruthy();
   });
 
-  it("代理報告 API が treasureId を返したら、シートが閉じたあと「宝箱ゲット！」のカットインが表示される", async () => {
+  it("代理報告 API が treasureIds を返したら、シートが閉じたあと「宝箱ゲット！」のカットインが表示される", async () => {
     global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/api/parent/child-view/quests/today")) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
@@ -174,7 +174,7 @@ describe("ChildViewQuestsPage: モンスターミニカード（キャラクタ�
       if (url.includes("/report-approve") && init?.method === "POST") {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ok: true, treasureId: "log-xyz" }),
+          json: () => Promise.resolve({ ok: true, treasureIds: ["log-xyz"] }),
         });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
@@ -203,7 +203,7 @@ describe("ChildViewQuestsPage: モンスターミニカード（キャラクタ�
     await waitFor(() => expect(screen.getByText("宝箱ゲット！")).toBeTruthy());
   });
 
-  it("代理報告 API の treasureId が null ならカットインは表示しない", async () => {
+  it("代理報告 API の treasureIds が空配列ならカットインは表示しない", async () => {
     global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/api/parent/child-view/quests/today")) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
@@ -214,7 +214,7 @@ describe("ChildViewQuestsPage: モンスターミニカード（キャラクタ�
       if (url.includes("/report-approve") && init?.method === "POST") {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ ok: true, treasureId: null }),
+          json: () => Promise.resolve({ ok: true, treasureIds: [] }),
         });
       }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
