@@ -76,8 +76,13 @@ describe("calcCarryOverMissedCount", () => {
     expect(calcCarryOverMissedCount(undefined, today, [1, 3, 5])).toBeNull();
   });
 
-  it("repeatDays が空なら 1 にフォールバック（isTemporary 想定）", () => {
-    expect(calcCarryOverMissedCount(d("2026-05-01"), today, [])).toBe(1);
+  it("repeatDays が空（isTemporary+carryOver 想定）なら oldestPendingDate から today までの経過日数(inclusive)", () => {
+    // 2026-05-01 から 2026-05-08 まで inclusive = 8 日 (何日持ち越したかを親バッジに反映)
+    expect(calcCarryOverMissedCount(d("2026-05-01"), today, [])).toBe(8);
+  });
+
+  it("repeatDays が空で oldestPendingDate === today なら 1 (今日出現したばかりの一時タスク)", () => {
+    expect(calcCarryOverMissedCount(today, today, [])).toBe(1);
   });
 
   it("repeatDays が指定されていれば countScheduledOccurrences の結果を返す", () => {

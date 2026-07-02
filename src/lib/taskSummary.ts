@@ -74,8 +74,10 @@ export function computeLastSkippedDates(
 /**
  * carryOver タスクの「N回未完了」を計算する。
  *
- * 最古 PENDING の日付から today までの inclusive 範囲で、repeatDays に当たる出現回数。
- * isTemporary 等で repeatDays が空の場合は出現が1度しか定義されないので1にフォールバック。
+ * - 通常タスク: 最古 PENDING の日付から today までの inclusive 範囲で、repeatDays に当たる出現回数
+ * - 一時タスク (repeatDays が空): 出現は 1 度のみ定義だが、carryOver で持ち越しているため
+ *   「持ち越し何日目か」(oldestPendingDate から today までの暦日 inclusive) を返す。
+ *   親バッジで「何日放置されたか」の視覚シグナルを得るための挙動。
  */
 export function calcCarryOverMissedCount(
   oldestPendingDate: Date | null | undefined,
@@ -83,7 +85,13 @@ export function calcCarryOverMissedCount(
   repeatDays: number[],
 ): number | null {
   if (!oldestPendingDate) return null;
-  if (repeatDays.length === 0) return 1;
+  if (repeatDays.length === 0) {
+    const MS_PER_DAY = 86_400_000;
+    const diffDays = Math.floor(
+      (today.getTime() - oldestPendingDate.getTime()) / MS_PER_DAY,
+    );
+    return Math.max(1, diffDays + 1);
+  }
   return countScheduledOccurrences(oldestPendingDate, today, repeatDays);
 }
 

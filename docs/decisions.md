@@ -1935,3 +1935,27 @@
 - `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `treasureIds.length` を件数として利用
 - テスト: `treasureService.test.ts` / `report-approve.test.ts` / `skip-approve.test.ts` / `child-view-quests-page.test.tsx` / `child-view-quests-skip-and-cutscene.test.tsx`
 
+## 2026-07-02: 一時タスクも carryOver=true を選択可能にする
+
+### 決定
+- `TaskForm.tsx` の carryOver トグル表示を `formMode === "regular"` ゲートから解除し、一時タスクでも表示・選択可能に変更
+- `calcCarryOverMissedCount` の `repeatDays.length === 0` フォールバックを `1` から **暦日 inclusive (何日持ち越したか)** に変更
+- `docs/glossary.md` の isTemporary 表記を「carryOver 不可（翌日消える）」→「carryOver 可（targetDate を過ぎても PENDING が翌日以降に持ち越される）」に更新
+
+### 理由
+- ADHD 特性上「今日中にやり切れなかった一時タスク」は忘却で消えるより翌日以降も表示され続ける方がモチベーション継続に有効。通常タスク (2026-04-22) と同じ動機付け
+- 既存の carryOver 経路 (`ensureTodayQuests` の OR 条件 / `cleanupStaleCarryOverInstances` の「直近 APPROVED/SKIPPED より古い PENDING」判定 / 宝箱集計の今日基準切替 / `getMissedExposureCount` の暦日算出) は `repeatDays` に依存しない書き方で、一時+carryOver でも自然に動く
+- `cleanupStaleCarryOverInstances` は「直近 APPROVED/SKIPPED 履歴が無いテンプレートは判定不能で対象外」なので、一時タスクは常に対象外 = 持ち越し PENDING がそのまま残る (=carryOver 本来の挙動)
+- `calcCarryOverMissedCount` の「1 にフォールバック」は一時タスクが「1 回だけ出現」する前提の名残だが、carryOver で持ち越すと放置日数が伸びるので暦日 inclusive で示すのが親バッジの警告シグナルとして正確
+
+### やってはいけないこと
+- 一時+carryOver に対して独自のクリーンアップ経路を追加する（既存の遅延クリーンアップで十分。追加すると 2026-04-27 の設計 = 「APPROVED/SKIPPED 履歴が無ければ触らない」原則を破る）
+- `calcCarryOverMissedCount` を `repeatDays.length === 0` で常に 1 に戻す（親バッジの警告シグナルが機能しなくなる）
+- `TaskForm.tsx` で一時タスク時に carryOver 初期値を強制 false にする（ユーザー選択を尊重）
+
+### 該当箇所
+- `src/components/parent/TaskForm.tsx` — `formMode === "regular"` ゲート削除
+- `src/lib/taskSummary.ts` — `calcCarryOverMissedCount` の空 repeatDays 分岐を暦日算出に変更
+- `docs/glossary.md` — isTemporary vs 通常タスクの表と `carryOverMissedCount` 説明を更新
+- テスト: `taskSummary.test.ts` / `TaskForm.test.tsx`
+

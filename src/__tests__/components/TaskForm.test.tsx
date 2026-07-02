@@ -87,3 +87,30 @@ describe("TaskForm テンプレート開閉", () => {
     expect(screen.queryByRole("button", { name: /テンプレートから選ぶ/i })).toBeNull();
   });
 });
+
+describe("TaskForm carryOver トグルの表示", () => {
+  it("通常モードでは carryOver トグルが表示される", () => {
+    renderForm({ formMode: "regular" });
+    expect(screen.getByText(/未完了を翌日に持ち越す/)).toBeTruthy();
+  });
+
+  it("一時タスクモードでも carryOver トグルが表示される", () => {
+    renderForm({ formMode: "temporary" });
+    expect(screen.getByText(/未完了を翌日に持ち越す/)).toBeTruthy();
+  });
+
+  it("一時タスクモードで carryOver トグルを押すと onFormChange が呼ばれ、値が反転する", () => {
+    let current = makeForm({ carryOver: false });
+    const onFormChange = vi.fn((updater: (f: FormData) => FormData) => {
+      current = updater(current);
+    });
+    renderForm({ formMode: "temporary", form: { carryOver: false }, onFormChange });
+    // トグル説明文の親ラッパー内のボタンを取得（ラベルの近傍にあるボタン）
+    const label = screen.getByText(/未完了を翌日に持ち越す/);
+    const toggleBtn = label.parentElement?.parentElement?.querySelector("button");
+    expect(toggleBtn).toBeTruthy();
+    fireEvent.click(toggleBtn!);
+    expect(onFormChange).toHaveBeenCalled();
+    expect(current.carryOver).toBe(true);
+  });
+});

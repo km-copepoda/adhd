@@ -68,14 +68,14 @@ PENDING ──子供が報告──▶ REPORTED ──親が承認──▶ APPR
 |---|---|
 | `completedToday: boolean` | 今日の QuestInstance が `APPROVED` または `SKIPPED` |
 | `lastSkippedDate: Date\|null` | 過去7日間で最も新しい `SKIPPED` QuestInstance の日付 |
-| `carryOverMissedCount: number\|null` | `carryOver=true` タスクで、今日より過去に残っている最古 `PENDING` の日付から今日までの inclusive 範囲で `repeatDays` に当たる日数（= 放置された出現回数）。stale PENDING なし or `repeatDays` 該当なしなら null |
+| `carryOverMissedCount: number\|null` | `carryOver=true` タスクで、今日より過去に残っている最古 `PENDING` の日付から今日までの inclusive 範囲で `repeatDays` に当たる日数（= 放置された出現回数）。一時タスクは `repeatDays` が空なので暦日 inclusive を返す（何日持ち越したか）。stale PENDING なし or `repeatDays` 該当なしなら null |
 
 ### 3.4 isTemporary vs 通常タスク
 
 | | 通常タスク | 一時タスク（`isTemporary=true`）|
 |---|---|---|
 | 繰り返し | `repeatDays` の曜日に毎回生成 | `targetDate` 指定の1日限り |
-| carryOver 対応 | 可 | 不可（翌日消える） |
+| carryOver 対応 | 可 | 可（`targetDate` を過ぎても PENDING が翌日以降に持ち越される） |
 | 子供作成 | `requestedDate` を記録し申請当日のみ表示（親承認後は通常扱いに） | 親承認なしでその日実行 |
 
 ### 3.5 isActive vs 削除
