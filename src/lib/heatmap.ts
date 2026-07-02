@@ -18,13 +18,16 @@ export function getHeatLevel(day: DaySummary | undefined): HeatLevel {
   return "lv1";
 }
 
+// GitHub 貢献グラフ (ダークテーマ) 準拠の緑グラデーション。
+// level1 #0e4429 → level2 #006d32 → level3 #26a641 → level4 #39d353。
+// 6段階に拡張するため、level3〜4 の間に #2ea043、level4 の上に #56d364 を追加。
 export const HEAT_CLASS: Record<HeatLevel, string> = {
   none: "bg-quest-card border border-quest-border text-quest-dim/50",
-  lv1: "bg-teal-500/10 border border-teal-500/20 text-teal-400/60",
-  lv2: "bg-teal-500/20 border border-teal-500/30 text-teal-300",
-  lv3: "bg-teal-500/35 border border-teal-500/45 text-teal-200",
-  lv4: "bg-teal-500/50 border border-teal-500/60 text-white",
-  lv5: "bg-quest-gold/40 border border-quest-gold/60 text-white",
-  lv6: "bg-quest-gold/65 border border-quest-gold text-white font-semibold",
+  lv1: "bg-[#0e4429] border border-[#0e4429] text-green-100/70",
+  lv2: "bg-[#006d32] border border-[#006d32] text-green-50",
+  lv3: "bg-[#26a641] border border-[#26a641] text-white",
+  lv4: "bg-[#2ea043] border border-[#2ea043] text-white",
+  lv5: "bg-[#39d353] border border-[#39d353] text-[#0d1117]",
+  lv6: "bg-[#56d364] border border-[#56d364] text-[#0d1117] font-semibold",
   skip: "bg-orange-500/20 border border-orange-500/30 text-orange-400",
 };

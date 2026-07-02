@@ -117,11 +117,13 @@ export default function HeatmapGrid({
 
       <div className="flex flex-wrap items-center gap-1.5 mt-3 justify-end text-[9px] text-quest-dim/70">
         <div className="w-2.5 h-2.5 rounded-sm bg-quest-card border border-quest-border" />
-        <span>なし</span>
-        <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/20 ml-1" />
-        <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/45" />
-        <div className="w-2.5 h-2.5 rounded-sm bg-quest-gold/55 border border-quest-gold" />
-        <span>完了多</span>
+        <span>少</span>
+        <div className="w-2.5 h-2.5 rounded-sm bg-[#0e4429] ml-1" />
+        <div className="w-2.5 h-2.5 rounded-sm bg-[#006d32]" />
+        <div className="w-2.5 h-2.5 rounded-sm bg-[#26a641]" />
+        <div className="w-2.5 h-2.5 rounded-sm bg-[#39d353]" />
+        <div className="w-2.5 h-2.5 rounded-sm bg-[#56d364]" />
+        <span>多</span>
         <div className="w-2.5 h-2.5 rounded-sm bg-orange-500/20 ml-1" />
         <span>スキップ</span>
         {checkinDays && (

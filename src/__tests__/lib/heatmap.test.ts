@@ -69,4 +69,29 @@ describe("HEAT_CLASS", () => {
       expect(typeof HEAT_CLASS[level]).toBe("string");
     }
   });
+
+  it("lv1〜lv6 は GitHub 貢献グラフ風の緑グラデーションを使う", () => {
+    // GitHub dark theme contribution palette
+    // level1 #0e4429 → level2 #006d32 → level3 #26a641 → level4 #39d353
+    expect(HEAT_CLASS.lv1).toContain("#0e4429");
+    expect(HEAT_CLASS.lv2).toContain("#006d32");
+    expect(HEAT_CLASS.lv3).toContain("#26a641");
+    expect(HEAT_CLASS.lv4).toContain("#2ea043");
+    expect(HEAT_CLASS.lv5).toContain("#39d353");
+    expect(HEAT_CLASS.lv6).toContain("#56d364");
+  });
+
+  it("lv1〜lv6 はいずれも teal / gold を含まない (GitHub 風の緑に統一)", () => {
+    const greenLevels = ["lv1", "lv2", "lv3", "lv4", "lv5", "lv6"] as const;
+    for (const level of greenLevels) {
+      expect(HEAT_CLASS[level]).not.toMatch(/teal/);
+      expect(HEAT_CLASS[level]).not.toMatch(/quest-gold/);
+    }
+  });
+
+  it("none / skip は緑グラデーションと区別できる (背景は緑を含まない)", () => {
+    // none は既存のカード背景, skip は orange 系のまま
+    expect(HEAT_CLASS.none).not.toContain("#0e4429");
+    expect(HEAT_CLASS.skip).toContain("orange");
+  });
 });
