@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import HeatmapGrid from "@/components/parent/HeatmapGrid";
+import HeatmapGrid, { type CheckinCellState } from "@/components/parent/HeatmapGrid";
 import HistoryItemCard from "@/components/parent/HistoryItemCard";
-import ParentCheckinCalendar from "@/components/parent/ParentCheckinCalendar";
 import { useHistoryData } from "@/hooks/useHistoryData";
 import { todayStringJST } from "@/lib/date";
+import { buildMonthGrid } from "@/lib/checkin.calendar";
+
+type CheckinResponse = {
+  enabled: boolean;
+  year: number;
+  month: number;
+  deadline: string | null;
+  logs: { date: string; success: boolean }[];
+  enabledSince: string | null;
+  currentStreak: number;
+  bestStreak: number;
+};
 
 export default function HistoryContent() {
   const today = new Date();
@@ -28,6 +39,44 @@ export default function HistoryContent() {
     loadingSummary,
     isFirstLoad,
   } = useHistoryData(selectedDate, viewMonth);
+
+  const [checkin, setCheckin] = useState<CheckinResponse | null>(null);
+
+  useEffect(() => {
+    if (!selectedChildId) {
+      setCheckin(null);
+      return;
+    }
+    const y = viewMonth.getFullYear();
+    const m = viewMonth.getMonth() + 1;
+    const monthParam = `${y}-${String(m).padStart(2, "0")}`;
+    setCheckin(null);
+    fetch(`/api/parent/checkin/calendar?childId=${selectedChildId}&month=${monthParam}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: CheckinResponse | null) => setCheckin(d))
+      .catch(() => setCheckin(null));
+  }, [selectedChildId, viewMonth]);
+
+  const checkinDays: Record<string, CheckinCellState> | undefined = (() => {
+    if (!checkin || !checkin.enabled) return undefined;
+    const cells = buildMonthGrid({
+      year: checkin.year,
+      month: checkin.month,
+      logs: checkin.logs,
+      todayStr: todayStringJST(),
+      deadline: checkin.deadline ?? "23:59",
+      now: new Date(),
+      enabledSince: checkin.enabledSince ?? undefined,
+    });
+    const map: Record<string, CheckinCellState> = {};
+    for (const c of cells) {
+      // future/empty はアイコンなし（HeatmapGrid 側で非描画）にするため除外
+      if (c.state === "success" || c.state === "fail" || c.state === "today") {
+        map[c.date] = c.state;
+      }
+    }
+    return map;
+  })();
 
   const approved = items.filter((i) => i.status === "APPROVED");
   const skipped = items.filter((i) => i.status === "SKIPPED");
@@ -106,14 +155,15 @@ export default function HistoryContent() {
         onPrevMonth={() => setViewMonth(new Date(year, month - 1, 1))}
         onNextMonth={() => setViewMonth(new Date(year, month + 1, 1))}
         onSelectDate={setSelectedDate}
+        checkinDays={checkinDays}
       />
 
-      {selectedChildId && (
-        <ParentCheckinCalendar
-          childId={selectedChildId}
-          viewMonth={viewMonth}
-          todayStr={todayStringJST()}
-        />
+      {checkin?.enabled && checkin.currentStreak > 0 && (
+        <div className="flex justify-end mb-4 -mt-4">
+          <span className="text-xs text-orange-400 font-bold" data-testid="parent-checkin-current-streak">
+            🔥 チェックイン {checkin.currentStreak}日連続
+          </span>
+        </div>
       )}
 
       <div className="mb-4">

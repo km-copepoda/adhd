@@ -3,6 +3,14 @@
 import { DAY_LABELS } from "@/lib/categories";
 import { formatDate, getHeatLevel, HEAT_CLASS, type DaySummary } from "@/lib/heatmap";
 
+export type CheckinCellState = "success" | "fail" | "today" | "future" | "empty";
+
+const CHECKIN_ICON: Partial<Record<CheckinCellState, string>> = {
+  success: "🌟",
+  fail: "😢",
+  today: "⭐",
+};
+
 type HeatmapGridProps = {
   viewMonth: Date;
   today: Date;
@@ -11,6 +19,8 @@ type HeatmapGridProps = {
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onSelectDate: (d: Date) => void;
+  /** 日付 (YYYY-MM-DD) → チェックイン状態。渡さなければアイコン非表示。 */
+  checkinDays?: Record<string, CheckinCellState>;
 };
 
 export default function HeatmapGrid({
@@ -21,6 +31,7 @@ export default function HeatmapGrid({
   onPrevMonth,
   onNextMonth,
   onSelectDate,
+  checkinDays,
 }: HeatmapGridProps) {
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
@@ -69,6 +80,8 @@ export default function HeatmapGrid({
           const isSelected = dateStr === formatDate(selectedDate);
           const isToday = dateStr === formatDate(today);
           const heatLevel = isFuture ? "none" : getHeatLevel(days?.[dateStr]);
+          const checkinState = checkinDays?.[dateStr];
+          const checkinIcon = checkinState ? CHECKIN_ICON[checkinState] : undefined;
 
           return (
             <button
@@ -76,7 +89,7 @@ export default function HeatmapGrid({
               onClick={() => !isFuture && onSelectDate(d)}
               disabled={isFuture}
               className={[
-                "aspect-square rounded-md flex items-center justify-center transition-transform text-xs",
+                "relative aspect-square rounded-md flex items-center justify-center transition-transform text-xs",
                 isFuture
                   ? "text-quest-dim/20 cursor-default"
                   : `${HEAT_CLASS[heatLevel]} hover:scale-110`,
@@ -87,12 +100,22 @@ export default function HeatmapGrid({
                 .join(" ")}
             >
               {day}
+              {checkinIcon && (
+                <span
+                  data-testid={`heatmap-checkin-${dateStr}`}
+                  data-checkin={checkinState}
+                  aria-label={`checkin-${checkinState}`}
+                  className="absolute -top-0.5 -right-0.5 text-[9px] leading-none pointer-events-none"
+                >
+                  {checkinIcon}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <div className="flex items-center gap-1.5 mt-3 justify-end text-[9px] text-quest-dim/70">
+      <div className="flex flex-wrap items-center gap-1.5 mt-3 justify-end text-[9px] text-quest-dim/70">
         <div className="w-2.5 h-2.5 rounded-sm bg-quest-card border border-quest-border" />
         <span>なし</span>
         <div className="w-2.5 h-2.5 rounded-sm bg-teal-500/20 ml-1" />
@@ -101,6 +124,9 @@ export default function HeatmapGrid({
         <span>完了多</span>
         <div className="w-2.5 h-2.5 rounded-sm bg-orange-500/20 ml-1" />
         <span>スキップ</span>
+        {checkinDays && (
+          <span className="ml-2">🌟成功 · 😢未達 · ⭐今日</span>
+        )}
       </div>
     </div>
   );
