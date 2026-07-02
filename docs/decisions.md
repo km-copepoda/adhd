@@ -1935,3 +1935,36 @@
 - `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `treasureIds.length` を件数として利用
 - テスト: `treasureService.test.ts` / `report-approve.test.ts` / `skip-approve.test.ts` / `child-view-quests-page.test.tsx` / `child-view-quests-skip-and-cutscene.test.tsx`
 
+## 2026-07-02: 親側チェックインカレンダーを HeatmapGrid に統合（ParentCheckinCalendar 廃止）
+
+### 決定
+- 親 `/app/parent/records` 「📅 過去」タブから独立コンポーネント `ParentCheckinCalendar` を撤去し、既存の `HeatmapGrid`（タスク達成ヒートマップ）内にチェックイン結果をアイコンオーバーレイとして統合する
+- `HeatmapGrid` に新 prop `checkinDays?: Record<string, "success"|"fail"|"today"|...>` を追加。各セルの右上に小さく 🌟 (success) / 😢 (fail) / ⭐ (today) を絶対配置で表示。empty/future はアイコン非表示
+- データ供給は `HistoryContent` から既存 API `GET /api/parent/checkin/calendar` を叩き、既存の純粋関数 `buildMonthGrid` でセル分類してから `HeatmapGrid` に渡す
+- 「🔥 チェックイン N日連続」表示は HeatmapGrid 直下の小さなラベルとして残す（旧カード見出しから移設）
+- 削除: `src/components/parent/ParentCheckinCalendar.tsx` / `src/__tests__/components/ParentCheckinCalendar.test.tsx`
+- 追加テスト: `HeatmapGrid-checkin.test.tsx` / `HistoryContent-checkin-integration.test.tsx`
+
+### 理由
+- ユーザ判断: 「わざわざ別でカレンダーを作る必要ない」— 同じ月を並列に 2 枚並べる縦スクロールが冗長
+- 2026-06-25 の当初判断（「軸が違うので別カード」）は情報過多への懸念だったが、右上コーナーに極小アイコンを重ねる形式であればセル本体の色（達成度）と視覚的に競合しないと判断
+- API と純粋関数 (`buildMonthGrid`) は既存資産をそのまま流用するため差分が小さい
+
+### 過去判断との関係
+- 2026-06-25 「親側のチェックイン履歴を『記録 > 過去』に追加（専用 API）」の以下を明示的に覆した:
+  - 「ヒートマップに重ねる案 → 別カードで縦並びにする」
+  - 「ヒートマップセルにチェックイン結果を重ねる → 情報過多」
+- 覆した根拠: 実運用上「情報過多」ではなく「カレンダーの重複が縦方向を圧迫」する方が UX 上のコストが大きい、というユーザ判断
+
+### やってはいけないこと
+- `ParentCheckinCalendar` を復活させて `HeatmapGrid` と並列に描画する（縦方向の冗長化に逆戻り）
+- `HeatmapGrid` の `checkinDays` を必須 prop 化する（他画面の再利用性を損なう。オプショナル維持）
+- チェックイン API を月遷移と独立してフェッチする（月ナビゲーションと連動しないと表示ズレが起きる）
+- 過去判断を覆したこの決定を暗黙で戻さない（覆すなら再度 decisions.md に追記）
+
+### 該当箇所
+- `src/components/parent/HeatmapGrid.tsx` — `CheckinCellState` 型と `checkinDays` prop、セル内アイコン描画、凡例追加
+- `src/components/parent/HistoryContent.tsx` — `/api/parent/checkin/calendar` を fetch し `buildMonthGrid` で `checkinDays` を組み立て、`ParentCheckinCalendar` 描画を撤去
+- 削除: `src/components/parent/ParentCheckinCalendar.tsx` / `src/__tests__/components/ParentCheckinCalendar.test.tsx`
+- テスト: `src/__tests__/components/HeatmapGrid-checkin.test.tsx` / `src/__tests__/components/HistoryContent-checkin-integration.test.tsx`
+
