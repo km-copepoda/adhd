@@ -47,10 +47,7 @@ export default function LpPage() {
         <ul className={styles.navLinks}>
           <li><a href="#pain">こんな悩み</a></li>
           <li><a href="#features">機能</a></li>
-          <li><a href="#hiroba">ひろば</a></li>
           <li><a href="#treasure">宝箱</a></li>
-          <li><a href="#habit">続ける仕組み</a></li>
-          <li><a href="#beforeafter">変化</a></li>
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#install">インストール</a></li>
           <li>
@@ -65,9 +62,9 @@ export default function LpPage() {
       <PainSection s={styles} />
       <HowItWorksSection s={styles} />
       <FeaturesSection s={styles} />
+      <TreasureSection s={styles} />
       <MonstersSection s={styles} />
       <HirobaSection s={styles} />
-      <TreasureSection s={styles} />
       <HabitSection s={styles} />
       <BeforeAfterSection s={styles} />
       <ScreensSection s={styles} />

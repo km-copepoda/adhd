@@ -332,6 +332,30 @@
 }
 
 /* ===== FEATURES ===== */
+.featureGroup {
+  margin-bottom: 64px;
+}
+.featureGroup:last-child {
+  margin-bottom: 0;
+}
+
+.featureGroupTitle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 2px;
+  margin: 0 0 24px;
+}
+.featureGroupTitle::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border2), transparent);
+}
+
 .featuresGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
