@@ -83,6 +83,26 @@ describe("GET /api/quests/today", () => {
     );
   });
 
+  it("questInstance.findMany の where で date-branch / carryOver-branch 両方に template.pausedAt: null が入っていること", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00"));
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await GET();
+
+    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            expect.objectContaining({ template: expect.objectContaining({ pausedAt: null }) }),
+            expect.objectContaining({ template: expect.objectContaining({ pausedAt: null, carryOver: true }) }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it("snapshotTitleがある場合、レスポンスのtemplate.titleにスナップショットを使用すること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
     mockGetCurrentUser.mockResolvedValue(childUser() as any);

@@ -39,6 +39,28 @@ describe("GET /api/parent/child-view/quests/today", () => {
     expect(res.status).toBe(400);
   });
 
+  it("questInstance.findMany の where で date-branch / carryOver-branch 両方に template.pausedAt: null が入っていること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({ id: "child-1" }) as any,
+    );
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+
+    await GET(makeReq("child-1"));
+
+    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [
+            expect.objectContaining({ template: expect.objectContaining({ pausedAt: null }) }),
+            expect.objectContaining({ template: expect.objectContaining({ pausedAt: null, carryOver: true }) }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it("別 family の子を指定した場合、404 を返す", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.user.findFirst.mockResolvedValue(null);
