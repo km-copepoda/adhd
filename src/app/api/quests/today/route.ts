@@ -27,8 +27,8 @@ export async function GET() {
     where: {
       childId: user.id,
       OR: [
-        { date: today, template: { isActive: true } },
-        { status: "PENDING", template: { isActive: true, carryOver: true } },
+        { date: today, template: { isActive: true, pausedAt: null } },
+        { status: "PENDING", template: { isActive: true, pausedAt: null, carryOver: true } },
       ],
     },
     include: {

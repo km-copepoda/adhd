@@ -178,6 +178,23 @@ describe("ensureTodayQuests", () => {
     expect(mockPrisma.questInstance.findFirst).not.toHaveBeenCalled();
   });
 
+  it("findMany の where 条件に pausedAt: null が含まれること（一時停止中のテンプレートを対象外）", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00")); // 木曜(4)
+
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        familyId: "fam-1",
+        assignedChildId: "child-1",
+        isActive: true,
+        pausedAt: null,
+      }),
+    });
+  });
+
   it("carryOver=true のテンプレートで stale PENDING があれば updateMany でクリーンアップすること", async () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 

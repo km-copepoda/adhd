@@ -107,6 +107,7 @@ export async function ensureTodayQuests(params: {
       familyId,
       assignedChildId: childId,
       isActive: true,
+      pausedAt: null,
       OR: [
         // 承認済み通常タスク: 今日の曜日に対応
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },

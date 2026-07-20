@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       familyId: user.familyId,
       assignedChildId: childId,
       isActive: true,
+      pausedAt: null,
       OR: [
         { isTemporary: false, createdBy: "PARENT", repeatDays: { has: dayOfWeek } },
         { isTemporary: false, createdBy: "CHILD", requestedDate: today, repeatDays: { has: dayOfWeek } },
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
   } else {
     // 未完了タスク一覧をまとめて通知
     const pendingQuests = await prisma.questInstance.findMany({
-      where: { childId, status: "PENDING", date: today },
+      where: { childId, status: "PENDING", date: today, template: { pausedAt: null } },
       include: { template: { select: { title: true } } },
     });
     if (pendingQuests.length === 0) {

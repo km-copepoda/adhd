@@ -1994,3 +1994,35 @@
 - テスト: `src/__tests__/components/HeatmapGrid-checkin.test.tsx` / `src/__tests__/components/HistoryContent-checkin-integration.test.tsx`
 >>>>>>> vk/9165-
 
+## 2026-07-20: タスクの一時停止機能（親が子供画面での表示を pausedAt で停止／再開）
+
+### 決定
+- `TaskTemplate` に `pausedAt DateTime?` を追加（マイグレーション `20260720000001_add_paused_at_to_task_template`）。non-null = 停止中
+- 新エンドポイント `POST /api/tasks/[id]/pause` を追加。body `{ paused: boolean }` で `pausedAt` を `new Date()` / `null` にセット（PARENT 限定）
+- `ensureTodayQuests` の `taskTemplate.findMany` where に `pausedAt: null` を追加し、停止中テンプレートは QuestInstance を新規生成しない
+- 子画面 API (`/api/quests/today`) と親モード API (`/api/parent/child-view/quests/today`) の QuestInstance クエリの `template` フィルタに `pausedAt: null` を追加（過去に materialize 済みの PENDING が停止後も画面に出ないように）
+- 親リマインド (`/api/push/notify-child`) の templates / pendingQuests クエリにも `pausedAt: null` を追加
+- 親タスクカード (`RegularTaskCard` / `TemporaryTaskCard`) に「⏸ 停止 / ▶ 再開」トグルボタンと「⏸ 停止中」バッジを追加。停止中は透明度を下げ、"対象外" ラベルは重複回避のため出さない
+
+### 理由
+- 想定ユースケース: 夏休みなど「通常タスクの `repeatDays` / `targetDate` は残したいが一時的に子供画面には出したくない」場面。削除 (`isActive: false`) はストリークや履歴の意味が変わるうえ再作成コストが高い
+- 論理削除の `isActive` を流用しないのは、`isActive: false` は「タスク廃止（子供の一時タスク却下含む）」という強い意味を持ち、UI やクリーンアップ動作が変わってしまうため。停止は「表示だけ止める」ソフトなフラグで別軸
+- `pausedAt` を DateTime 型にしたのは、後で「N 日以上停止中の警告」など運用シグナルに使える可能性を残すため（Boolean よりコスト差はほぼゼロ）
+
+### やってはいけないこと
+- `pausedAt` を `isActive` に統合する（削除と停止の意味が混ざり、削除復元 UX が壊れる）
+- 停止時に既存の PENDING/REPORTED/SKIP_REPORTED を DB から削除する（再開時に履歴が飛ぶ。表示層で `template.pausedAt: null` フィルタするだけで足りる）
+- carryOver タスクの停止で pastPending を stale 判定して REJECTED に落とす（停止解除で復元できなくなる。既存の `cleanupStaleCarryOverInstances` は APPROVED/SKIPPED 履歴が無いテンプレートを触らない設計なので pausedAt 単独では発火しない）
+- 停止中タスクを親画面のリストから隠す（親は再開のために視認できる必要がある。停止中バッジで判別）
+
+### 該当箇所
+- `prisma/schema.prisma` — `TaskTemplate.pausedAt`
+- `prisma/migrations/20260720000001_add_paused_at_to_task_template/migration.sql`
+- `src/app/api/tasks/[id]/pause/route.ts` — 新規
+- `src/lib/quests.ts` — `ensureTodayQuests` に `pausedAt: null` フィルタ
+- `src/app/api/quests/today/route.ts` / `src/app/api/parent/child-view/quests/today/route.ts` — template.pausedAt: null フィルタ
+- `src/app/api/push/notify-child/route.ts` — templates / pendingQuests に pausedAt: null
+- `src/components/parent/RegularTaskCard.tsx` / `TemporaryTaskCard.tsx` — トグルボタンと停止中バッジ
+- `src/app/app/parent/(app)/tasks/page.tsx` — `handleTogglePause` ハンドラと props 配線
+- テスト: `src/__tests__/lib/quests.test.ts`, `src/__tests__/api/tasks/tasks-pause.test.ts`, `src/__tests__/components/RegularTaskCard-pause.test.tsx`
+

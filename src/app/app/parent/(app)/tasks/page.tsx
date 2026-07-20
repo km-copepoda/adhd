@@ -25,6 +25,7 @@ type Task = {
   targetDate: string | null;
   requestedDate: string | null;
   isActive: boolean;
+  pausedAt: string | null;
   createdBy: string;
   photoBonus: boolean;
   carryOver: boolean;
@@ -161,6 +162,15 @@ export default function TasksPage() {
     if (!confirm("このタスクを削除しますか？")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
     notifyApprovalsUpdated();
+    fetchTasks();
+  }
+
+  async function handleTogglePause(id: string, paused: boolean) {
+    await fetch(`/api/tasks/${id}/pause`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paused }),
+    });
     fetchTasks();
   }
 
@@ -340,6 +350,7 @@ export default function TasksPage() {
                       todayDow={todayDow}
                       onEdit={startEdit}
                       onDelete={handleDelete}
+                      onTogglePause={handleTogglePause}
                     />
                   ))}
                 </div>
@@ -357,6 +368,7 @@ export default function TasksPage() {
                       task={task}
                       children={children}
                       onDelete={handleDelete}
+                      onTogglePause={handleTogglePause}
                     />
                   ))}
                 </div>

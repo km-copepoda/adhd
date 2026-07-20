@@ -22,6 +22,7 @@ type RegularTask = {
   targetDate: string | null;
   requestedDate: string | null;
   isActive: boolean;
+  pausedAt: string | null;
   createdBy: string;
 };
 
@@ -37,6 +38,7 @@ type Props = {
   todayDow: number;
   onEdit: (task: RegularTask) => void;
   onDelete: (id: string) => void;
+  onTogglePause: (id: string, paused: boolean) => void;
 };
 
 function formatSkipBadge(dateStr: string | null): string | null {
@@ -54,28 +56,35 @@ function formatPendingCarryBadge(missedCount: number | null): string | null {
   return `${missedCount}回未完了`;
 }
 
-export default function RegularTaskCard({ task, childId, children, todayDow, onEdit, onDelete }: Props) {
+export default function RegularTaskCard({ task, childId, children, todayDow, onEdit, onDelete, onTogglePause }: Props) {
   const cat = CATEGORY_LABEL[task.category];
   const streakEntry = (task.taskStreaks ?? []).find((s) => s.childId === childId);
   const streak = isTaskStreakActive(task.repeatDays, streakEntry?.lastAchievedDate ?? null)
     ? (streakEntry?.currentStreak ?? 0)
     : 0;
   const isOffDay = !task.repeatDays.includes(todayDow);
+  const isPaused = task.pausedAt !== null;
   const assignedChild = children.find((c) => c.id === task.assignedChildId);
   const carryLabel = formatPendingCarryBadge(task.carryOverMissedCount);
-  const hasBadges = task.completedToday || streak >= 1 || task.lastSkippedDate || carryLabel;
+  const hasBadges = isPaused || task.completedToday || streak >= 1 || task.lastSkippedDate || carryLabel;
+  const dimmed = task.completedToday || isPaused;
   return (
     <div
       className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
-        task.completedToday || isOffDay
+        dimmed || isOffDay
           ? "border-quest-border/30"
           : "border-quest-border"
       }`}
     >
-      <div className={`text-2xl ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
+      <div className={`text-2xl ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
       <div className="flex-1 min-w-0">
         {hasBadges && (
           <div className="flex flex-wrap items-center gap-1 mb-1">
+            {isPaused && (
+              <span className="text-[9px] text-quest-dim bg-quest-border/20 border border-quest-border/60 rounded px-1">
+                ⏸ 停止中
+              </span>
+            )}
             {task.completedToday && (
               <span className="text-[9px] text-green-400 bg-green-400/15 border border-green-400/50 rounded px-1">
                 ✓ 完了
@@ -104,8 +113,8 @@ export default function RegularTaskCard({ task, childId, children, todayDow, onE
             )}
           </div>
         )}
-        <p className={`text-sm font-medium break-all ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
-        <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
+        <p className={`text-sm font-medium break-all ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
+        <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
           <span>{cat.emoji} {cat.name}</span>
           <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
           {task.photoBonus && (
@@ -115,7 +124,7 @@ export default function RegularTaskCard({ task, childId, children, todayDow, onE
             <span title="未完了を翌日に持ち越す" className="text-blue-400/70">🔁</span>
           )}
         </div>
-        <div className={`flex gap-0.5 mt-1 ${task.completedToday ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
+        <div className={`flex gap-0.5 mt-1 ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
           {DAY_LABELS.map((label, i) => (
             <span
               key={i}
@@ -131,12 +140,23 @@ export default function RegularTaskCard({ task, childId, children, todayDow, onE
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
-        {!task.completedToday && isOffDay && (
+        {!task.completedToday && !isPaused && isOffDay && (
           <span className="text-[9px] text-quest-dim border border-quest-border rounded px-1">
             対象外
           </span>
         )}
         <div className="flex gap-1">
+          <button
+            onClick={() => onTogglePause(task.id, !isPaused)}
+            title={isPaused ? "子供画面での表示を再開" : "子供画面から一時的に非表示（日程は保持）"}
+            className={`text-xs border rounded-lg px-2 py-1 ${
+              isPaused
+                ? "text-green-400 hover:text-green-300 border-green-400/30"
+                : "text-quest-dim hover:text-quest-text border-quest-border"
+            }`}
+          >
+            {isPaused ? "▶ 再開" : "⏸ 停止"}
+          </button>
           <button
             onClick={() => onEdit(task)}
             className="text-xs text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-2 py-1"

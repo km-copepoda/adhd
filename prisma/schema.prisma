@@ -105,6 +105,11 @@ model TaskTemplate {
   photoBonus        Boolean            @default(false)
   originalCreatedBy Role               @default(PARENT)
   carryOver         Boolean            @default(false)
+  /// 親が「一時停止」ボタンを押した時刻。non-null の間は子供画面に表示されず、
+  /// ensureTodayQuests でも QuestInstance を新規生成しない（既存の PENDING/REPORTED/SKIP_REPORTED は残るが表示上フィルタされる）。
+  /// 再開時に null に戻す。テンプレート自体は削除ではないため repeatDays / targetDate は保持される。
+  /// 用途: 夏休み中に通常タスクを止めつつ夏休み用タスクだけ表示する等。
+  pausedAt          DateTime?
   assignedChildId   String?
   assignedChild     User?              @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests            QuestInstance[]
