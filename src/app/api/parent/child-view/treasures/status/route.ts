@@ -59,7 +59,14 @@ export async function GET(request: Request) {
         boosted: o.boosted,
         item: o.item,
         collectionItem: ci
-          ? { id: ci.id, name: ci.name, season: ci.season, rarity: ci.rarity, image: ci.image }
+          ? {
+              id: ci.id,
+              name: ci.name,
+              season: ci.season,
+              rarity: ci.rarity,
+              image: ci.image,
+              month: ci.month,
+            }
           : null,
       };
     }),

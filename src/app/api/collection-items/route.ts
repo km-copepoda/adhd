@@ -4,14 +4,20 @@
 // 戻り値:
 //   {
 //     currentSeason: "spring" | "summer" | "fall" | "winter",
-//     items: Array<{ ...マスター項目, owned: boolean, count: number, firstAcquiredAt: string | null }>,
+//     currentMonth: 1..12 (JST),
+//     items: Array<{ ...マスター項目, month?, owned, count, firstAcquiredAt, lastAcquiredAt }>,
 //   }
-// マスターは全 80 種を返し、各アイテムに所持実績を付与する。
-// 子画面 ItemsContent ではシーズン別に表示する (現在シーズンをデフォルトタブ)。
+// マスターは全 140 種 (通常 80 + 月限定 60) を返し、各アイテムに所持実績を付与する。
+// 子画面 ItemsContent ではシーズン別に表示する (現在シーズンをデフォルトタブ、
+// 現在月の限定アイテムを最上部に固定表示)。
 
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { ALL_COLLECTION_ITEMS, getCurrentSeason } from "@/lib/collectionItems";
+import {
+  ALL_COLLECTION_ITEMS,
+  getCurrentMonth,
+  getCurrentSeason,
+} from "@/lib/collectionItems";
 import { getOwnedCollection } from "@/lib/collectionService";
 
 export async function GET() {
@@ -36,6 +42,7 @@ export async function GET() {
 
   return NextResponse.json({
     currentSeason: getCurrentSeason(),
+    currentMonth: getCurrentMonth(),
     items,
   });
 }

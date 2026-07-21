@@ -28,6 +28,7 @@ interface OpenedLog {
     season: "spring" | "summer" | "fall" | "winter";
     rarity: CollectionRarity;
     image: string;
+    month?: number;
   } | null;
 }
 
@@ -108,7 +109,10 @@ export default function TreasureHistoryList() {
               <div className="text-[11px] text-quest-dim">
                 {o.collectionItem && (
                   <span className="mr-2">
-                    {SEASON_LABEL[o.collectionItem.season]}・{COLLECTION_RARITY_STARS[o.collectionItem.rarity]}
+                    {o.collectionItem.month !== undefined
+                      ? `✨${o.collectionItem.month}月げんてい`
+                      : SEASON_LABEL[o.collectionItem.season]}
+                    ・{COLLECTION_RARITY_STARS[o.collectionItem.rarity]}
                   </span>
                 )}
                 {formatTreasureOpenedAt(o.openedAt)}

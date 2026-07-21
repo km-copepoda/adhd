@@ -25,7 +25,7 @@ describe("GET /api/collection-items (子供)", () => {
     expect(res.status).toBe(403);
   });
 
-  it("子供 → 全 80 件 + 所持アイテムは owned=true", async () => {
+  it("子供 → 全 140 件 (通常 80 + 月限定 60) + 所持アイテムは owned=true + currentMonth を返す", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ id: "c1" }) as any);
     mockPrisma.userCollectionItem.findMany.mockResolvedValue([
       {
@@ -43,8 +43,10 @@ describe("GET /api/collection-items (子供)", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.items).toHaveLength(80);
+    expect(json.items).toHaveLength(140);
     expect(json.currentSeason).toMatch(/^(spring|summer|fall|winter)$/);
+    expect(json.currentMonth).toBeGreaterThanOrEqual(1);
+    expect(json.currentMonth).toBeLessThanOrEqual(12);
 
     const summer1 = json.items.find((i: { id: string }) => i.id === "summer-01");
     expect(summer1.owned).toBe(true);
@@ -53,6 +55,11 @@ describe("GET /api/collection-items (子供)", () => {
     const other = json.items.find((i: { id: string }) => i.id === "summer-02");
     expect(other.owned).toBe(false);
     expect(other.count).toBe(0);
+
+    // 月限定アイテムがマスターに含まれ、month フィールドを持つ
+    const monthly = json.items.find((i: { id: string }) => i.id === "m07-01");
+    expect(monthly).toBeDefined();
+    expect(monthly.month).toBe(7);
   });
 });
 
@@ -95,7 +102,9 @@ describe("GET /api/parent/child-view/collection-items (親代理)", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.items).toHaveLength(80);
+    expect(json.items).toHaveLength(140);
+    expect(json.currentMonth).toBeGreaterThanOrEqual(1);
+    expect(json.currentMonth).toBeLessThanOrEqual(12);
     expect(json.items.every((i: { owned: boolean }) => i.owned === false)).toBe(true);
   });
 });

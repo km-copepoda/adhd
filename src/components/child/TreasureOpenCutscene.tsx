@@ -13,6 +13,8 @@ interface CollectionItemResult {
   description: string;
   image: string;
   count: number;
+  /** 月限定アイテムのみ設定 (1〜12)。通常アイテムは undefined */
+  month?: number;
 }
 
 interface Result {
@@ -70,6 +72,9 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
     const glow = COLLECTION_RARITY_COLOR[ci.rarity];
     const seasonLabel = SEASON_LABEL[ci.season];
     const isNew = ci.count === 1;
+    const isMonthly = ci.month !== undefined;
+    // 月限定アイテムは「◯月げんてい」を強調 (取り逃すと1年待ちの特別感を演出)
+    const kindLabel = isMonthly ? `✨${ci.month}月げんてい✨` : `${seasonLabel}のコレクション`;
     return (
       <CutsceneOverlay
         onClose={onClose}
@@ -78,7 +83,7 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
         glowColor={glow}
         title={ci.name}
         titleColor="text-quest-gold"
-        subtitle={isNew ? `${seasonLabel}のコレクションをゲット！` : `${seasonLabel}のコレクション（${ci.count}個目）`}
+        subtitle={isNew ? `${kindLabel}をゲット！` : `${kindLabel}（${ci.count}個目）`}
         description={ci.description}
         bonus={{
           text: `🏆 ${COLLECTION_RARITY_LABEL[ci.rarity]}`,
