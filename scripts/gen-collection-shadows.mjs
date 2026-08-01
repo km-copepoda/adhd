@@ -21,7 +21,10 @@ const SRC_BASE = join(ROOT, "public/collection-items");
 const DST_BASE = join(ROOT, "public/collection-items/shadow");
 
 const SHADOW = { r: 25, g: 20, b: 50 };
-const SUBDIRS = ["spring", "summer", "fall", "winter", "monthly"];
+// spring/summer/fall/winter は直下に webp、monthly は {MM}/ サブディレクトリ配下
+const FLAT_SUBDIRS = ["spring", "summer", "fall", "winter"];
+const MONTHLY_SUBDIR = "monthly";
+const MONTH_DIRS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
 
 // UI では 48〜64px の小サイズでしか表示しないので、shadow は 256px 上限で十分。
 // 元画像 (1024〜1536px) をそのまま単色化すると 60〜130KB になってしまうが、
@@ -82,9 +85,15 @@ async function processDir(sub) {
 
 async function main() {
   let total = 0;
-  for (const sub of SUBDIRS) {
+  for (const sub of FLAT_SUBDIRS) {
     console.log(`[${sub}]`);
     total += await processDir(sub);
+  }
+  // monthly は {MM}/ サブディレクトリごとに処理
+  for (const mm of MONTH_DIRS) {
+    const rel = `${MONTHLY_SUBDIR}/${mm}`;
+    console.log(`[${rel}]`);
+    total += await processDir(rel);
   }
   console.log(`\nTotal: ${total} shadow files generated`);
 }

@@ -158,12 +158,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
   const todayCount = data.items.filter((i) => i.owned && isAcquiredToday(i.lastAcquiredAt)).length;
 
   const currentMonth = data.currentMonth;
-  const currentMonthlyItems = data.items
-    .filter((i) => i.month === currentMonth)
-    .sort((a, b) => (a.id < b.id ? -1 : 1));
-  const isCurrentSeasonTab = season === data.currentSeason;
-  const showCurrentMonthPin = isCurrentSeasonTab && currentMonthlyItems.length > 0;
-  const remainingDays = showCurrentMonthPin ? daysLeftInMonth() : 0;
+  const remainingDays = daysLeftInMonth();
 
   // 月別セクション用のデータ
   const monthlyGroups = monthsInSeason(season).map((m) => {
@@ -238,59 +233,60 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
         げんてい {ownedMonthlyInSeason} / {seasonMonthly.length}
       </p>
 
-      {/* 現在シーズンの最上部に「今月のげんてい」をピン留め */}
-      {showCurrentMonthPin && (
-        <div className="mb-6 border border-quest-gold/40 rounded-lg p-3 bg-quest-gold/5">
-          <h2 className="text-xs font-bold text-quest-gold tracking-widest mb-2 flex items-center gap-2">
-            ✨ {currentMonth}月のげんてい
-            <span className="ml-auto text-[10px] text-quest-mint font-normal">
-              のこり{remainingDays}日！
-            </span>
-          </h2>
-          <div className="grid grid-cols-5 gap-2">
-            {currentMonthlyItems.map((it) => (
-              <MonthlyThumb
-                key={it.id}
-                item={it}
-                isNew={isAcquiredToday(it.lastAcquiredAt)}
-                onClick={() => it.owned && setSelected(it)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 月別セクション (シーズン内 3ヶ月) */}
+      {/* 月げんていセクション (シーズン内 3ヶ月分)
+          各月を独立したカードで表示して、通常アイテムのカテゴリー行と
+          明確に区別する。今月カードは quest-gold で強調 + 残日数バッジ付き。 */}
       <div className="mb-6">
-        <h2 className="text-xs font-bold text-quest-dim tracking-widest mb-2">
-          月げんてい
+        <h2 className="text-sm font-bold text-quest-gold tracking-widest mb-3 flex items-center gap-2">
+          <span>📅 月げんてい</span>
+          <span className="text-[10px] text-quest-dim font-normal">
+            （{SEASON_LABEL[season]}の 3ヶ月）
+          </span>
         </h2>
-        {monthlyGroups.map(({ month: m, items, owned, status }) => (
-          <div key={m} className="mb-3">
-            <div className="text-[11px] text-quest-dim mb-1 flex items-center">
-              <span className="mr-2">
-                {m}月のげんてい {owned}/{items.length}
-              </span>
-              {status === "current" && (
-                <span className="text-quest-mint text-[10px]">◀今月</span>
-              )}
-              {status === "future" && (
-                <span className="text-quest-dim text-[10px]">{m}月になったらとうじょう！</span>
-              )}
-            </div>
-            <div className="grid grid-cols-5 gap-2">
-              {items.map((it) => (
-                <MonthlyThumb
-                  key={it.id}
-                  item={it}
-                  isNew={isAcquiredToday(it.lastAcquiredAt)}
-                  showFuturePlaceholder={status === "future"}
-                  onClick={() => it.owned && setSelected(it)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+        <div className="space-y-3">
+          {monthlyGroups.map(({ month: m, items, owned, status }) => {
+            const isCurrent = status === "current";
+            const isFuture = status === "future";
+            const cardCls = isCurrent
+              ? "border border-quest-gold/50 bg-quest-gold/10 rounded-lg p-3"
+              : "border border-quest-border/60 rounded-lg p-3 bg-quest-card/40";
+            const headingCls = isCurrent
+              ? "text-sm font-bold text-quest-gold tracking-wider flex items-center gap-2 mb-2"
+              : "text-sm font-bold text-quest-text/80 tracking-wider flex items-center gap-2 mb-2";
+            return (
+              <div key={m} className={cardCls} data-testid={`monthly-card-${m}`}>
+                <h3 className={headingCls}>
+                  <span>{m}月のげんてい</span>
+                  <span className="text-[11px] font-normal text-quest-dim">
+                    {owned}/{items.length}
+                  </span>
+                  {isCurrent && (
+                    <span className="ml-auto text-[10px] text-quest-mint font-bold flex items-center gap-1">
+                      <span>◀今月</span>
+                      <span>のこり{remainingDays}日！</span>
+                    </span>
+                  )}
+                  {isFuture && (
+                    <span className="ml-auto text-[10px] text-quest-dim">
+                      {m}月になったらとうじょう！
+                    </span>
+                  )}
+                </h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {items.map((it) => (
+                    <MonthlyThumb
+                      key={it.id}
+                      item={it}
+                      isNew={isAcquiredToday(it.lastAcquiredAt)}
+                      showFuturePlaceholder={isFuture}
+                      onClick={() => it.owned && setSelected(it)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* カテゴリーごとに通常アイテムを表示 */}
