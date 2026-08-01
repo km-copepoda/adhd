@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { prisma } from "@/lib/prisma";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
@@ -521,5 +521,80 @@ describe("宝箱アンロック", () => {
     await approveSkipQuestInstance(skipQuest as any);
 
     expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", skipQuest.date);
+  });
+
+  // 2026-06-19 で carryOver 過去日付の宝箱生成は「今日基準」に切り替わったが、
+  // 承認時の unlock は quest.date (過去) で検索していたため LOCKED が永久に残る。
+  // unlock も carryOver-past のときは今日基準にする必要がある。
+  describe("carryOver 過去日付タスクの承認", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-03-28T03:00:00Z")); // JST 12:00 → today=2026-03-28
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("approveQuestInstance: carryOver=true かつ quest.date < today → unlock は today で呼ぶ", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      const today = new Date("2026-03-28T00:00:00.000Z");
+      const oldQuest = {
+        ...baseQuest,
+        date: new Date("2026-03-19T00:00:00.000Z"), // 9日前
+        template: { ...baseQuest.template, carryOver: true, photoBonus: false },
+      };
+      await approveQuestInstance(oldQuest as any);
+
+      expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", today);
+    });
+
+    it("approveSkipQuestInstance: carryOver=true かつ quest.date < today → unlock は today で呼ぶ", async () => {
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      const today = new Date("2026-03-28T00:00:00.000Z");
+      const oldSkipQuest = {
+        ...baseQuest,
+        status: "SKIP_REPORTED" as const,
+        date: new Date("2026-03-19T00:00:00.000Z"),
+        template: { ...baseQuest.template, carryOver: true },
+      };
+      await approveSkipQuestInstance(oldSkipQuest as any);
+
+      expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", today);
+    });
+
+    it("carryOver=false は quest.date < today でも unlock は quest.date のまま", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      const oldDate = new Date("2026-03-19T00:00:00.000Z");
+      const oldQuest = {
+        ...baseQuest,
+        date: oldDate,
+        template: { ...baseQuest.template, carryOver: false, photoBonus: false },
+      };
+      await approveQuestInstance(oldQuest as any);
+
+      expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", oldDate);
+    });
+
+    it("carryOver=true でも quest.date === today なら unlock は quest.date (=today) のまま", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.user.update.mockResolvedValue({} as any);
+
+      const today = new Date("2026-03-28T00:00:00.000Z");
+      const todayQuest = {
+        ...baseQuest,
+        date: today,
+        template: { ...baseQuest.template, carryOver: true, photoBonus: false },
+      };
+      await approveQuestInstance(todayQuest as any);
+
+      expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", today);
+    });
   });
 });

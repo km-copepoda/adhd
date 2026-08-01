@@ -31,6 +31,7 @@ export async function GET(request: Request) {
           isTemporary: true,
           photoBonus: true,
           repeatDays: true,
+          carryOver: true,
         },
       },
       child: {

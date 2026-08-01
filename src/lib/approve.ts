@@ -27,6 +27,10 @@ type QuestWithRelations = {
     createdBy: "PARENT" | "CHILD";
     isTemporary: boolean;
     repeatDays: number[];
+    // carryOver 過去日付タスクの unlock 日付を「今日基準」に切り替えるために必要。
+    // 2026-06-19 で生成側は今日基準に切替済みだが、unlock を quest.date にすると
+    // LOCKED 宝箱が永久に残る (生成が今日 / unlock が過去日付 で不一致)。
+    carryOver: boolean;
   };
   child: {
     id: string;
@@ -188,7 +192,8 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
   }
 
   // 同日の LOCKED 宝箱を UNLOCKED に。0個でも安全 (updateMany)
-  await unlockTreasuresOnApprove(quest.childId, quest.date);
+  // carryOver 過去日付は生成側 (2026-06-19) に合わせて今日基準で検索する。
+  await unlockTreasuresOnApprove(quest.childId, effectiveTreasureDate(quest.date, quest.template.carryOver));
 
   // バッジ解除チェック + 掲示板ログ — レスポンス送信後に after() で実行
   after(() =>
@@ -202,11 +207,29 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
   );
 }
 
-export async function approveSkipQuestInstance(quest: Pick<QuestWithRelations, "id" | "childId" | "date">): Promise<void> {
+export async function approveSkipQuestInstance(
+  quest: Pick<QuestWithRelations, "id" | "childId" | "date"> & {
+    template: Pick<QuestWithRelations["template"], "carryOver">;
+  },
+): Promise<void> {
   await prisma.questInstance.update({
     where: { id: quest.id },
     data: { status: "SKIPPED", approvedAt: new Date() },
   });
   await recordDailyAchievement(quest.childId, quest.date);
-  await unlockTreasuresOnApprove(quest.childId, quest.date);
+  await unlockTreasuresOnApprove(
+    quest.childId,
+    effectiveTreasureDate(quest.date, quest.template.carryOver),
+  );
+}
+
+/**
+ * 承認時の宝箱 unlock 対象日付を返す。
+ * carryOver=true かつ quest.date が今日より過去なら「今日」を返す
+ * (生成側 2026-06-19 の集計切替と揃える)。それ以外は quest.date そのまま。
+ */
+function effectiveTreasureDate(questDate: Date, carryOver: boolean): Date {
+  const today = todayJST();
+  if (carryOver && questDate.getTime() < today.getTime()) return today;
+  return questDate;
 }

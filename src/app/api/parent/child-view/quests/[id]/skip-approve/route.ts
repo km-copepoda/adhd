@@ -60,7 +60,12 @@ export async function POST(
   });
 
   // 親代理「即 SKIPPED」: SKIP_REPORTED を経由せず一気に SKIPPED まで確定（report-approve と同じ思想）
-  await approveSkipQuestInstance({ id: quest.id, childId: child.id, date: quest.date });
+  await approveSkipQuestInstance({
+    id: quest.id,
+    childId: child.id,
+    date: quest.date,
+    template: { carryOver: !!quest.template?.carryOver },
+  });
 
   // PROXY / ALL_COMPLETE 宝箱: minTasks 到達 or 全完了で即 UNLOCKED 生成（report-approve と同規約）
   // carryOver 過去日付は集計を今日基準に切り替える（子セルフ skip 経路と同じ扱い）
