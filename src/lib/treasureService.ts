@@ -11,8 +11,7 @@
 import { prisma } from "@/lib/prisma";
 import { drawTreasure, type TreasurePoolItem, type TreasureRarity } from "@/lib/treasure";
 import {
-  getItemsBySeason,
-  getSeasonForDate,
+  getDrawPoolForDate,
   type CollectionRarity,
   type CollectionSeason,
 } from "@/lib/collectionItems";
@@ -206,6 +205,8 @@ export interface OpenedCollectionItem {
   image: string;
   /** 通算入手回数 (1 なら初獲得、2 以上ならダブり) */
   count: number;
+  /** 月限定アイテムのみ設定 (1〜12)。通常アイテムは undefined */
+  month?: number;
 }
 
 export interface OpenTreasureResult {
@@ -264,14 +265,14 @@ export async function openOldestTreasure(
 
   const drawnItem = draw.itemId ? pool.find((p) => p.id === draw.itemId) ?? null : null;
 
-  // 親ごほうび不当選なら季節コレクションアイテムを必ず付与
+  // 親ごほうび不当選なら季節/月限定コレクションアイテムを必ず付与。
+  // プール = 現在シーズンの通常20 + 現在月の月限定5 = 25個 (仕様: monthly-limited-collection-items.md §4)
   let collectionItem: OpenedCollectionItem | null = null;
   if (drawnItem === null) {
-    const season = getSeasonForDate(now);
-    const seasonItems = getItemsBySeason(season);
-    const picked = drawCollectionItem(seasonItems, options.rng);
+    const pool = getDrawPoolForDate(now);
+    const picked = drawCollectionItem(pool, options.rng);
     if (picked) {
-      const owned = await awardCollectionItem(childId, picked.id, season, now);
+      const owned = await awardCollectionItem(childId, picked.id, picked.season, now);
       collectionItem = {
         id: picked.id,
         name: picked.name,
@@ -280,6 +281,7 @@ export async function openOldestTreasure(
         description: picked.description,
         image: picked.image,
         count: owned.count,
+        month: picked.month,
       };
       await triggerCollectionItemLog(childId, picked.id, owned.count);
     }

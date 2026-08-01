@@ -57,7 +57,14 @@ export async function GET() {
         boosted: o.boosted,
         item: o.item, // null = 親ごほうび不当選
         collectionItem: ci
-          ? { id: ci.id, name: ci.name, season: ci.season, rarity: ci.rarity, image: ci.image }
+          ? {
+              id: ci.id,
+              name: ci.name,
+              season: ci.season,
+              rarity: ci.rarity,
+              image: ci.image,
+              month: ci.month,
+            }
           : null,
       };
     }),

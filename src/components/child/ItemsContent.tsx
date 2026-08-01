@@ -1,11 +1,13 @@
 "use client";
 
 // コレクションアイテム (宝箱で親ごほうび不当選時に獲得) の図鑑タブ。
-// 仕様: docs/未実装仕様書/treasure-collection-items.md
+// 仕様: docs/未実装仕様書/treasure-collection-items.md (通常 80種)
+//       docs/未実装仕様書/monthly-limited-collection-items.md (月限定 60種)
 //
 // - 現在シーズン (春/夏/秋/冬) をデフォルト表示し、シーズンタブで切替可能
-// - 各シーズン 20種 (=80種 / 4)。所持済みは画像+名前を表示、未所持はシルエット
-// - 同じアイテムを複数回引いている場合は count を表示
+// - 各シーズン 20種の通常アイテム + 15種の月限定 (5 × 3ヶ月) = 35種を持つ
+// - 通常アイテムはカテゴリ別グリッド、月限定はシーズン内 3ヶ月の月別行で表示
+// - 現在シーズンのタブでは、最上部に「今月のげんてい」を残日数付きでピン留め
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
@@ -13,6 +15,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import {
   CATEGORY_LABEL,
   SEASON_LABEL,
+  getSeasonByMonth,
   type CollectionCategory,
   type CollectionRarity,
   type CollectionSeason,
@@ -27,6 +30,7 @@ interface ApiItem {
   name: string;
   description: string;
   image: string;
+  month?: number;
   owned: boolean;
   count: number;
   firstAcquiredAt: string | null;
@@ -35,6 +39,7 @@ interface ApiItem {
 
 interface ApiResponse {
   currentSeason: CollectionSeason;
+  currentMonth: number;
   items: ApiItem[];
 }
 
@@ -71,6 +76,26 @@ const CATEGORY_ORDER: CollectionCategory[] = [
   "nature",
 ];
 
+// シーズンごとに月限定アイテムが登場する 3ヶ月を返す (spring: 3,4,5 など)
+function monthsInSeason(season: CollectionSeason): number[] {
+  switch (season) {
+    case "spring": return [3, 4, 5];
+    case "summer": return [6, 7, 8];
+    case "fall":   return [9, 10, 11];
+    case "winter": return [12, 1, 2];
+  }
+}
+
+// JST 基準で「今月末までの残り日数（今日を含む）」を返す
+function daysLeftInMonth(now: Date = new Date()): number {
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = jst.getUTCFullYear();
+  const month = jst.getUTCMonth();
+  const day = jst.getUTCDate();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return daysInMonth - day + 1;
+}
+
 export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Props = {}) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,7 +114,9 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
 
   const grouped = useMemo(() => {
     if (!data || !season) return null;
-    const items = data.items.filter((i) => i.season === season);
+    // カテゴリ別グリッドには通常アイテム (month === undefined) のみを配置。
+    // 月限定はシーズン内の別セクションで表示する。
+    const regular = data.items.filter((i) => i.season === season && i.month === undefined);
     const byCat: Record<CollectionCategory, ApiItem[]> = {
       creature: [],
       food: [],
@@ -97,7 +124,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
       tool: [],
       nature: [],
     };
-    for (const it of items) byCat[it.category].push(it);
+    for (const it of regular) byCat[it.category].push(it);
     return byCat;
   }, [data, season]);
 
@@ -106,17 +133,60 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
   const todayStr = todayStringJST();
   const isAcquiredToday = (lastAcquiredAt: string | null): boolean => {
     if (!lastAcquiredAt) return false;
-    // ISO 文字列を JST に変換した日付文字列で比較
     const jstDate = new Date(new Date(lastAcquiredAt).getTime() + 9 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
     return jstDate === todayStr;
   };
 
-  const seasonItems = data.items.filter((i) => i.season === season);
-  const ownedInSeason = seasonItems.filter((i) => i.owned).length;
-  const totalOwned = data.items.filter((i) => i.owned).length;
+  // 表示中シーズンの通常/月限定を分けて集計 (母数分離で達成感の目減りを防ぐ)
+  const seasonRegular = data.items.filter(
+    (i) => i.season === season && i.month === undefined,
+  );
+  const seasonMonthly = data.items.filter(
+    (i) => i.season === season && i.month !== undefined,
+  );
+  const ownedRegularInSeason = seasonRegular.filter((i) => i.owned).length;
+  const ownedMonthlyInSeason = seasonMonthly.filter((i) => i.owned).length;
+
+  // 全体でも「通常/月限定」を分けて表示
+  const allRegular = data.items.filter((i) => i.month === undefined);
+  const allMonthly = data.items.filter((i) => i.month !== undefined);
+  const totalOwnedRegular = allRegular.filter((i) => i.owned).length;
+  const totalOwnedMonthly = allMonthly.filter((i) => i.owned).length;
   const todayCount = data.items.filter((i) => i.owned && isAcquiredToday(i.lastAcquiredAt)).length;
+
+  const currentMonth = data.currentMonth;
+  const currentMonthlyItems = data.items
+    .filter((i) => i.month === currentMonth)
+    .sort((a, b) => (a.id < b.id ? -1 : 1));
+  const isCurrentSeasonTab = season === data.currentSeason;
+  const showCurrentMonthPin = isCurrentSeasonTab && currentMonthlyItems.length > 0;
+  const remainingDays = showCurrentMonthPin ? daysLeftInMonth() : 0;
+
+  // 月別セクション用のデータ
+  const monthlyGroups = monthsInSeason(season).map((m) => {
+    const items = data.items
+      .filter((i) => i.month === m)
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    const owned = items.filter((i) => i.owned).length;
+    let status: "past" | "current" | "future" = "past";
+    if (m === currentMonth && getSeasonByMonth(currentMonth) === season) {
+      status = "current";
+    } else {
+      // 今月と比較して未来/過去を判定 (境界の年をまたぐ winter は「シーズンが同じか」で判定)
+      // 現在シーズンでない = 過去 or 未来。同じシーズン内では月番号比較で決める。
+      if (season !== data.currentSeason) {
+        // ざっくり: 未実装だが現在シーズン外は「過去 or 未来」ラベルは付けない
+        status = "past";
+      } else if (m > currentMonth || (season === "winter" && currentMonth < 12 && m === 12)) {
+        status = "future";
+      } else {
+        status = "past";
+      }
+    }
+    return { month: m, items, owned, status };
+  });
 
   return (
     <div className="px-4 pt-6 pb-24">
@@ -124,8 +194,11 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
         🎁 コレクションアイテム
       </h1>
       <p className="text-quest-dim text-xs text-center mb-4">
-        ぜんぶで <span className="text-quest-text font-bold">{totalOwned}</span> /{" "}
-        {data.items.length} こ
+        つうじょう <span className="text-quest-text font-bold">{totalOwnedRegular}</span> /{" "}
+        {allRegular.length}
+        <span className="mx-2 opacity-40">|</span>
+        げんてい <span className="text-quest-text font-bold">{totalOwnedMonthly}</span> /{" "}
+        {allMonthly.length}
         {todayCount > 0 && (
           <span className="ml-2 text-quest-mint">
             （きょう +{todayCount}）
@@ -159,10 +232,67 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
       </div>
 
       <p className="text-center text-quest-dim text-[11px] mb-4">
-        {SEASON_LABEL[season]}: {ownedInSeason} / {seasonItems.length} 種
+        {SEASON_LABEL[season]}: つうじょう {ownedRegularInSeason} / {seasonRegular.length}
+        <span className="mx-1 opacity-40">・</span>
+        げんてい {ownedMonthlyInSeason} / {seasonMonthly.length}
       </p>
 
-      {/* カテゴリーごとに表示 */}
+      {/* 現在シーズンの最上部に「今月のげんてい」をピン留め */}
+      {showCurrentMonthPin && (
+        <div className="mb-6 border border-quest-gold/40 rounded-lg p-3 bg-quest-gold/5">
+          <h2 className="text-xs font-bold text-quest-gold tracking-widest mb-2 flex items-center gap-2">
+            ✨ {currentMonth}月のげんてい
+            <span className="ml-auto text-[10px] text-quest-mint font-normal">
+              のこり{remainingDays}日！
+            </span>
+          </h2>
+          <div className="grid grid-cols-5 gap-2">
+            {currentMonthlyItems.map((it) => (
+              <MonthlyThumb
+                key={it.id}
+                item={it}
+                isNew={isAcquiredToday(it.lastAcquiredAt)}
+                onClick={() => it.owned && setSelected(it)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 月別セクション (シーズン内 3ヶ月) */}
+      <div className="mb-6">
+        <h2 className="text-xs font-bold text-quest-dim tracking-widest mb-2">
+          月げんてい
+        </h2>
+        {monthlyGroups.map(({ month: m, items, owned, status }) => (
+          <div key={m} className="mb-3">
+            <div className="text-[11px] text-quest-dim mb-1 flex items-center">
+              <span className="mr-2">
+                {m}月のげんてい {owned}/{items.length}
+              </span>
+              {status === "current" && (
+                <span className="text-quest-mint text-[10px]">◀今月</span>
+              )}
+              {status === "future" && (
+                <span className="text-quest-dim text-[10px]">{m}月になったらとうじょう！</span>
+              )}
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {items.map((it) => (
+                <MonthlyThumb
+                  key={it.id}
+                  item={it}
+                  isNew={isAcquiredToday(it.lastAcquiredAt)}
+                  showFuturePlaceholder={status === "future"}
+                  onClick={() => it.owned && setSelected(it)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* カテゴリーごとに通常アイテムを表示 */}
       {grouped &&
         CATEGORY_ORDER.map((cat) => {
           const items = grouped[cat];
@@ -255,11 +385,16 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
               />
             </div>
             <h3 className="font-bold text-lg text-quest-text mb-1">{selected.name}</h3>
-            <p className="text-[10px] text-quest-dim mb-3">
+            <p className="text-[10px] text-quest-dim mb-1">
               {SEASON_LABEL[selected.season]} / {CATEGORY_LABEL[selected.category]} /{" "}
               {RARITY_LABEL[selected.rarity]}
             </p>
-            <p className="text-xs text-quest-text mb-4">{selected.description}</p>
+            {selected.month !== undefined && (
+              <p className="inline-block text-[10px] text-quest-gold border border-quest-gold/40 rounded px-2 py-0.5 mb-3">
+                ✨ {selected.month}月げんてい
+              </p>
+            )}
+            <p className="text-xs text-quest-text mb-4 mt-2">{selected.description}</p>
             {selected.count > 1 && (
               <p className="text-[11px] text-quest-mint mb-3">
                 これまでに {selected.count} 回ゲットしたよ！
@@ -276,5 +411,63 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
         </div>
       )}
     </div>
+  );
+}
+
+// 月限定アイテム用の小さめサムネイル (5列グリッド用)
+function MonthlyThumb({
+  item,
+  isNew,
+  showFuturePlaceholder = false,
+  onClick,
+}: {
+  item: ApiItem;
+  isNew: boolean;
+  showFuturePlaceholder?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!item.owned}
+      className={`bg-quest-card border rounded-md p-1.5 flex flex-col items-center gap-0.5 text-center transition-transform ${
+        item.owned
+          ? "border-quest-border hover:scale-105 cursor-pointer"
+          : "border-transparent opacity-60"
+      }`}
+      style={{
+        borderColor: item.owned ? RARITY_COLOR_HEX[item.rarity] : undefined,
+      }}
+    >
+      <div className="relative w-12 h-12 flex items-center justify-center">
+        <Image
+          src={item.image}
+          alt={item.owned ? item.name : "未獲得"}
+          width={48}
+          height={48}
+          className="object-contain"
+          style={{
+            filter: item.owned ? undefined : "brightness(0) opacity(0.3)",
+          }}
+        />
+        {item.owned && isNew && (
+          <span className="absolute -top-1 -left-1 bg-quest-mint text-quest-bg text-[8px] font-bold rounded px-1 py-0.5 shadow">
+            NEW
+          </span>
+        )}
+        {item.owned && item.count > 1 && (
+          <span className="absolute -bottom-1 -right-1 bg-quest-gold text-quest-bg text-[8px] font-bold rounded-full px-1 py-0.5">
+            ×{item.count}
+          </span>
+        )}
+      </div>
+      <p
+        className="text-[9px] leading-tight truncate w-full"
+        style={{ color: item.owned ? undefined : "rgba(154,140,110,0.5)" }}
+      >
+        {item.owned ? item.name : showFuturePlaceholder ? "？？？" : "？？？"}
+      </p>
+    </button>
   );
 }

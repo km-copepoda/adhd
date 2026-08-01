@@ -2026,3 +2026,38 @@
 - `src/app/app/parent/(app)/tasks/page.tsx` — `handleTogglePause` ハンドラと props 配線
 - テスト: `src/__tests__/lib/quests.test.ts`, `src/__tests__/api/tasks/tasks-pause.test.ts`, `src/__tests__/components/RegularTaskCard-pause.test.tsx`
 
+## 2026-07-22: 月限定コレクションアイテム 60 種を追加（通常80 → 総140）
+
+### 決定内容
+- 仕様 `docs/未実装仕様書/monthly-limited-collection-items.md` を実装。宝箱コレクションアイテムに **月限定 60 種（各月 5 × 12ヶ月）** を追加
+- 月限定は `id = m{MM}-{NN}` 形式で `CollectionItem.month?: number` を持つ。既存 80 種は `month === undefined`
+- 抽選プールは **現在シーズンの通常 20 + 現在月の限定 5 = 25 個**（新ヘルパー `getDrawPoolForDate`）。抽選確率 60/30/10 と `drawCollectionItem` は無改変
+- `summer-11` は「真珠」→「アレキサンドライト」に改名。**id は維持**して既存所持実績を新名称に引き継ぎ。DB マイグレーション不要
+- 「真珠」は 6月の誕生石として月限定 `m06-04` に再配置
+
+### 理由
+- 「今月しか出ない」ことで宝箱を開ける動機・クエストをこなす動機を強化し、コレクションの長期継続フックを作る
+- 「ほうせき」枠は毎月の誕生石として、子供に「自分の誕生月の石を狙う」個人的な目標を提供
+- スキーマ変更なし（`UserCollectionItem` の `itemId` にそのまま `m{MM}-{NN}` が入る）で本番投入可能
+
+### バッジ判定への影響（重要）
+- バッジ判定 `season_complete` / `hasAllCollectionItems` は **通常アイテム 80 種のみ** を母数にする（`i.month === undefined` でフィルタ）
+- 何もしないと「1シーズン制覇」が 35 種に、「全制覇」が 140 種に暴騰し、取り逃すと 1 年待ちで事実上達成不能になるため
+- `collectionItemCount`（`item_first` / `item_30`）は累積カウントなので月限定も含めてよい
+
+### やらないこと
+- 12ヶ月タブ化（モバイル幅で破綻。既存の4シーズンタブに月限定セクションを追加する方式で対応）
+- 誕生石ハイライト（`User` に誕生日フィールドが無いため別スコープ）
+- 月限定コンプ系の新バッジ（badge-redesign と合わせて別途検討）
+
+### 該当箇所
+- データ: `src/lib/collectionItems.ts` — `month?` フィールド、`MONTHLY_ITEMS` 60種、`getRegularItemsBySeason` / `getMonthlyItems` / `getDrawPoolForDate` / `getMonthForDate` / `getCurrentMonth` 追加、`summer-11` 改名
+- 抽選: `src/lib/treasureService.ts` — `getDrawPoolForDate(now)` に切替、`OpenedCollectionItem.month?` を返す
+- バッジ: `src/lib/badges.ts` — `regularItems = filter(i => i.month === undefined)` を母数に `hasAllCollectionItems` / `collectionSeasonsComplete` を算出
+- API: `src/app/api/collection-items/route.ts` + 親代理版 — レスポンスに `currentMonth` 追加、`items[]` に `month?` を含める
+- API: `src/app/api/treasures/status/route.ts` + 親代理版 — `collectionItem.month` を含める
+- UI: `src/components/child/ItemsContent.tsx` — 現在シーズンタブに「今月のげんてい（のこり◯日）」ピン留め + シーズン内 3ヶ月分の月別行 + 通常/限定を分離した進捗表示 + 詳細モーダルに「◯月げんてい」チップ
+- UI: `src/components/child/TreasureOpenCutscene.tsx` / `src/components/child/TreasureHistoryList.tsx` — 月限定獲得時に「✨◯月げんてい」ラベル
+- テスト: `src/__tests__/lib/collectionItems.test.ts`（月限定 60/12月/レア度構成/JST 境界）、`src/__tests__/lib/badgesLoadContext.test.ts`（新規、通常80フィルタ担保）、`src/__tests__/lib/treasureService.test.ts`（月限定がプールに含まれることの担保）、`src/__tests__/api/collection-items/route.test.ts`（140件・currentMonth）
+- 画像: 月限定 60 枚は未制作のため一律 `DUMMY_IMAGE`。`monthly(filename)` ヘルパーで `/collection-items/monthly/{filename}` を返せる。制作完了時にファイル名を差し替えるだけ。`summer-11` の画像も暫定 DUMMY
+

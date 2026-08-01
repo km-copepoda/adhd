@@ -7,7 +7,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { resolveTargetChild } from "@/lib/parentChildView";
-import { ALL_COLLECTION_ITEMS, getCurrentSeason } from "@/lib/collectionItems";
+import {
+  ALL_COLLECTION_ITEMS,
+  getCurrentMonth,
+  getCurrentSeason,
+} from "@/lib/collectionItems";
 import { getOwnedCollection } from "@/lib/collectionService";
 
 export async function GET(request: Request) {
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     currentSeason: getCurrentSeason(),
+    currentMonth: getCurrentMonth(),
     items,
   });
 }

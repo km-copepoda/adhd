@@ -284,15 +284,19 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   const treasureOpenedCount = openedTreasures.length;
   const rareTreasureCount = openedTreasures.filter(t => t.item?.rarity === "RARE").length;
 
-  // コレクションアイテム: 種類数 / シーズン制覇数 / 全制覇判定
+  // コレクションアイテム:
+  //  - collectionItemCount は月限定も含めた distinct 種類数 (累積目標系 item_first / item_30 用)
+  //  - season_complete / hasAllCollectionItems は「通常アイテム 80 種」のみを母数にする。
+  //    月限定 60 種は取り逃すと 1 年待ちで、シーズン内 35 種完走を要求すると事実上不可能に
+  //    なるため (仕様: monthly-limited-collection-items.md §7)
   const collectionItemCount = userCollectionItems.length;
   const collectedItemIds = new Set(userCollectionItems.map(i => i.itemId));
-  const totalItemCount = ALL_COLLECTION_ITEMS.length;
-  const hasAllCollectionItems = collectionItemCount >= totalItemCount;
-  const seasons = new Set(ALL_COLLECTION_ITEMS.map(i => i.season));
+  const regularItems = ALL_COLLECTION_ITEMS.filter(i => i.month === undefined);
+  const hasAllCollectionItems = regularItems.every(i => collectedItemIds.has(i.id));
+  const seasons = new Set(regularItems.map(i => i.season));
   let collectionSeasonsComplete = 0;
   for (const season of seasons) {
-    const itemsInSeason = ALL_COLLECTION_ITEMS.filter(i => i.season === season);
+    const itemsInSeason = regularItems.filter(i => i.season === season);
     if (itemsInSeason.every(i => collectedItemIds.has(i.id))) {
       collectionSeasonsComplete++;
     }

@@ -1,10 +1,13 @@
 // 宝箱コレクションアイテムのマスターデータ。
-// 仕様: docs/未実装仕様書/treasure-collection-items.md
+// 仕様: docs/未実装仕様書/treasure-collection-items.md (通常 80種)
+//       docs/未実装仕様書/monthly-limited-collection-items.md (月限定 60種、2026-07-21 追加)
 //
-// - 全 80 種 (春/夏/秋/冬 × 20種)。各シーズン COMMON 10 / UNCOMMON 6 / RARE 4。
-// - DB ではなくコード管理。子供の所持実績だけ UserCollectionItem に保存する。
-// - 画像は public/collection-items/{season}/{filename} に配置。
-//   春と冬は画像未制作のため dummy.png を使用 (image: DUMMY_IMAGE)。
+// - 通常 80 種 (春/夏/秋/冬 × 20種)。各シーズン COMMON 10 / UNCOMMON 5 / RARE 5
+// - 月限定 60 種 (1〜12月 × 5種)。各月 COMMON 2 / UNCOMMON 2 / RARE 1
+//   月限定アイテムは `month` フィールドを持ち、id は `m{MM}-{NN}` 形式
+// - DB ではなくコード管理。子供の所持実績だけ UserCollectionItem に保存する
+// - 画像は public/collection-items/{season}/{filename} に配置。月限定は monthly/ サブディレクトリ
+//   全 141 枚 (通常 80 + 月限定 60 + アレキサンドライト差し替え) 制作済み
 
 export type CollectionSeason = "spring" | "summer" | "fall" | "winter";
 export type CollectionRarity = "COMMON" | "UNCOMMON" | "RARE";
@@ -18,6 +21,8 @@ export interface CollectionItem {
   name: string;
   description: string;
   image: string;
+  /** 月限定アイテムのみ設定 (1〜12)。通常アイテムは undefined */
+  month?: number;
 }
 
 const DUMMY_IMAGE = "/collection-items/dummy.webp";
@@ -69,7 +74,10 @@ const SUMMER_ITEMS: CollectionItem[] = [
   // ほうせき
   { id: "summer-09", season: "summer", category: "jewel",    rarity: "COMMON",   name: "シーグラス",         description: "波にみがかれたガラスのかけら",               image: img("summer", "シーグラス.webp") },
   { id: "summer-10", season: "summer", category: "jewel",    rarity: "COMMON",   name: "貝がら",             description: "耳にあてると海の音がする",                   image: img("summer", "貝がら.webp") },
-  { id: "summer-11", season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "真珠",               description: "貝の中でひっそり育った光のつぶ",             image: img("summer", "真珠.webp") },
+  // summer-11: 元「真珠」。6月の誕生石を「真珠」(m06-04) に割り当てるため、
+  // 名称重複を避けて「アレキサンドライト」に改名 (2026-07-21)。
+  // id は維持することで既存の UserCollectionItem レコードをそのまま新名称に引き継ぐ。
+  { id: "summer-11", season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "アレキサンドライト", description: "昼と夜で色が変わるふしぎな石",               image: img("summer", "アレキサンドライト.webp") },
   { id: "summer-12", season: "summer", category: "jewel",    rarity: "RARE",     name: "人魚のうろこ",       description: "太陽にかざすと七色にかがやく",               image: img("summer", "人魚のうろこ.webp") },
   // どうぐ
   { id: "summer-13", season: "summer", category: "tool",     rarity: "COMMON",   name: "むしとりあみ",       description: "夏休みの必須アイテム",                       image: img("summer", "むしとりあみ.webp") },
@@ -139,17 +147,134 @@ const WINTER_ITEMS: CollectionItem[] = [
   { id: "winter-20", season: "winter", category: "nature",   rarity: "RARE",     name: "オーロラのカーテン", description: "北の空にゆれる光のカーテン",                 image: img("winter", "オーロラのカーテン.webp") },
 ];
 
+// ─── 月限定アイテム (60種、2026-07-21 追加) ───────────────────────────
+// 各月 5種 (COMMON 2 / UNCOMMON 2 / RARE 1)。「ほうせき」枠は毎月の誕生石。
+// 画像は仕様上未制作 (`public/collection-items/monthly/{名前}.webp` 予定) のため、
+// 現時点では DUMMY_IMAGE を指しておく (spec §8: 画像はダミーで先行リリース可)。
+// filename に文字列を渡せば /collection-items/monthly/{filename} を返すが、
+// 現時点では全て null=DUMMY で運用する。画像制作完了時に差し替える。
+function monthly(filename: string | null): string {
+  if (!filename) return DUMMY_IMAGE;
+  return `/collection-items/monthly/${filename}`;
+}
+
+const MONTHLY_ITEMS: CollectionItem[] = [
+  // 1月 — お正月
+  { id: "m01-01", month: 1,  season: "winter", category: "food",     rarity: "COMMON",   name: "鏡もち",             description: "みかんの帽子がちょこんとのってる",             image: monthly("鏡もち.webp") },
+  { id: "m01-02", month: 1,  season: "winter", category: "tool",     rarity: "COMMON",   name: "たこあげ",           description: "お正月の空たかくのぼれ！",                     image: monthly("たこあげ.webp") },
+  { id: "m01-03", month: 1,  season: "winter", category: "creature", rarity: "UNCOMMON", name: "獅子舞",             description: "あたまをかまれると一年しあわせになれる",       image: monthly("獅子舞.webp") },
+  { id: "m01-04", month: 1,  season: "winter", category: "jewel",    rarity: "UNCOMMON", name: "ガーネット",         description: "1月生まれの守り石。冬に燃える赤",             image: monthly("ガーネット.webp") },
+  { id: "m01-05", month: 1,  season: "winter", category: "nature",   rarity: "RARE",     name: "初日の出のひかり",   description: "一年でいちばん最初の太陽の光をビンにつめた",   image: monthly("初日の出のひかり.webp") },
+  // 2月 — 節分・バレンタイン
+  { id: "m02-01", month: 2,  season: "winter", category: "food",     rarity: "COMMON",   name: "恵方巻",             description: "しゃべらずに食べきれたら願いがかなう",         image: monthly("恵方巻.webp") },
+  { id: "m02-02", month: 2,  season: "winter", category: "nature",   rarity: "COMMON",   name: "ふきのとう",         description: "雪の下から顔を出す春のさきがけ",               image: monthly("ふきのとう.webp") },
+  { id: "m02-03", month: 2,  season: "winter", category: "tool",     rarity: "UNCOMMON", name: "鬼のお面",           description: "おにはーそと！ふくはーうち！",                 image: monthly("鬼のお面.webp") },
+  { id: "m02-04", month: 2,  season: "winter", category: "jewel",    rarity: "UNCOMMON", name: "アメジスト",         description: "2月生まれの守り石。むらさきの夜の色",         image: monthly("アメジスト.webp") },
+  { id: "m02-05", month: 2,  season: "winter", category: "creature", rarity: "RARE",     name: "子オニ",             description: "節分の夜にはぐれた、心やさしいちびっこオニ",   image: monthly("子オニ.webp") },
+  // 3月 — ひなまつり・卒業
+  { id: "m03-01", month: 3,  season: "spring", category: "food",     rarity: "COMMON",   name: "ひなあられ",         description: "ピンク・白・みどりのカラフルなおこし",         image: monthly("ひなあられ.webp") },
+  { id: "m03-02", month: 3,  season: "spring", category: "creature", rarity: "COMMON",   name: "メジロ",             description: "梅の花のみつが大好物なうぐいす色の小鳥",       image: monthly("メジロ.webp") },
+  { id: "m03-03", month: 3,  season: "spring", category: "tool",     rarity: "UNCOMMON", name: "ぼんぼり",           description: "おひなさまをやさしく照らすあかり",             image: monthly("ぼんぼり.webp") },
+  { id: "m03-04", month: 3,  season: "spring", category: "jewel",    rarity: "UNCOMMON", name: "アクアマリン",       description: "3月生まれの守り石。春の海の色",               image: monthly("アクアマリン.webp") },
+  { id: "m03-05", month: 3,  season: "spring", category: "nature",   rarity: "RARE",     name: "たびだちの花たば",   description: "卒業式の日にもらえる、ずっと枯れない花たば",   image: monthly("たびだちの花たば.webp") },
+  // 4月 — 入学・お花見・イースター
+  { id: "m04-01", month: 4,  season: "spring", category: "creature", rarity: "COMMON",   name: "ツバメ",             description: "軒下に巣を作りに、海をこえて帰ってきた",       image: monthly("ツバメ.webp") },
+  { id: "m04-02", month: 4,  season: "spring", category: "nature",   rarity: "COMMON",   name: "桜吹雪",             description: "ひらひら舞う花びらのシャワー",                 image: monthly("桜吹雪.webp") },
+  { id: "m04-03", month: 4,  season: "spring", category: "tool",     rarity: "UNCOMMON", name: "ピカピカのランドセル", description: "新1年生のしるし。まだ革のにおいがする",       image: monthly("ピカピカのランドセル.webp") },
+  { id: "m04-04", month: 4,  season: "spring", category: "jewel",    rarity: "UNCOMMON", name: "ダイヤモンド",       description: "4月生まれの守り石。世界でいちばんかたい輝き", image: monthly("ダイヤモンド.webp") },
+  { id: "m04-05", month: 4,  season: "spring", category: "food",     rarity: "RARE",     name: "虹色イースターエッグ", description: "中から何が出てくるかはわってからのおたのしみ", image: monthly("虹色イースターエッグ.webp") },
+  // 5月 — こどもの日・母の日
+  { id: "m05-01", month: 5,  season: "spring", category: "food",     rarity: "COMMON",   name: "かしわもち",         description: "葉っぱのおふとんにくるまったおもち",           image: monthly("かしわもち.webp") },
+  { id: "m05-02", month: 5,  season: "spring", category: "creature", rarity: "COMMON",   name: "テントウムシ",       description: "手にとまったら幸運のしるし",                   image: monthly("テントウムシ.webp") },
+  { id: "m05-03", month: 5,  season: "spring", category: "tool",     rarity: "UNCOMMON", name: "こいのぼり",         description: "屋根より高く、風をのんでおよぐ",               image: monthly("こいのぼり.webp") },
+  { id: "m05-04", month: 5,  season: "spring", category: "jewel",    rarity: "UNCOMMON", name: "エメラルド",         description: "5月生まれの守り石。新緑のみどり",             image: monthly("エメラルド.webp") },
+  { id: "m05-05", month: 5,  season: "spring", category: "nature",   rarity: "RARE",     name: "雲のこいのぼり",     description: "五月晴れの空にあらわれる、雲でできた巨大こいのぼり", image: monthly("雲のこいのぼり.webp") },
+  // 6月 — 梅雨・ホタル
+  { id: "m06-01", month: 6,  season: "summer", category: "nature",   rarity: "COMMON",   name: "あじさい",           description: "雨の日がだいすきな、色変わりの花",             image: monthly("あじさい.webp") },
+  { id: "m06-02", month: 6,  season: "summer", category: "creature", rarity: "COMMON",   name: "カタツムリ",         description: "あじさいの葉っぱの上をのんびりおさんぽ",       image: monthly("カタツムリ.webp") },
+  { id: "m06-03", month: 6,  season: "summer", category: "tool",     rarity: "UNCOMMON", name: "てるてる坊主",       description: "あーした天気になあれ！",                       image: monthly("てるてる坊主.webp") },
+  { id: "m06-04", month: 6,  season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "真珠",               description: "6月生まれの守り石。貝の中でひっそり育った光のつぶ", image: monthly("真珠.webp") },
+  { id: "m06-05", month: 6,  season: "summer", category: "creature", rarity: "RARE",     name: "ホタル",             description: "夜の川辺にうかぶ小さな光。見つけたらラッキー", image: monthly("ホタル.webp") },
+  // 7月 — 七夕・海びらき
+  { id: "m07-01", month: 7,  season: "summer", category: "food",     rarity: "COMMON",   name: "ラムネ",             description: "ビー玉がカラカラ鳴る夏の音",                   image: monthly("ラムネ.webp") },
+  { id: "m07-02", month: 7,  season: "summer", category: "creature", rarity: "COMMON",   name: "すなはまのカニ",     description: "横歩きの名人。あなを掘るのも速い",             image: monthly("すなはまのカニ.webp") },
+  { id: "m07-03", month: 7,  season: "summer", category: "tool",     rarity: "UNCOMMON", name: "たんざく",           description: "ねがいごとを書いて笹にむすぼう",               image: monthly("たんざく.webp") },
+  { id: "m07-04", month: 7,  season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "ルビー",             description: "7月生まれの守り石。真夏の太陽の赤",           image: monthly("ルビー.webp") },
+  { id: "m07-05", month: 7,  season: "summer", category: "jewel",    rarity: "RARE",     name: "織姫のはたおり糸",   description: "七夕の夜、天の川をわたるためのきらめく糸",     image: monthly("織姫のはたおり糸.webp") },
+  // 8月 — 夏まつり・花火大会
+  { id: "m08-01", month: 8,  season: "summer", category: "food",     rarity: "COMMON",   name: "りんごあめ",         description: "つやつや真っ赤なお祭りの宝石",                 image: monthly("りんごあめ.webp") },
+  { id: "m08-02", month: 8,  season: "summer", category: "creature", rarity: "COMMON",   name: "ヒグラシ",           description: "カナカナカナ…夕ぐれの合図",                   image: monthly("ヒグラシ.webp") },
+  { id: "m08-03", month: 8,  season: "summer", category: "tool",     rarity: "UNCOMMON", name: "お祭りのお面",       description: "キツネ？ヒーロー？今日はどれにする？",         image: monthly("お祭りのお面.webp") },
+  { id: "m08-04", month: 8,  season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "ペリドット",         description: "8月生まれの守り石。太陽が生んだ石",           image: monthly("ペリドット.webp") },
+  { id: "m08-05", month: 8,  season: "summer", category: "nature",   rarity: "RARE",     name: "打ち上げ花火のたね", description: "植えると夜空に大輪の花がさく…かもしれない",   image: monthly("打ち上げ花火のたね.webp") },
+  // 9月 — 運動会・実りの秋
+  { id: "m09-01", month: 9,  season: "fall",   category: "food",     rarity: "COMMON",   name: "ぶどう",             description: "つぶつぶむらさきの宝石ふさ",                   image: monthly("ぶどう.webp") },
+  { id: "m09-02", month: 9,  season: "fall",   category: "nature",   rarity: "COMMON",   name: "コスモス",           description: "秋風にゆれるピンクのじゅうたん",               image: monthly("コスモス.webp") },
+  { id: "m09-03", month: 9,  season: "fall",   category: "creature", rarity: "UNCOMMON", name: "カマキリ",           description: "かまをかまえた秋の草むらのハンター",           image: monthly("カマキリ.webp") },
+  { id: "m09-04", month: 9,  season: "fall",   category: "jewel",    rarity: "UNCOMMON", name: "サファイア",         description: "9月生まれの守り石。夜空の青",                 image: monthly("サファイア.webp") },
+  { id: "m09-05", month: 9,  season: "fall",   category: "tool",     rarity: "RARE",     name: "かけっこの魔法ぐつ", description: "はくと風みたいに速く走れる運動会のひみつどうぐ", image: monthly("かけっこの魔法ぐつ.webp") },
+  // 10月 — ハロウィン
+  { id: "m10-01", month: 10, season: "fall",   category: "food",     rarity: "COMMON",   name: "ハロウィンキャンディ", description: "トリック・オア・トリート！の戦利品",         image: monthly("ハロウィンキャンディ.webp") },
+  { id: "m10-02", month: 10, season: "fall",   category: "creature", rarity: "COMMON",   name: "黒ネコ",             description: "ハロウィンの夜の魔女の相棒",                   image: monthly("黒ネコ.webp") },
+  { id: "m10-03", month: 10, season: "fall",   category: "nature",   rarity: "UNCOMMON", name: "おばけかぼちゃ",     description: "畑でいちばん大きく育った顔つきかぼちゃ",       image: monthly("おばけかぼちゃ.webp") },
+  { id: "m10-04", month: 10, season: "fall",   category: "jewel",    rarity: "UNCOMMON", name: "オパール",           description: "10月生まれの守り石。虹をとじこめた石",       image: monthly("オパール.webp") },
+  { id: "m10-05", month: 10, season: "fall",   category: "tool",     rarity: "RARE",     name: "まじょのほうき",     description: "またがるとほんの少しだけ体がうく",             image: monthly("まじょのほうき.webp") },
+  // 11月 — 七五三・読書の秋
+  { id: "m11-01", month: 11, season: "fall",   category: "creature", rarity: "COMMON",   name: "みのむし",           description: "落ち葉のコートでぬくぬく冬じたく",             image: monthly("みのむし.webp") },
+  { id: "m11-02", month: 11, season: "fall",   category: "nature",   rarity: "COMMON",   name: "イチョウのじゅうたん", description: "並木道が黄色一面にそまった",                 image: monthly("イチョウのじゅうたん.webp") },
+  { id: "m11-03", month: 11, season: "fall",   category: "food",     rarity: "UNCOMMON", name: "千歳あめ",           description: "ながーいあめ。ながーく元気でいられますように", image: monthly("千歳あめ.webp") },
+  { id: "m11-04", month: 11, season: "fall",   category: "jewel",    rarity: "UNCOMMON", name: "トパーズ",           description: "11月生まれの守り石。夕やけ色のきらめき",     image: monthly("トパーズ.webp") },
+  { id: "m11-05", month: 11, season: "fall",   category: "tool",     rarity: "RARE",     name: "まほうの本",         description: "読むたびにお話が変わるふしぎな本",             image: monthly("まほうの本.webp") },
+  // 12月 — クリスマス・大晦日
+  { id: "m12-01", month: 12, season: "winter", category: "food",     rarity: "COMMON",   name: "年越しそば",         description: "ズルズル…ながーく元気にすごせますように",     image: monthly("年越しそば.webp") },
+  { id: "m12-02", month: 12, season: "winter", category: "nature",   rarity: "COMMON",   name: "ゆず湯のゆず",       description: "お風呂にぷかぷか。体はぽっかぽか",             image: monthly("ゆず湯のゆず.webp") },
+  { id: "m12-03", month: 12, season: "winter", category: "creature", rarity: "UNCOMMON", name: "トナカイ",           description: "サンタのそりを引くはやての相棒",               image: monthly("トナカイ.webp") },
+  { id: "m12-04", month: 12, season: "winter", category: "jewel",    rarity: "UNCOMMON", name: "ターコイズ",         description: "12月生まれの守り石。冬の晴れ空の色",         image: monthly("ターコイズ.webp") },
+  { id: "m12-05", month: 12, season: "winter", category: "tool",     rarity: "RARE",     name: "金のすず",           description: "本物のサンタのそりから落ちてきた鈴。ふると雪がまう", image: monthly("金のすず.webp") },
+];
+
 export const ALL_COLLECTION_ITEMS: CollectionItem[] = [
   ...SPRING_ITEMS,
   ...SUMMER_ITEMS,
   ...FALL_ITEMS,
   ...WINTER_ITEMS,
+  ...MONTHLY_ITEMS,
 ];
 
 const BY_ID = new Map<string, CollectionItem>(ALL_COLLECTION_ITEMS.map((i) => [i.id, i]));
 
+/**
+ * シーズン UI 表示用: 通常アイテム 20 + そのシーズンに属する月限定 15 = 35 件を返す。
+ */
 export function getItemsBySeason(season: CollectionSeason): CollectionItem[] {
   return ALL_COLLECTION_ITEMS.filter((i) => i.season === season);
+}
+
+/**
+ * バッジ判定用 (通常アイテムのみ): そのシーズンの通常 20 件を返す。
+ * 月限定アイテムを混ぜないので `season_complete` / `hasAllCollectionItems` の
+ * 母数が固定 (各20 / 全80) に保たれる。
+ */
+export function getRegularItemsBySeason(season: CollectionSeason): CollectionItem[] {
+  return ALL_COLLECTION_ITEMS.filter((i) => i.season === season && i.month === undefined);
+}
+
+/**
+ * 指定月 (1〜12) の月限定アイテム 5 件を返す。
+ */
+export function getMonthlyItems(month: number): CollectionItem[] {
+  if (month < 1 || month > 12) throw new RangeError(`month out of range: ${month}`);
+  return ALL_COLLECTION_ITEMS.filter((i) => i.month === month);
+}
+
+/**
+ * 宝箱抽選用: 現在シーズンの通常 20 + 現在月の月限定 5 = 25 件のプール。
+ */
+export function getDrawPoolForDate(date: Date): CollectionItem[] {
+  return [
+    ...getRegularItemsBySeason(getSeasonForDate(date)),
+    ...getMonthlyItems(getMonthForDate(date)),
+  ];
 }
 
 export function getCollectionItemById(id: string): CollectionItem | null {
@@ -176,10 +301,25 @@ export function getSeasonForDate(date: Date): CollectionSeason {
 }
 
 /**
+ * 任意の Date から JST 基準の月 (1〜12) を返す。境界は JST 月初 0:00。
+ */
+export function getMonthForDate(date: Date): number {
+  const jst = new Date(date.getTime() + JST_OFFSET_MS);
+  return jst.getUTCMonth() + 1;
+}
+
+/**
  * 現在の JST 時刻からシーズンを判定する。
  */
 export function getCurrentSeason(): CollectionSeason {
   return getSeasonForDate(new Date());
+}
+
+/**
+ * 現在の JST 時刻の月 (1〜12) を返す。
+ */
+export function getCurrentMonth(): number {
+  return getMonthForDate(new Date());
 }
 
 export const SEASON_LABEL: Record<CollectionSeason, string> = {

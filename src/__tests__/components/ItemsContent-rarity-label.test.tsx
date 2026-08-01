@@ -20,6 +20,7 @@ function mockApiResponse() {
     json: () =>
       Promise.resolve({
         currentSeason: "summer",
+        currentMonth: 7,
         items: [
           {
             id: "summer-01", season: "summer", category: "creature", rarity: "COMMON",

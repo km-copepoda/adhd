@@ -675,7 +675,8 @@ describe("openOldestTreasure", () => {
       data: expect.objectContaining({
         status: "OPENED",
         itemId: null,
-        collectionItemId: expect.stringMatching(/^summer-\d+$/),
+        // summer-XX (通常) または m07-XX (月限定) のどちらか
+        collectionItemId: expect.stringMatching(/^(summer-\d+|m07-\d+)$/),
       }),
     });
     // MISS なので pityCount 0→1 で User.update が呼ばれる
@@ -889,17 +890,19 @@ describe("openOldestTreasure", () => {
   });
 
   // 「夏は夏のアイテムしか出ない」の構造的ロックダウン
-  describe("コレクションアイテムは現在シーズンのものに必ず限定される", () => {
-    const cases: Array<[string, Date, "spring" | "summer" | "fall" | "winter"]> = [
-      ["JST 2026-04-15 → spring", new Date("2026-04-15T03:00:00Z"), "spring"],
-      ["JST 2026-07-15 → summer", new Date("2026-07-15T03:00:00Z"), "summer"],
-      ["JST 2026-10-15 → fall",   new Date("2026-10-15T03:00:00Z"), "fall"],
-      ["JST 2026-01-15 → winter", new Date("2026-01-15T03:00:00Z"), "winter"],
-      ["JST 2026-06-01 00:00 → summer (前日まで春)", new Date("2026-05-31T15:00:00Z"), "summer"],
-      ["JST 2026-05-31 23:59 → spring (境界直前)",   new Date("2026-05-31T14:59:00Z"), "spring"],
+  // 月限定アイテム (2026-07-21 追加) も season フィールドを持つため、
+  // 現在シーズンの通常20 + 現在月の限定5 = 25個のプールから引かれる。
+  describe("コレクションアイテムは現在シーズン（通常 or 月限定）のものに必ず限定される", () => {
+    const cases: Array<[string, Date, "spring" | "summer" | "fall" | "winter", number]> = [
+      ["JST 2026-04-15 → spring / m04", new Date("2026-04-15T03:00:00Z"), "spring", 4],
+      ["JST 2026-07-15 → summer / m07", new Date("2026-07-15T03:00:00Z"), "summer", 7],
+      ["JST 2026-10-15 → fall / m10",   new Date("2026-10-15T03:00:00Z"), "fall",   10],
+      ["JST 2026-01-15 → winter / m01", new Date("2026-01-15T03:00:00Z"), "winter", 1],
+      ["JST 2026-06-01 00:00 → summer / m06 (前日まで春)", new Date("2026-05-31T15:00:00Z"), "summer", 6],
+      ["JST 2026-05-31 23:59 → spring / m05 (境界直前)",   new Date("2026-05-31T14:59:00Z"), "spring", 5],
     ];
 
-    it.each(cases)("%s", async (_label, now, expectedSeason) => {
+    it.each(cases)("%s", async (_label, now, expectedSeason, expectedMonth) => {
       mockPrisma.treasureLog.findFirst.mockResolvedValue({
         id: "log-season",
         childId: "c1",
@@ -909,15 +912,53 @@ describe("openOldestTreasure", () => {
       mockPrisma.treasureLog.update.mockResolvedValue({} as any);
       mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
 
+      const monthPrefix = `m${String(expectedMonth).padStart(2, "0")}-`;
       for (const rngVal of [0.0, 0.05, 0.25, 0.5, 0.75, 0.99]) {
         const result = await openOldestTreasure("c1", {
           rng: () => rngVal,
           now,
         });
         expect(result!.collectionItem).not.toBeNull();
+        // season は必ず現在シーズン
         expect(result!.collectionItem!.season).toBe(expectedSeason);
-        expect(result!.collectionItem!.id.startsWith(`${expectedSeason}-`)).toBe(true);
+        // 通常アイテム (season-XX) または 当月限定 (m{MM}-XX) のいずれか
+        const id = result!.collectionItem!.id;
+        const isRegular = id.startsWith(`${expectedSeason}-`);
+        const isCurrentMonth = id.startsWith(monthPrefix);
+        expect(isRegular || isCurrentMonth).toBe(true);
       }
+    });
+  });
+
+  // 月限定アイテム（2026-07-21 追加）が抽選プールに含まれることの担保
+  describe("月限定アイテムが抽選プールに含まれる", () => {
+    it("JST 7月中に MISS すると m07-XX が引かれることがある (rng を振って月限定にヒットさせる)", async () => {
+      mockPrisma.treasureLog.findFirst.mockResolvedValue({
+        id: "log-monthly", childId: "c1", boosted: false,
+      } as any);
+      mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+
+      // rng を細かく振って、いずれかで m07-XX を引けることを確認する。
+      // 25 種プール (summer 20 + m07 5) からユニフォーム抽選なので、tier 内で 2 回目 rng を
+      // 大きく振れば m07 (常に prefix ソートで後方に来るとは限らないが) が引ける組み合わせが必ずある。
+      const monthlyHits = new Set<string>();
+      for (let a = 0; a < 100; a++) {
+        for (let b = 0; b < 5; b++) {
+          const seq = [a / 100, b / 5];
+          let i = 0;
+          const result = await openOldestTreasure("c1", {
+            rng: () => seq[i++ % seq.length],
+            now: new Date("2026-07-15T03:00:00Z"),
+          });
+          if (result?.collectionItem?.id.startsWith("m07-")) {
+            monthlyHits.add(result.collectionItem.id);
+          }
+        }
+      }
+      // 月限定 5 種のうち少なくとも 1 種は引けるはず (プールに絶対に含まれているので)
+      expect(monthlyHits.size).toBeGreaterThan(0);
     });
   });
 
