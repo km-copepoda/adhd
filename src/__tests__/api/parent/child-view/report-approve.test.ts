@@ -427,5 +427,65 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       const body = await res.json();
       expect(body.treasureIds).toEqual([]);
     });
+
+    // 子供画面と揃えるため、宝箱集計側も template.isActive: true, pausedAt: null で絞る
+    it("集計クエリは template.isActive: true, pausedAt: null でフィルタする", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "APPROVED" },
+      ] as any);
+
+      await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+
+      const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+      expect(findManyCall.where.template).toEqual({ isActive: true, pausedAt: null });
+    });
+
+    // 子セルフ report/skip 経路と同様、carryOver 過去日付の親代理承認では集計を今日基準に切り替える
+    describe("carryOver の古日付（quest.date < today）を親代理で承認", () => {
+      it("宝箱の date と集計を今日基準に切り替える（水増し ALL_COMPLETE を防ぐ）", async () => {
+        // JST 2026-03-12 の設定に合わせる (beforeEach で setSystemTime 済み)
+        const today = new Date("2026-03-12T00:00:00.000Z");
+        const oldDate = new Date("2026-03-03T00:00:00.000Z"); // 9日前
+        mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+        mockPrisma.user.findFirst.mockResolvedValue(
+          childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+        );
+        mockPrisma.questInstance.findUnique.mockResolvedValue({
+          id: "q1",
+          childId: "child-1",
+          status: "PENDING",
+          date: oldDate,
+          deadlineBonusEarned: false,
+          photoUrl: null,
+          snapshotCategory: "STUDY",
+          template: { id: "tpl-1", category: "STUDY", photoBonus: false, carryOver: true },
+          child: { id: "child-1", minTasksForStreak: 1 },
+        } as any);
+        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        mockPrisma.questInstance.findMany.mockResolvedValue([
+          { status: "PENDING" } as any,
+          { status: "PENDING" } as any,
+        ]);
+
+        await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+
+        expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ childId: "child-1", date: today }),
+          }),
+        );
+        // 今日 PENDING 2件 + carryOver APPROVED 自身 1件 = total 3, reported 1, skipped 0
+        // → 1 < 3 なので ALL_COMPLETE 出さない
+        expect(mockGenerateProxyTreasure).toHaveBeenCalledWith({
+          childId: "child-1",
+          date: today,
+          reportedCount: 1,
+          totalCount: 3,
+          skippedCount: 0,
+          minTasks: 1,
+        });
+      });
+    });
   });
 });

@@ -360,6 +360,32 @@ describe("POST /api/quests/[id]/report", () => {
       expect(json.treasureIds).toEqual(["t-streak", "t-all"]);
     });
 
+    // 親がテンプレを pause / 無効化した後もインスタンスは DB に残るが、子供画面
+     // (/api/quests/today) は `template.isActive: true, pausedAt: null` で除外している。
+     // 宝箱集計側もこのフィルタに揃えないと「今日画面のタスク全消化 → totalCount は
+     // paused 分を含んだまま → reportedCount < totalCount で ALL_COMPLETE が出ない」
+     // 現象になる。子供画面と treasureService の集計を揃える。
+    it("sameDateQuests は template.isActive: true, pausedAt: null でフィルタする（paused/inactive の幽霊タスクを除外）", async () => {
+      mockGetCurrentUser.mockResolvedValue({
+        ...baseUser,
+        minTasksForStreak: 1,
+        reportDeadlineTime: null,
+      } as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "REPORTED" } as any,
+      ]);
+
+      await POST(
+        makeRequest("/api/quests/q1/report", { comment: "" }),
+        makeParams("q1"),
+      );
+
+      const call = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+      expect(call.where.template).toEqual({ isActive: true, pausedAt: null });
+    });
+
     it("minTasks 未達なら宝箱なしでも 200 を返す", async () => {
       mockGetCurrentUser.mockResolvedValue({
         ...baseUser,

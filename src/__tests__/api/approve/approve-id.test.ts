@@ -701,6 +701,9 @@ describe("POST /api/approve/[id]", () => {
         minTasks: 1,
         isProxy: false,
       });
+      // 差し戻し用の集計も子供画面と同じ template.isActive / pausedAt フィルタで絞る
+      const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+      expect(findManyCall.where.template).toEqual({ isActive: true, pausedAt: null });
     });
 
     it("スキップ申請承認 (SKIPPED) では cancelTreasuresOnReject を呼ばない", async () => {
@@ -856,6 +859,8 @@ describe("POST /api/approve/[id]", () => {
         minTasks: 1,
         isProxy: false,
       });
+      const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+      expect(findManyCall.where.template).toEqual({ isActive: true, pausedAt: null });
     });
   });
 });

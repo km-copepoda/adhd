@@ -90,8 +90,16 @@ export async function POST(
   const isCarryOverPastReport =
     !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
   const aggregationDate = isCarryOverPastReport ? today : quest.date;
+  // template.isActive / pausedAt でフィルタして「子供画面 (/api/quests/today) に映る
+  // タスク集合」と揃える。親がテンプレを pause / 無効化した後もインスタンスは残るため、
+  // フィルタしないと「見えない幽霊タスク」で totalCount が水増しされ ALL_COMPLETE が
+  // 出ない体験になる。
   const sameDateQuests = await prisma.questInstance.findMany({
-    where: { childId: user.id, date: aggregationDate },
+    where: {
+      childId: user.id,
+      date: aggregationDate,
+      template: { isActive: true, pausedAt: null },
+    },
     select: { status: true },
   });
   const aggregateQuests = isCarryOverPastReport

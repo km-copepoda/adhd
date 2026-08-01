@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { todayJST } from "@/lib/date";
 import { approveSkipQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
@@ -62,20 +63,34 @@ export async function POST(
   await approveSkipQuestInstance({ id: quest.id, childId: child.id, date: quest.date });
 
   // PROXY / ALL_COMPLETE 宝箱: minTasks 到達 or 全完了で即 UNLOCKED 生成（report-approve と同規約）
+  // carryOver 過去日付は集計を今日基準に切り替える（子セルフ skip 経路と同じ扱い）
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
-  const todayQuests = await prisma.questInstance.findMany({
-    where: { childId: child.id, date: quest.date },
+  const today = todayJST();
+  const isCarryOverPast =
+    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
+  const aggregationDate = isCarryOverPast ? today : quest.date;
+  const sameDateQuests = await prisma.questInstance.findMany({
+    where: {
+      childId: child.id,
+      date: aggregationDate,
+      template: { isActive: true, pausedAt: null },
+    },
     select: { status: true },
   });
-  const reportedCount = computeCompletedCount(todayQuests);
-  const skippedCount = computeSkippedCount(todayQuests);
+  const aggregateQuests = isCarryOverPast
+    ? [...sameDateQuests, { status: "SKIPPED" as const }]
+    : sameDateQuests;
+  const reportedCount = computeCompletedCount(aggregateQuests);
+  const skippedCount = computeSkippedCount(aggregateQuests);
+  const totalCount = aggregateQuests.length;
+  const required = Math.min(minTasks, totalCount);
   const treasureIds =
-    reportedCount >= minTasks
+    reportedCount >= required
       ? await generateProxyTreasure({
           childId: child.id,
-          date: quest.date,
+          date: aggregationDate,
           reportedCount,
-          totalCount: todayQuests.length,
+          totalCount,
           skippedCount,
           minTasks,
         })

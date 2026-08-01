@@ -315,6 +315,49 @@ describe("generateTreasuresOnReport", () => {
     );
   });
 
+  // recordDailyAchievement (streak.ts) が `required = Math.min(minTasks, totalCount)` で
+  // 少タスク日を救済しているのと同じ規約を宝箱側でも適用する。今日タスクが minTasks より少ない
+  // 家庭で「全部やったのに宝箱が出ない」体験を防ぐ。
+  it("totalCount < minTasks でも全完了なら STREAK + ALL_COMPLETE を両方生成する", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    // mockResolvedValueOnce のキューは vi.clearAllMocks では消えないので mockResolvedValue で統一
+    mockPrisma.treasureLog.create.mockResolvedValue({ id: "created" } as any);
+
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 2,
+      totalCount: 2, // 今日は 2 個しかない
+      skippedCount: 0,
+      minTasks: 5, // 設定は 5 個
+      isProxy: false,
+    });
+
+    expect(ids).toHaveLength(2);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[0][0].data).toEqual(
+      expect.objectContaining({ trigger: "STREAK", status: "LOCKED" }),
+    );
+    expect(calls[1][0].data).toEqual(
+      expect.objectContaining({ trigger: "ALL_COMPLETE", boosted: true, status: "LOCKED" }),
+    );
+  });
+
+  it("totalCount < minTasks で未全完了なら何もしない（STREAK 単独発火はさせない）", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 1,
+      totalCount: 2, // 全完了になっていない
+      skippedCount: 0,
+      minTasks: 5,
+      isProxy: false,
+    });
+    expect(ids).toEqual([]);
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+  });
+
   it("既存 PROXY + 全完了 → ALL_COMPLETE のみ作る (PROXY とは共存)", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([
       { id: "p1", trigger: "PROXY" } as any,
@@ -444,6 +487,32 @@ describe("generateProxyTreasure", () => {
     });
     expect(ids).toEqual([]);
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+  });
+
+  // generateTreasuresOnReport と同じ Math.min(minTasks, totalCount) 救済を親代理経路にも適用。
+  // 親端末しかない家庭で「今日は 2 個しかタスク無いのに minTasks=5 なので宝箱ゼロ」を防ぐ。
+  it("totalCount < minTasks でも全完了なら PROXY + ALL_COMPLETE を即 UNLOCKED で生成", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    // mockResolvedValueOnce のキューは vi.clearAllMocks では消えないので mockResolvedValue で統一
+    mockPrisma.treasureLog.create.mockResolvedValue({ id: "created" } as any);
+
+    const ids = await generateProxyTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 2,
+      totalCount: 2,
+      skippedCount: 0,
+      minTasks: 5,
+    });
+
+    expect(ids).toHaveLength(2);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[0][0].data).toEqual(
+      expect.objectContaining({ trigger: "PROXY", status: "UNLOCKED" }),
+    );
+    expect(calls[1][0].data).toEqual(
+      expect.objectContaining({ trigger: "ALL_COMPLETE", boosted: true, status: "UNLOCKED" }),
+    );
   });
 
   it("条件を満たす + 未全完了 → PROXY 1個のみ", async () => {

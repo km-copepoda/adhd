@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { isBeforeDeadline } from "@/lib/date";
+import { isBeforeDeadline, todayJST } from "@/lib/date";
 import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
@@ -84,20 +84,36 @@ export async function POST(
 
   // 親代理経路でも PROXY / ALL_COMPLETE 宝箱を即 UNLOCKED で生成する。
   // (2026-07-02) 全完了時に子セルフ経路と同じ ALL_COMPLETE ボーナスも出すように変更。
+  // carryOver 過去日付は子セルフ report/skip と同じく集計を今日基準に切り替える
+  // (quest.date=昨日 のまま集計すると今日のタスクが載らず ALL_COMPLETE 判定が壊れる)
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
-  const todayQuests = await prisma.questInstance.findMany({
-    where: { childId: child.id, date: quest.date },
+  const today = todayJST();
+  const isCarryOverPast =
+    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
+  const aggregationDate = isCarryOverPast ? today : quest.date;
+  const sameDateQuests = await prisma.questInstance.findMany({
+    where: {
+      childId: child.id,
+      date: aggregationDate,
+      template: { isActive: true, pausedAt: null },
+    },
     select: { status: true },
   });
-  const reportedCount = computeCompletedCount(todayQuests);
-  const skippedCount = computeSkippedCount(todayQuests);
+  const aggregateQuests = isCarryOverPast
+    ? [...sameDateQuests, { status: "APPROVED" as const }]
+    : sameDateQuests;
+  const reportedCount = computeCompletedCount(aggregateQuests);
+  const skippedCount = computeSkippedCount(aggregateQuests);
+  const totalCount = aggregateQuests.length;
+  // 少タスク日は全完了で救済（generateProxyTreasure と同じ Math.min 規約）
+  const required = Math.min(minTasks, totalCount);
   const treasureIds =
-    reportedCount >= minTasks
+    reportedCount >= required
       ? await generateProxyTreasure({
           childId: child.id,
-          date: quest.date,
+          date: aggregationDate,
           reportedCount,
-          totalCount: todayQuests.length,
+          totalCount,
           skippedCount,
           minTasks,
         })

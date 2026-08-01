@@ -309,4 +309,82 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     const body = await res.json();
     expect(body.treasureIds).toEqual([]);
   });
+
+  // 子供画面 (/api/quests/today) と同じ template.isActive / pausedAt フィルタで絞る
+  it("集計クエリは template.isActive: true, pausedAt: null でフィルタする", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+    );
+    mockPrisma.questInstance.findUnique.mockResolvedValue({
+      id: "q1",
+      childId: "child-1",
+      status: "PENDING",
+      date: new Date("2026-03-12T00:00:00Z"),
+      template: { id: "tpl-1", category: "STUDY" },
+      child: { id: "child-1" },
+    } as any);
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { status: "SKIPPED" } as any,
+    ]);
+
+    await POST(makeReq({ childId: "child-1", comment: "理由" }), makeParams("q1"));
+
+    const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+    expect(findManyCall.where.template).toEqual({ isActive: true, pausedAt: null });
+  });
+
+  // 子セルフ skip 経路と同様、carryOver 過去日付の親代理スキップでは集計を今日基準に切り替える
+  describe("carryOver の古日付（quest.date < today）を親代理でスキップ", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-03-12T09:00:00Z")); // JST 18:00 → today=2026-03-12
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("宝箱の date と集計を今日基準に切り替える", async () => {
+      const today = new Date("2026-03-12T00:00:00.000Z");
+      const oldDate = new Date("2026-03-03T00:00:00.000Z"); // 9日前
+      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+      );
+      mockPrisma.questInstance.findUnique.mockResolvedValue({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: oldDate,
+        template: { id: "tpl-1", category: "STUDY", carryOver: true },
+        child: { id: "child-1", minTasksForStreak: 1 },
+      } as any);
+      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([
+        { status: "PENDING" } as any,
+        { status: "PENDING" } as any,
+      ]);
+
+      await POST(
+        makeReq({ childId: "child-1", comment: "やっぱりできない" }),
+        makeParams("q1"),
+      );
+
+      expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ childId: "child-1", date: today }),
+        }),
+      );
+      // 今日 PENDING 2件 + carryOver SKIPPED 自身 1件 = total 3, reported 1, skipped 1
+      expect(mockGenerateProxyTreasure).toHaveBeenCalledWith({
+        childId: "child-1",
+        date: today,
+        reportedCount: 1,
+        totalCount: 3,
+        skippedCount: 1,
+        minTasks: 1,
+      });
+    });
+  });
 });

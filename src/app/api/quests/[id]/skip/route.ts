@@ -67,8 +67,14 @@ export async function POST(
   const isCarryOverPastSkip =
     !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
   const aggregationDate = isCarryOverPastSkip ? today : quest.date;
+  // template.isActive / pausedAt でフィルタして子供画面のタスク集合と揃える
+  // (詳細は report ルートのコメント参照)
   const sameDateQuests = await prisma.questInstance.findMany({
-    where: { childId: user.id, date: aggregationDate },
+    where: {
+      childId: user.id,
+      date: aggregationDate,
+      template: { isActive: true, pausedAt: null },
+    },
     select: { status: true },
   });
   const aggregateQuests = isCarryOverPastSkip

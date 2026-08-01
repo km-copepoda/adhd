@@ -167,6 +167,22 @@ describe("POST /api/quests/[id]/skip", () => {
     });
   });
 
+  it("sameDateQuests は template.isActive: true, pausedAt: null でフィルタする（paused/inactive の幽霊タスクを除外）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({ id: "q1", status: "PENDING" }) as any,
+    );
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      { status: "SKIP_REPORTED" } as any,
+    ]);
+
+    await POST(makeSkipRequest({ comment: "テスト" }), makeParams("q1"));
+
+    const call = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
+    expect(call.where.template).toEqual({ isActive: true, pausedAt: null });
+  });
+
   it("一部スキップでも minTasks 達成すれば generateTreasuresOnReport を呼ぶ", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue(

@@ -41,7 +41,11 @@ export async function POST(
       // - 全完了でなくなれば ALL_COMPLETE のみ CANCELLED
       //   (再報告で生成し直されるので、最新の skippedCount に応じた boost で出る)
       const todayQuests = await prisma.questInstance.findMany({
-        where: { childId: quest.childId, date: quest.date },
+        where: {
+          childId: quest.childId,
+          date: quest.date,
+          template: { isActive: true, pausedAt: null },
+        },
         select: { status: true },
       });
       await cancelTreasuresOnReject({
@@ -83,7 +87,11 @@ export async function POST(
 
     // 差し戻し後の当日進捗を集計して、条件を割った LOCKED 宝箱を CANCELLED に
     const todayQuests = await prisma.questInstance.findMany({
-      where: { childId: quest.childId, date: quest.date },
+      where: {
+        childId: quest.childId,
+        date: quest.date,
+        template: { isActive: true, pausedAt: null },
+      },
       select: { status: true },
     });
     await cancelTreasuresOnReject({
