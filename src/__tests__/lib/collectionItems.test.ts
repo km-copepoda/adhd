@@ -104,6 +104,17 @@ describe("月限定アイテム", () => {
     }
   });
 
+  // 2026-08-01: 月限定画像は /collection-items/monthly/{MM}/{name}.webp に配置する。
+  // 制作元 (docs/キャラクター/コレクション/{N}月/) と同じく月ごとサブディレクトリで
+  // 整理し、追加や差し替えが月単位でしやすいようにする。
+  it.each(MONTHS)("%d 月アイテムの image パスは /collection-items/monthly/{MM}/ 配下", (month) => {
+    const monthly = ALL_COLLECTION_ITEMS.filter((i) => i.month === month);
+    const mm = String(month).padStart(2, "0");
+    for (const item of monthly) {
+      expect(item.image).toMatch(new RegExp(`^/collection-items/monthly/${mm}/[^/]+\\.webp$`));
+    }
+  });
+
   it.each(MONTHS)("%d 月アイテムの season は月から一意に導ける", (month) => {
     const monthly = ALL_COLLECTION_ITEMS.filter((i) => i.month === month);
     for (const item of monthly) {

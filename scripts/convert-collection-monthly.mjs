@@ -45,6 +45,7 @@ async function convertOne(srcRelPath, dstDir) {
   const srcBase = basename(srcRelPath, ".png");
   const outName = (RENAME[srcBase] ?? srcBase) + ".webp";
   const dstPath = join(dstDir, outName);
+  mkdirSync(dstDir, { recursive: true });
 
   // git show でソースを一時ファイルに書き出し (develop ブランチから)
   const tmpFile = join(TMP, "current.png");
@@ -71,8 +72,11 @@ async function main() {
 
   const results = [];
 
-  // 月限定アイテム 60 枚
+  // 月限定アイテム 60 枚: monthly/{MM}/ サブディレクトリに配置
+  // (制作元 docs/キャラクター/コレクション/{N}月/ と同じ月別構成)
   for (const monthDir of MONTH_DIRS) {
+    const mm = String(parseInt(monthDir, 10)).padStart(2, "0");
+    const dstDir = join(DST_MONTHLY, mm);
     const monthPrefix = `docs/キャラクター/コレクション/${monthDir}/`;
     const listOut = execSync(
       `git -c core.quotepath=false ls-tree --name-only develop "${monthPrefix}"`,
@@ -80,8 +84,8 @@ async function main() {
     );
     const files = listOut.split("\n").filter((f) => f.endsWith(".png"));
     for (const f of files) {
-      const r = await convertOne(f, DST_MONTHLY);
-      console.log(`[monthly/${monthDir}] ${basename(f)} → ${r.outName}`);
+      const r = await convertOne(f, dstDir);
+      console.log(`[monthly/${mm}] ${basename(f)} → ${r.outName}`);
       results.push({ month: monthDir, ...r });
     }
   }
