@@ -139,6 +139,26 @@ describe("buildBulletinMessage", () => {
     expect(msg).toContain("★★★");
   });
 
+  // 月限定アイテム (2026-07-21 追加) は他 UI (Cutscene / History / ItemsContent 詳細) と
+  // 揃えて「◯月げんてい」を表示する。「夏の」だけでは月限定である情報が落ちる。
+  it("COLLECTION_ITEM_OBTAINED (月限定): 季節ではなく「N月げんてい」を含む", () => {
+    // m07-01 ラムネ (7月限定 / summer / COMMON)
+    const msg = buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう", "m07-01");
+    expect(msg).toContain("たろう");
+    expect(msg).toContain("ラムネ");
+    expect(msg).toContain("7月げんてい");
+    expect(msg).toContain("★");
+    // 月限定は季節ラベル「夏の」を出さない (Cutscene と同じ差別化)
+    expect(msg).not.toContain("夏の");
+  });
+
+  it("COLLECTION_ITEM_OBTAINED (月限定 RARE): m01-05 で「1月げんてい」と星3", () => {
+    const msg = buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう", "m01-05");
+    expect(msg).toContain("初日の出のひかり");
+    expect(msg).toContain("1月げんてい");
+    expect(msg).toContain("★★★");
+  });
+
   it("COLLECTION_ITEM_OBTAINED: 未知の id は空文字列を返す (書き込みされない)", () => {
     expect(buildBulletinMessage("COLLECTION_ITEM_OBTAINED", "たろう", "bogus-99")).toBe("");
   });

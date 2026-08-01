@@ -53,9 +53,13 @@ export function buildBulletinMessage(
       if (!extra) return "";
       const item = getCollectionItemById(extra);
       if (!item) return "";
-      const season = SEASON_LABEL[item.season];
       const stars = COLLECTION_RARITY_STARS[item.rarity];
-      return `${childName}は${season}の${stars}コレクション「${item.name}」を手に入れた！`;
+      // 月限定アイテムは Cutscene / 履歴 / 図鑑モーダルと揃えて「◯月げんてい」を出す。
+      // 「夏の」など季節ラベルにフォールバックすると月限定である情報が落ちるため、
+      // ここでも月限定を区別する (spec §5 OpenedCollectionItem を表示している箇所)
+      const kindLabel =
+        item.month !== undefined ? `${item.month}月げんてい` : `${SEASON_LABEL[item.season]}の`;
+      return `${childName}は${kindLabel}${stars}コレクション「${item.name}」を手に入れた！`;
     }
     default:
       return "";
