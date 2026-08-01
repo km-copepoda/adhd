@@ -281,6 +281,26 @@ export function getCollectionItemById(id: string): CollectionItem | null {
   return BY_ID.get(id) ?? null;
 }
 
+/**
+ * 未取得アイテム表示用のシルエット (影) 画像パスに変換する。
+ *  - `/collection-items/{season}/X.webp` → `/collection-items/shadow/{season}/X.webp`
+ *  - `/collection-items/monthly/X.webp`  → `/collection-items/shadow/monthly/X.webp`
+ *  - DUMMY_IMAGE や既に shadow 配下のパスはそのまま返す (冪等)
+ *
+ * shadow ファイルは scripts/gen-collection-shadows.mjs で生成する (単色 + アルファの webp)。
+ * 元画像より 1/10〜1/30 に圧縮でき、Network タブでも本物の絵が見えないためコンテンツ漏洩防止にもなる。
+ */
+export function getCollectionShadowPath(imagePath: string): string {
+  const SHADOW_PREFIX = "/collection-items/shadow/";
+  const BASE_PREFIX = "/collection-items/";
+  if (imagePath.startsWith(SHADOW_PREFIX)) return imagePath;
+  if (!imagePath.startsWith(BASE_PREFIX)) return imagePath;
+  const rest = imagePath.slice(BASE_PREFIX.length);
+  // rest = "{season}/X.webp" | "dummy.webp" | ... ダミーや直下のファイルは変換しない
+  if (!rest.includes("/")) return imagePath;
+  return `${SHADOW_PREFIX}${rest}`;
+}
+
 export function getSeasonByMonth(month: number): CollectionSeason {
   if (month < 1 || month > 12) throw new RangeError(`month out of range: ${month}`);
   if (month >= 3 && month <= 5) return "spring";

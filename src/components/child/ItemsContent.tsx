@@ -15,6 +15,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import {
   CATEGORY_LABEL,
   SEASON_LABEL,
+  getCollectionShadowPath,
   getSeasonByMonth,
   type CollectionCategory,
   type CollectionRarity,
@@ -320,14 +321,13 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                   >
                     <div className="relative w-16 h-16 flex items-center justify-center">
                       <Image
-                        src={it.image}
+                        // 未取得は shadow (単色シルエット webp) を返し、実画像を DL させない
+                        src={it.owned ? it.image : getCollectionShadowPath(it.image)}
                         alt={it.owned ? it.name : "未獲得"}
                         width={64}
                         height={64}
                         className="object-contain"
-                        style={{
-                          filter: it.owned ? undefined : "brightness(0) opacity(0.3)",
-                        }}
+                        style={{ opacity: it.owned ? 1 : 0.5 }}
                       />
                       {it.owned && isAcquiredToday(it.lastAcquiredAt) && (
                         <span className="absolute -top-1 -left-1 bg-quest-mint text-quest-bg text-[9px] font-bold rounded px-1 py-0.5 shadow">
@@ -442,14 +442,13 @@ function MonthlyThumb({
     >
       <div className="relative w-12 h-12 flex items-center justify-center">
         <Image
-          src={item.image}
+          // 未取得は shadow を返して実画像を DL させない (元画像の絵柄を伏せる)
+          src={item.owned ? item.image : getCollectionShadowPath(item.image)}
           alt={item.owned ? item.name : "未獲得"}
           width={48}
           height={48}
           className="object-contain"
-          style={{
-            filter: item.owned ? undefined : "brightness(0) opacity(0.3)",
-          }}
+          style={{ opacity: item.owned ? 1 : 0.5 }}
         />
         {item.owned && isNew && (
           <span className="absolute -top-1 -left-1 bg-quest-mint text-quest-bg text-[8px] font-bold rounded px-1 py-0.5 shadow">
