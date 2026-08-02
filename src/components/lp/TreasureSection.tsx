@@ -41,7 +41,7 @@ export function TreasureSection({ s }: { s: Record<string, string> }) {
               <h3 className={s.cheerTitle}>{COLLECTION_FEATURE.title}</h3>
               <p className={s.cheerSubTitle}>{COLLECTION_FEATURE.subTitle}</p>
             </div>
-            <span className={s.cheerBadge}>春夏秋冬</span>
+            <span className={s.cheerBadge}>全140種</span>
           </div>
           <p className={s.cheerBody}>{COLLECTION_FEATURE.body}</p>
           <ul className={s.cheerBullets}>

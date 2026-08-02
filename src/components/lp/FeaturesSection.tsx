@@ -58,8 +58,8 @@ const FEATURE_GROUPS: FeatureGroup[] = [
       },
       {
         icon: "📦",
-        title: "季節コレクション 全80種",
-        desc: "春夏秋冬×各20種のアイテム図鑑。宝箱から集めて、シーズン制覇バッジを狙う長期目標になる。",
+        title: "コレクション 全140種",
+        desc: "季節80種＋月限定60種のアイテム図鑑。「今月しか出ない」枠があるので、毎月宝箱を開ける動機が続く。",
         accent: "fLife",
         tag: "COLLECTION",
         tagClass: "tagLife",

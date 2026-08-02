@@ -46,18 +46,27 @@ describe("LP TREASURE & COLLECTION data", () => {
     expect(joined).toMatch(/全(部|タスク)?完了|オールクリア|全クリア/);
   });
 
-  it("COLLECTION_FEATURE が春夏秋冬×20種=80種への言及を持つ", () => {
+  // 2026-07-22 で月限定 60 種 (12ヶ月 × 5) が追加され、通常 80 + 月限定 60 = 140 になった。
+  // LP の COLLECTION_FEATURE も 140 種と「今月しか出ない」訴求を含む必要がある。
+  it("COLLECTION_FEATURE が通常80種と月限定60種で合計140種に言及する", () => {
     expect(COLLECTION_FEATURE.title.length).toBeGreaterThan(0);
+    expect(COLLECTION_FEATURE.body).toMatch(/140/);
     expect(COLLECTION_FEATURE.body).toMatch(/80/);
+    expect(COLLECTION_FEATURE.body).toMatch(/60/);
     expect(COLLECTION_FEATURE.body).toMatch(/春|夏|秋|冬|シーズン/);
+    // 「月限定」または「今月しか」で毎月の再訪動機を訴求している
+    const joined = `${COLLECTION_FEATURE.subTitle} ${COLLECTION_FEATURE.body} ${COLLECTION_FEATURE.bullets.join(" ")}`;
+    expect(joined).toMatch(/月限定|今月|月げんてい/);
   });
 
-  it("TREASURE_FAQ_ITEMS が 2 件以上ある", () => {
+  it("TREASURE_FAQ_ITEMS が 2 件以上ある / 月限定への言及がある", () => {
     expect(TREASURE_FAQ_ITEMS.length).toBeGreaterThanOrEqual(2);
     for (const q of TREASURE_FAQ_ITEMS) {
       expect(q.question.length).toBeGreaterThan(0);
       expect(q.answer.length).toBeGreaterThan(0);
     }
+    const joinedAnswers = TREASURE_FAQ_ITEMS.map((f) => f.answer).join(" ");
+    expect(joinedAnswers).toMatch(/月限定|今月|月げんてい/);
   });
 });
 
