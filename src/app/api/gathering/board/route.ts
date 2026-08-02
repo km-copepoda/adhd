@@ -14,12 +14,17 @@ export async function GET(request: Request) {
   // 子供: 自分のグループ / 親: childId 指定の子供のグループ
   let childId = user.id;
   if (user.role === "PARENT") {
+    // familyId 必須: null のまま `?? undefined` に落とすと WHERE 句が無効化され
+    // 他 family の子供が見えてしまう (IDOR)
+    if (!user.familyId) {
+      return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const qChildId = searchParams.get("childId");
     if (!qChildId) return NextResponse.json([]);
 
     const child = await prisma.user.findFirst({
-      where: { id: qChildId, familyId: user.familyId ?? undefined, role: "CHILD" },
+      where: { id: qChildId, familyId: user.familyId, role: "CHILD" },
       select: { id: true },
     });
     if (!child) return NextResponse.json({ error: "子供が見つかりません" }, { status: 404 });

@@ -48,6 +48,16 @@ export async function POST(request: Request) {
     }
   }
 
+  // IDOR 防止: assignedChildId が自分の family に属する CHILD であることを確認する。
+  // これが無いと親A が他 family の子供 ID を渡してタスクを付与できてしまう。
+  const child = await prisma.user.findFirst({
+    where: { id: body.assignedChildId, familyId: user.familyId, role: "CHILD" },
+    select: { id: true },
+  });
+  if (!child) {
+    return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+  }
+
   const result = await prisma.taskTemplate.createMany({
     data: tasks.map((task) => ({
       title: task.title,

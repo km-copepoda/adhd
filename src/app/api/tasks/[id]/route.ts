@@ -43,10 +43,15 @@ export async function PATCH(
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
+  // familyId 必須: null のまま WHERE 句に渡ると `familyId: undefined` として
+  // Prisma に条件無視されるため他 family のタスクをマッチしてしまう
+  if (!user.familyId) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
 
   const { id } = await params;
   const task = await prisma.taskTemplate.update({
-    where: { id, familyId: user.familyId ?? undefined },
+    where: { id, familyId: user.familyId },
     data: { createdBy: "PARENT" },
   });
 
@@ -63,13 +68,18 @@ export async function DELETE(
   if (!user) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
+  // familyId 必須。null のまま `?? undefined` にすると Prisma で条件無視され
+  // 他 family のタスクを削除・XP剥奪できる (IDOR)
+  if (!user.familyId) {
+    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  }
 
   const { id } = await params;
 
   // 子供は自分が作成した一時タスクのみ削除可能
   if (user.role === "CHILD") {
     const task = await prisma.taskTemplate.findFirst({
-      where: { id, createdBy: "CHILD", familyId: user.familyId ?? undefined },
+      where: { id, createdBy: "CHILD", familyId: user.familyId },
     });
     if (!task) {
       return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -78,8 +88,10 @@ export async function DELETE(
 
   // 仮タスク（createdBy: CHILD）を親が却下する場合、完了済みクエストのXPを差し引く
   if (user.role === "PARENT") {
-    const task = await prisma.taskTemplate.findUnique({
-      where: { id },
+    // IDOR 防止: family スコープで先に対象を確定させる。
+    // これが無いと親A が他 family のタスク ID を渡して XP 剥奪 + REJECTED 反映が通ってしまう
+    const task = await prisma.taskTemplate.findFirst({
+      where: { id, familyId: user.familyId },
       include: {
         quests: {
           where: { status: { in: ["REPORTED", "APPROVED"] } },
@@ -87,8 +99,11 @@ export async function DELETE(
         },
       },
     });
+    if (!task) {
+      return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
+    }
 
-    if (task?.createdBy === "CHILD" && task.quests.length > 0) {
+    if (task.createdBy === "CHILD" && task.quests.length > 0) {
       const category = task.category;
 
       // APPROVED のクエストのみXPが付与済み（REPORTEDはまだ未付与）
@@ -133,8 +148,10 @@ export async function DELETE(
     }
   }
 
+  // Defense in depth: family スコープ付き。上の分岐で検証済みだが、
+  // 将来の分岐追加時にガードが漏れないよう where にも同条件を残す
   await prisma.taskTemplate.update({
-    where: { id },
+    where: { id, familyId: user.familyId },
     data: { isActive: false },
   });
 

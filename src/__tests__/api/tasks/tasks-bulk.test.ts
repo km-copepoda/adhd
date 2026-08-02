@@ -117,6 +117,8 @@ describe("POST /api/tasks/bulk", () => {
   it("複数タスクを一括作成できること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     const created = validTasks.map((t, i) => ({ id: `t-${i}`, ...t }));
+    // 家族スコープ検証で assignedChildId が自分の family の CHILD であることを確認するために findFirst を呼ぶ
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
     mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 3 });
     mockPrisma.taskTemplate.findMany.mockResolvedValue(created as any);
 
@@ -143,5 +145,22 @@ describe("POST /api/tasks/bulk", () => {
         assignedChildId: "child-1",
       })),
     });
+  });
+
+  // IDOR 対策: 親が他 family の子供 ID を assignedChildId に渡しても 404 で拒否する
+  it("他 family の子供 ID を assignedChildId に指定した場合 404 を返す（IDOR 防止）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    // findFirst が「同 family かつ CHILD」で null を返す（別 family の子は見つからない）
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    const res = await POST(
+      makeRequest("/api/tasks/bulk", {
+        assignedChildId: "other-family-child",
+        tasks: validTasks,
+      })
+    );
+    expect(res.status).toBe(404);
+    // 家族チェックが失敗したら createMany は呼ばない
+    expect(mockPrisma.taskTemplate.createMany).not.toHaveBeenCalled();
   });
 });

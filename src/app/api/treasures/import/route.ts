@@ -10,7 +10,7 @@ import { TREASURE_TEMPLATES } from "@/lib/treasureTemplates";
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/treasures/import");
   const user = await getCurrentUser();
-  if (!user || user.role !== "PARENT") {
+  if (!user || user.role !== "PARENT" || !user.familyId) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   const child = await prisma.user.findFirst({
-    where: { id: childId, role: "CHILD", familyId: user.familyId ?? undefined },
+    where: { id: childId, role: "CHILD", familyId: user.familyId },
     select: { id: true },
   });
   if (!child) {

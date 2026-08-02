@@ -138,7 +138,7 @@ describe("DELETE /api/tasks/[id]", () => {
 
     expect(json.ok).toBe(true);
     expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith({
-      where: { id: "t1" },
+      where: { id: "t1", familyId: "fam-1" },
       data: { isActive: false },
     });
   });
@@ -154,7 +154,7 @@ describe("DELETE /api/tasks/[id]", () => {
   it("親が仮タスクを却下する際、APPROVED済みクエストのXPのみ差し引くこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
 
-    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
       id: "t1",
       createdBy: "CHILD",
       photoBonus: false,
@@ -211,7 +211,7 @@ describe("DELETE /api/tasks/[id]", () => {
   it("複数APPROVED クエストのXPが正しく累計で差し引かれること（stale data防止）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
 
-    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
       id: "t1-multi",
       createdBy: "CHILD",
       photoBonus: true,
@@ -261,7 +261,7 @@ describe("DELETE /api/tasks/[id]", () => {
   it("親がPARENT作成タスクを削除する際、XP差し引きしないこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
 
-    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
       id: "t2",
       createdBy: "PARENT",
       quests: [],
@@ -278,7 +278,7 @@ describe("DELETE /api/tasks/[id]", () => {
   it("XP差し引きで負数にならないこと（Math.max(0, ...)）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
 
-    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
       id: "t3",
       createdBy: "CHILD",
       photoBonus: false,
@@ -312,5 +312,45 @@ describe("DELETE /api/tasks/[id]", () => {
         lifePt: 0,
       },
     });
+  });
+
+  // IDOR 対策 (PARENT 経路):
+  // 現状 `findUnique({ where: { id } })` / `update({ where: { id } })` に family フィルタが
+  // なく、親A が他 family のタスク ID を渡すと XP 剥奪 + REJECTED 反映が通ってしまう。
+  // findUnique を family スコープ付きに変え、対象なしなら 404 を返す。
+  it("親が他 family のタスクを削除しようとしても 404 を返す（IDOR 防止）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    // 他 family のタスクは findFirst で null を返す
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(null);
+
+    const res = await DELETE(
+      makeRequest("/api/tasks/other-family-task", {}),
+      makeParams("other-family-task"),
+    );
+    expect(res.status).toBe(404);
+    // XP 差し引き・ステータス更新・soft-delete いずれも走らない
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockPrisma.questInstance.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
+  });
+
+  // 親が familyId を持たない不整合状態でも DELETE を通してはいけない (Deep defense)
+  it("PARENT で familyId=null の場合 403 を返す", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+
+    const res = await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
+    expect(res.status).toBe(403);
+    expect(mockPrisma.taskTemplate.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.taskTemplate.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+// ─── IDOR 深層防御 (PATCH) ─────────────────────────
+describe("PATCH /api/tasks/[id] - IDOR 防御", () => {
+  it("PARENT で familyId=null の場合 403 を返す (WHERE 句無効化 → 全件マッチ攻撃を防ぐ)", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    const res = await PATCH(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
+    expect(res.status).toBe(403);
+    expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
   });
 });
