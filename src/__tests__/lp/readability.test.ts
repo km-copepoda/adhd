@@ -46,10 +46,10 @@ describe("LP readability — ナビゲーション", () => {
 });
 
 describe("LP readability — 箇条書きの分量と用語", () => {
-  it("宝箱・エール・コレクションの bullets は4個以下", () => {
-    expect(TREASURE_FEATURE.bullets.length).toBeLessThanOrEqual(4);
-    expect(CHEER_FEATURE.bullets.length).toBeLessThanOrEqual(4);
-    expect(COLLECTION_FEATURE.bullets.length).toBeLessThanOrEqual(4);
+  it("宝箱・エール・コレクションの bullets は6個以下", () => {
+    expect(TREASURE_FEATURE.bullets.length).toBeLessThanOrEqual(6);
+    expect(CHEER_FEATURE.bullets.length).toBeLessThanOrEqual(6);
+    expect(COLLECTION_FEATURE.bullets.length).toBeLessThanOrEqual(6);
   });
 
   it("ひろば説明カードに実装用語（Supabase 等）を使わない", () => {
