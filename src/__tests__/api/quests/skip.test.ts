@@ -78,11 +78,16 @@ describe("POST /api/quests/[id]/skip", () => {
     expect(json.ok).toBe(true);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
       where: { id: "q1" },
-      data: { status: "SKIP_REPORTED", comment: "体調が悪い", reportedAt: expect.any(Date) },
+      data: {
+        status: "SKIP_REPORTED",
+        comment: "体調が悪い",
+        reportedAt: expect.any(Date),
+        rejectionReason: null,
+      },
     });
   });
 
-  it("PENDING以外のクエストは400を返すこと", async () => {
+  it("REPORTED のクエストは400を返すこと（親承認待ち中はスキップ不可）", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as any);
     mockPrisma.questInstance.findUnique.mockResolvedValue(
       questInstance({ id: "q2", status: "REPORTED" }) as any,
@@ -101,6 +106,35 @@ describe("POST /api/quests/[id]/skip", () => {
 
     const res = await POST(makeSkipRequest(), makeParams("q3"));
     expect(res.status).toBe(400);
+  });
+
+  // 差し戻し後のスキップ申請: REJECTED → SKIP_REPORTED を許可し、
+  // rejectionReason はクリアする（report ルートと同じ挙動）。
+  it("REJECTED のクエストは SKIP_REPORTED に更新し rejectionReason をクリアすること", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questInstance({
+        id: "q4",
+        status: "REJECTED",
+        rejectionReason: "写真が不鮮明",
+      }) as any,
+    );
+    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+
+    const res = await POST(makeSkipRequest({ comment: "やっぱり無理" }), makeParams("q4"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q4" },
+      data: {
+        status: "SKIP_REPORTED",
+        comment: "やっぱり無理",
+        reportedAt: expect.any(Date),
+        rejectionReason: null,
+      },
+    });
   });
 
   it("スキップ成功時に進捗マイルストーンの掲示板ログをトリガーすること", async () => {

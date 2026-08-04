@@ -36,13 +36,20 @@ export async function POST(
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
-  if (quest.status !== "PENDING") {
-    return NextResponse.json({ error: "PENDINGのクエストのみスキップできます" }, { status: 400 });
+  // 差し戻し後 (REJECTED) からもスキップ申請を許可する。子供が「やっぱり今日は無理」と
+   // 判断した場合の逃げ道を塞がないため。report ルートと同じく rejectionReason はクリア。
+  if (quest.status !== "PENDING" && quest.status !== "REJECTED") {
+    return NextResponse.json({ error: "PENDINGまたはREJECTEDのクエストのみスキップできます" }, { status: 400 });
   }
 
   await prisma.questInstance.update({
     where: { id },
-    data: { status: "SKIP_REPORTED", comment: commentText, reportedAt: new Date() },
+    data: {
+      status: "SKIP_REPORTED",
+      comment: commentText,
+      reportedAt: new Date(),
+      rejectionReason: null,
+    },
   });
 
   // 親に通知

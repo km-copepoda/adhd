@@ -2061,3 +2061,20 @@
 - テスト: `src/__tests__/lib/collectionItems.test.ts`（月限定 60/12月/レア度構成/JST 境界）、`src/__tests__/lib/badgesLoadContext.test.ts`（新規、通常80フィルタ担保）、`src/__tests__/lib/treasureService.test.ts`（月限定がプールに含まれることの担保）、`src/__tests__/api/collection-items/route.test.ts`（140件・currentMonth）
 - 画像: 月限定 60 枚は未制作のため一律 `DUMMY_IMAGE`。`monthly(filename)` ヘルパーで `/collection-items/monthly/{filename}` を返せる。制作完了時にファイル名を差し替えるだけ。`summer-11` の画像も暫定 DUMMY
 
+## 2026-08-04: 差し戻し後もスキップ申請を許可（REJECTED → SKIP_REPORTED）
+
+### 決定内容
+- クエストのステータス遷移に `REJECTED -> SKIP_REPORTED` を追加。子供が親に差し戻された後でもスキップ申請できるようにする
+- スキップ申請時（PENDING/REJECTED どちらから遷移しても）`rejectionReason` を `null` にクリアする（report ルートと同じ挙動）
+- 従来は skip API が `status === "PENDING"` のみ許可していたため、差し戻し後に子画面からスキップしても API は 400 で拒否されていた（クライアントは `res.ok` を見ず「スキップを申請したよ」と表示するため、タスクが消えず親画面にも届かないバグとして発現）
+
+### 理由
+- 差し戻された子供が「やっぱり今日は無理」と自己判断する経路を塞ぐと、REJECTED のまま放置され放置カウンタや宝箱状態が実態と乖離する
+- REPORTED→REJECTED→REPORTED は既存で許可されており、同じ「差し戻し後の再アクション」として SKIP_REPORTED も自然な選択肢
+- 親側の承認 API (`src/app/api/approve/[id]/route.ts`) は SKIP_REPORTED を経路の由来に関わらず一律で扱うため、追加改修は不要
+
+### 該当箇所
+- `src/app/api/quests/[id]/skip/route.ts` — 許可ステータスを PENDING または REJECTED に拡張、update 時に `rejectionReason: null` を書き込む
+- `CLAUDE.md` — ステータス遷移表に `REJECTED -> SKIP_REPORTED` を追記
+- `src/__tests__/api/quests/skip.test.ts` — REJECTED→SKIP_REPORTED 経路と rejectionReason クリアの担保
+
