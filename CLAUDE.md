@@ -122,6 +122,7 @@ PENDING -> SKIP_REPORTED（子供がスキップ申請）
 REPORTED -> APPROVED（親が承認）
 REPORTED -> REJECTED（親が差し戻し）
 REJECTED -> REPORTED（子供が再報告）
+REJECTED -> SKIP_REPORTED（子供が差し戻し後にスキップ申請 / rejectionReason は自動クリア）
 SKIP_REPORTED -> SKIPPED（親がスキップ承認）
 SKIP_REPORTED -> PENDING（親がスキップ却下）
 ```
