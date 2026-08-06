@@ -136,6 +136,13 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       deleteMany: vi.fn(),
     },
+    subscription: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn(),
+      delete: vi.fn(),
+    },
   },
 }));
 

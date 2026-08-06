@@ -2078,3 +2078,31 @@
 - `CLAUDE.md` — ステータス遷移表に `REJECTED -> SKIP_REPORTED` を追記
 - `src/__tests__/api/quests/skip.test.ts` — REJECTED→SKIP_REPORTED 経路と rejectionReason クリアの担保
 
+## 2026-08-06: マネタイズ (FREE/PREMIUM) のスキーマ土台を導入
+
+### 決定内容
+- `docs/未実装仕様書/monetization-plan.md` の Phase 1 を段階着手。まず土台のみ入れ、API enforce や課金決済 (Stripe) は別 PR
+- `SubscriptionPlan` enum (FREE / PREMIUM) と `Subscription` テーブルを追加 (migration `20260806000001_add_subscription`)
+- 課金主体は **User (親)** 単位。`Subscription.userId @unique`。将来的にシングルユーザー版 (`docs/未実装仕様書/single-user-app.md`) と DB を共有する可能性を残す
+- 純粋関数を `src/lib/subscription.ts` に、DB 操作を `src/lib/subscriptionService.ts` に分離 (lib モジュール分割ルールに従う)
+- 上限テーブルはコード内定数 `LIMITS`: FREE `{ child:1, task:10, treasure_item:5 }` / PREMIUM は全て `null` (無制限)
+- 実効プランは「Subscription レコード無し」「plan=FREE」「plan=PREMIUM で currentPeriodEnd が過去」のいずれも FREE。`currentPeriodEnd=null` の PREMIUM は無期限 (手動付与用)
+
+### 理由
+- API enforce や UI ロックまで含めると PR が巨大化し、既存 2402 テストへの回帰リスクが跳ね上がる。土台と純粋関数だけを先に入れれば動作影響ゼロで安全にマージできる
+- 課金主体を Family でなく User にしたのは、将来のシングルユーザー版と DB 構造を揃えるため。親2人が別々に加入するユースケースは想定しない (どちらの親でも `familyId` から親 User を辿れる)
+- `currentPeriodEnd=null` を「無期限」に倒したのは、社内テスト・キャンペーン付与・友人枠など Stripe を通さない付与を運用で扱えるようにするため
+
+### やってはいけないこと
+- この PR で API に enforce を差し込む (段階分割の意味が消え、回帰リスクが跳ね上がる)
+- `Subscription` レコードを持たないユーザーに対して「作らないとエラー」にする (FREE は「レコード無し」で表現し upsert を強制しない)
+- 期限切れ PREMIUM に grace period を設ける (仕様書にない挙動を勝手に足さない)
+
+### 該当箇所
+- `prisma/schema.prisma` — `SubscriptionPlan` enum, `Subscription` model, `User.subscription` リレーション
+- `prisma/migrations/20260806000001_add_subscription/migration.sql`
+- `src/lib/subscription.ts` — `LIMITS`, `computeLimit`, `isPlanActive`, `resolvePlan`, `checkLimit` (純粋関数のみ)
+- `src/lib/subscriptionService.ts` — `getSubscription`, `getUserPlan` (DB 経由)
+- `src/__tests__/setup.ts` — `prisma.subscription` モック追加
+- `src/__tests__/lib/subscription.test.ts` / `subscriptionService.test.ts` — 境界値含む網羅テスト
+
