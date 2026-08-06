@@ -13,3 +13,17 @@ export async function getUserPlan(userId: string, now: Date = new Date()): Promi
   const sub = await getSubscription(userId);
   return resolvePlan(sub, now);
 }
+
+/// Family の実効プランを返す。課金主体は Family 内の PARENT。
+/// PARENT が見つからない (壊れたデータ) は安全側で FREE にフォールバック。
+export async function getFamilyPlan(
+  familyId: string,
+  now: Date = new Date(),
+): Promise<SubscriptionPlan> {
+  const parent = await prisma.user.findFirst({
+    where: { familyId, role: "PARENT" },
+    select: { id: true },
+  });
+  if (!parent) return "FREE";
+  return getUserPlan(parent.id, now);
+}

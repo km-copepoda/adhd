@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getSubscription,
   getUserPlan,
+  getFamilyPlan,
 } from "@/lib/subscriptionService";
 
 const mockPrisma = vi.mocked(prisma);
@@ -91,5 +92,52 @@ describe("getUserPlan", () => {
 
     const plan = await getUserPlan("user-1", now);
     expect(plan).toBe("PREMIUM");
+  });
+});
+
+describe("getFamilyPlan", () => {
+  const now = new Date("2026-08-06T00:00:00Z");
+
+  it("Family に PARENT がいなければ FREE (安全側フォールバック)", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    const plan = await getFamilyPlan("fam-1", now);
+
+    expect(plan).toBe("FREE");
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+      where: { familyId: "fam-1", role: "PARENT" },
+      select: { id: true },
+    });
+  });
+
+  it("PARENT の Subscription が無ければ FREE", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+
+    const plan = await getFamilyPlan("fam-1", now);
+
+    expect(plan).toBe("FREE");
+  });
+
+  it("PARENT が PREMIUM 有効期間中なら PREMIUM", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      plan: "PREMIUM",
+      currentPeriodEnd: new Date("2026-09-06"),
+    } as never);
+
+    const plan = await getFamilyPlan("fam-1", now);
+    expect(plan).toBe("PREMIUM");
+  });
+
+  it("PARENT の Subscription が期限切れなら FREE", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      plan: "PREMIUM",
+      currentPeriodEnd: new Date("2026-07-01"),
+    } as never);
+
+    const plan = await getFamilyPlan("fam-1", now);
+    expect(plan).toBe("FREE");
   });
 });

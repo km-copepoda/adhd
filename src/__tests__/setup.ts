@@ -27,7 +27,8 @@ vi.mock("@/lib/prisma", () => ({
       createMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
-      count: vi.fn(),
+      // マネタイズ上限チェックでカウントが必要。デフォルトは 0 (制限に到達していない状態)。
+      count: vi.fn().mockResolvedValue(0),
     },
     questInstance: {
       findUnique: vi.fn(),

@@ -53,6 +53,8 @@ describe("POST /api/tasks/[id]/pause", () => {
 
   it("paused=false で pausedAt を null にすること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    // 再開時はプラン上限チェックのため findUnique + count を通る (デフォルト count=0 で allowed)
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue({ assignedChildId: "child-1" } as any);
     mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: null } as any);
 
     const res = await POST(

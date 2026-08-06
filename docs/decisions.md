@@ -2106,3 +2106,34 @@
 - `src/__tests__/setup.ts` — `prisma.subscription` モック追加
 - `src/__tests__/lib/subscription.test.ts` / `subscriptionService.test.ts` — 境界値含む網羅テスト
 
+## 2026-08-06: マネタイズ Phase 1-2 — タスク数上限 (FREE 10個/子) を enforce
+
+### 決定内容
+- FREE プランの「タスク数 10 個/子」上限を `POST /api/tasks` と `POST /api/tasks/[id]/pause` (再開時) に enforce
+- カウント対象は `assignedChildId = X AND isActive = true AND pausedAt IS NULL` (仕様書 §2.2 準拠)
+- 課金主体は Family 内の PARENT (新規 `getFamilyPlan(familyId)` ヘルパーで解決)
+- 上限到達時のレスポンスは HTTP 403 + `{ code: "PLAN_LIMIT_EXCEEDED", resource, current, limit, error }`。UI 側は `code` で判定してアップグレード誘導を出せる
+- 停止 (paused=true) 側はプランに関わらず常に成功。再開 (paused=false) 時のみ再チェック (仕様書 §4.4)
+- 既存の 10 個以上あるファミリーは影響なし: 「新規追加のみ制限」で既存タスクは動作継続
+
+### 理由
+- タスク作成は最も多く叩かれる enforce ポイントで、境界値バグの影響が大きい。API 層で 純粋関数 `checkLimit` に集約することで境界判定 (10/10 は追加不可) をテストで担保
+- 再開時に再チェックしないと「10 個作成 → 5 個停止 → 5 個追加 → 停止解除で 15 個」の抜け穴ができる (仕様書 §4.4 の明示要件)
+- `getFamilyPlan` を新設したのは、CHILD が作成する経路でも「Family の親のプラン」で判定する必要があるため。CHILD 自身に Subscription は紐付かない
+- 403 + `code` 方式は UI から機械的に上限判定できる。仕様書 §5.2 の「11個目の作成時に…」の UX に必要
+
+### やってはいけないこと
+- 停止中タスクをカウントに含める (停止＝上限枠を開けるのが仕様。含めると停止機能が実質使えなくなる)
+- 既存タスクが 11 個以上あるファミリーに対して DB 側から強制削除する (「既存は維持、新規のみ制限」の解約時挙動 §4.8 と一貫)
+- カウントを Family 単位にする (子1人 10 個が仕様。Family で共有すると兄弟がいる家庭で仕様と乖離)
+- 上限到達時に 402 (Payment Required) を返す (既存 API の 403 パターンに揃える。403 + `code` フィールドで意図は伝わる)
+
+### 該当箇所
+- `src/lib/subscriptionService.ts` — `getFamilyPlan(familyId, now?)` 追加
+- `src/app/api/tasks/route.ts` — POST に上限 enforce を追加
+- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に findUnique + count + checkLimit、対象タスク不在時は 404
+- `src/__tests__/setup.ts` — `taskTemplate.count` のデフォルトを 0 に (既存テストへの回帰対策)
+- `src/__tests__/api/tasks/tasks-limit.test.ts` — 新規: FREE 9/10/20, PREMIUM, CHILD 経路, assignedChildId 未指定
+- `src/__tests__/api/tasks/tasks-pause-limit.test.ts` — 新規: 停止/再開の境界値と 404
+- `src/__tests__/api/tasks/tasks-pause.test.ts` — 既存の再開テストに `findUnique` mock 追加
+

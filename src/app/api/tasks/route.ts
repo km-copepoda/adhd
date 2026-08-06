@@ -5,6 +5,8 @@ import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { todayJST } from "@/lib/date";
 import { getParentTaskSummaries } from "@/lib/taskSummary";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -52,6 +54,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "assignedChildId は必須です" }, { status: 400 });
     }
     assignedChildId = body.assignedChildId;
+  }
+
+  // FREE プランのタスク上限を enforce (仕様: monetization-plan.md §2.2 / §4.4)
+  const plan = await getFamilyPlan(user.familyId);
+  const activeCount = await prisma.taskTemplate.count({
+    where: { assignedChildId, isActive: true, pausedAt: null },
+  });
+  const limitCheck = checkLimit(plan, "task", activeCount);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: `無料プランではタスクは${limitCheck.limit}個までです。プレミアムプランで無制限になります。`,
+        code: "PLAN_LIMIT_EXCEEDED",
+        resource: "task",
+        current: limitCheck.current,
+        limit: limitCheck.limit,
+      },
+      { status: 403 },
+    );
   }
 
   const todayDate = todayJST();
