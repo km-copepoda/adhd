@@ -2137,3 +2137,36 @@
 - `src/__tests__/api/tasks/tasks-pause-limit.test.ts` — 新規: 停止/再開の境界値と 404
 - `src/__tests__/api/tasks/tasks-pause.test.ts` — 既存の再開テストに `findUnique` mock 追加
 
+## 2026-08-06: マネタイズ Phase 1-3 — 子アカウント (FREE 1人) とごほうび (FREE 5個/子) を enforce
+
+### 決定内容
+- FREE の「子アカウント Family 内 1 人まで」を `POST /api/auth/child-join` で enforce (familyCode 指定時のみ、単独モードは対象外)
+- FREE の「ごほうび 5 個/子」を `POST /api/treasures` (新規)、`PUT /api/treasures/[id]` (非アクティブ→アクティブの再アクティブ化)、`POST /api/treasures/import` (バルク) で enforce
+- カウント条件は仕様書 §2.1 / §2.6 準拠: 子は `familyId + role: CHILD`、ごほうびは `childId + isActive: true`
+- バルクインポート判定に新純粋関数 `checkBulkLimit(plan, resource, current, addCount)` を追加 (`current + addCount <= limit`)
+- レスポンス形式は PR-1-2 と統一: HTTP 403 + `{ code: "PLAN_LIMIT_EXCEEDED", resource, current, limit }`
+
+### 理由
+- ごほうびの PUT で `isActive: false → true` を「新規追加相当」として扱わないと、いったん 5 個作って非アクティブ化して 5 個追加、再アクティブ化…という抜け穴ができる (タスク pause と同じ発想)
+- import は FREE では常に上限超過 (20 テンプレ > 5 上限) だが、明示的にサーバ側で拒否することで「UI がボタンを隠し忘れた」ときの安全網になる
+- `checkBulkLimit` を追加したのは、`checkLimit(plan, r, current + N - 1)` の書き換えが直感的でなく境界バグの温床になるため。純粋関数として境界を全ケーステスト
+- child-join の enforce は familyCode 指定時のみ。単独モード (familyId=null) はそもそも FREE/PREMIUM の概念外なので通過させる (既存 UX を維持)
+
+### やってはいけないこと
+- ごほうびの isActive: true → false (非アクティブ化) にも上限チェックを走らせる (減らす方向は常に許可すべき)
+- 既に 6 個以上 active なごほうびを持つ既存家庭に対して DB 側から強制無効化する (§4.8 の解約時挙動と一貫、「新規のみ制限」)
+- child-rejoin にも上限を掛ける (既存の子が復帰するだけで、新規アカウントは増えない)
+- import で「上限に収まる分だけ入れる」部分投入をする (仕様書は「全部か 0 か」を示唆、部分投入は UX が混乱する)
+
+### 該当箇所
+- `src/lib/subscription.ts` — `checkBulkLimit` 追加
+- `src/app/api/treasures/route.ts` — POST に enforce
+- `src/app/api/treasures/[id]/route.ts` — PUT の isActive 再アクティブ化に enforce
+- `src/app/api/treasures/import/route.ts` — バルク合計を `checkBulkLimit` で確認
+- `src/app/api/auth/child-join/route.ts` — familyCode 指定時に enforce
+- `src/__tests__/setup.ts` — `user.count` / `treasureItem.count` のデフォルトを 0 に
+- `src/__tests__/api/treasures/treasures-limit.test.ts` — 新規: 上限, 再アクティブ化, no-op, import バルク
+- `src/__tests__/api/auth/child-join-limit.test.ts` — 新規: 0/1/PREMIUM/単独/カウント条件
+- `src/__tests__/lib/subscription.test.ts` — `checkBulkLimit` 境界値
+- `src/__tests__/api/treasures/treasures.test.ts` — 既存 import テストを PREMIUM 前提に変更
+

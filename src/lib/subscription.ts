@@ -71,3 +71,17 @@ export function checkLimit(
   const allowed = limit === null ? true : current < limit;
   return { allowed, current, limit };
 }
+
+/// バルク追加が上限内に収まるか判定。
+/// current + addCount > limit なら allowed=false。上限ちょうど (== limit) は OK。
+/// addCount=1 の場合は checkLimit と等価。
+export function checkBulkLimit(
+  plan: SubscriptionPlan,
+  resource: LimitedResource,
+  current: number,
+  addCount: number,
+): LimitCheckResult {
+  const limit = computeLimit(plan, resource);
+  const allowed = limit === null ? true : current + addCount <= limit;
+  return { allowed, current, limit };
+}

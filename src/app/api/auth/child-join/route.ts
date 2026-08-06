@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { generateChildCode } from "@/lib/categories";
 import { routeLogger } from "@/lib/logger";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/auth/child-join");
@@ -30,6 +32,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "ファミリーコードが見つかりません" }, { status: 404 });
     }
     familyId = family.id;
+
+    // FREE プランの子アカウント上限 enforce (仕様: monetization-plan.md §2.1 / §4.4)
+    const plan = await getFamilyPlan(familyId);
+    const childCount = await prisma.user.count({
+      where: { familyId, role: "CHILD" },
+    });
+    const limitCheck = checkLimit(plan, "child", childCount);
+    if (!limitCheck.allowed) {
+      rlog.warn("Child join blocked by plan limit", { familyId, childCount });
+      return NextResponse.json(
+        {
+          error: `無料プランでは子アカウントは${limitCheck.limit}人までです。プレミアムプランで無制限になります。`,
+          code: "PLAN_LIMIT_EXCEEDED",
+          resource: "child",
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+        },
+        { status: 403 },
+      );
+    }
   }
 
   // Generate unique child code within the family

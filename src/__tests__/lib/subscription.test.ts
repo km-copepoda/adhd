@@ -5,6 +5,7 @@ import {
   isPlanActive,
   resolvePlan,
   checkLimit,
+  checkBulkLimit,
 } from "@/lib/subscription";
 
 describe("LIMITS 定数", () => {
@@ -168,5 +169,41 @@ describe("checkLimit", () => {
     expect(r.allowed).toBe(true);
     expect(r.limit).toBeNull();
     expect(r.current).toBe(9999);
+  });
+});
+
+describe("checkBulkLimit", () => {
+  it("FREE treasure_item: 0 に 5 追加は allowed=true (境界ちょうど)", () => {
+    const r = checkBulkLimit("FREE", "treasure_item", 0, 5);
+    expect(r.allowed).toBe(true);
+    expect(r.limit).toBe(5);
+  });
+
+  it("FREE treasure_item: 0 に 6 追加は allowed=false (1 超過)", () => {
+    const r = checkBulkLimit("FREE", "treasure_item", 0, 6);
+    expect(r.allowed).toBe(false);
+  });
+
+  it("FREE treasure_item: 3 に 3 追加は allowed=false (合計 6, 上限 5)", () => {
+    const r = checkBulkLimit("FREE", "treasure_item", 3, 3);
+    expect(r.allowed).toBe(false);
+  });
+
+  it("FREE treasure_item: 3 に 2 追加は allowed=true (合計 5, 上限ちょうど)", () => {
+    const r = checkBulkLimit("FREE", "treasure_item", 3, 2);
+    expect(r.allowed).toBe(true);
+  });
+
+  it("PREMIUM は addCount がどれだけ大きくても allowed=true", () => {
+    const r = checkBulkLimit("PREMIUM", "treasure_item", 100, 1000);
+    expect(r.allowed).toBe(true);
+    expect(r.limit).toBeNull();
+  });
+
+  it("addCount=1 は checkLimit と等価", () => {
+    // FREE task: 9/10 → 追加可
+    expect(checkBulkLimit("FREE", "task", 9, 1).allowed).toBe(true);
+    // FREE task: 10/10 → 追加不可
+    expect(checkBulkLimit("FREE", "task", 10, 1).allowed).toBe(false);
   });
 });

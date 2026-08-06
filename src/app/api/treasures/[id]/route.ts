@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import type { TreasureRarity } from "@/lib/treasure";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 const VALID_RARITIES = new Set(["COMMON", "UNCOMMON", "RARE"]);
 
@@ -61,6 +63,28 @@ export async function PUT(
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "更新項目がありません" }, { status: 400 });
+  }
+
+  // 非アクティブ → アクティブへの再アクティブ化は「新規追加」と同等の上限チェックを行う。
+  // 仕様: monetization-plan.md §4.4 (「ごほうび追加」列と揃える)
+  if (data.isActive === true && item.isActive === false) {
+    const plan = await getFamilyPlan(user.familyId!);
+    const activeCount = await prisma.treasureItem.count({
+      where: { childId: item.childId, isActive: true },
+    });
+    const limitCheck = checkLimit(plan, "treasure_item", activeCount);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: `無料プランではごほうびは${limitCheck.limit}個までです。プレミアムプランで無制限になります。`,
+          code: "PLAN_LIMIT_EXCEEDED",
+          resource: "treasure_item",
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const updated = await prisma.treasureItem.update({

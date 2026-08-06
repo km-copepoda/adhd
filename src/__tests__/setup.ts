@@ -13,6 +13,8 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       updateMany: vi.fn(),
       delete: vi.fn(),
+      // マネタイズ上限チェックで子アカウント数をカウント。デフォルト 0。
+      count: vi.fn().mockResolvedValue(0),
     },
     family: {
       findUnique: vi.fn(),
@@ -104,7 +106,8 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
       delete: vi.fn(),
-      count: vi.fn(),
+      // マネタイズ上限チェックで active な ごほうび数をカウント。デフォルト 0。
+      count: vi.fn().mockResolvedValue(0),
     },
     treasureLog: {
       findMany: vi.fn().mockResolvedValue([]),
