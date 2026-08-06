@@ -2224,3 +2224,29 @@
 - UI 配線: `src/app/app/parent/(app)/tasks/page.tsx` (作成 + 再開), `src/components/child/QuestAddForm.tsx`, `src/components/parent/CompletedContent.tsx` (copy), `src/app/app/parent/(app)/approve/page.tsx` (copy), `src/components/parent/TemplateImportSection.tsx` (bulk), `src/app/app/parent/(app)/treasures/page.tsx` (add / import / update / delete)
 - テスト: `src/__tests__/lib/apiError.test.ts` (9 件、alert スタブ含む), `src/__tests__/api/tasks/tasks-copy-limit.test.ts` (4 件), `src/__tests__/api/tasks/tasks-bulk-limit.test.ts` (5 件)
 
+## 2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除
+
+### 決定内容
+- **バグ修正**: PR-3 (2026-08-06「Phase 1-3」) で FREE 子上限の enforce を `POST /api/auth/child-join` に入れたが、実際の子作成は **`POST /api/family/members`** から行われるため、enforce が事実上動いていなかった。`family/members` 側に移設して修正
+- **未使用 API 削除**: 現在の UI は Supabase Auth SDK を直接呼ぶため以下 2 経路は完全に未使用。削除
+  - `src/app/api/auth/child-join/` — UI は `supabase.auth.signInAnonymously()` を直接呼び、子作成は `family/members` + `child-rejoin` で完結
+  - `src/app/api/auth/login/` — UI は `supabase.auth.signInWithPassword()` を直接呼ぶ
+- 関連テストも削除 (`child-join.test.ts` / `child-join-limit.test.ts` / `login.test.ts`)
+- 新規テスト `src/__tests__/api/family/members-limit.test.ts` (4 件) で移設後の enforce を担保
+
+### 理由
+- 現行の子アカウント生成フローは 2 段階: ①親画面で `POST /api/family/members` を叩き `pending_...` な supabaseId で User row 事前作成 → ②子端末で `POST /api/auth/child-rejoin` によりファミリーコード + childCode で supabaseId を実 ID に紐付け。`child-join` は初期の 1 段階フローの遺物で、UI からは既に呼ばれていない
+- 「未使用でも将来のため残す」判断はしない: 削除しても Git 履歴に残るので必要になれば復元可能。dead code はメンテナンス負荷 (テスト実行時間、脆弱性検査対象、リファクタ時の追随) を増やすだけ
+- 認証系エンドポイントを Supabase SDK 直接呼び出しに一本化することで、認証ロジックの二重管理 (自作 API + SDK) を解消
+
+### やってはいけないこと
+- `POST /api/auth/child-join` を復活させる (現在の `family/members` + `child-rejoin` フローと重複し、どちらが正か分かりにくくなる)
+- `POST /api/auth/login` を復活させる (Supabase SDK に一本化した判断を戻す。将来的にサーバサイド認証が必要なら別エンドポイント名で新設)
+- `family/members` の enforce を PR-3 のようにテンプレコピーで別経路にも入れる (子作成経路は現在この 1 つに集約されているので、他所には不要)
+
+### 該当箇所
+- `src/app/api/family/members/route.ts` — POST に子上限チェック追加
+- 削除: `src/app/api/auth/child-join/route.ts`, `src/app/api/auth/login/route.ts`
+- 削除: `src/__tests__/api/auth/child-join.test.ts`, `src/__tests__/api/auth/child-join-limit.test.ts`, `src/__tests__/api/auth/login.test.ts`
+- 新規: `src/__tests__/api/family/members-limit.test.ts` (0 人 / 1 人 / PREMIUM / where 条件の 4 件)
+
