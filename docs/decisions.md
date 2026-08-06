@@ -2078,3 +2078,23 @@
 - `CLAUDE.md` — ステータス遷移表に `REJECTED -> SKIP_REPORTED` を追記
 - `src/__tests__/api/quests/skip.test.ts` — REJECTED→SKIP_REPORTED 経路と rejectionReason クリアの担保
 
+
+## 2026-08-06: LP に「WHY IT WORKS」セクション（行動心理学に基づく設計解説）を追加
+
+### 決定内容
+- LP (`/`) に新セクション `#psychology` を追加し、既存の 5 つの実装済み機能を「行動心理学のどの原理で効いているか」で束ねて訴求する
+- 訴求パターンは「日常語の見出し＋平易な本文＋控えめな理論名脚注」の三層構造。専門用語（オペラント条件付け／Fogg 行動モデル／What-the-hell effect 等）は本文に露出させず、脚注 `<small>` の「設計の根拠：{機能名} — {理論名}」だけに含める
+- 対象機能: ①宝箱の天井付き変動強化 ②チェックイン（着手ハードルの最小化）③翌0時の自動承認 ④今日やる宣言ボーナス ⑤親によるスキップ承認
+- LP 内順序は `HabitSection`（習慣化の設計思想）の直後、`BeforeAfterSection` の直前
+
+### 理由
+- 「なぜこのアプリで習慣化が続くのか」を親（決裁者）に説明する説得力を増すため。既存の Habit / Treasure / Feature セクションは「何ができるか」の説明が中心で、「なぜ効くのか」の理論的裏付けを提示できていなかった
+- 学術用語をそのまま並べると教科書調で親が引くため、見出しは日常語に統一し理論名は脚注に落として二層読解を可能にする
+- 「一般家庭にも有効な行動心理学的設計」であることを明示することで、ADHD 訴求と一般家庭訴求の橋渡しにもなる
+
+### 該当箇所
+- `src/lib/lp.ts` — `PsychologyInsight` 型と `PSYCHOLOGY_INSIGHTS` を追加（5項目固定）
+- `src/components/lp/PsychologySection.tsx` — 新規セクションコンポーネント（既存の `adhdGrid` / `adhdPoint` / `adhdIcon` を再利用）
+- `src/app/lp.module.css` — `.psychTheory` を追加（dashed border-top で脚注感を出す小さめの文字）
+- `src/app/page.tsx` — `HabitSection` の後に `PsychologySection` を挿入
+- `src/__tests__/lib/lp.test.ts` — `PSYCHOLOGY_INSIGHTS` の 8 テスト（5項目固定・スキーマ・見出しユニーク・本文に理論名を出さない方針・理論名網羅・機能網羅・宝箱の 10 回言及・自動承認の 0 時/翌日言及）
