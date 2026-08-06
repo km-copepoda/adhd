@@ -2198,3 +2198,29 @@
 - `src/__tests__/lib/treasureService-plan.test.ts` — 新規: FREE / PREMIUM / 単独モードのプール切替 4 件
 - `src/__tests__/lib/treasureService.test.ts` — findUnique の select アサーションに `familyId: true` を追記
 
+## 2026-08-06: マネタイズ Phase 1-5 — UI 側のエラー表示 + task 作成経路 (copy/bulk) の enforce 抜け穴を塞ぐ
+
+### 決定内容
+- UI 用共通ヘルパー `src/lib/apiError.ts` を追加 (`readApiError` / `alertOnApiError`)。fetch 結果の error メッセージを `alert()` で出す。既存の alert パターンに揃える
+- 各上限系 API を叩く UI コールサイトを `if (!(await alertOnApiError(res))) return;` パターンに統一 (親タスク作成/再開、子タスク追加、ごほうび追加/更新/import、コピー、bulk)
+- **`POST /api/tasks/[id]/copy` と `POST /api/tasks/bulk` にもタスク数上限を enforce** (PR-2 で漏れていた作成経路)。copy は単体 → `checkLimit`、bulk は合計 → `checkBulkLimit`
+- copy は「重複タスクが既存 → 早期 return」の後に上限チェックする (既存を返すだけなら枠を使わないため)
+- 承認 API での「スキップ承認 + 明日にコピー」経路は、コピー失敗しても承認自体は完了させる (承認取り消しの副作用を避け、コピー失敗のみユーザに通知)
+
+### 理由
+- Phase 1-2〜1-4 で API は 403 を返すようになったが、UI が `if (res.ok)` だけで失敗を握りつぶし、ユーザは「ボタンを押しても何も起きない」体験になっていた。カスタム toast が無い現状、既存の `alert()` パターンに揃える方が変更範囲が最小で一貫
+- `POST /api/tasks/[id]/copy` は新しい `TaskTemplate` を作るのに PR-2 では enforce されていなかった (一時タスクの明日コピー等で FREE 上限を回避できる抜け穴)
+- `POST /api/tasks/bulk` は最大 30 件までを一括作成できるので、FREE 上限を大きく超過できていた。既存の `bulk` 30 件制限は enforce ではなくバリデーション
+
+### やってはいけないこと
+- UI 側で `code === "PLAN_LIMIT_EXCEEDED"` を条件分岐して独自メッセージに置き換える (サーバの error 文字列を SoT に。将来変更時に UI が追随する必要が無くなる)
+- copy の重複タスク早期 return を上限チェックの後ろに移す (既存を返すだけなら枠を消費しないので、上限に達していても取得だけは通してよい)
+- 承認 API のスキップ承認経路で「コピーが 403 なら承認自体を undo する」実装にする (承認取り消しは可視な副作用を持ち、実装が複雑化する)
+
+### 該当箇所
+- 新規: `src/lib/apiError.ts` (`readApiError` / `alertOnApiError`)
+- `src/app/api/tasks/[id]/copy/route.ts` — 上限チェック追加
+- `src/app/api/tasks/bulk/route.ts` — `checkBulkLimit` で合計チェック追加
+- UI 配線: `src/app/app/parent/(app)/tasks/page.tsx` (作成 + 再開), `src/components/child/QuestAddForm.tsx`, `src/components/parent/CompletedContent.tsx` (copy), `src/app/app/parent/(app)/approve/page.tsx` (copy), `src/components/parent/TemplateImportSection.tsx` (bulk), `src/app/app/parent/(app)/treasures/page.tsx` (add / import / update / delete)
+- テスト: `src/__tests__/lib/apiError.test.ts` (9 件、alert スタブ含む), `src/__tests__/api/tasks/tasks-copy-limit.test.ts` (4 件), `src/__tests__/api/tasks/tasks-bulk-limit.test.ts` (5 件)
+

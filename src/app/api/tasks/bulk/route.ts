@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkBulkLimit } from "@/lib/subscription";
 
 type BulkTaskItem = {
   title: string;
@@ -56,6 +58,25 @@ export async function POST(request: Request) {
   });
   if (!child) {
     return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+  }
+
+  // FREE プランのタスク上限 enforce (仕様: monetization-plan.md §2.2 / §4.4)
+  const plan = await getFamilyPlan(user.familyId);
+  const activeCount = await prisma.taskTemplate.count({
+    where: { assignedChildId: body.assignedChildId, isActive: true, pausedAt: null },
+  });
+  const limitCheck = checkBulkLimit(plan, "task", activeCount, tasks.length);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: `無料プランではタスクは${limitCheck.limit}個までです。プレミアムプランで無制限になります。`,
+        code: "PLAN_LIMIT_EXCEEDED",
+        resource: "task",
+        current: limitCheck.current,
+        limit: limitCheck.limit,
+      },
+      { status: 403 },
+    );
   }
 
   const result = await prisma.taskTemplate.createMany({

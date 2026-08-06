@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
+import { alertOnApiError } from "@/lib/apiError";
 
 type FormMode = "regular" | "temporary";
 
@@ -45,11 +46,10 @@ export default function QuestAddForm({ onClose, onAdded }: Props) {
       body: JSON.stringify(body),
     });
     setSubmitting(false);
-    if (res.ok) {
-      onClose();
-      setForm({ title: "", category: "STUDY", repeatDays: [0, 1, 2, 3, 4, 5, 6] });
-      onAdded();
-    }
+    if (!(await alertOnApiError(res))) return;
+    onClose();
+    setForm({ title: "", category: "STUDY", repeatDays: [0, 1, 2, 3, 4, 5, 6] });
+    onAdded();
   }
 
   function toggleDay(day: number) {
