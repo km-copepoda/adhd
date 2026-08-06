@@ -2170,3 +2170,31 @@
 - `src/__tests__/lib/subscription.test.ts` — `checkBulkLimit` 境界値
 - `src/__tests__/api/treasures/treasures.test.ts` — 既存 import テストを PREMIUM 前提に変更
 
+## 2026-08-06: マネタイズ Phase 1-4 — FREE は季節コレクション 80 種をロック (抽選プールから除外)
+
+### 決定内容
+- FREE ユーザが宝箱を開けたとき、親ごほうび不当選時に付与されるコレクションアイテムのプールを **月限定 5 個のみ** に絞る (通常季節 20 個を除外)。PREMIUM は従来通り 25 個
+- 純粋関数 `getDrawPoolForPlan(date, plan)` を `src/lib/collectionItems.ts` に追加。既存 `getDrawPoolForDate` はそのまま残す (PREMIUM の実装で内部利用)
+- `openOldestTreasure` の child 取得 select に `familyId` を追加し、`getFamilyPlan(familyId)` でプランを解決してプールを切り替える
+- **単独モード (familyId=null) は既存挙動を維持** = 全プール (PREMIUM 相当)。監視対象外
+- 取得済みアイテムは剥奪せず、`UserCollectionItem` はそのまま残る (仕様 §2.5 / §4.8)
+
+### 理由
+- 「FREE でも月替わりの新アイテムは手に入る、季節フルコンプは PREMIUM」という差別化がコレクション欲を継続的に刺激する (仕様書 §2.5 / 課金動機表 #3)
+- プール切替を **抽選プールのフィルタ層で実装** することで `drawCollectionItem` 純粋関数は無改変。境界確率ロジックへ副作用が及ばない
+- 単独モードを対象外にしたのは、既存 UX を壊さない・課金主体 (Family の親) がそもそも存在しないため。「PREMIUM 扱い」だが実質は「monetization スコープ外」の意
+- バッジ判定 (`hasAllCollectionItems` / `season_complete`) は仕様書 §2.4 通り母数変更なし。FREE ユーザは通常 80 の一部を持てないため事実上未達だが、これは仕様の意図通り (PREMIUM で解放後に達成可能)
+
+### やってはいけないこと
+- FREE ユーザから既取得の通常アイテムを剥奪する (§4.8「取得済みアイテムは図鑑に残る」に反する)
+- バッジ判定の母数を FREE 用に絞る (仕様 §2.7 で「バッジは全プランで解放条件同じ」)
+- `getDrawPoolForDate` を FREE 用に破壊的変更する (既存呼び出しがある想定で、切替は新関数側に持たせる)
+- 単独モードに FREE 制限を課す (親不在で課金経路がなく、既存動作の劣化になる)
+
+### 該当箇所
+- `src/lib/collectionItems.ts` — `getDrawPoolForPlan(date, plan)` 追加
+- `src/lib/treasureService.ts` — `openOldestTreasure` の child select に `familyId`、プール取得を `getDrawPoolForPlan` 経由に置換
+- `src/__tests__/lib/collectionItems.test.ts` — `getDrawPoolForPlan` の境界 (JST 月境界含む) 4 件追加
+- `src/__tests__/lib/treasureService-plan.test.ts` — 新規: FREE / PREMIUM / 単独モードのプール切替 4 件
+- `src/__tests__/lib/treasureService.test.ts` — findUnique の select アサーションに `familyId: true` を追記
+

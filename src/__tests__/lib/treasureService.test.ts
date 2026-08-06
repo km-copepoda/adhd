@@ -717,10 +717,10 @@ describe("openOldestTreasure", () => {
     expect(result!.collectionItem).toBeNull();
     // 値が変わらないときは update をスキップ (DB ノイズを減らす)
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
-    // pity カウンタを読み出すために findUnique は必ず呼ぶ
+    // pity カウンタと familyId (プラン判定用) を読み出すために findUnique は必ず呼ぶ
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: "c1" },
-      select: { treasurePityCount: true },
+      select: { treasurePityCount: true, familyId: true },
     });
   });
 

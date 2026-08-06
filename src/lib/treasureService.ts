@@ -11,13 +11,14 @@
 import { prisma } from "@/lib/prisma";
 import { drawTreasure, type TreasurePoolItem, type TreasureRarity } from "@/lib/treasure";
 import {
-  getDrawPoolForDate,
+  getDrawPoolForPlan,
   type CollectionRarity,
   type CollectionSeason,
 } from "@/lib/collectionItems";
 import { drawCollectionItem } from "@/lib/collectionDraw";
 import { awardCollectionItem } from "@/lib/collectionService";
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
+import { getFamilyPlan } from "@/lib/subscriptionService";
 
 export interface TreasureCondition {
   childId: string;
@@ -248,7 +249,7 @@ export async function openOldestTreasure(
 
   const child = await prisma.user.findUnique({
     where: { id: childId },
-    select: { treasurePityCount: true },
+    select: { treasurePityCount: true, familyId: true },
   });
   const pityCount = child?.treasurePityCount ?? 0;
 
@@ -272,10 +273,13 @@ export async function openOldestTreasure(
   const drawnItem = draw.itemId ? pool.find((p) => p.id === draw.itemId) ?? null : null;
 
   // 親ごほうび不当選なら季節/月限定コレクションアイテムを必ず付与。
-  // プール = 現在シーズンの通常20 + 現在月の月限定5 = 25個 (仕様: monthly-limited-collection-items.md §4)
+  // FREE プランは月限定 5 個のみ / PREMIUM は通常20 + 月限定5 = 25個
+  // 単独モード (familyId=null) は既存挙動と同じ全プール (PREMIUM 相当)
+  // 仕様: monetization-plan.md §2.5 / §4.4
   let collectionItem: OpenedCollectionItem | null = null;
   if (drawnItem === null) {
-    const pool = getDrawPoolForDate(now);
+    const plan = child?.familyId ? await getFamilyPlan(child.familyId) : "PREMIUM";
+    const pool = getDrawPoolForPlan(now, plan);
     const picked = drawCollectionItem(pool, options.rng);
     if (picked) {
       const owned = await awardCollectionItem(childId, picked.id, picked.season, now);

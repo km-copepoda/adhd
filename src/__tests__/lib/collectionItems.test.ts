@@ -6,6 +6,7 @@ import {
   getMonthlyItems,
   getMonthForDate,
   getDrawPoolForDate,
+  getDrawPoolForPlan,
   getCollectionItemById,
   getSeasonByMonth,
   getSeasonForDate,
@@ -183,6 +184,43 @@ describe("getDrawPoolForDate (現在シーズン通常 + 現在月限定)", () =
     // JST 7/31 23:59 = UTC 7/31 14:59
     const pool = getDrawPoolForDate(new Date(Date.UTC(2026, 6, 31, 14, 59, 0)));
     expect(pool.filter((i) => i.month === 7)).toHaveLength(5);
+  });
+});
+
+describe("getDrawPoolForPlan (FREE = 月限定のみ / PREMIUM = 全プール)", () => {
+  const jstJul15 = new Date("2026-07-15T03:00:00Z"); // JST 12:00
+
+  it("PREMIUM は getDrawPoolForDate と同じ 25 件", () => {
+    const premium = getDrawPoolForPlan(jstJul15, "PREMIUM");
+    const full = getDrawPoolForDate(jstJul15);
+    expect(premium).toHaveLength(full.length);
+    expect(premium).toEqual(full);
+  });
+
+  it("FREE は月限定のみ 5 件 (通常シーズン 20 は除外)", () => {
+    const free = getDrawPoolForPlan(jstJul15, "FREE");
+    expect(free).toHaveLength(5);
+    // すべて 7 月限定
+    expect(free.every((i) => i.month === 7)).toBe(true);
+    // 通常シーズン (month === undefined) は含まれない
+    expect(free.filter((i) => i.month === undefined)).toHaveLength(0);
+  });
+
+  it("FREE でも月の境界は JST 基準で正しく切り替わる (7/31 23:59 → 7月)", () => {
+    const free = getDrawPoolForPlan(
+      new Date(Date.UTC(2026, 6, 31, 14, 59, 0)),
+      "FREE",
+    );
+    expect(free.every((i) => i.month === 7)).toBe(true);
+    expect(free).toHaveLength(5);
+  });
+
+  it("FREE でも月の境界: JST 8/1 00:00 は 8月", () => {
+    const free = getDrawPoolForPlan(
+      new Date(Date.UTC(2026, 6, 31, 15, 0, 0)),
+      "FREE",
+    );
+    expect(free.every((i) => i.month === 8)).toBe(true);
   });
 });
 
