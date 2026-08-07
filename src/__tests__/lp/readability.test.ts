@@ -70,6 +70,35 @@ describe("LP readability — FAQ の 2 段構成", () => {
   });
 });
 
+describe("LP readability — Monster クリックでモーダル", () => {
+  it("MonsterPath は monsterKey を受け取り、onSelect でクリックを親に通知する", () => {
+    const src = read("components/lp/MonsterPath.tsx");
+    expect(src).toContain("monsterKey");
+    expect(src).toContain("onSelect");
+    // 何らかの onClick ハンドラでクリックを拾っている
+    expect(src).toMatch(/onClick\s*=/);
+  });
+
+  it("MonsterPath は revealed=false（シルエット）の時はクリック不能にする", () => {
+    const src = read("components/lp/MonsterPath.tsx");
+    // 「revealed」または「monsterKey」の存在を条件に onClick / cursor を分岐している
+    expect(src).toMatch(/revealed\s*(&&|\?)/);
+  });
+
+  it("MonstersSection は MonsterImageModal をインポートしている", () => {
+    const src = read("components/lp/MonstersSection.tsx");
+    expect(src).toMatch(/import\s+MonsterImageModal/);
+  });
+
+  it("MonstersSection は選択状態を useState で管理し、モーダルを条件描画する", () => {
+    const src = read("components/lp/MonstersSection.tsx");
+    expect(src).toMatch(/useState.*selected|selectedMonster/i);
+    expect(src).toContain("MonsterImageModal");
+    // description を渡している
+    expect(src).toMatch(/description=/);
+  });
+});
+
 describe("LP readability — ScreensSection の配置", () => {
   it("ScreensSection は HowItWorksSection の直後に配置する（アプリ画面の早期訴求）", () => {
     const page = read("app/page.tsx");

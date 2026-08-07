@@ -2098,3 +2098,20 @@
 - `src/app/lp.module.css` — `.psychTheory` を追加（dashed border-top で脚注感を出す小さめの文字）
 - `src/app/page.tsx` — `HabitSection` の後に `PsychologySection` を挿入
 - `src/__tests__/lib/lp.test.ts` — `PSYCHOLOGY_INSIGHTS` の 8 テスト（5項目固定・スキーマ・見出しユニーク・本文に理論名を出さない方針・理論名網羅・機能網羅・宝箱の 10 回言及・自動承認の 0 時/翌日言及）
+
+## 2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加
+
+### 決定内容
+- LP の `MonstersSection`（`#monsters`）で、公開済み（`revealed=true`）モンスターをクリック/タップすると `MonsterImageModal` が開き、画像・名前・ステージ・description が表示される
+- description は `src/lib/monsters.ts` の `MONSTER_TABLE` / `MONSTER_TABLE_LIGHT` に既存の設定文をそのまま引用（LP 用に別コピーは作らない）
+- 未公開（シルエット）モンスターは意図的にクリック不能。ネタバレ防止と「集めたら見られる」体験の一貫性を保つ
+
+### 実装方針
+- 既存の共有コンポーネント `MonsterImageModal` に `description?: string` を optional prop で追加（`ZukanContent` など既存使用箇所は無変更）
+- `MonsterPath` に `onSelect?: (key) => void` と `monsterKey?: string` フィールドを追加、`revealed !== false && monsterKey` の時のみ `role="button"` + `onClick` を付与
+- `MonstersSection` は `useState<SelectedMonster | null>` で選択状態を保持し、`monsterStyle`（dark/light）に応じて参照テーブルを切り替える
+
+### 理由
+- LP でモンスター画像がタップできないと「見た目だけの飾り」に見えるが、description を見せることで各モンスターの世界観・成長イメージが伝わり、「集めたくなる」動機づけになる
+- MONSTER_TABLE の description は既にアプリ側の Zukan で提示されているコピーで、LP でも同じ品質を維持できる
+- 独立の LP モーダルを新設せずに共有コンポーネントを拡張したことで、将来 description 表示を Zukan 側にも展開しやすい
