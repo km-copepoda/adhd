@@ -28,7 +28,10 @@ model: sonnet
 4. **プッシュ**
    - `git push -u origin feature/<task-name>`
 5. **PR 作成**
-   - `gh pr create --title "..." --body "$(cat <<EOF ... EOF)"` を使う
+   - `gh pr create --base develop --head feature/<task-name> --title "..." --body-file <tmp>` を使う
+   - **base は原則 `develop`**（`main` へ直接 PR しない — `restrict-main-merge.yml` で拒否される）
+   - シェルで `gh` が PATH に無い場合はフルパス `"C:\Program Files\GitHub CLI\gh.exe"` を PowerShell から呼ぶ
+   - Body は一時ファイル（`New-TemporaryFile`）に書き出して `--body-file` で渡すのが安全（HEREDOC はシェル差で崩れる）
    - タイトルは 70 文字以内
    - Body には Summary（1〜3 箇条書き）、Test plan（チェックリスト）を含める
    - decisions.md に追記した場合は Body に「Related decision: `docs/decisions.md#<日付>`」を書く
