@@ -62,7 +62,7 @@ export default function LpPage() {
       <HeroSection s={styles} />
       <PainSection s={styles} />
       <HowItWorksSection s={styles} />
-      <ScreensSection s={styles} />
+      <ScreensSection s={styles} variant="highlight" />
       <FeaturesSection s={styles} />
       <TreasureSection s={styles} />
       <MonstersSection s={styles} />
@@ -70,6 +70,7 @@ export default function LpPage() {
       <HabitSection s={styles} />
       <PsychologySection s={styles} />
       <BeforeAfterSection s={styles} />
+      <ScreensSection s={styles} variant="full" />
       <InstallGuideSection s={styles} />
       <VoicesSection s={styles} />
       <FaqSection s={styles} />

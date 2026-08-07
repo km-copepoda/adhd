@@ -41,3 +41,46 @@ describe("LP APP SCREENS", () => {
     expect(phoneWrapCount).toBeGreaterThanOrEqual(EXPECTED_SCREEN_LABELS.length);
   });
 });
+
+describe("ScreensSection variant split（ハイライト vs フル）", () => {
+  it("HIGHLIGHT_KEYS 定義に 3 つのキーが含まれる（child-quest, parent-approve, evolution-cutscene）", () => {
+    expect(lpSource).toContain("HIGHLIGHT_KEYS");
+    expect(lpSource).toMatch(/"child-quest"/);
+    expect(lpSource).toMatch(/"parent-approve"/);
+    expect(lpSource).toMatch(/"evolution-cutscene"/);
+  });
+
+  it("variant プロップを受け取り、'highlight' と 'full' の 2 モードを持つ", () => {
+    expect(lpSource).toMatch(/variant\s*[?:]/);
+    expect(lpSource).toMatch(/"highlight"/);
+    expect(lpSource).toMatch(/"full"/);
+  });
+
+  it("show() ヘルパで各 phoneWrap を条件描画している（全 13 個が個別条件でラップされる）", () => {
+    // 各 phone ブロックは `show("some-key") && (...)` の形でラップされる
+    const showMatches = (lpSource.match(/show\("[a-z-]+"\)/g) ?? []);
+    expect(showMatches.length).toBe(EXPECTED_SCREEN_LABELS.length);
+  });
+});
+
+describe("ScreensSection の LP 配置（ハイライト＋フル）", () => {
+  const pageSource = readFileSync(
+    resolve(__dirname, "../../app/page.tsx"),
+    "utf-8",
+  );
+
+  it("page.tsx で ScreensSection を 2 回配置している", () => {
+    const occurrences = (pageSource.match(/<ScreensSection/g) ?? []).length;
+    expect(occurrences).toBe(2);
+  });
+
+  it("variant='highlight' は HowItWorks 直後（Features より前）、variant='full' は Features より後", () => {
+    const idxFeatures = pageSource.indexOf("<FeaturesSection");
+    const idxHighlight = pageSource.search(/<ScreensSection[^>]*variant=["']highlight["']/);
+    const idxFull = pageSource.search(/<ScreensSection[^>]*variant=["']full["']/);
+    expect(idxHighlight).toBeGreaterThan(0);
+    expect(idxFull).toBeGreaterThan(0);
+    expect(idxHighlight).toBeLessThan(idxFeatures);
+    expect(idxFull).toBeGreaterThan(idxFeatures);
+  });
+});
