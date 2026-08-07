@@ -15,15 +15,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: OpenAI Code Review
-        uses: anc95/chatgpt-action@v1.4.0
+      - name: AI PR Reviewer
+        uses: coderabbitai/ai-pr-reviewer@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_MODEL: "gpt-4o"
         with:
           debug: false
-          chatgpt_instructions: |
+          openai_heavy_model: "gpt-4o"
+          openai_light_model: "gpt-4o-mini"
+          system_message: |
             あなたは厳格かつ建設的な凄腕コードレビュアーです。
             PRのコード差分（diff）を精査し、以下の視点でレビューを実施してください：
 
