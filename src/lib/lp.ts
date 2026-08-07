@@ -287,6 +287,12 @@ export type PsychologyInsight = {
   theory: string;
 };
 
+/**
+ * FAQ の主要（デフォルト表示）件数。残りは「その他の質問」として折りたたむ。
+ * 選定基準：親が LP で最も気にする「対象年齢／依存懸念／料金／使い方の基本」に絞る。
+ */
+export const FAQ_PRIMARY_COUNT = 5;
+
 export const PSYCHOLOGY_INSIGHTS: PsychologyInsight[] = [
   {
     icon: "💎",
