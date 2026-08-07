@@ -1,0 +1,37 @@
+name: OpenAI Auto Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: OpenAI Code Review
+        uses: anc95/chatgpt-action@v1.4.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_MODEL: "gpt-4o"
+        with:
+          debug: false
+          chatgpt_instructions: |
+            あなたは厳格かつ建設的な凄腕コードレビュアーです。
+            PRのコード差分（diff）を精査し、以下の視点でレビューを実施してください：
+
+            1. バグやロジックエラー、エッジケースでの不具合がないか
+            2. セキュリティ上の脆弱性（インジェクション、機密情報の露出等）がないか
+            3. パフォーマンスの著しい悪化や不要な処理がないか
+
+            【指摘のルール】
+            - 指摘事項がある場合は、該当するファイル・行に対して具体的かつ明確に修正案を提示してください。
+            - 修正の必要がない軽微なスタイルの好み（コードフォーマット等）は指摘しないでください。
+            - 問題がなく素晴らしいコードの場合は、理由を添えて褒めてください。
