@@ -1947,7 +1947,6 @@
 - `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `treasureIds.length` を件数として利用
 - テスト: `treasureService.test.ts` / `report-approve.test.ts` / `skip-approve.test.ts` / `child-view-quests-page.test.tsx` / `child-view-quests-skip-and-cutscene.test.tsx`
 
-<<<<<<< HEAD
 ## 2026-07-02: 一時タスクも carryOver=true を選択可能にする
 
 ### 決定
@@ -1971,7 +1970,7 @@
 - `src/lib/taskSummary.ts` — `calcCarryOverMissedCount` の空 repeatDays 分岐を暦日算出に変更
 - `docs/glossary.md` — isTemporary vs 通常タスクの表と `carryOverMissedCount` 説明を更新
 - テスト: `taskSummary.test.ts` / `TaskForm.test.tsx`
-=======
+
 ## 2026-07-02: 親側チェックインカレンダーを HeatmapGrid に統合（ParentCheckinCalendar 廃止）
 
 ### 決定
@@ -2004,7 +2003,6 @@
 - `src/components/parent/HistoryContent.tsx` — `/api/parent/checkin/calendar` を fetch し `buildMonthGrid` で `checkinDays` を組み立て、`ParentCheckinCalendar` 描画を撤去
 - 削除: `src/components/parent/ParentCheckinCalendar.tsx` / `src/__tests__/components/ParentCheckinCalendar.test.tsx`
 - テスト: `src/__tests__/components/HeatmapGrid-checkin.test.tsx` / `src/__tests__/components/HistoryContent-checkin-integration.test.tsx`
->>>>>>> vk/9165-
 
 ## 2026-07-20: タスクの一時停止機能（親が子供画面での表示を pausedAt で停止／再開）
 
@@ -2089,6 +2087,43 @@
 - `src/app/api/quests/[id]/skip/route.ts` — 許可ステータスを PENDING または REJECTED に拡張、update 時に `rejectionReason: null` を書き込む
 - `CLAUDE.md` — ステータス遷移表に `REJECTED -> SKIP_REPORTED` を追記
 - `src/__tests__/api/quests/skip.test.ts` — REJECTED→SKIP_REPORTED 経路と rejectionReason クリアの担保
+
+## 2026-08-06: LP に「WHY IT WORKS」セクション（行動心理学に基づく設計解説）を追加
+
+### 決定内容
+- LP (`/`) に新セクション `#psychology` を追加し、既存の 5 つの実装済み機能を「行動心理学のどの原理で効いているか」で束ねて訴求する
+- 訴求パターンは「日常語の見出し＋平易な本文＋控えめな理論名脚注」の三層構造。専門用語（オペラント条件付け／Fogg 行動モデル／What-the-hell effect 等）は本文に露出させず、脚注 `<small>` の「設計の根拠：{機能名} — {理論名}」だけに含める
+- 対象機能: ①宝箱の天井付き変動強化 ②チェックイン（着手ハードルの最小化）③翌0時の自動承認 ④今日やる宣言ボーナス ⑤親によるスキップ承認
+- LP 内順序は `HabitSection`（習慣化の設計思想）の直後、`BeforeAfterSection` の直前
+
+### 理由
+- 「なぜこのアプリで習慣化が続くのか」を親（決裁者）に説明する説得力を増すため。既存の Habit / Treasure / Feature セクションは「何ができるか」の説明が中心で、「なぜ効くのか」の理論的裏付けを提示できていなかった
+- 学術用語をそのまま並べると教科書調で親が引くため、見出しは日常語に統一し理論名は脚注に落として二層読解を可能にする
+- 「一般家庭にも有効な行動心理学的設計」であることを明示することで、ADHD 訴求と一般家庭訴求の橋渡しにもなる
+
+### 該当箇所
+- `src/lib/lp.ts` — `PsychologyInsight` 型と `PSYCHOLOGY_INSIGHTS` を追加（5項目固定）
+- `src/components/lp/PsychologySection.tsx` — 新規セクションコンポーネント（既存の `adhdGrid` / `adhdPoint` / `adhdIcon` を再利用）
+- `src/app/lp.module.css` — `.psychTheory` を追加（dashed border-top で脚注感を出す小さめの文字）
+- `src/app/page.tsx` — `HabitSection` の後に `PsychologySection` を挿入
+- `src/__tests__/lib/lp.test.ts` — `PSYCHOLOGY_INSIGHTS` の 8 テスト（5項目固定・スキーマ・見出しユニーク・本文に理論名を出さない方針・理論名網羅・機能網羅・宝箱の 10 回言及・自動承認の 0 時/翌日言及）
+
+## 2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加
+
+### 決定内容
+- LP の `MonstersSection`（`#monsters`）で、公開済み（`revealed=true`）モンスターをクリック/タップすると `MonsterImageModal` が開き、画像・名前・ステージ・description が表示される
+- description は `src/lib/monsters.ts` の `MONSTER_TABLE` / `MONSTER_TABLE_LIGHT` に既存の設定文をそのまま引用（LP 用に別コピーは作らない）
+- 未公開（シルエット）モンスターは意図的にクリック不能。ネタバレ防止と「集めたら見られる」体験の一貫性を保つ
+
+### 実装方針
+- 既存の共有コンポーネント `MonsterImageModal` に `description?: string` を optional prop で追加（`ZukanContent` など既存使用箇所は無変更）
+- `MonsterPath` に `onSelect?: (key) => void` と `monsterKey?: string` フィールドを追加、`revealed !== false && monsterKey` の時のみ `role="button"` + `onClick` を付与
+- `MonstersSection` は `useState<SelectedMonster | null>` で選択状態を保持し、`monsterStyle`（dark/light）に応じて参照テーブルを切り替える
+
+### 理由
+- LP でモンスター画像がタップできないと「見た目だけの飾り」に見えるが、description を見せることで各モンスターの世界観・成長イメージが伝わり、「集めたくなる」動機づけになる
+- MONSTER_TABLE の description は既にアプリ側の Zukan で提示されているコピーで、LP でも同じ品質を維持できる
+- 独立の LP モーダルを新設せずに共有コンポーネントを拡張したことで、将来 description 表示を Zukan 側にも展開しやすい
 
 ## 2026-08-06: マネタイズ (FREE/PREMIUM) のスキーマ土台を導入
 
@@ -2261,4 +2296,3 @@
 - 削除: `src/app/api/auth/child-join/route.ts`, `src/app/api/auth/login/route.ts`
 - 削除: `src/__tests__/api/auth/child-join.test.ts`, `src/__tests__/api/auth/child-join-limit.test.ts`, `src/__tests__/api/auth/login.test.ts`
 - 新規: `src/__tests__/api/family/members-limit.test.ts` (0 人 / 1 人 / PREMIUM / where 条件の 4 件)
-
