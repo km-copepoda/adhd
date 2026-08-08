@@ -53,8 +53,10 @@ $reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o
 最後の iteration marker より **後** に投稿された Codex 投稿を分類する。
 
 **A. 承認判定（review 本文 + issue コメントから）**:
-- `reviews.state == "APPROVED"` → LGTM
-- または review 本文 / issue コメント本文が LGTM 系文言（例: `Didn't find any major issues` / `LGTM` / `You're on a roll` / `Approved` / `問題ありません` / `👍` のみ）を含む → LGTM
+- `reviews.state == "APPROVED"` のみ → LGTM（最も信頼できるシグナル）
+- または本文全体をトリムした結果が既知の LGTM メッセージに **完全一致** するもの → LGTM
+  - 完全一致リスト: `Didn't find any major issues. You're on a roll.` / `LGTM` / `LGTM!` / `👍` / `Approved` / `問題ありません`
+  - 部分一致は使わない（`Not Approved: ...` のような否定文が誤マッチするため）
 - 上記のうち承認シグナルが 1 つでもあれば「Codex 承認」
 
 **B. 指摘の収集（issue コメント + インラインコメントから）**:
@@ -87,12 +89,12 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 
 1. **CI の pending 判定を先に行う**:
    - CheckRun で `status != "COMPLETED"` あり（`IN_PROGRESS` / `QUEUED` / `WAITING` / `PENDING` / `REQUESTED` すべて含む）
-   - または StatusContext で `state == "pending"` あり
+   - または StatusContext で `state == "PENDING"` あり（GraphQL enum は大文字）
    - → 「CI 走行中」と報告、**通知せず 120 秒後に ScheduleWakeup**
 
 2. **CI の失敗判定**:
    - CheckRun で `conclusion in {"FAILURE", "CANCELLED", "TIMED_OUT", "STARTUP_FAILURE", "ACTION_REQUIRED"}` あり
-   - または StatusContext で `state in {"failure", "error"}` あり
+   - または StatusContext で `state in {"FAILURE", "ERROR"}` あり（GraphQL enum は大文字）
    - → `PushNotification("PR #<num> Codex approved but CI failed — <title>")`、終了
 
 3. **CI 全成功後、mergeStateStatus と mergeable を確認**:
@@ -108,7 +110,8 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
-  - 衝突なし → `implementer` → `code-reviewer` サブエージェントで修正 → 現ブランチにコミット + push
+  - 衝突なし → **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼び、現ブランチにコミット + push
+    - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
 - **意見・質問系（コード変更不要）**:
   - `gh pr comment <num> --body "..."` で日本語で返信
   - 返信対象の Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
