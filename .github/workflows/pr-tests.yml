@@ -11,6 +11,8 @@ jobs:
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tokyo
     steps:
       - uses: actions/checkout@v4
 
