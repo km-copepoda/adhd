@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 export async function POST(
   request: Request,
@@ -17,6 +19,36 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   if (typeof body.paused !== "boolean") {
     return NextResponse.json({ error: "paused (boolean) は必須です" }, { status: 400 });
+  }
+
+  // 再開 (paused=false) 時のみプラン上限を再確認する。停止は無制限。
+  if (body.paused === false) {
+    const target = await prisma.taskTemplate.findUnique({
+      where: { id, familyId: user.familyId },
+      select: { assignedChildId: true },
+    });
+    if (!target) {
+      return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
+    }
+    if (target.assignedChildId) {
+      const plan = await getFamilyPlan(user.familyId);
+      const activeCount = await prisma.taskTemplate.count({
+        where: { assignedChildId: target.assignedChildId, isActive: true, pausedAt: null },
+      });
+      const limitCheck = checkLimit(plan, "task", activeCount);
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: `無料プランではタスクは${limitCheck.limit}個までです。プレミアムプランで無制限になります。`,
+            code: "PLAN_LIMIT_EXCEEDED",
+            resource: "task",
+            current: limitCheck.current,
+            limit: limitCheck.limit,
+          },
+          { status: 403 },
+        );
+      }
+    }
   }
 
   const task = await prisma.taskTemplate.update({

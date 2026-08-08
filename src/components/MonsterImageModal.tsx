@@ -7,9 +7,10 @@ type Props = {
   monsterName: string;
   stageLabel: string;
   onClose: () => void;
+  description?: string;
 };
 
-export default function MonsterImageModal({ image, monsterName, stageLabel, onClose }: Props) {
+export default function MonsterImageModal({ image, monsterName, stageLabel, onClose, description }: Props) {
   return (
     <div
       data-testid="monster-modal-overlay"
@@ -45,6 +46,15 @@ export default function MonsterImageModal({ image, monsterName, stageLabel, onCl
           <p className="text-white text-xl font-bold">{monsterName}</p>
           <p className="text-white/60 text-sm mt-1">{stageLabel}</p>
         </div>
+
+        {description && (
+          <p
+            data-testid="monster-modal-description"
+            className="max-w-xs text-white/80 text-sm leading-relaxed text-center"
+          >
+            {description}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,15 +1,41 @@
 import { MonsterImg } from "./MonsterImg";
 
-export function ScreensSection({ s }: { s: Record<string, string> }) {
+/** ハイライト（LP上部・HowItWorks 直後）で見せる 3 画面のキー */
+const HIGHLIGHT_KEYS: readonly string[] = [
+  "child-quest",
+  "parent-approve",
+  "evolution-cutscene",
+];
+
+type Variant = "highlight" | "full";
+
+export function ScreensSection({
+  s,
+  variant = "full",
+}: {
+  s: Record<string, string>;
+  variant?: Variant;
+}) {
+  const isHighlight = variant === "highlight";
+  const show = (key: string) =>
+    isHighlight ? HIGHLIGHT_KEYS.includes(key) : !HIGHLIGHT_KEYS.includes(key);
+
+  const sectionId = isHighlight ? "screens" : "screens-full";
+  const heading = isHighlight ? "APP SCREENS" : "MORE SCREENS";
+  const subtitle = isHighlight
+    ? "まずはさわりだけ ── 実際の子・親・進化演出をのぞき見"
+    : "他にもいろいろな画面があります";
+
   return (
-    <section id="screens" className={`${s.section} ${s.screensSection}`}>
+    <section id={sectionId} className={`${s.section} ${s.screensSection}`}>
       <div className={s.container}>
-        <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>APP SCREENS</h2>
-        <p className={`${s.sectionSub} ${s.fadeIn}`}>子ども画面と親画面の2ロール構成</p>
+        <h2 className={`${s.sectionHeading} ${s.fadeIn}`}>{heading}</h2>
+        <p className={`${s.sectionSub} ${s.fadeIn}`}>{subtitle}</p>
         <div className={`${s.divider} ${s.fadeIn}`} />
 
         <div className={s.screensShowcase}>
           {/* 子ども: 今日のクエスト */}
+          {show("child-quest") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>⚔ 子ども — 今日のクエスト</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -74,7 +100,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 親: 承認センター */}
+          {show("parent-approve") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>👨‍👩‍👧 親 — 承認センター</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -143,7 +172,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: 実績バッジ */}
+          {show("child-badges") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>🏅 子ども — 実績バッジ</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -200,7 +232,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: モンスター育成 */}
+          {show("child-monster") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>🐉 子ども — モンスター育成</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -272,7 +307,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: 図鑑 */}
+          {show("child-zukan") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>📖 子ども — 図鑑</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -336,7 +374,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: ひろば掲示板 */}
+          {show("child-hiroba") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>📣 子ども — ひろば掲示板</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -376,7 +417,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 親: タスク管理 */}
+          {show("parent-tasks") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>📋 親 — タスク管理</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -413,7 +457,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: ストリーク履歴 */}
+          {show("child-streak") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>🔥 子ども — ストリーク履歴</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -464,7 +511,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 親: メンバー管理 */}
+          {show("parent-family") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>👨‍👩‍👧‍👦 親 — メンバー管理</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -507,7 +557,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 進化カットイン */}
+          {show("evolution-cutscene") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>🌟 進化カットイン</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -536,7 +589,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: 宝箱 */}
+          {show("child-treasure") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>💎 子ども — 宝箱</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -587,7 +643,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* 子ども: コレクション図鑑 */}
+          {show("child-collection") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>📦 子ども — コレクション図鑑</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -637,7 +696,10 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
             </div>
           </div>
 
+          )}
+
           {/* ログイン画面 */}
+          {show("login") && (
           <div className={`${s.phoneWrap} ${s.fadeIn}`}>
             <div className={s.phoneLabel}>🔐 ログイン画面</div>
             <div className={`${s.phone} ${s.phoneLarge}`}>
@@ -672,6 +734,7 @@ export function ScreensSection({ s }: { s: Record<string, string> }) {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </section>

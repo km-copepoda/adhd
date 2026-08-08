@@ -65,4 +65,21 @@ describe("MonsterImageModal", () => {
     fireEvent.click(img);
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("description が渡されたときに本文が表示される", () => {
+    render(
+      <MonsterImageModal
+        {...defaultProps}
+        description="大きな眼鏡をかけ、常に分厚い本を抱えた小さな浮遊霊。"
+      />,
+    );
+    expect(
+      screen.getByText("大きな眼鏡をかけ、常に分厚い本を抱えた小さな浮遊霊。"),
+    ).toBeTruthy();
+  });
+
+  it("description なしなら本文の DOM は現れない（既存互換）", () => {
+    render(<MonsterImageModal {...defaultProps} />);
+    expect(screen.queryByTestId("monster-modal-description")).toBeNull();
+  });
 });

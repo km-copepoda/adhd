@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { generateChildCode } from "@/lib/categories";
 import { routeLogger } from "@/lib/logger";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/family/members");
@@ -14,6 +16,26 @@ export async function POST(request: Request) {
   const { monsterName, side } = await request.json();
   if (!monsterName || !side) {
     return NextResponse.json({ error: "名前とサイドを入力してください" }, { status: 400 });
+  }
+
+  // FREE プランの子アカウント上限 enforce (仕様: monetization-plan.md §2.1 / §4.4)
+  const plan = await getFamilyPlan(user.familyId);
+  const childCount = await prisma.user.count({
+    where: { familyId: user.familyId, role: "CHILD" },
+  });
+  const limitCheck = checkLimit(plan, "child", childCount);
+  if (!limitCheck.allowed) {
+    rlog.warn("Child add blocked by plan limit", { familyId: user.familyId, childCount });
+    return NextResponse.json(
+      {
+        error: `無料プランでは子アカウントは${limitCheck.limit}人までです。プレミアムプランで無制限になります。`,
+        code: "PLAN_LIMIT_EXCEEDED",
+        resource: "child",
+        current: limitCheck.current,
+        limit: limitCheck.limit,
+      },
+      { status: 403 },
+    );
   }
 
   // Generate unique child code within the family

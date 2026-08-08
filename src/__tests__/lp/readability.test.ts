@@ -6,6 +6,9 @@ import {
   CHEER_FEATURE,
   COLLECTION_FEATURE,
   HIROBA_FEATURES,
+  FAQ_ITEMS,
+  TREASURE_FAQ_ITEMS,
+  FAQ_PRIMARY_COUNT,
 } from "@/lib/lp";
 
 /**
@@ -42,6 +45,72 @@ describe("LP readability — ナビゲーション", () => {
       (l) => !l.includes("#cta"),
     );
     expect(links.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("LP readability — FAQ の 2 段構成", () => {
+  it("FAQ_PRIMARY_COUNT は 4-6 個の範囲", () => {
+    expect(FAQ_PRIMARY_COUNT).toBeGreaterThanOrEqual(4);
+    expect(FAQ_PRIMARY_COUNT).toBeLessThanOrEqual(6);
+  });
+
+  it("FAQ_ITEMS 総数は FAQ_PRIMARY_COUNT より多い（分割の前提）", () => {
+    expect(FAQ_ITEMS.length).toBeGreaterThan(FAQ_PRIMARY_COUNT);
+  });
+
+  it("2次質問プール（残り FAQ + 宝箱 FAQ）が存在する", () => {
+    const secondary = FAQ_ITEMS.length - FAQ_PRIMARY_COUNT + TREASURE_FAQ_ITEMS.length;
+    expect(secondary).toBeGreaterThan(0);
+  });
+
+  it("FaqSection は主要 FAQ と 'その他' 折りたたみの 2 グループに分割する", () => {
+    const src = read("components/lp/FaqSection.tsx");
+    expect(src).toContain("FAQ_PRIMARY_COUNT");
+    expect(src).toMatch(/その他の質問|もっと質問を見る|さらに詳しく/);
+  });
+});
+
+describe("LP readability — Monster クリックでモーダル", () => {
+  it("MonsterPath は monsterKey を受け取り、onSelect でクリックを親に通知する", () => {
+    const src = read("components/lp/MonsterPath.tsx");
+    expect(src).toContain("monsterKey");
+    expect(src).toContain("onSelect");
+    // 何らかの onClick ハンドラでクリックを拾っている
+    expect(src).toMatch(/onClick\s*=/);
+  });
+
+  it("MonsterPath は revealed=false（シルエット）の時はクリック不能にする", () => {
+    const src = read("components/lp/MonsterPath.tsx");
+    // 「revealed」または「monsterKey」の存在を条件に onClick / cursor を分岐している
+    expect(src).toMatch(/revealed\s*(&&|\?)/);
+  });
+
+  it("MonstersSection は MonsterImageModal をインポートしている", () => {
+    const src = read("components/lp/MonstersSection.tsx");
+    expect(src).toMatch(/import\s+MonsterImageModal/);
+  });
+
+  it("MonstersSection は選択状態を useState で管理し、モーダルを条件描画する", () => {
+    const src = read("components/lp/MonstersSection.tsx");
+    expect(src).toMatch(/useState.*selected|selectedMonster/i);
+    expect(src).toContain("MonsterImageModal");
+    // description を渡している
+    expect(src).toMatch(/description=/);
+  });
+});
+
+describe("LP readability — ScreensSection の配置", () => {
+  it("ScreensSection は HowItWorksSection の直後に配置する（アプリ画面の早期訴求）", () => {
+    const page = read("app/page.tsx");
+    const idxHow = page.indexOf("<HowItWorksSection");
+    const idxScreens = page.indexOf("<ScreensSection");
+    const idxFeatures = page.indexOf("<FeaturesSection");
+    expect(idxHow).toBeGreaterThan(0);
+    expect(idxScreens).toBeGreaterThan(0);
+    expect(idxFeatures).toBeGreaterThan(0);
+    // 順序: HowItWorks → Screens → Features
+    expect(idxScreens).toBeGreaterThan(idxHow);
+    expect(idxScreens).toBeLessThan(idxFeatures);
   });
 });
 

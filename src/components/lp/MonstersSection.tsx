@@ -1,12 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import MonsterImageModal from "@/components/MonsterImageModal";
+import { MONSTER_TABLE, MONSTER_TABLE_LIGHT } from "@/lib/monsters";
 import { MonsterPath } from "./MonsterPath";
 
 type MonsterStyle = "dark" | "light";
 
+type SelectedMonster = { monsterKey: string; style: MonsterStyle };
+
+function stageLabelFor(key: string): string {
+  const parts = key.split("_");
+  const stage = parts.length;
+  const base = { STUDY: "学力系", STAMINA: "体力系", LIFE: "生活系" }[parts[0]] ?? "";
+  return `Stage ${stage} · ${base}`;
+}
+
 export function MonstersSection({ s }: { s: Record<string, string> }) {
   const [monsterStyle, setMonsterStyle] = useState<MonsterStyle>("dark");
+  const [selected, setSelected] = useState<SelectedMonster | null>(null);
+
+  const openModal = (monsterKey: string) => {
+    setSelected({ monsterKey, style: monsterStyle });
+  };
+
+  const selectedEntry = selected
+    ? (selected.style === "dark" ? MONSTER_TABLE : MONSTER_TABLE_LIGHT)[selected.monsterKey]
+    : null;
 
   return (
     <section id="monsters" className={`${s.section} ${s.monsterSection}`}>
@@ -42,9 +62,10 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <MonsterPath
               label={{ text: "📚 学力系", colorClass: s.pathLabelStudy }}
               s={s}
-              stage1={{ src: "/monsters/dark/STUDY_ラーン.webp", name: "ラーン", fallback: "📚" }}
+              onSelect={openModal}
+              stage1={{ src: "/monsters/dark/STUDY_ラーン.webp", name: "ラーン", fallback: "📚", monsterKey: "STUDY" }}
               stage2={[
-                { src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", name: "ライブラ", fallback: "📚", revealed: true },
+                { src: "/monsters/dark/STUDY_STUDY_ライブラ.webp", name: "ライブラ", fallback: "📚", revealed: true, monsterKey: "STUDY_STUDY" },
                 { src: "/monsters/dark/STUDY_STAMINA_アーマード.webp", name: "？？？", fallback: "⚔️", revealed: false },
                 { src: "/monsters/dark/STUDY_LIFE_クリン.webp", name: "？？？", fallback: "✨", revealed: false },
               ]}
@@ -58,9 +79,10 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <MonsterPath
               label={{ text: "💪 体力系", colorClass: s.pathLabelStamina }}
               s={s}
-              stage1={{ src: "/monsters/dark/STAMINA_ストーン.webp", name: "ストーン", fallback: "💪" }}
+              onSelect={openModal}
+              stage1={{ src: "/monsters/dark/STAMINA_ストーン.webp", name: "ストーン", fallback: "💪", monsterKey: "STAMINA" }}
               stage2={[
-                { src: "/monsters/dark/STAMINA_STAMINA_ブロック.webp", name: "ブロック", fallback: "🪨", revealed: true },
+                { src: "/monsters/dark/STAMINA_STAMINA_ブロック.webp", name: "ブロック", fallback: "🪨", revealed: true, monsterKey: "STAMINA_STAMINA" },
                 { src: "/monsters/dark/STAMINA_STUDY_グラビド.webp", name: "？？？", fallback: "🌀", revealed: false },
                 { src: "/monsters/dark/STAMINA_LIFE_わっしょい.webp", name: "？？？", fallback: "🎉", revealed: false },
               ]}
@@ -74,9 +96,10 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <MonsterPath
               label={{ text: "🌿 生活力系", colorClass: s.pathLabelLife }}
               s={s}
-              stage1={{ src: "/monsters/dark/LIFE_ヘルプ.webp", name: "ヘルプ", fallback: "🌿" }}
+              onSelect={openModal}
+              stage1={{ src: "/monsters/dark/LIFE_ヘルプ.webp", name: "ヘルプ", fallback: "🌿", monsterKey: "LIFE" }}
               stage2={[
-                { src: "/monsters/dark/LIFE_LIFE_マザー.webp", name: "マザー", fallback: "🌿", revealed: true },
+                { src: "/monsters/dark/LIFE_LIFE_マザー.webp", name: "マザー", fallback: "🌿", revealed: true, monsterKey: "LIFE_LIFE" },
                 { src: "/monsters/dark/LIFE_STUDY_チックタック.webp", name: "？？？", fallback: "⏰", revealed: false },
                 { src: "/monsters/dark/LIFE_STAMINA_キャリア.webp", name: "？？？", fallback: "📦", revealed: false },
               ]}
@@ -96,9 +119,10 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <MonsterPath
               label={{ text: "📚 学力系", colorClass: s.pathLabelStudy }}
               s={s}
-              stage1={{ src: "/monsters/light/STUDY_ルミナ.webp", name: "ルミナ", fallback: "📚" }}
+              onSelect={openModal}
+              stage1={{ src: "/monsters/light/STUDY_ルミナ.webp", name: "ルミナ", fallback: "📚", monsterKey: "STUDY" }}
               stage2={[
-                { src: "/monsters/light/STUDY_STUDY_インテリキャット.webp", name: "インテリキャット", fallback: "🐱", revealed: true },
+                { src: "/monsters/light/STUDY_STUDY_インテリキャット.webp", name: "インテリキャット", fallback: "🐱", revealed: true, monsterKey: "STUDY_STUDY" },
                 { src: "/monsters/light/STUDY_STAMINA_クリスタルバード.webp", name: "？？？", fallback: "🐦", revealed: false },
                 { src: "/monsters/light/STUDY_LIFE_インクペンギン.webp", name: "？？？", fallback: "🐧", revealed: false },
               ]}
@@ -112,9 +136,10 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <MonsterPath
               label={{ text: "💪 体力系", colorClass: s.pathLabelStamina }}
               s={s}
-              stage1={{ src: "/monsters/light/STAMINA_アクティ.webp", name: "アクティ", fallback: "💪" }}
+              onSelect={openModal}
+              stage1={{ src: "/monsters/light/STAMINA_アクティ.webp", name: "アクティ", fallback: "💪", monsterKey: "STAMINA" }}
               stage2={[
-                { src: "/monsters/light/STAMINA_STAMINA_ブレイブレオ.webp", name: "ブレイブレオ", fallback: "🦁", revealed: true },
+                { src: "/monsters/light/STAMINA_STAMINA_ブレイブレオ.webp", name: "ブレイブレオ", fallback: "🦁", revealed: true, monsterKey: "STAMINA_STAMINA" },
                 { src: "/monsters/light/STAMINA_STUDY_スカウトフォックス.webp", name: "？？？", fallback: "🦊", revealed: false },
                 { src: "/monsters/light/STAMINA_LIFE_レスキューパピー.webp", name: "？？？", fallback: "🐶", revealed: false },
               ]}
@@ -128,9 +153,10 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <MonsterPath
               label={{ text: "🌿 生活力系", colorClass: s.pathLabelLife }}
               s={s}
-              stage1={{ src: "/monsters/light/LIFE_メルル.webp", name: "メルル", fallback: "🌿" }}
+              onSelect={openModal}
+              stage1={{ src: "/monsters/light/LIFE_メルル.webp", name: "メルル", fallback: "🌿", monsterKey: "LIFE" }}
               stage2={[
-                { src: "/monsters/light/LIFE_LIFE_コットンラム.webp", name: "コットンラム", fallback: "🐑", revealed: true },
+                { src: "/monsters/light/LIFE_LIFE_コットンラム.webp", name: "コットンラム", fallback: "🐑", revealed: true, monsterKey: "LIFE_LIFE" },
                 { src: "/monsters/light/LIFE_STUDY_ミントアライグマ.webp", name: "？？？", fallback: "🦝", revealed: false },
                 { src: "/monsters/light/LIFE_STAMINA_ポポパンダ.webp", name: "？？？", fallback: "🐼", revealed: false },
               ]}
@@ -148,7 +174,20 @@ export function MonstersSection({ s }: { s: Record<string, string> }) {
             <span>🥚</span>
             <span>たまご + stage1 <strong>3</strong> + stage2 <strong>9</strong> + stage3 <strong>27</strong> = <strong>40</strong>系統 × 2スタイル</span>
           </div>
+          <p style={{ fontSize: 11, color: "var(--dim)", marginTop: 12 }}>
+            ※ 見えているモンスターをタップすると詳細が見られます
+          </p>
         </div>
+
+        {selected && selectedEntry && (
+          <MonsterImageModal
+            image={selectedEntry.image}
+            monsterName={selectedEntry.name}
+            stageLabel={stageLabelFor(selected.monsterKey)}
+            description={selectedEntry.description}
+            onClose={() => setSelected(null)}
+          />
+        )}
       </div>
     </section>
   );
