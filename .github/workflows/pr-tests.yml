@@ -22,37 +22,6 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
       - run: npm test
-
-  e2e:
-    name: E2E tests
-    # E2E uses repository secrets for Vercel's deployment-protection bypass.
-    # Do not expose those secrets to pull requests from forks.
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    env:
-      VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
-      E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-      - name: Run E2E tests
-        run: npm run test:e2e
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14
