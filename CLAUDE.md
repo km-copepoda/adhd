@@ -281,3 +281,7 @@ const parent = await requireUser("PARENT");
 ### 大きな仕様変更を含む場合
 
 `code-reviewer` を通した後、`pr-submitter` に進む前に `docs/decisions.md` に決定理由を1エントリ追記する。追記フォーマットは同ファイルの既存エントリに準拠。
+
+### Codex レビューの自動反復
+
+`pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 3 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。
