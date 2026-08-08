@@ -89,7 +89,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 
 1. **CI の pending 判定を先に行う**:
    - CheckRun で `status != "COMPLETED"` あり（`IN_PROGRESS` / `QUEUED` / `WAITING` / `PENDING` / `REQUESTED` すべて含む）
-   - または StatusContext で `state == "PENDING"` あり（GraphQL enum は大文字）
+   - または StatusContext で `state in {"PENDING", "EXPECTED"}` あり（GraphQL enum は大文字。`EXPECTED` は必須 check がまだ報告前の状態）
    - → 「CI 走行中」と報告、**通知せず 120 秒後に ScheduleWakeup**
 
 2. **CI の失敗判定**:
@@ -112,6 +112,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
   - 衝突なし → **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼び、現ブランチにコミット + push
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
+  - **コード修正後もその Codex コメントに PR 作者アカウントで 👍 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 - **意見・質問系（コード変更不要）**:
   - `gh pr comment <num> --body "..."` で日本語で返信
   - 返信対象の Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
