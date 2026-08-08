@@ -32,6 +32,7 @@ $prJson = & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state
 if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
 $pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
+$iterationRequest = "@codex review Please review in Japanese."
 ```
 - **`$LASTEXITCODE != 0`（一時障害）** → 「PR 取得失敗のため再取得予約」と報告し、**300 秒後に ScheduleWakeup**（分類・通知に進まない）
 - `state != "OPEN"` → 「PR 無し / MERGED / CLOSED のため終了」と報告し、**ScheduleWakeup を呼ばない**
@@ -46,7 +47,7 @@ $reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o
 if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCODE)" }
 ```
 - **いずれかの取得で `$LASTEXITCODE != 0`** → 「取得失敗のためこの反復をスキップ」と報告し、**300 秒後に ScheduleWakeup で再取得**（分類・通知に進まない）
-- **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body` に `@codex review` を含むもの
+- **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body.Trim() -eq $iterationRequest` のもの。説明文中に `@codex review` を含む返信は marker にしない
 - **Codex 投稿の分類**:
   - Issue コメント (Codex): `issueComments` から `user.login == "chatgpt-codex-connector[bot]"`（処理済み判定あり）
   - Review 本文: `reviews` から `user.login == "chatgpt-codex-connector[bot]"`（承認判定のみ）
