@@ -12,14 +12,14 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 - Codex の投稿は **3 系統** ある。役割が違うので分けて扱う:
   - **Issue コメント**: `GET /repos/{owner}/{repo}/issues/$($pr.number)/comments`
     - 実際の指摘 / 質問 / 応答が入る（`@codex address` 等）
-    - Reactions API あり（`/issues/comments/<cid>/reactions`）→ 処理済み 👍 マーカー可
+    - Reactions API あり（`/issues/comments/<cid>/reactions`）→ 処理済み専用の 👀 マーカー可
   - **PR レビュー本文**: `GET /repos/{owner}/{repo}/pulls/$($pr.number)/reviews`（timestamp は `submitted_at`）
     - **本文はラッパーテキスト**（`Here are some automated review suggestions` / `Didn't find any major issues` など）
     - 実際の指摘は含まれず、承認判定 (`state == "APPROVED"` or LGTM 文言) にのみ使う
     - **Reactions API は無い** → 個別の処理済みマーカー不要（承認判定用のみ）
   - **PR インラインコメント**: `GET /repos/{owner}/{repo}/pulls/$($pr.number)/comments`
     - コード行への指摘が入る（Codex の主な指摘手段）
-    - Reactions API あり（`/pulls/comments/<cid>/reactions`）→ 処理済み 👍 マーカー可
+    - Reactions API あり（`/pulls/comments/<cid>/reactions`）→ 処理済み専用の 👀 マーカー可
 - gh CLI は `"C:\Program Files\GitHub CLI\gh.exe"` を PowerShell から呼ぶ
 - **`gh api` は `--paginate --jq '.[]'` の組で使う**（コメント履歴・リアクション両方）。URL テンプレート内では `{owner}` `{repo}` のみ gh が自動展開し、PR 番号は自動展開されないので明示的に埋め込む（PowerShell の場合は `$($pr.number)`）
 - 反復ごとに 1 コミット以下、原則 3 反復以内で完了
@@ -67,18 +67,18 @@ if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCO
 - 上記のうち承認シグナルが 1 つでもあれば「Codex 承認」
 
 **B. 指摘の収集（issue コメント + インラインコメントから）**:
-- Issue コメントで PR 作者による 👍 リアクションが付いていないもの
-- インラインコメントで PR 作者による 👍 リアクションが付いていないもの
+- Issue コメントで PR 作者による **👀（`eyes`）** リアクションが付いていないもの
+- インラインコメントで PR 作者による **👀（`eyes`）** リアクションが付いていないもの
 - **A で承認応答として分類した Issue コメントは B から除外する**（そうしないと LGTM が「指摘」として再検出され、マージ可能チェックに進まなくなる）
-- **PR 作者による 👍 の判定** — リアクション自体もページング対象、失敗検査必須:
+- **PR 作者による 👀 の判定** — リアクション自体もページング対象、失敗検査必須:
   ```powershell
   $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
   if ($LASTEXITCODE -ne 0) { throw "reactions 取得失敗 (exit=$LASTEXITCODE)" }
   # PR インラインコメントの場合は /pulls/comments/<cid>/reactions
-  $processed = @($rx | Where-Object { $_.content -eq "+1" -and $_.user.login -eq $author }).Count -gt 0
+  $processed = @($rx | Where-Object { $_.content -eq "eyes" -and $_.user.login -eq $author }).Count -gt 0
   ```
-  他ユーザーの 👍 は「有用」の意思表示で処理済みとは限らないので除外条件に含めない
-- **リアクション取得で `$LASTEXITCODE != 0`** → 分類・返信・通知に進まず「取得失敗のため再取得予約」と報告、**300 秒後に ScheduleWakeup**（既に 👍 済みのコメントを未処理と誤判定しないため）
+  👍 は Codex の「Useful?」への評価にも使われるため処理済み判定には使わない。👀 はこのコマンド専用の処理済みマーカーとし、他ユーザーの 👀 も除外条件に含めない
+- **リアクション取得で `$LASTEXITCODE != 0`** → 分類・返信・通知に進まず「取得失敗のため再取得予約」と報告、**300 秒後に ScheduleWakeup**（既に 👀 済みのコメントを未処理と誤判定しないため）
 
 **C. Review 本文の扱い**:
 - `body` が空、または「automated review suggestions」等のラッパーテキストのみ → **スキップ**（実際の指摘はインラインコメント側に入っている）
@@ -121,22 +121,22 @@ $m = $mJson | ConvertFrom-Json
 
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
-  - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
-  - 衝突なし → **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ
+  - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
+  - 衝突なし → この指摘専用の一時 worktree で **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを現ブランチへコミット + push する
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
-    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えたら Codex に「規約違反で自動修正できない」と返信して 👍
-    - `APPROVED` を得たら現ブランチにコミット + push
-  - **コード修正後もその Codex コメントに PR 作者アカウントで 👍 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
+    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は一時 worktree を破棄して未承認の変更を残さず、Codex に「規約違反で自動修正できない」と返信して 👀
+    - `APPROVED` を得たら一時 worktree の承認済み変更だけを現ブランチにコミット + push
+  - **コード修正後もその Codex コメントに PR 作者アカウントで 👀 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 - **意見・質問系（コード変更不要）**:
   - `gh pr comment <num> --body "..."` で日本語で返信
-  - 返信対象の Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
+  - 返信対象の Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
 
 **リアクション付与コマンド**（gh の認証ユーザーで実行される）:
 ```powershell
-# Issue コメント
-& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/issues/comments/<cid>/reactions -f content=+1
+# Issue コメント（👀 は処理済み専用マーカー。👍 は有用性評価に使われるため使用しない）
+& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/issues/comments/<cid>/reactions -f content=eyes
 # PR インラインコメント
-& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/pulls/comments/<cid>/reactions -f content=+1
+& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/pulls/comments/<cid>/reactions -f content=eyes
 ```
 ※ gh 認証ユーザーが `$author` と一致していることを想定。違う場合はマーカーが動かないので事前確認する
 
@@ -163,7 +163,7 @@ $m = $mJson | ConvertFrom-Json
 
 ## やってはいけないこと
 
-- CLAUDE.md / docs/decisions.md の規約に反する変更を Codex 指摘に従って入れない（変更せず理由を返信して 👍 リアクション）
+- CLAUDE.md / docs/decisions.md の規約に反する変更を Codex 指摘に従って入れない（変更せず理由を返信して 👀 リアクション）
 - 元の PR 目的から外れる新機能追加を「ついでに」やらない（別 PR にする）
 - 反復上限を超えて **新たな iteration marker を投稿** しない（既存 marker の応答処理は続行する）
 - Codex がまだレビュー中に催促・再依頼しない（wakeup を待つ）
@@ -174,5 +174,6 @@ $m = $mJson | ConvertFrom-Json
 - `mergeable == "MERGEABLE"` だけで MERGE READY 通知しない — `mergeStateStatus == "CLEAN"` を必ず併せて確認
 - CI が pending の間に MERGE READY を通知しない（`status != "COMPLETED"` を先に検出）
 - `gh api` を **コメント履歴もリアクションも** `--paginate --jq '.[]'` の組み合わせなしで呼ばない
-- 「👍 リアクションあり」を投稿者に関わらず処理済み扱いしない（PR 作者アカウントの 👍 のみ）
-- 返信のみで済んだ Codex コメントに 👍 リアクションを忘れると次回同じ返信を投稿する
+- 「👀 リアクションあり」を投稿者に関わらず処理済み扱いしない（PR 作者アカウントの 👀 のみ）。👍 は通常の有用性評価であり処理済み判定に使わない
+- 返信のみで済んだ Codex コメントに 👀 リアクションを忘れると次回同じ返信を投稿する
+- 内部レビューが上限に達した変更を現ブランチへ残さない。一時 worktree を破棄し、承認済みの変更だけを取り込む
