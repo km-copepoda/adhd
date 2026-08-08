@@ -33,9 +33,12 @@ if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
 $pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
 $iterationRequest = "@codex review Please review in Japanese."
+$viewer = & "C:\Program Files\GitHub CLI\gh.exe" api user --jq .login
+if ($LASTEXITCODE -ne 0) { throw "gh 認証ユーザー取得失敗 (exit=$LASTEXITCODE)" }
 ```
 - **`$LASTEXITCODE != 0`（一時障害）** → 「PR 取得失敗のため再取得予約」と報告し、**300 秒後に ScheduleWakeup**（分類・通知に進まない）
 - `state != "OPEN"` → 「PR 無し / MERGED / CLOSED のため終了」と報告し、**ScheduleWakeup を呼ばない**
+- `$viewer -ne $author` → 「gh 認証ユーザーが PR 作者と異なるため終了」と報告し、**ScheduleWakeup を呼ばない**。リアクションと iteration marker は PR 作者アカウントで投稿・判定するため、共同作業者の認証では実行しない
 
 ### 2. コメント履歴取得（3 系統、全ページ、行単位ストリーム）
 ```powershell
@@ -139,7 +142,7 @@ $m = $mJson | ConvertFrom-Json
 # PR インラインコメント
 & "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/pulls/comments/<cid>/reactions -f content=eyes
 ```
-※ gh 認証ユーザーが `$author` と一致していることを想定。違う場合はマーカーが動かないので事前確認する
+※ 開始時に gh 認証ユーザーが `$author` と一致することを必ず検証する。不一致ならこのコマンドは終了する
 
 ### 6. 反復上限チェック & 再レビュー依頼
 - **実コード修正が入った場合**:
