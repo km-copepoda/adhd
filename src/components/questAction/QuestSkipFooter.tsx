@@ -1,5 +1,7 @@
 "use client";
 
+import { SKIP_REASON_TEMPLATES } from "@/lib/skipReasonTemplates";
+
 type Props = {
   showSkip: boolean;
   skipReason: string;
@@ -35,14 +37,35 @@ export default function QuestSkipFooter({
         </button>
       ) : (
         <div className="space-y-2">
-          <p className="text-xs text-quest-dim text-center">スキップする理由を入力してね</p>
+          <p className="text-xs text-quest-dim text-center">スキップする理由をえらんでね</p>
+          <div className="flex flex-wrap gap-1.5">
+            {SKIP_REASON_TEMPLATES.map((t) => {
+              const selected = skipReason === t.label;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onSkipReasonChange(t.label)}
+                  disabled={isSubmitting}
+                  aria-pressed={selected}
+                  className={`px-3 py-2 rounded-full border text-xs transition-colors disabled:opacity-40 ${
+                    selected
+                      ? "border-red-400/60 bg-red-400/15 text-red-300"
+                      : "border-quest-border text-quest-dim hover:border-red-400/40 hover:text-red-400"
+                  }`}
+                >
+                  <span className="mr-1">{t.emoji}</span>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
           <input
             type="text"
             value={skipReason}
             onChange={(e) => onSkipReasonChange(e.target.value)}
             placeholder="理由を入力（必須）"
             className="w-full bg-quest-bg border border-red-400/30 rounded-xl px-3 py-2.5 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-red-400/50"
-            autoFocus
           />
           <div className="flex gap-2">
             <button
