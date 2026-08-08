@@ -34,8 +34,21 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 - 最後の iteration marker より **後** に投稿された Codex コメントを取得
 - **無い場合** → 「Codex 未レビュー」と報告、**約 300 秒後に ScheduleWakeup**（キャッシュ効率のため 270 秒推奨）
 - **ある場合**、内容を判定:
-  - LGTM 系（例: `Didn't find any major issues` / `LGTM` / `You're on a roll` / `問題ありません` / `特に指摘` / `Approved`）のみ → 「Codex 承認」と報告、**ScheduleWakeup を呼ばない**
+  - LGTM 系（例: `Didn't find any major issues` / `LGTM` / `You're on a roll` / `問題ありません` / `特に指摘` / `Approved`）のみ → **ステップ 4.5**（マージ可能チェック）へ
   - 具体的な指摘あり → ステップ 5 へ
+
+### 4.5. マージ可能チェック & 通知
+Codex が承認したら、追加で以下を確認して結果に応じて通知する:
+
+```powershell
+& "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,mergeStateStatus,statusCheckRollup
+```
+
+- `mergeable == "MERGEABLE"` かつ `statusCheckRollup` に `conclusion=="FAILURE"` が無い → **マージ可能**
+  - `PushNotification(message: "PR #<num> merge ready: Codex approved, CI green — <PR title>", status: "proactive")` を **必ず呼ぶ**
+  - 「MERGE READY」と報告し、**ScheduleWakeup を呼ばない**
+- `mergeable != "MERGEABLE"`（コンフリクト等）→ `PushNotification(message: "PR #<num> Codex approved but merge conflict — needs manual resolve")` を呼び、「マージコンフリクト」と報告して **ScheduleWakeup を呼ばない**
+- CI がまだ走行中（`status=="IN_PROGRESS"` / `"QUEUED"`）→ 通知せず、**約 120 秒後に ScheduleWakeup**（短めに、CI 完了を待つため）
 
 ### 5. 指摘への対応
 各指摘を分類して処理:
