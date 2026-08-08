@@ -42,11 +42,11 @@ if ($LASTEXITCODE -ne 0) { throw "gh 認証ユーザー取得失敗 (exit=$LASTE
 
 ### 2. コメント履歴取得（3 系統、全ページ、行単位ストリーム）
 ```powershell
-$issueComments  = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/$($pr.number)/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+$issueComments  = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate "repos/{owner}/{repo}/issues/$($pr.number)/comments"  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
 if ($LASTEXITCODE -ne 0) { throw "issue comments 取得失敗 (exit=$LASTEXITCODE)" }
-$reviews        = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/pulls/$($pr.number)/reviews   --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+$reviews        = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate "repos/{owner}/{repo}/pulls/$($pr.number)/reviews"   --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
 if ($LASTEXITCODE -ne 0) { throw "reviews 取得失敗 (exit=$LASTEXITCODE)" }
-$reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/pulls/$($pr.number)/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+$reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate "repos/{owner}/{repo}/pulls/$($pr.number)/comments"  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
 if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCODE)" }
 ```
 - **いずれかの取得で `$LASTEXITCODE != 0`** → 「取得失敗のためこの反復をスキップ」と報告し、**300 秒後に ScheduleWakeup で再取得**（分類・通知に進まない）
@@ -76,7 +76,7 @@ if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCO
 - **A で承認応答として分類した Issue コメントは B から除外する**（そうしないと LGTM が「指摘」として再検出され、マージ可能チェックに進まなくなる）
 - **PR 作者による 👀 の判定** — リアクション自体もページング対象、失敗検査必須:
   ```powershell
-  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate "repos/{owner}/{repo}/issues/comments/<cid>/reactions" --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
   if ($LASTEXITCODE -ne 0) { throw "reactions 取得失敗 (exit=$LASTEXITCODE)" }
   # PR インラインコメントの場合は /pulls/comments/<cid>/reactions
   $processed = @($rx | Where-Object { $_.content -eq "eyes" -and $_.user.login -eq $author }).Count -gt 0
@@ -138,9 +138,9 @@ $m = $mJson | ConvertFrom-Json
 **リアクション付与コマンド**（gh の認証ユーザーで実行される）:
 ```powershell
 # Issue コメント（👀 は処理済み専用マーカー。👍 は有用性評価に使われるため使用しない）
-& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/issues/comments/<cid>/reactions -f content=eyes
+& "C:\Program Files\GitHub CLI\gh.exe" api -X POST "repos/{owner}/{repo}/issues/comments/<cid>/reactions" -f content=eyes
 # PR インラインコメント
-& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/pulls/comments/<cid>/reactions -f content=eyes
+& "C:\Program Files\GitHub CLI\gh.exe" api -X POST "repos/{owner}/{repo}/pulls/comments/<cid>/reactions" -f content=eyes
 ```
 ※ 開始時に gh 認証ユーザーが `$author` と一致することを必ず検証する。不一致ならこのコマンドは終了する
 
