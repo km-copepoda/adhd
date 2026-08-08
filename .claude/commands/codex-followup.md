@@ -36,9 +36,13 @@ $author = $pr.author.login
 ### 2. コメント履歴取得（3 系統、全ページ、行単位ストリーム）
 ```powershell
 $issueComments  = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/$($pr.number)/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+if ($LASTEXITCODE -ne 0) { throw "issue comments 取得失敗 (exit=$LASTEXITCODE)" }
 $reviews        = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/pulls/$($pr.number)/reviews   --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+if ($LASTEXITCODE -ne 0) { throw "reviews 取得失敗 (exit=$LASTEXITCODE)" }
 $reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/pulls/$($pr.number)/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCODE)" }
 ```
+- **いずれかの取得で `$LASTEXITCODE != 0`** → 「取得失敗のためこの反復をスキップ」と報告し、**300 秒後に ScheduleWakeup で再取得**（分類・通知に進まない）
 - **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body` に `@codex review` を含むもの
 - **Codex 投稿の分類**:
   - Issue コメント (Codex): `issueComments` から `user.login == "chatgpt-codex-connector[bot]"`（処理済み判定あり）
@@ -110,8 +114,10 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👍 リアクション追加
-  - 衝突なし → **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼び、現ブランチにコミット + push
+  - 衝突なし → **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
+    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えたら Codex に「規約違反で自動修正できない」と返信して 👍
+    - `APPROVED` を得たら現ブランチにコミット + push
   - **コード修正後もその Codex コメントに PR 作者アカウントで 👍 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 - **意見・質問系（コード変更不要）**:
   - `gh pr comment <num> --body "..."` で日本語で返信
