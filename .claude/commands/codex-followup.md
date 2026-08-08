@@ -9,12 +9,19 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 ## 前提
 
 - Codex はユーザー名 `chatgpt-codex-connector[bot]` で GitHub に投稿する
-- Codex の投稿は **3 系統** ある。全て取得して時系列統合すること:
+- Codex の投稿は **3 系統** ある。役割が違うので分けて扱う:
   - **Issue コメント**: `GET /repos/{o}/{r}/issues/{n}/comments`
+    - 実際の指摘 / 質問 / 応答が入る（`@codex address` 等）
+    - Reactions API あり（`/issues/comments/<cid>/reactions`）→ 処理済み 👍 マーカー可
   - **PR レビュー本文**: `GET /repos/{o}/{r}/pulls/{n}/reviews`（timestamp は `submitted_at`）
+    - **本文はラッパーテキスト**（`Here are some automated review suggestions` / `Didn't find any major issues` など）
+    - 実際の指摘は含まれず、承認判定 (`state == "APPROVED"` or LGTM 文言) にのみ使う
+    - **Reactions API は無い** → 個別の処理済みマーカー不要（承認判定用のみ）
   - **PR インラインコメント**: `GET /repos/{o}/{r}/pulls/{n}/comments`
+    - コード行への指摘が入る（Codex の主な指摘手段）
+    - Reactions API あり（`/pulls/comments/<cid>/reactions`）→ 処理済み 👍 マーカー可
 - gh CLI は `"C:\Program Files\GitHub CLI\gh.exe"` を PowerShell から呼ぶ
-- **`gh api` は `--paginate --jq '.[]'` の組で使う**（`--paginate` 単体だと複数ページが別 JSON として連結されて ConvertFrom-Json がパース失敗するため、`--jq '.[]'` で行単位ストリームに変換）
+- **`gh api` は `--paginate --jq '.[]'` の組で使う**（コメント履歴・リアクション両方）
 - 反復ごとに 1 コミット以下、原則 3 反復以内で完了
 
 ## 手順
@@ -33,27 +40,42 @@ $reviews        = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o
 $reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o}/{r}/pulls/{n}/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
 ```
 - **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body` に `@codex review` を含むもの
-- **Codex 投稿**: 3 系統から `user.login == "chatgpt-codex-connector[bot]"` を集めて `created_at` / `submitted_at` で時系列統合
+- **Codex 投稿の分類**:
+  - Issue コメント (Codex): `issueComments` から `user.login == "chatgpt-codex-connector[bot]"`（処理済み判定あり）
+  - Review 本文: `reviews` から `user.login == "chatgpt-codex-connector[bot]"`（承認判定のみ）
+  - インラインコメント: `reviewComments` から `user.login == "chatgpt-codex-connector[bot]"`（処理済み判定あり）
 
 ### 3. iteration marker 有無チェック
 - marker が 0 個 → 「@codex review 未依頼のため終了」と報告し、**ScheduleWakeup を呼ばない**
 - marker >= 1 → **ステップ 4** で最新依頼への応答を必ず処理する（反復上限はここでは適用しない）
 
 ### 4. Codex 最新レスポンス判定
-- 最後の iteration marker より **後** に投稿された Codex 投稿を全て収集
-- 各投稿について **「PR 作者が付けた 👍 リアクション」** の有無をチェックし、有なら「処理済み」として除外:
+最後の iteration marker より **後** に投稿された Codex 投稿を分類する。
+
+**A. 承認判定（review 本文 + issue コメントから）**:
+- `reviews.state == "APPROVED"` → LGTM
+- または review 本文 / issue コメント本文が LGTM 系文言（例: `Didn't find any major issues` / `LGTM` / `You're on a roll` / `Approved` / `問題ありません` / `👍` のみ）を含む → LGTM
+- 上記のうち承認シグナルが 1 つでもあれば「Codex 承認」
+
+**B. 指摘の収集（issue コメント + インラインコメントから）**:
+- Issue コメントで PR 作者による 👍 リアクションが付いていないもの
+- インラインコメントで PR 作者による 👍 リアクションが付いていないもの
+- **PR 作者による 👍 の判定** — リアクション自体もページング対象:
   ```powershell
-  # Issue コメントの reactions
-  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api repos/{o}/{r}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
-  # PR インラインコメントの reactions
-  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api repos/{o}/{r}/pulls/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o}/{r}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+  # PR インラインコメントの場合は /pulls/comments/<cid>/reactions
   $processed = @($rx | Where-Object { $_.content -eq "+1" -and $_.user.login -eq $author }).Count -gt 0
   ```
-  （他ユーザーの 👍 は「有用」の意思表示で処理済みとは限らないので除外条件に含めない）
-- **未処理が 0 件** → 「Codex 未レビュー / レビュー中」と報告、**300 秒後に ScheduleWakeup**
-- **未処理あり** → 内容判定:
-  - 全てが LGTM 系（例: `Didn't find any major issues` / `LGTM` / `You're on a roll` / `Approved` / `問題ありません`）のみ → **ステップ 4.5**（マージ可能チェック）
-  - 具体的な指摘あり → **ステップ 5**
+  他ユーザーの 👍 は「有用」の意思表示で処理済みとは限らないので除外条件に含めない
+
+**C. Review 本文の扱い**:
+- `body` が空、または「automated review suggestions」等のラッパーテキストのみ → **スキップ**（実際の指摘はインラインコメント側に入っている）
+- Reactions API が無いので個別に処理済みマーカーは付けない（承認判定用途のみ）
+
+**判定結果ごとの遷移**:
+- 未処理指摘（B）が 0 件 かつ 承認シグナル（A）あり → **ステップ 4.5**（マージ可能チェック）
+- 未処理指摘（B）が 0 件 かつ 承認シグナル無し → 「Codex 未レビュー / レビュー中」と報告、**300 秒後に ScheduleWakeup**
+- 未処理指摘（B）あり → **ステップ 5**
 
 ### 4.5. マージ可能チェック & 通知
 ```powershell
@@ -63,7 +85,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 **判定順（この順序を守る）**:
 
 1. **CI の pending 判定を先に行う**:
-   - CheckRun で `status != "COMPLETED"` あり（`IN_PROGRESS` / `QUEUED` / `WAITING` / `PENDING` / `REQUESTED` すべてを含む）
+   - CheckRun で `status != "COMPLETED"` あり（`IN_PROGRESS` / `QUEUED` / `WAITING` / `PENDING` / `REQUESTED` すべて含む）
    - または StatusContext で `state == "pending"` あり
    - → 「CI 走行中」と報告、**通知せず 120 秒後に ScheduleWakeup**
 
@@ -75,17 +97,12 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 3. **CI 全成功後、mergeStateStatus と mergeable を確認**:
    - `mergeable == "MERGEABLE"` かつ **`mergeStateStatus == "CLEAN"`** → `PushNotification("PR #<num> merge ready — <title>")`、「MERGE READY」報告、**ScheduleWakeup を呼ばない**
    - `mergeable == "CONFLICTING"` → `PushNotification("PR #<num> Codex approved but merge conflict — <title>")`、「マージコンフリクト」報告、**ScheduleWakeup を呼ばない**
-   - `mergeable == "UNKNOWN"` → GitHub 計算中の一時状態。**通知しない**、**60 秒後に ScheduleWakeup**
-   - `mergeStateStatus` がその他（`DRAFT` / `BLOCKED` / `BEHIND` / `DIRTY` / `UNSTABLE` 等）→ `PushNotification("PR #<num> ready except mergeStateStatus=<X> — needs manual review")`、その状態を報告して終了（ScheduleWakeup しない）
-     - `DRAFT`: Draft PR。ready for review にする必要あり
-     - `BLOCKED`: 必須承認不足 / 未解決レビュースレッド
-     - `BEHIND`: ベースブランチが進んでいる。update ブランチ推奨
-     - `DIRTY`: コンフリクト（本来 `mergeable=="CONFLICTING"` と重なる）
-     - `UNSTABLE`: 非必須 check が失敗
+   - `mergeable == "UNKNOWN"` → GitHub 計算中。**通知しない**、**60 秒後に ScheduleWakeup**
+   - `mergeStateStatus` がその他（`DRAFT` / `BLOCKED` / `BEHIND` / `DIRTY` / `UNSTABLE` 等）→ `PushNotification("PR #<num> ready except mergeStateStatus=<X> — needs manual review")`、報告して終了
 
 ### 5. 指摘への対応
 
-各未処理 Codex 投稿を分類して処理:
+各未処理指摘（issue コメント + インラインコメント）を分類して処理:
 
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
@@ -102,7 +119,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 # PR インラインコメント
 & "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{o}/{r}/pulls/comments/<cid>/reactions -f content=+1
 ```
-※ `gh auth status` の認証ユーザーが PR 作者と一致していることを想定。gh の認証ユーザーが違う場合は「処理済みマーカー」ロジックが動かないため、authenticated user を先に確認して `$author` と比較する。
+※ gh 認証ユーザーが `$author` と一致していることを想定。違う場合はマーカーが動かないので事前確認する
 
 ### 6. 反復上限チェック & 再レビュー依頼
 - **実コード修正が入った場合**:
@@ -112,7 +129,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 
 ### 7. 次の wakeup
 - ステップ 6 で新しい marker を投稿した → **300 秒後に ScheduleWakeup**（Codex レビュー完了を待つ）
-- 返信のみで完了 → 👍 リアクションで再検出は防止済み。**ScheduleWakeup を呼ばない**（「返信完了」で終了）
+- 返信のみで完了 → 👍 リアクションで再検出防止済み。**ScheduleWakeup を呼ばない**（「返信完了」で終了）
 - ステップ 4.5 のマージ可能チェック結果に従う
 
 ## 出力フォーマット
@@ -120,7 +137,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 ```
 ### 反復 <M>/3 (PR #<num>) — <title>
 - URL: <PR URL>
-- 未処理 Codex 応答: <N 件>（指摘 X / LGTM Y）
+- 未処理 Codex 指摘: <N 件>（issue X / inline Y）承認シグナル: [有/無]
 - 対応: [修正 <F> ファイル push / 返信 <R> 件 / 対応なし]
 - 次回: [<S> 秒後に wakeup 予約 / 終了 (<理由>)]
 ```
@@ -132,9 +149,11 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 - 反復上限を超えて **新たな iteration marker を投稿** しない（既存 marker の応答処理は続行する）
 - Codex がまだレビュー中に催促・再依頼しない（wakeup を待つ）
 - `iteration marker 0 個`（未依頼）と `marker >= 1 かつ Codex 応答なし`（レビュー待ち）を混同しない — 前者は終了、後者は wakeup
+- **Review 本文（`/pulls/{n}/reviews`）を「指摘」として処理しない** — 本文はラッパーテキストなので承認判定のみに使う
+- **空の review 本文を「指摘あり」に分類しない** — インライン側に本体があるだけ
 - `mergeable == "UNKNOWN"` を競合として通知しない（GitHub 計算中の一時状態）
 - `mergeable == "MERGEABLE"` だけで MERGE READY 通知しない — `mergeStateStatus == "CLEAN"` を必ず併せて確認
 - CI が pending の間に MERGE READY を通知しない（`status != "COMPLETED"` を先に検出）
-- `gh api` を `--paginate --jq '.[]'` の組み合わせなしで呼ばない
-- 「👍 リアクションあり」を投稿者に関わらず処理済み扱いしない（PR 作者アカウントの 👍 のみを処理済みマーカーとする）
+- `gh api` を **コメント履歴もリアクションも** `--paginate --jq '.[]'` の組み合わせなしで呼ばない
+- 「👍 リアクションあり」を投稿者に関わらず処理済み扱いしない（PR 作者アカウントの 👍 のみ）
 - 返信のみで済んだ Codex コメントに 👍 リアクションを忘れると次回同じ返信を投稿する
