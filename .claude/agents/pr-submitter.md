@@ -35,6 +35,13 @@ model: sonnet
    - タイトルは 70 文字以内
    - Body には Summary（1〜3 箇条書き）、Test plan（チェックリスト）を含める
    - decisions.md に追記した場合は Body に「Related decision: `docs/decisions.md#<日付>`」を書く
+6. **Codex レビュー依頼**
+   - PR 作成直後に必ず以下のコメントを投稿し、Codex にレビューを依頼する:
+     ```
+     @codex review Please review in Japanese.
+     ```
+   - 実行例: `gh pr comment <PR番号> --body "@codex review Please review in Japanese."`
+   - PowerShell 経由なら `& "C:\Program Files\GitHub CLI\gh.exe" pr comment <PR番号> --body "@codex review Please review in Japanese."`
 
 ## PR Body テンプレート
 
