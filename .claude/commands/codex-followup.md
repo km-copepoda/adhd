@@ -10,18 +10,18 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 
 - Codex はユーザー名 `chatgpt-codex-connector[bot]` で GitHub に投稿する
 - Codex の投稿は **3 系統** ある。役割が違うので分けて扱う:
-  - **Issue コメント**: `GET /repos/{o}/{r}/issues/{n}/comments`
+  - **Issue コメント**: `GET /repos/{owner}/{repo}/issues/$($pr.number)/comments`
     - 実際の指摘 / 質問 / 応答が入る（`@codex address` 等）
     - Reactions API あり（`/issues/comments/<cid>/reactions`）→ 処理済み 👍 マーカー可
-  - **PR レビュー本文**: `GET /repos/{o}/{r}/pulls/{n}/reviews`（timestamp は `submitted_at`）
+  - **PR レビュー本文**: `GET /repos/{owner}/{repo}/pulls/$($pr.number)/reviews`（timestamp は `submitted_at`）
     - **本文はラッパーテキスト**（`Here are some automated review suggestions` / `Didn't find any major issues` など）
     - 実際の指摘は含まれず、承認判定 (`state == "APPROVED"` or LGTM 文言) にのみ使う
     - **Reactions API は無い** → 個別の処理済みマーカー不要（承認判定用のみ）
-  - **PR インラインコメント**: `GET /repos/{o}/{r}/pulls/{n}/comments`
+  - **PR インラインコメント**: `GET /repos/{owner}/{repo}/pulls/$($pr.number)/comments`
     - コード行への指摘が入る（Codex の主な指摘手段）
     - Reactions API あり（`/pulls/comments/<cid>/reactions`）→ 処理済み 👍 マーカー可
 - gh CLI は `"C:\Program Files\GitHub CLI\gh.exe"` を PowerShell から呼ぶ
-- **`gh api` は `--paginate --jq '.[]'` の組で使う**（コメント履歴・リアクション両方）
+- **`gh api` は `--paginate --jq '.[]'` の組で使う**（コメント履歴・リアクション両方）。URL テンプレート内では `{owner}` `{repo}` のみ gh が自動展開し、PR 番号は自動展開されないので明示的に埋め込む（PowerShell の場合は `$($pr.number)`）
 - 反復ごとに 1 コミット以下、原則 3 反復以内で完了
 
 ## 手順
@@ -35,9 +35,9 @@ $author = $pr.author.login
 
 ### 2. コメント履歴取得（3 系統、全ページ、行単位ストリーム）
 ```powershell
-$issueComments  = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o}/{r}/issues/{n}/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
-$reviews        = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o}/{r}/pulls/{n}/reviews   --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
-$reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o}/{r}/pulls/{n}/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+$issueComments  = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/$($pr.number)/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+$reviews        = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/pulls/$($pr.number)/reviews   --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+$reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/pulls/$($pr.number)/comments  --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
 ```
 - **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body` に `@codex review` を含むもの
 - **Codex 投稿の分類**:
@@ -60,9 +60,10 @@ $reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o
 **B. 指摘の収集（issue コメント + インラインコメントから）**:
 - Issue コメントで PR 作者による 👍 リアクションが付いていないもの
 - インラインコメントで PR 作者による 👍 リアクションが付いていないもの
+- **A で承認応答として分類した Issue コメントは B から除外する**（そうしないと LGTM が「指摘」として再検出され、マージ可能チェックに進まなくなる）
 - **PR 作者による 👍 の判定** — リアクション自体もページング対象:
   ```powershell
-  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{o}/{r}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+  $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
   # PR インラインコメントの場合は /pulls/comments/<cid>/reactions
   $processed = @($rx | Where-Object { $_.content -eq "+1" -and $_.user.login -eq $author }).Count -gt 0
   ```
@@ -115,9 +116,9 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 **リアクション付与コマンド**（gh の認証ユーザーで実行される）:
 ```powershell
 # Issue コメント
-& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{o}/{r}/issues/comments/<cid>/reactions -f content=+1
+& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/issues/comments/<cid>/reactions -f content=+1
 # PR インラインコメント
-& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{o}/{r}/pulls/comments/<cid>/reactions -f content=+1
+& "C:\Program Files\GitHub CLI\gh.exe" api -X POST repos/{owner}/{repo}/pulls/comments/<cid>/reactions -f content=+1
 ```
 ※ gh 認証ユーザーが `$author` と一致していることを想定。違う場合はマーカーが動かないので事前確認する
 
@@ -149,7 +150,7 @@ $m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,merge
 - 反復上限を超えて **新たな iteration marker を投稿** しない（既存 marker の応答処理は続行する）
 - Codex がまだレビュー中に催促・再依頼しない（wakeup を待つ）
 - `iteration marker 0 個`（未依頼）と `marker >= 1 かつ Codex 応答なし`（レビュー待ち）を混同しない — 前者は終了、後者は wakeup
-- **Review 本文（`/pulls/{n}/reviews`）を「指摘」として処理しない** — 本文はラッパーテキストなので承認判定のみに使う
+- **Review 本文（`/pulls/<PR番号>/reviews`）を「指摘」として処理しない** — 本文はラッパーテキストなので承認判定のみに使う
 - **空の review 本文を「指摘あり」に分類しない** — インライン側に本体があるだけ
 - `mergeable == "UNKNOWN"` を競合として通知しない（GitHub 計算中の一時状態）
 - `mergeable == "MERGEABLE"` だけで MERGE READY 通知しない — `mergeStateStatus == "CLEAN"` を必ず併せて確認
