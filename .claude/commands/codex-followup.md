@@ -28,9 +28,12 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 
 ### 1. PR & 作者特定
 ```powershell
-$pr = & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state,author,title | ConvertFrom-Json
+$prJson = & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state,author,title
+if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
+$pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
 ```
+- **`$LASTEXITCODE != 0`（一時障害）** → 「PR 取得失敗のため再取得予約」と報告し、**300 秒後に ScheduleWakeup**（分類・通知に進まない）
 - `state != "OPEN"` → 「PR 無し / MERGED / CLOSED のため終了」と報告し、**ScheduleWakeup を呼ばない**
 
 ### 2. コメント履歴取得（3 系統、全ページ、行単位ストリーム）
@@ -67,13 +70,15 @@ if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCO
 - Issue コメントで PR 作者による 👍 リアクションが付いていないもの
 - インラインコメントで PR 作者による 👍 リアクションが付いていないもの
 - **A で承認応答として分類した Issue コメントは B から除外する**（そうしないと LGTM が「指摘」として再検出され、マージ可能チェックに進まなくなる）
-- **PR 作者による 👍 の判定** — リアクション自体もページング対象:
+- **PR 作者による 👍 の判定** — リアクション自体もページング対象、失敗検査必須:
   ```powershell
   $rx = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate repos/{owner}/{repo}/issues/comments/<cid>/reactions --jq '.[]' | ForEach-Object { $_ | ConvertFrom-Json }
+  if ($LASTEXITCODE -ne 0) { throw "reactions 取得失敗 (exit=$LASTEXITCODE)" }
   # PR インラインコメントの場合は /pulls/comments/<cid>/reactions
   $processed = @($rx | Where-Object { $_.content -eq "+1" -and $_.user.login -eq $author }).Count -gt 0
   ```
   他ユーザーの 👍 は「有用」の意思表示で処理済みとは限らないので除外条件に含めない
+- **リアクション取得で `$LASTEXITCODE != 0`** → 分類・返信・通知に進まず「取得失敗のため再取得予約」と報告、**300 秒後に ScheduleWakeup**（既に 👍 済みのコメントを未処理と誤判定しないため）
 
 **C. Review 本文の扱い**:
 - `body` が空、または「automated review suggestions」等のラッパーテキストのみ → **スキップ**（実際の指摘はインラインコメント側に入っている）
@@ -86,8 +91,11 @@ if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCO
 
 ### 4.5. マージ可能チェック & 通知
 ```powershell
-$m = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,mergeStateStatus,statusCheckRollup,title | ConvertFrom-Json
+$mJson = & "C:\Program Files\GitHub CLI\gh.exe" pr view <num> --json mergeable,mergeStateStatus,statusCheckRollup,title
+if ($LASTEXITCODE -ne 0) { throw "pr view (merge status) 取得失敗 (exit=$LASTEXITCODE)" }
+$m = $mJson | ConvertFrom-Json
 ```
+- **`$LASTEXITCODE != 0`** → 通知せず「取得失敗」と報告、**120 秒後に ScheduleWakeup**（空データで CI 判定・通知に進まない）
 
 **判定順（この順序を守る）**:
 
