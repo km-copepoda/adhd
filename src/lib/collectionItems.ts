@@ -279,6 +279,20 @@ export function getDrawPoolForDate(date: Date): CollectionItem[] {
   ];
 }
 
+/**
+ * プラン別の宝箱抽選プール。
+ *  - PREMIUM: getDrawPoolForDate と同じ (通常 20 + 月限定 5 = 25 件)
+ *  - FREE   : 月限定 5 件のみ (通常季節コレクション 80 種はロック)
+ * 仕様: docs/未実装仕様書/monetization-plan.md §2.5 / §4.4
+ */
+export function getDrawPoolForPlan(
+  date: Date,
+  plan: "FREE" | "PREMIUM",
+): CollectionItem[] {
+  if (plan === "PREMIUM") return getDrawPoolForDate(date);
+  return getMonthlyItems(getMonthForDate(date));
+}
+
 export function getCollectionItemById(id: string): CollectionItem | null {
   return BY_ID.get(id) ?? null;
 }

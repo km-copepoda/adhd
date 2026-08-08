@@ -242,3 +242,46 @@ const parent = await requireUser("PARENT");
 - **大きな仕様変更があった場合のみ** `docs/decisions.md` に決定理由を簡潔に追記する
 - 細かな修正（バグ修正・ログ追加・リファクタリング等）は記録不要
 - diff や修正ログを毎回読み返す必要はない
+
+---
+
+## サブエージェント運用フロー
+
+このプロジェクトでは Claude Code のサブエージェント機能を利用する。`.claude/agents/` に定義済み。
+
+### エージェント一覧と使用順序
+
+| # | エージェント | 役割 | 起動タイミング |
+|---|--------------|------|----------------|
+| 1 | `policy-checker` | `docs/decisions.md` / `CLAUDE.md` 参照、方針衝突・非標準アプローチ検出 | タスク着手時（必ず最初） |
+| 2 | `test-writer` | TDD Red: `src/__tests__/` に失敗テストを書く | `policy-checker` が OK / ユーザー確認後 |
+| 3 | `implementer` | TDD Green + Refactor: 最小実装 → 規約準拠に整理 | `test-writer` の失敗テスト取得後 |
+| 4 | `code-reviewer` | プロジェクト規約に照らして最終レビュー | `implementer` 完了後、PR 前 |
+| 5 | `pr-submitter` | ブランチ作成・コミット・push・PR 作成 | `code-reviewer` が APPROVED を出した後のみ |
+
+### 基本フロー
+
+```
+指示受領
+  → policy-checker
+  → (NEEDS_CONFIRMATION ならユーザーに確認、OK なら次へ)
+  → test-writer (Red)
+  → implementer (Green + Refactor)
+  → code-reviewer (APPROVED か CHANGES_REQUESTED)
+  → (CHANGES_REQUESTED なら implementer に戻る)
+  → pr-submitter
+```
+
+### スキップしてよい場合
+
+- **単純な質問への回答**（コード変更なし）: すべてスキップ
+- **既存 doc の閲覧・調査のみ**: `policy-checker` 以降スキップ
+- **1 行のバグ修正**: `policy-checker` は省略可（明らかに逆行しない場合）。`test-writer` は必須。
+
+### 大きな仕様変更を含む場合
+
+`code-reviewer` を通した後、`pr-submitter` に進む前に `docs/decisions.md` に決定理由を1エントリ追記する。追記フォーマットは同ファイルの既存エントリに準拠。
+
+### Codex レビューの自動反復
+
+`pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 3 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。

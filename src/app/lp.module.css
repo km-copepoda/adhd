@@ -484,10 +484,10 @@
 }
 
 .monsterImgWrap {
-  width: 84px; height: 84px;
+  width: 112px; height: 112px;
   background: var(--card2);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -499,15 +499,15 @@
   box-shadow: 0 4px 20px var(--gold-glow);
 }
 .monsterImgWrap img {
-  width: 72px; height: 72px;
+  width: 96px; height: 96px;
   object-fit: contain;
 }
 
 .monsterItemName {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--dim);
   text-align: center;
-  max-width: 60px;
+  max-width: 80px;
 }
 
 .pathArrow {
@@ -661,6 +661,22 @@
   font-size: 13px;
   color: var(--dim);
   line-height: 1.8;
+}
+
+/* ===== PSYCHOLOGY (behavior-design) SECTION ===== */
+.psychTheory {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 11px;
+  color: var(--dim2);
+  line-height: 1.6;
+  display: block;
+}
+.psychTheory strong {
+  color: var(--dim);
+  font-weight: 600;
+  margin-right: 4px;
 }
 
 /* ===== SCREENS SECTION ===== */
@@ -1422,6 +1438,37 @@
   color: var(--dim);
   line-height: 2;
   margin: 0;
+}
+
+/* --- FAQ: "その他の質問" 折りたたみグループ --- */
+.faqMore {
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 6px 12px;
+  background: transparent;
+}
+.faqMore[open] {
+  padding: 12px;
+  border-style: solid;
+}
+.faqMoreSummary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--dim);
+  font-size: 13px;
+  padding: 8px 4px;
+  text-align: center;
+  letter-spacing: 1px;
+  user-select: none;
+}
+.faqMoreSummary::-webkit-details-marker { display: none; }
+.faqMoreSummary:hover { color: var(--gold); }
+.faqMoreList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 /* ===== HIROBA & CHEER ===== */

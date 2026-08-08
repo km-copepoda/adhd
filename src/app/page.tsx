@@ -10,6 +10,7 @@ import { MonstersSection } from "@/components/lp/MonstersSection";
 import { HirobaSection } from "@/components/lp/HirobaSection";
 import { TreasureSection } from "@/components/lp/TreasureSection";
 import { HabitSection } from "@/components/lp/HabitSection";
+import { PsychologySection } from "@/components/lp/PsychologySection";
 import { BeforeAfterSection } from "@/components/lp/BeforeAfterSection";
 import { ScreensSection } from "@/components/lp/ScreensSection";
 import { InstallGuideSection } from "@/components/lp/InstallGuideSection";
@@ -61,13 +62,15 @@ export default function LpPage() {
       <HeroSection s={styles} />
       <PainSection s={styles} />
       <HowItWorksSection s={styles} />
+      <ScreensSection s={styles} variant="highlight" />
       <FeaturesSection s={styles} />
       <TreasureSection s={styles} />
       <MonstersSection s={styles} />
       <HirobaSection s={styles} />
       <HabitSection s={styles} />
+      <PsychologySection s={styles} />
       <BeforeAfterSection s={styles} />
-      <ScreensSection s={styles} />
+      <ScreensSection s={styles} variant="full" />
       <InstallGuideSection s={styles} />
       <VoicesSection s={styles} />
       <FaqSection s={styles} />
