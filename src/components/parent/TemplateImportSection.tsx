@@ -10,6 +10,7 @@ import {
   type AgeGroup,
   type TaskPreset,
 } from "@/lib/categories";
+import { alertOnApiError } from "@/lib/apiError";
 
 type Props = {
   childId: string;
@@ -106,10 +107,8 @@ export default function TemplateImportSection({
       body: JSON.stringify({ assignedChildId: childId, tasks }),
     });
     setLoading(false);
-
-    if (res.ok) {
-      onImported();
-    }
+    if (!(await alertOnApiError(res))) return;
+    onImported();
   }
 
   const templates = TASK_TEMPLATES_BY_AGE[selectedAgeGroup];

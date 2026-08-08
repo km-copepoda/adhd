@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import type { TreasureRarity } from "@/lib/treasure";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 const VALID_RARITIES = new Set(["COMMON", "UNCOMMON", "RARE"]);
 
@@ -77,6 +79,25 @@ export async function POST(request: Request) {
   const child = await ensureFamilyChild(user.familyId, childId);
   if (!child) {
     return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+  }
+
+  // FREE プランのごほうび上限 enforce (仕様: monetization-plan.md §2.6 / §4.4)
+  const plan = await getFamilyPlan(user.familyId!);
+  const activeCount = await prisma.treasureItem.count({
+    where: { childId, isActive: true },
+  });
+  const limitCheck = checkLimit(plan, "treasure_item", activeCount);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: `無料プランではごほうびは${limitCheck.limit}個までです。プレミアムプランで無制限になります。`,
+        code: "PLAN_LIMIT_EXCEEDED",
+        resource: "treasure_item",
+        current: limitCheck.current,
+        limit: limitCheck.limit,
+      },
+      { status: 403 },
+    );
   }
 
   const item = await prisma.treasureItem.create({

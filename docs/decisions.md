@@ -1,5 +1,17 @@
 # アーキテクチャ決定記録
 
+## 2026-08-08: Claude Code サブエージェントによる開発フロー分業化
+
+### 決定内容
+- `.claude/agents/` に 5 つのサブエージェントを定義し、実装フローを分業化する
+  - `policy-checker` → `test-writer` → `implementer` → `code-reviewer` → `pr-submitter`
+- 各エージェントの役割・使用順序・スキップ条件は `CLAUDE.md` の「サブエージェント運用フロー」に記載
+
+### 理由
+- CLAUDE.md に蓄積した規約（XP 付与タイミング、進化引数、モジュール分割、ステータス遷移、Next.js プロキシ命名、日付処理等）を各フェーズで確実に適用するため、責務ごとにエージェントを分離
+- TDD（Red → Green → Refactor）を強制するには、テスト作成と実装を別エージェントに分ける方が「テストなし実装」が起きにくい
+- `policy-checker` を先頭に置くことで「決定と逆行する指示」「非標準アプローチ」を実装前に検出でき、確認の手戻りを最小化
+
 ## 2026-03-11: 一時タスクの導入と画面別タスク作成権限
 
 ### 決定内容
@@ -1935,7 +1947,6 @@
 - `src/app/app/parent/child-view/[childId]/quests/page.tsx` — `treasureIds.length` を件数として利用
 - テスト: `treasureService.test.ts` / `report-approve.test.ts` / `skip-approve.test.ts` / `child-view-quests-page.test.tsx` / `child-view-quests-skip-and-cutscene.test.tsx`
 
-<<<<<<< HEAD
 ## 2026-07-02: 一時タスクも carryOver=true を選択可能にする
 
 ### 決定
@@ -1959,7 +1970,7 @@
 - `src/lib/taskSummary.ts` — `calcCarryOverMissedCount` の空 repeatDays 分岐を暦日算出に変更
 - `docs/glossary.md` — isTemporary vs 通常タスクの表と `carryOverMissedCount` 説明を更新
 - テスト: `taskSummary.test.ts` / `TaskForm.test.tsx`
-=======
+
 ## 2026-07-02: 親側チェックインカレンダーを HeatmapGrid に統合（ParentCheckinCalendar 廃止）
 
 ### 決定
@@ -1992,7 +2003,6 @@
 - `src/components/parent/HistoryContent.tsx` — `/api/parent/checkin/calendar` を fetch し `buildMonthGrid` で `checkinDays` を組み立て、`ParentCheckinCalendar` 描画を撤去
 - 削除: `src/components/parent/ParentCheckinCalendar.tsx` / `src/__tests__/components/ParentCheckinCalendar.test.tsx`
 - テスト: `src/__tests__/components/HeatmapGrid-checkin.test.tsx` / `src/__tests__/components/HistoryContent-checkin-integration.test.tsx`
->>>>>>> vk/9165-
 
 ## 2026-07-20: タスクの一時停止機能（親が子供画面での表示を pausedAt で停止／再開）
 
@@ -2078,7 +2088,6 @@
 - `CLAUDE.md` — ステータス遷移表に `REJECTED -> SKIP_REPORTED` を追記
 - `src/__tests__/api/quests/skip.test.ts` — REJECTED→SKIP_REPORTED 経路と rejectionReason クリアの担保
 
-
 ## 2026-08-06: LP に「WHY IT WORKS」セクション（行動心理学に基づく設計解説）を追加
 
 ### 決定内容
@@ -2115,3 +2124,175 @@
 - LP でモンスター画像がタップできないと「見た目だけの飾り」に見えるが、description を見せることで各モンスターの世界観・成長イメージが伝わり、「集めたくなる」動機づけになる
 - MONSTER_TABLE の description は既にアプリ側の Zukan で提示されているコピーで、LP でも同じ品質を維持できる
 - 独立の LP モーダルを新設せずに共有コンポーネントを拡張したことで、将来 description 表示を Zukan 側にも展開しやすい
+
+## 2026-08-06: マネタイズ (FREE/PREMIUM) のスキーマ土台を導入
+
+### 決定内容
+- `docs/未実装仕様書/monetization-plan.md` の Phase 1 を段階着手。まず土台のみ入れ、API enforce や課金決済 (Stripe) は別 PR
+- `SubscriptionPlan` enum (FREE / PREMIUM) と `Subscription` テーブルを追加 (migration `20260806000001_add_subscription`)
+- 課金主体は **User (親)** 単位。`Subscription.userId @unique`。将来的にシングルユーザー版 (`docs/未実装仕様書/single-user-app.md`) と DB を共有する可能性を残す
+- 純粋関数を `src/lib/subscription.ts` に、DB 操作を `src/lib/subscriptionService.ts` に分離 (lib モジュール分割ルールに従う)
+- 上限テーブルはコード内定数 `LIMITS`: FREE `{ child:1, task:10, treasure_item:5 }` / PREMIUM は全て `null` (無制限)
+- 実効プランは「Subscription レコード無し」「plan=FREE」「plan=PREMIUM で currentPeriodEnd が過去」のいずれも FREE。`currentPeriodEnd=null` の PREMIUM は無期限 (手動付与用)
+
+### 理由
+- API enforce や UI ロックまで含めると PR が巨大化し、既存 2402 テストへの回帰リスクが跳ね上がる。土台と純粋関数だけを先に入れれば動作影響ゼロで安全にマージできる
+- 課金主体を Family でなく User にしたのは、将来のシングルユーザー版と DB 構造を揃えるため。親2人が別々に加入するユースケースは想定しない (どちらの親でも `familyId` から親 User を辿れる)
+- `currentPeriodEnd=null` を「無期限」に倒したのは、社内テスト・キャンペーン付与・友人枠など Stripe を通さない付与を運用で扱えるようにするため
+
+### やってはいけないこと
+- この PR で API に enforce を差し込む (段階分割の意味が消え、回帰リスクが跳ね上がる)
+- `Subscription` レコードを持たないユーザーに対して「作らないとエラー」にする (FREE は「レコード無し」で表現し upsert を強制しない)
+- 期限切れ PREMIUM に grace period を設ける (仕様書にない挙動を勝手に足さない)
+
+### 該当箇所
+- `prisma/schema.prisma` — `SubscriptionPlan` enum, `Subscription` model, `User.subscription` リレーション
+- `prisma/migrations/20260806000001_add_subscription/migration.sql`
+- `src/lib/subscription.ts` — `LIMITS`, `computeLimit`, `isPlanActive`, `resolvePlan`, `checkLimit` (純粋関数のみ)
+- `src/lib/subscriptionService.ts` — `getSubscription`, `getUserPlan` (DB 経由)
+- `src/__tests__/setup.ts` — `prisma.subscription` モック追加
+- `src/__tests__/lib/subscription.test.ts` / `subscriptionService.test.ts` — 境界値含む網羅テスト
+
+## 2026-08-06: マネタイズ Phase 1-2 — タスク数上限 (FREE 10個/子) を enforce
+
+### 決定内容
+- FREE プランの「タスク数 10 個/子」上限を `POST /api/tasks` と `POST /api/tasks/[id]/pause` (再開時) に enforce
+- カウント対象は `assignedChildId = X AND isActive = true AND pausedAt IS NULL` (仕様書 §2.2 準拠)
+- 課金主体は Family 内の PARENT (新規 `getFamilyPlan(familyId)` ヘルパーで解決)
+- 上限到達時のレスポンスは HTTP 403 + `{ code: "PLAN_LIMIT_EXCEEDED", resource, current, limit, error }`。UI 側は `code` で判定してアップグレード誘導を出せる
+- 停止 (paused=true) 側はプランに関わらず常に成功。再開 (paused=false) 時のみ再チェック (仕様書 §4.4)
+- 既存の 10 個以上あるファミリーは影響なし: 「新規追加のみ制限」で既存タスクは動作継続
+
+### 理由
+- タスク作成は最も多く叩かれる enforce ポイントで、境界値バグの影響が大きい。API 層で 純粋関数 `checkLimit` に集約することで境界判定 (10/10 は追加不可) をテストで担保
+- 再開時に再チェックしないと「10 個作成 → 5 個停止 → 5 個追加 → 停止解除で 15 個」の抜け穴ができる (仕様書 §4.4 の明示要件)
+- `getFamilyPlan` を新設したのは、CHILD が作成する経路でも「Family の親のプラン」で判定する必要があるため。CHILD 自身に Subscription は紐付かない
+- 403 + `code` 方式は UI から機械的に上限判定できる。仕様書 §5.2 の「11個目の作成時に…」の UX に必要
+
+### やってはいけないこと
+- 停止中タスクをカウントに含める (停止＝上限枠を開けるのが仕様。含めると停止機能が実質使えなくなる)
+- 既存タスクが 11 個以上あるファミリーに対して DB 側から強制削除する (「既存は維持、新規のみ制限」の解約時挙動 §4.8 と一貫)
+- カウントを Family 単位にする (子1人 10 個が仕様。Family で共有すると兄弟がいる家庭で仕様と乖離)
+- 上限到達時に 402 (Payment Required) を返す (既存 API の 403 パターンに揃える。403 + `code` フィールドで意図は伝わる)
+
+### 該当箇所
+- `src/lib/subscriptionService.ts` — `getFamilyPlan(familyId, now?)` 追加
+- `src/app/api/tasks/route.ts` — POST に上限 enforce を追加
+- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に findUnique + count + checkLimit、対象タスク不在時は 404
+- `src/__tests__/setup.ts` — `taskTemplate.count` のデフォルトを 0 に (既存テストへの回帰対策)
+- `src/__tests__/api/tasks/tasks-limit.test.ts` — 新規: FREE 9/10/20, PREMIUM, CHILD 経路, assignedChildId 未指定
+- `src/__tests__/api/tasks/tasks-pause-limit.test.ts` — 新規: 停止/再開の境界値と 404
+- `src/__tests__/api/tasks/tasks-pause.test.ts` — 既存の再開テストに `findUnique` mock 追加
+
+## 2026-08-06: マネタイズ Phase 1-3 — 子アカウント (FREE 1人) とごほうび (FREE 5個/子) を enforce
+
+### 決定内容
+- FREE の「子アカウント Family 内 1 人まで」を `POST /api/auth/child-join` で enforce (familyCode 指定時のみ、単独モードは対象外)
+- FREE の「ごほうび 5 個/子」を `POST /api/treasures` (新規)、`PUT /api/treasures/[id]` (非アクティブ→アクティブの再アクティブ化)、`POST /api/treasures/import` (バルク) で enforce
+- カウント条件は仕様書 §2.1 / §2.6 準拠: 子は `familyId + role: CHILD`、ごほうびは `childId + isActive: true`
+- バルクインポート判定に新純粋関数 `checkBulkLimit(plan, resource, current, addCount)` を追加 (`current + addCount <= limit`)
+- レスポンス形式は PR-1-2 と統一: HTTP 403 + `{ code: "PLAN_LIMIT_EXCEEDED", resource, current, limit }`
+
+### 理由
+- ごほうびの PUT で `isActive: false → true` を「新規追加相当」として扱わないと、いったん 5 個作って非アクティブ化して 5 個追加、再アクティブ化…という抜け穴ができる (タスク pause と同じ発想)
+- import は FREE では常に上限超過 (20 テンプレ > 5 上限) だが、明示的にサーバ側で拒否することで「UI がボタンを隠し忘れた」ときの安全網になる
+- `checkBulkLimit` を追加したのは、`checkLimit(plan, r, current + N - 1)` の書き換えが直感的でなく境界バグの温床になるため。純粋関数として境界を全ケーステスト
+- child-join の enforce は familyCode 指定時のみ。単独モード (familyId=null) はそもそも FREE/PREMIUM の概念外なので通過させる (既存 UX を維持)
+
+### やってはいけないこと
+- ごほうびの isActive: true → false (非アクティブ化) にも上限チェックを走らせる (減らす方向は常に許可すべき)
+- 既に 6 個以上 active なごほうびを持つ既存家庭に対して DB 側から強制無効化する (§4.8 の解約時挙動と一貫、「新規のみ制限」)
+- child-rejoin にも上限を掛ける (既存の子が復帰するだけで、新規アカウントは増えない)
+- import で「上限に収まる分だけ入れる」部分投入をする (仕様書は「全部か 0 か」を示唆、部分投入は UX が混乱する)
+
+### 該当箇所
+- `src/lib/subscription.ts` — `checkBulkLimit` 追加
+- `src/app/api/treasures/route.ts` — POST に enforce
+- `src/app/api/treasures/[id]/route.ts` — PUT の isActive 再アクティブ化に enforce
+- `src/app/api/treasures/import/route.ts` — バルク合計を `checkBulkLimit` で確認
+- `src/app/api/auth/child-join/route.ts` — familyCode 指定時に enforce
+- `src/__tests__/setup.ts` — `user.count` / `treasureItem.count` のデフォルトを 0 に
+- `src/__tests__/api/treasures/treasures-limit.test.ts` — 新規: 上限, 再アクティブ化, no-op, import バルク
+- `src/__tests__/api/auth/child-join-limit.test.ts` — 新規: 0/1/PREMIUM/単独/カウント条件
+- `src/__tests__/lib/subscription.test.ts` — `checkBulkLimit` 境界値
+- `src/__tests__/api/treasures/treasures.test.ts` — 既存 import テストを PREMIUM 前提に変更
+
+## 2026-08-06: マネタイズ Phase 1-4 — FREE は季節コレクション 80 種をロック (抽選プールから除外)
+
+### 決定内容
+- FREE ユーザが宝箱を開けたとき、親ごほうび不当選時に付与されるコレクションアイテムのプールを **月限定 5 個のみ** に絞る (通常季節 20 個を除外)。PREMIUM は従来通り 25 個
+- 純粋関数 `getDrawPoolForPlan(date, plan)` を `src/lib/collectionItems.ts` に追加。既存 `getDrawPoolForDate` はそのまま残す (PREMIUM の実装で内部利用)
+- `openOldestTreasure` の child 取得 select に `familyId` を追加し、`getFamilyPlan(familyId)` でプランを解決してプールを切り替える
+- **単独モード (familyId=null) は既存挙動を維持** = 全プール (PREMIUM 相当)。監視対象外
+- 取得済みアイテムは剥奪せず、`UserCollectionItem` はそのまま残る (仕様 §2.5 / §4.8)
+
+### 理由
+- 「FREE でも月替わりの新アイテムは手に入る、季節フルコンプは PREMIUM」という差別化がコレクション欲を継続的に刺激する (仕様書 §2.5 / 課金動機表 #3)
+- プール切替を **抽選プールのフィルタ層で実装** することで `drawCollectionItem` 純粋関数は無改変。境界確率ロジックへ副作用が及ばない
+- 単独モードを対象外にしたのは、既存 UX を壊さない・課金主体 (Family の親) がそもそも存在しないため。「PREMIUM 扱い」だが実質は「monetization スコープ外」の意
+- バッジ判定 (`hasAllCollectionItems` / `season_complete`) は仕様書 §2.4 通り母数変更なし。FREE ユーザは通常 80 の一部を持てないため事実上未達だが、これは仕様の意図通り (PREMIUM で解放後に達成可能)
+
+### やってはいけないこと
+- FREE ユーザから既取得の通常アイテムを剥奪する (§4.8「取得済みアイテムは図鑑に残る」に反する)
+- バッジ判定の母数を FREE 用に絞る (仕様 §2.7 で「バッジは全プランで解放条件同じ」)
+- `getDrawPoolForDate` を FREE 用に破壊的変更する (既存呼び出しがある想定で、切替は新関数側に持たせる)
+- 単独モードに FREE 制限を課す (親不在で課金経路がなく、既存動作の劣化になる)
+
+### 該当箇所
+- `src/lib/collectionItems.ts` — `getDrawPoolForPlan(date, plan)` 追加
+- `src/lib/treasureService.ts` — `openOldestTreasure` の child select に `familyId`、プール取得を `getDrawPoolForPlan` 経由に置換
+- `src/__tests__/lib/collectionItems.test.ts` — `getDrawPoolForPlan` の境界 (JST 月境界含む) 4 件追加
+- `src/__tests__/lib/treasureService-plan.test.ts` — 新規: FREE / PREMIUM / 単独モードのプール切替 4 件
+- `src/__tests__/lib/treasureService.test.ts` — findUnique の select アサーションに `familyId: true` を追記
+
+## 2026-08-06: マネタイズ Phase 1-5 — UI 側のエラー表示 + task 作成経路 (copy/bulk) の enforce 抜け穴を塞ぐ
+
+### 決定内容
+- UI 用共通ヘルパー `src/lib/apiError.ts` を追加 (`readApiError` / `alertOnApiError`)。fetch 結果の error メッセージを `alert()` で出す。既存の alert パターンに揃える
+- 各上限系 API を叩く UI コールサイトを `if (!(await alertOnApiError(res))) return;` パターンに統一 (親タスク作成/再開、子タスク追加、ごほうび追加/更新/import、コピー、bulk)
+- **`POST /api/tasks/[id]/copy` と `POST /api/tasks/bulk` にもタスク数上限を enforce** (PR-2 で漏れていた作成経路)。copy は単体 → `checkLimit`、bulk は合計 → `checkBulkLimit`
+- copy は「重複タスクが既存 → 早期 return」の後に上限チェックする (既存を返すだけなら枠を使わないため)
+- 承認 API での「スキップ承認 + 明日にコピー」経路は、コピー失敗しても承認自体は完了させる (承認取り消しの副作用を避け、コピー失敗のみユーザに通知)
+
+### 理由
+- Phase 1-2〜1-4 で API は 403 を返すようになったが、UI が `if (res.ok)` だけで失敗を握りつぶし、ユーザは「ボタンを押しても何も起きない」体験になっていた。カスタム toast が無い現状、既存の `alert()` パターンに揃える方が変更範囲が最小で一貫
+- `POST /api/tasks/[id]/copy` は新しい `TaskTemplate` を作るのに PR-2 では enforce されていなかった (一時タスクの明日コピー等で FREE 上限を回避できる抜け穴)
+- `POST /api/tasks/bulk` は最大 30 件までを一括作成できるので、FREE 上限を大きく超過できていた。既存の `bulk` 30 件制限は enforce ではなくバリデーション
+
+### やってはいけないこと
+- UI 側で `code === "PLAN_LIMIT_EXCEEDED"` を条件分岐して独自メッセージに置き換える (サーバの error 文字列を SoT に。将来変更時に UI が追随する必要が無くなる)
+- copy の重複タスク早期 return を上限チェックの後ろに移す (既存を返すだけなら枠を消費しないので、上限に達していても取得だけは通してよい)
+- 承認 API のスキップ承認経路で「コピーが 403 なら承認自体を undo する」実装にする (承認取り消しは可視な副作用を持ち、実装が複雑化する)
+
+### 該当箇所
+- 新規: `src/lib/apiError.ts` (`readApiError` / `alertOnApiError`)
+- `src/app/api/tasks/[id]/copy/route.ts` — 上限チェック追加
+- `src/app/api/tasks/bulk/route.ts` — `checkBulkLimit` で合計チェック追加
+- UI 配線: `src/app/app/parent/(app)/tasks/page.tsx` (作成 + 再開), `src/components/child/QuestAddForm.tsx`, `src/components/parent/CompletedContent.tsx` (copy), `src/app/app/parent/(app)/approve/page.tsx` (copy), `src/components/parent/TemplateImportSection.tsx` (bulk), `src/app/app/parent/(app)/treasures/page.tsx` (add / import / update / delete)
+- テスト: `src/__tests__/lib/apiError.test.ts` (9 件、alert スタブ含む), `src/__tests__/api/tasks/tasks-copy-limit.test.ts` (4 件), `src/__tests__/api/tasks/tasks-bulk-limit.test.ts` (5 件)
+
+## 2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除
+
+### 決定内容
+- **バグ修正**: PR-3 (2026-08-06「Phase 1-3」) で FREE 子上限の enforce を `POST /api/auth/child-join` に入れたが、実際の子作成は **`POST /api/family/members`** から行われるため、enforce が事実上動いていなかった。`family/members` 側に移設して修正
+- **未使用 API 削除**: 現在の UI は Supabase Auth SDK を直接呼ぶため以下 2 経路は完全に未使用。削除
+  - `src/app/api/auth/child-join/` — UI は `supabase.auth.signInAnonymously()` を直接呼び、子作成は `family/members` + `child-rejoin` で完結
+  - `src/app/api/auth/login/` — UI は `supabase.auth.signInWithPassword()` を直接呼ぶ
+- 関連テストも削除 (`child-join.test.ts` / `child-join-limit.test.ts` / `login.test.ts`)
+- 新規テスト `src/__tests__/api/family/members-limit.test.ts` (4 件) で移設後の enforce を担保
+
+### 理由
+- 現行の子アカウント生成フローは 2 段階: ①親画面で `POST /api/family/members` を叩き `pending_...` な supabaseId で User row 事前作成 → ②子端末で `POST /api/auth/child-rejoin` によりファミリーコード + childCode で supabaseId を実 ID に紐付け。`child-join` は初期の 1 段階フローの遺物で、UI からは既に呼ばれていない
+- 「未使用でも将来のため残す」判断はしない: 削除しても Git 履歴に残るので必要になれば復元可能。dead code はメンテナンス負荷 (テスト実行時間、脆弱性検査対象、リファクタ時の追随) を増やすだけ
+- 認証系エンドポイントを Supabase SDK 直接呼び出しに一本化することで、認証ロジックの二重管理 (自作 API + SDK) を解消
+
+### やってはいけないこと
+- `POST /api/auth/child-join` を復活させる (現在の `family/members` + `child-rejoin` フローと重複し、どちらが正か分かりにくくなる)
+- `POST /api/auth/login` を復活させる (Supabase SDK に一本化した判断を戻す。将来的にサーバサイド認証が必要なら別エンドポイント名で新設)
+- `family/members` の enforce を PR-3 のようにテンプレコピーで別経路にも入れる (子作成経路は現在この 1 つに集約されているので、他所には不要)
+
+### 該当箇所
+- `src/app/api/family/members/route.ts` — POST に子上限チェック追加
+- 削除: `src/app/api/auth/child-join/route.ts`, `src/app/api/auth/login/route.ts`
+- 削除: `src/__tests__/api/auth/child-join.test.ts`, `src/__tests__/api/auth/child-join-limit.test.ts`, `src/__tests__/api/auth/login.test.ts`
+- 新規: `src/__tests__/api/family/members-limit.test.ts` (0 人 / 1 人 / PREMIUM / where 条件の 4 件)

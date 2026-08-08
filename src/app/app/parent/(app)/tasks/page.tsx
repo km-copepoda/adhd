@@ -14,6 +14,7 @@ import ChildSelector from "@/components/parent/ChildSelector";
 import PendingTaskCard from "@/components/parent/PendingTaskCard";
 import RegularTaskCard from "@/components/parent/RegularTaskCard";
 import TemporaryTaskCard from "@/components/parent/TemporaryTaskCard";
+import { alertOnApiError } from "@/lib/apiError";
 
 type Task = {
   id: string;
@@ -142,14 +143,13 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (res.ok) {
-      if (isEditingPending && editingId) {
-        await fetch(`/api/tasks/${editingId}`, { method: "PATCH" });
-        notifyApprovalsUpdated();
-      }
-      resetForm();
-      fetchTasks();
+    if (!(await alertOnApiError(res))) return;
+    if (isEditingPending && editingId) {
+      await fetch(`/api/tasks/${editingId}`, { method: "PATCH" });
+      notifyApprovalsUpdated();
     }
+    resetForm();
+    fetchTasks();
   }
 
   async function handleApprove(id: string) {
@@ -166,11 +166,12 @@ export default function TasksPage() {
   }
 
   async function handleTogglePause(id: string, paused: boolean) {
-    await fetch(`/api/tasks/${id}/pause`, {
+    const res = await fetch(`/api/tasks/${id}/pause`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paused }),
     });
+    if (!(await alertOnApiError(res))) return;
     fetchTasks();
   }
 

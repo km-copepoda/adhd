@@ -175,7 +175,15 @@ describe("DELETE /api/treasures/[id]", () => {
 describe("POST /api/treasures/import", () => {
   it("テンプレ20件を子供のプールに投入", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
+    // 対象子供検証 + getFamilyPlan 用の PARENT (2 回連続で findFirst が呼ばれる)
+    mockPrisma.user.findFirst
+      .mockResolvedValueOnce({ id: "child-1" } as any)
+      .mockResolvedValueOnce({ id: "parent-1" } as any);
+    // PREMIUM 相当。FREE だと 5 個上限を超過して 403 になる (別テストで検証)
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      plan: "PREMIUM",
+      currentPeriodEnd: new Date("2099-12-31"),
+    } as any);
     mockPrisma.treasureItem.createMany.mockResolvedValue({ count: 20 } as any);
 
     const res = await importPOST(

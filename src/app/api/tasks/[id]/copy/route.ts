@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { todayJST } from "@/lib/date";
+import { getFamilyPlan } from "@/lib/subscriptionService";
+import { checkLimit } from "@/lib/subscription";
 
 export async function POST(
   request: Request,
@@ -51,6 +53,27 @@ export async function POST(
   if (existing) {
     rlog.info("Duplicate copy skipped", { originalId: id, existingId: existing.id, targetDate: targetDate.toISOString() });
     return NextResponse.json(existing);
+  }
+
+  // FREE プランのタスク上限 enforce (仕様: monetization-plan.md §2.2 / §4.4)
+  if (original.assignedChildId) {
+    const plan = await getFamilyPlan(user.familyId);
+    const activeCount = await prisma.taskTemplate.count({
+      where: { assignedChildId: original.assignedChildId, isActive: true, pausedAt: null },
+    });
+    const limitCheck = checkLimit(plan, "task", activeCount);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: `無料プランではタスクは${limitCheck.limit}個までです。プレミアムプランで無制限になります。`,
+          code: "PLAN_LIMIT_EXCEEDED",
+          resource: "task",
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const newTask = await prisma.taskTemplate.create({
