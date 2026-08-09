@@ -128,9 +128,12 @@ const SUPERSEDED = {
     note: "「閾値到達で自動的に卵にリセット」フローは 2026-04-04 で撤回。以降は `rebirthPending` フラグ + ユーザ操作による転生に変更。コレクション機能本体は現行。",
   },
   "2026-03-29: 写真オプショナル化とフラットXP制への移行": {
-    supersededBy: "2026-03-29: 報告期限をファミリー単位から子供単位に変更",
+    supersededBy: [
+      "2026-03-29: 報告期限をファミリー単位から子供単位に変更",
+      "2026-03-29: difficulty フィールドの完全廃止",
+    ],
     kind: "partial",
-    note: "`Family.reportDeadlineTime` を導入する条項は同日中に撤回され、`User.reportDeadlineTime` へ移動。写真オプショナル化・フラット XP 制本体は現行。",
+    note: "`Family.reportDeadlineTime` 導入条項は同日中に撤回され `User.reportDeadlineTime` へ移動。`difficulty` フィールドの UI 表示残存条項も同日中に撤回され完全削除。写真オプショナル化・フラット XP 制本体は現行。",
   },
   "2026-03-13: ストリーク機能の単一レコード方式": {
     supersededBy: "2026-03-17: 一日休み券（restPassUsedAt）廃止",
@@ -169,6 +172,20 @@ const SUPERSEDED = {
     supersededBy: "2026-07-02: 一時タスクも carryOver=true を選択可能にする",
     kind: "partial",
     note: "`repeatDays` が空の一時タスクで `carryOverMissedCount` が 1 にフォールバックする挙動は 2026-07-02 で「経過日数（inclusive）」に変更。出現回数ベースの本体ロジックは現行。",
+  },
+  "2026-05-30: 宝箱抽選を「レア度ごと独立抽選」から「排他的単発抽選」に変更": {
+    supersededBy: [
+      "2026-06-03: 親ごほうび当選確率を引き下げ (COMMON 1/7→1/10 / UNCOMMON 1/14→1/20 / RARE 1/28→1/30)",
+      "2026-06-03: RARE 当選確率をさらに引き下げ (1/30 → 1/45)",
+      "2026-06-24: 宝箱の天井(pity)システムを復活（10回連続ハズレ→次は強制 HIT）",
+    ],
+    kind: "partial",
+    note: "確率値 (1/7, 1/14, 1/28) と 5 連続ハズレの pity は後日 tune され直した（2026-06-03 で 1/10・1/20・1/45 に、2026-06-24 で pity 復活）。排他的単発抽選アルゴリズム自体は現行。",
+  },
+  "2026-07-22: 月限定コレクションアイテム 60 種を追加（通常80 → 総140）": {
+    supersededBy: "2026-08-06: マネタイズ Phase 1-4 — FREE は季節コレクション 80 種をロック (抽選プールから除外)",
+    kind: "partial",
+    note: "「全ユーザ 25 種プール」契約は 2026-08-06 で FREE=月限定 5 種のみ、PREMIUM/スタンドアロン=25 種に変更。総 140 種のマスター定義は現行。",
   },
   "2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）": {
     supersededBy: [
