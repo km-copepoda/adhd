@@ -78,15 +78,35 @@ const SUPERSEDED = {
     kind: "partial",
     note: "子画面の月間グリッド表示は 2026-06-25 で週(7日)ストリップに置き換え。制度本体は現行。",
   },
+  "2026-05-31: コレクションアイテム獲得をひろば通知＋履歴・図鑑に反映": {
+    supersededBy: "2026-05-31: コレクション獲得通知をダブり獲得でも飛ばす（同日同 entry の 2026-05-31 を部分撤回）",
+    kind: "partial",
+    note: "「初獲得 (count===1) のみひろば通知する」ガードは同日中に撤回。ダブり獲得でも通知するようになった。他の内容は現行。",
+  },
 };
 
-function slugify(title) {
-  // GitHub-style anchor: lower-case, replace non-word chars with '-', strip
-  // leading/trailing '-', collapse consecutive '-'.
-  return title
+// GitHub-style heading anchor slugifier.
+// Rules (matching github.com's markdown renderer):
+//   1. Lowercase
+//   2. Strip punctuation but preserve Unicode letters/digits/marks, underscores, hyphens, spaces
+//      (full-width parens, colons, exclamation marks etc. are removed entirely, NOT converted to '-')
+//   3. Replace runs of whitespace with '-'
+//   4. Duplicate slugs get '-1', '-2', ... suffixes (handled by the caller's dedup Set).
+function githubSlug(text) {
+  return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "")
+    .replace(/\s+/g, "-");
+}
+
+function makeSlugger() {
+  const seen = new Map();
+  return (title) => {
+    const base = githubSlug(title);
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    return n === 0 ? base : `${base}-${n}`;
+  };
 }
 
 function stripTocBlock(content) {
@@ -128,12 +148,38 @@ function stripOldBanners(entries) {
   }
 }
 
+function assignSlugs(entries) {
+  // Assign each entry a GitHub-style slug based on rendered order.
+  // The TOC section header "## 目次" comes first and consumes the base
+  // slug "目次"; account for that so subsequent duplicates would be numbered
+  // correctly (there are no colliding entries currently, but this keeps the
+  // logic robust).
+  const slug = makeSlugger();
+  slug("目次"); // reserve the TOC heading's slug
+  for (const e of entries) {
+    e.slug = slug(e.title);
+  }
+  // Validate: every supersededBy title in the SUPERSEDED map must correspond
+  // to an actual entry, otherwise banner links will point nowhere.
+  const byTitle = new Map(entries.map((e) => [e.title, e]));
+  for (const [src, meta] of Object.entries(SUPERSEDED)) {
+    if (!byTitle.has(src)) {
+      throw new Error(`SUPERSEDED map: source title not found in decisions.md: "${src}"`);
+    }
+    if (!byTitle.has(meta.supersededBy)) {
+      throw new Error(`SUPERSEDED map: supersededBy title not found: "${meta.supersededBy}"`);
+    }
+  }
+}
+
 function injectBanners(entries) {
+  const byTitle = new Map(entries.map((e) => [e.title, e]));
   for (const e of entries) {
     const meta = SUPERSEDED[e.title];
     if (!meta) continue;
     const label = meta.kind === "full" ? "⚠ SUPERSEDED" : "⚠ PARTIALLY SUPERSEDED";
-    const anchor = `#${slugify(meta.supersededBy)}`;
+    const target = byTitle.get(meta.supersededBy);
+    const anchor = `#${target.slug}`;
     const banner = [
       `> **${label}** — [${meta.supersededBy}](${anchor})`,
       `>`,
@@ -168,7 +214,7 @@ function buildToc(entries) {
         ? " ⚠️ superseded"
         : " ⚠️ partial"
       : "";
-    lines.push(`- [${e.title}](#${slugify(e.title)})${suffix}`);
+    lines.push(`- [${e.title}](#${e.slug})${suffix}`);
   }
   lines.push("", "<!-- TOC:END -->", "");
   return lines.join("\n");
@@ -189,8 +235,9 @@ const rawContent = readFileSync(FILE, "utf8");
 const content = stripTocBlock(rawContent);
 const { header, entries } = parse(content);
 stripOldBanners(entries);
-injectBanners(entries);
 const sorted = sortEntries(entries);
+assignSlugs(sorted);
+injectBanners(sorted);
 const toc = buildToc(sorted);
 const out = render(header, toc, sorted);
 
