@@ -29,5 +29,6 @@ jobs:
         run: npm run test:coverage
 
       - name: Report coverage on PR
-        if: always()
+        # Skip on fork PRs (read-only GITHUB_TOKEN) — the action would 403 and fail the job.
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
         uses: davelosert/vitest-coverage-report-action@v2
