@@ -99,6 +99,21 @@ const SUPERSEDED = {
     kind: "partial",
     note: "独立コンポーネント `ParentCheckinCalendar` は 2026-07-02 で廃止され HeatmapGrid にオーバーレイ統合。API / `buildMonthGrid` は現行。",
   },
+  "2026-04-26: あつまり機能（場所×合言葉グループ＋自動掲示板）の導入": {
+    supersededBy: "2026-05-09: ひろば なかま一覧の表示識別子を `monsterName` + `speciesName` の2軸に再構成し API から `name` を除去",
+    kind: "partial",
+    note: "参加メンバー一覧の `name`（本名）フォールバックは 2026-05-09 で撤回（プライバシー）。あつまり機能本体は現行。",
+  },
+  "2026-05-09: 「今日やる宣言ボーナス」の導入（放置タスク回避向け）": {
+    supersededBy: "2026-05-09 (改): 「今日やる宣言」の放置判定を「直近 N 出現の連続非 APPROVED 数」に変更",
+    kind: "partial",
+    note: "カレンダー日数ベース (`IDLE_DAYS_THRESHOLD`) の放置判定は同日中の (改) で「直近 N 出現の連続非 APPROVED 数」に置き換え。宣言ボーナス制度本体は現行。",
+  },
+  "2026-08-06: マネタイズ Phase 1-3 — 子アカウント (FREE 1人) とごほうび (FREE 5個/子) を enforce": {
+    supersededBy: "2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除",
+    kind: "partial",
+    note: "`/api/auth/child-join` の enforcement は 2026-08-06 に `/api/family/members` へ移動、旧 auth 経路は削除。ごほうび上限などその他の条項は現行。",
+  },
 };
 
 // GitHub-style heading anchor slugifier.
