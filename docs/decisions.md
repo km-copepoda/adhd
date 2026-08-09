@@ -1,16 +1,120 @@
 # アーキテクチャ決定記録
 
-## 2026-08-08: Claude Code サブエージェントによる開発フロー分業化
+<!-- TOC:START -->
+## 目次
 
-### 決定内容
-- `.claude/agents/` に 5 つのサブエージェントを定義し、実装フローを分業化する
-  - `policy-checker` → `test-writer` → `implementer` → `code-reviewer` → `pr-submitter`
-- 各エージェントの役割・使用順序・スキップ条件は `CLAUDE.md` の「サブエージェント運用フロー」に記載
+> 自動生成。手で編集しないこと。`scripts/reorganize-decisions.mjs` を再実行して更新。
 
-### 理由
-- CLAUDE.md に蓄積した規約（XP 付与タイミング、進化引数、モジュール分割、ステータス遷移、Next.js プロキシ命名、日付処理等）を各フェーズで確実に適用するため、責務ごとにエージェントを分離
-- TDD（Red → Green → Refactor）を強制するには、テスト作成と実装を別エージェントに分ける方が「テストなし実装」が起きにくい
-- `policy-checker` を先頭に置くことで「決定と逆行する指示」「非標準アプローチ」を実装前に検出でき、確認の手戻りを最小化
+- [2026-03-11: 一時タスクの導入と画面別タスク作成権限](#2026-03-11-一時タスクの導入と画面別タスク作成権限)
+- [2026-03-12: 子供作成タスクの親承認フロー導入](#2026-03-12-子供作成タスクの親承認フロー導入)
+- [2026-03-12: 仮タスク却下時のXP没収](#2026-03-12-仮タスク却下時のxp没収)
+- [2026-03-12: XP付与タイミングを報告時→承認時に変更](#2026-03-12-xp付与タイミングを報告時-承認時に変更)
+- [2026-03-13: ストリーク機能の単一レコード方式](#2026-03-13-ストリーク機能の単一レコード方式)
+- [2026-03-15: スキップに親承認フローを導入、ストリークにSKIPPEDも算入](#2026-03-15-スキップに親承認フローを導入-ストリークにskippedも算入)
+- [2026-03-15: Docker Compose の Windows 対応（network_mode: host 廃止）](#2026-03-15-docker-compose-の-windows-対応-network-mode-host-廃止)
+- [2026-03-15: 親画面「今日の完了タスク」にSKIPPEDも表示](#2026-03-15-親画面-今日の完了タスク-にskippedも表示)
+- [2026-03-16: タスクをユーザー（子供）単位で管理](#2026-03-16-タスクをユーザー-子供-単位で管理)
+- [2026-03-17: 初期状態を卵（stage 0）からスタート](#2026-03-17-初期状態を卵-stage-0-からスタート)
+- [2026-03-17: 一日休み券（restPassUsedAt）廃止](#2026-03-17-一日休み券-restpassusedat-廃止)
+- [2026-03-17: Web Push 通知（二段構え方式）](#2026-03-17-web-push-通知-二段構え方式)
+- [2026-03-18: 親→子 プッシュ通知（手動リマインド）](#2026-03-18-親-子-プッシュ通知-手動リマインド)
+- [2026-03-22: 自動承認機能の導入](#2026-03-22-自動承認機能の導入)
+- [2026-03-22: タスク報告への写真添付機能（Supabase Storage）](#2026-03-22-タスク報告への写真添付機能-supabase-storage)
+- [2026-03-22: バー場サイド日付計算をJST基準に統一](#2026-03-22-バー場サイド日付計算をjst基準に統一)
+- [2026-03-25: パラメータ連動の進化パス分岐（確率的選択）](#2026-03-25-パラメータ連動の進化パス分岐-確率的選択)
+- [2026-03-25: Side（DARK/LIGHT）をキャラクタービジュアルセットに再活用](#2026-03-25-side-dark-light-をキャラクタービジュアルセットに再活用)
+- [2026-03-25: 転生システムとコレクション機能の導入](#2026-03-25-転生システムとコレクション機能の導入)
+- [2026-03-28: 転生サイクルを60pt（約2週間）に調整](#2026-03-28-転生サイクルを60pt-約2週間-に調整)
+- [2026-03-28: 転生後の卵の孵化閾値を5ptに設定](#2026-03-28-転生後の卵の孵化閾値を5ptに設定)
+- [2026-03-29: 写真オプショナル化とフラットXP制への移行](#2026-03-29-写真オプショナル化とフラットxp制への移行)
+- [2026-03-29: difficulty フィールドの完全廃止](#2026-03-29-difficulty-フィールドの完全廃止)
+- [2026-03-29: ログインストリーク機能の導入](#2026-03-29-ログインストリーク機能の導入)
+- [2026-03-29: 報告期限をファミリー単位から子供単位に変更](#2026-03-29-報告期限をファミリー単位から子供単位に変更)
+- [2026-04-01: LPモンスター表示方針の変更（スタイル選択・影・カウント更新）](#2026-04-01-lpモンスター表示方針の変更-スタイル選択-影-カウント更新)
+- [2026-04-02: URLルーティング再構成（/app プレフィックス導入・LP用 / 確保）](#2026-04-02-urlルーティング再構成-app-プレフィックス導入-lp用-確保)
+- [2026-04-04: LP 訴求対象を「ADHD向け」→「一般の子ども向け、ADHDにも効果的」に変更](#2026-04-04-lp-訴求対象を-adhd向け-一般の子ども向け-adhdにも効果的-に変更)
+- [2026-04-04: 転生を手動化＋卵選択ボーナス](#2026-04-04-転生を手動化-卵選択ボーナス)
+- [2026-04-08: バッジ（実績）システムの導入](#2026-04-08-バッジ-実績-システムの導入)
+- [2026-04-16: 進化確率の下限（MIN_EVOLUTION_PROBABILITY = 15%）を導入](#2026-04-16-進化確率の下限-min-evolution-probability-15-を導入)
+- [2026-04-19: QuestInstance にタスク名スナップショットを追加](#2026-04-19-questinstance-にタスク名スナップショットを追加)
+- [2026-04-22: タスク持ち越し機能（carryOver フラグ）の導入](#2026-04-22-タスク持ち越し機能-carryover-フラグ-の導入)
+- [2026-04-24: QuestInstance 生成ロジックを `ensureTodayQuests` に集約し、親画面アクセス時も materialize する](#2026-04-24-questinstance-生成ロジックを-ensuretodayquests-に集約し-親画面アクセス時も-materialize-する)
+- [2026-04-26: あつまり機能（場所×合言葉グループ＋自動掲示板）の導入](#2026-04-26-あつまり機能-場所-合言葉グループ-自動掲示板-の導入)
+- [2026-04-27: carryOver 後付け ON で浮上する stale クエストを REJECTED に自動降格](#2026-04-27-carryover-後付け-on-で浮上する-stale-クエストを-rejected-に自動降格)
+- [2026-04-28: 掲示板を日付グルーピング1ページ表示（直近4日）+ 種別ごとの絵文字バリエーション](#2026-04-28-掲示板を日付グルーピング1ページ表示-直近4日-種別ごとの絵文字バリエーション)
+- [2026-04-28: 削除済みテンプレートの履歴に SKIPPED も残す](#2026-04-28-削除済みテンプレートの履歴に-skipped-も残す)
+- [2026-04-30: BulletinLog の unique に `key` を追加（同日に複数バッジ等を許可）](#2026-04-30-bulletinlog-の-unique-に-key-を追加-同日に複数バッジ等を許可)
+- [2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え](#2026-05-01-掲示板ログのトリガーを-fire-and-forget-から-next-server-の-after-に切り替え)
+- [2026-05-02: main ブランチへのマージ元を develop のみに制限（GitHub Actions）](#2026-05-02-main-ブランチへのマージ元を-develop-のみに制限-github-actions)
+- [2026-05-02: ひろば「エールを送る」スタンプ機能の導入](#2026-05-02-ひろば-エールを送る-スタンプ機能の導入) ⚠️ partial
+- [2026-05-05: 掲示板の表示時集約（TASK_*の最新だけ・同種別バーストは束ね）](#2026-05-05-掲示板の表示時集約-task-の最新だけ-同種別バーストは束ね)
+- [2026-05-05: エール Push を DONE 受信者にスキップし、ひろばマウント時に未読再生](#2026-05-05-エール-push-を-done-受信者にスキップし-ひろばマウント時に未読再生)
+- [2026-05-06: LP に PAIN POINTS / BEFORE-AFTER / FAQ セクションを追加し ADHD 親への訴求を強化](#2026-05-06-lp-に-pain-points-before-after-faq-セクションを追加し-adhd-親への訴求を強化)
+- [2026-05-07: LP に「ひろば × エール」セクションと安全性訴求を追加](#2026-05-07-lp-に-ひろば-エール-セクションと安全性訴求を追加)
+- [2026-05-07: エール送信を掲示板（BulletinLog）にも記録する（2026-05-02 の禁止条項を撤回）](#2026-05-07-エール送信を掲示板-bulletinlog-にも記録する-2026-05-02-の禁止条項を撤回)
+- [2026-05-09: ひろば なかま一覧の表示識別子を `monsterName` + `speciesName` の2軸に再構成し API から `name` を除去](#2026-05-09-ひろば-なかま一覧の表示識別子を-monstername-speciesname-の2軸に再構成し-api-から-name-を除去)
+- [2026-05-09: 「今日やる宣言ボーナス」の導入（放置タスク回避向け）](#2026-05-09-今日やる宣言ボーナス-の導入-放置タスク回避向け)
+- [2026-05-09 (改): 「今日やる宣言」の放置判定を「直近 N 出現の連続非 APPROVED 数」に変更](#2026-05-09-改-今日やる宣言-の放置判定を-直近-n-出現の連続非-approved-数-に変更)
+- [2026-05-10: TaskStreak / isTaskStreakActive を repeatDays ベースの「前回出現日からの連続性」で判定](#2026-05-10-taskstreak-istaskstreakactive-を-repeatdays-ベースの-前回出現日からの連続性-で判定)
+- [2026-05-11: 親画面に「子供モード（child-view）」を導入（親が子供端末を持たない家庭向けの代理操作）](#2026-05-11-親画面に-子供モード-child-view-を導入-親が子供端末を持たない家庭向けの代理操作)
+- [2026-05-11: クエストタイム自動通知（JST 17:00 / 進捗連動メッセージ）の導入](#2026-05-11-クエストタイム自動通知-jst-17-00-進捗連動メッセージ-の導入)
+- [2026-05-22: 子供モードの「子供セレクター画面」のフッターを親フッター（ParentBottomNav）に統一](#2026-05-22-子供モードの-子供セレクター画面-のフッターを親フッター-parentbottomnav-に統一)
+- [2026-05-26: 親画面の carryOver 放置バッジを「N日間未完了」→「N回未完了」（出現回数ベース）に変更](#2026-05-26-親画面の-carryover-放置バッジを-n日間未完了-n回未完了-出現回数ベース-に変更)
+- [2026-05-28: ごほうび（宝箱）システムの導入](#2026-05-28-ごほうび-宝箱-システムの導入) ⚠️ partial
+- [2026-05-28: 親が宝箱プール未設定のときは宝箱を生成しない](#2026-05-28-親が宝箱プール未設定のときは宝箱を生成しない) ⚠️ superseded
+- [2026-05-28: 「渡したよ」フロー廃止 + 子の「ごほうび履歴」を実績ページに統合](#2026-05-28-渡したよ-フロー廃止-子の-ごほうび履歴-を実績ページに統合) ⚠️ partial
+- [2026-05-29: 宝箱抽選を「レア度ごと独立抽選 + プールから均等選択」に変更](#2026-05-29-宝箱抽選を-レア度ごと独立抽選-プールから均等選択-に変更) ⚠️ superseded
+- [2026-05-29: 宝箱履歴の子画面表示は直近1週間に制限 / 開封時刻も併記](#2026-05-29-宝箱履歴の子画面表示は直近1週間に制限-開封時刻も併記)
+- [2026-05-29: 親「ごほうび」ナビにトップタブを追加（設定 / もらった履歴）](#2026-05-29-親-ごほうび-ナビにトップタブを追加-設定-もらった履歴)
+- [2026-05-30: 子画面トンマナ規約 (`docs/design-tone-and-manner.md`) を採用 / 第一弾は宝箱・ひろば](#2026-05-30-子画面トンマナ規約-docs-design-tone-and-manner-md-を採用-第一弾は宝箱-ひろば)
+- [2026-05-30: 子フッター再設計 — コレクションは「図鑑+実績」で先行実装](#2026-05-30-子フッター再設計-コレクションは-図鑑-実績-で先行実装)
+- [2026-05-30: 親モード（child-view）に「宝箱」「コレクション」を追加 / 親代理で開封も可能](#2026-05-30-親モード-child-view-に-宝箱-コレクション-を追加-親代理で開封も可能) ⚠️ partial
+- [2026-05-30: 親フッター再整理 — 「完了 + 履歴」を「📊 記録」タブに統合](#2026-05-30-親フッター再整理-完了-履歴-を-記録-タブに統合)
+- [2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）](#2026-05-30-親代理-report-approve-でも宝箱を生成する-即-unlocked-auto-trigger)
+- [2026-05-30: 宝箱抽選を「レア度ごと独立抽選」から「排他的単発抽選」に変更](#2026-05-30-宝箱抽選を-レア度ごと独立抽選-から-排他的単発抽選-に変更)
+- [2026-05-31: auto-approve cron は AUTO 宝箱を生成しない（2026-05-28 を部分撤回）](#2026-05-31-auto-approve-cron-は-auto-宝箱を生成しない-2026-05-28-を部分撤回)
+- [2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）](#2026-05-31-treasuretrigger-auto-を-proxy-にリネーム-2026-05-30-の-proxy-禁止-を打ち消し)
+- [2026-05-31: 宝箱ハズレ枠を「コレクションアイテム」に置き換え（季節制 80種）](#2026-05-31-宝箱ハズレ枠を-コレクションアイテム-に置き換え-季節制-80種)
+- [2026-05-31: 親プール未設定でも宝箱を生成する（2026-05-28 を撤回）](#2026-05-31-親プール未設定でも宝箱を生成する-2026-05-28-を撤回)
+- [2026-05-31: 「ハズレ」概念を廃止 — `OpenTreasureResult.miss` フィールド削除](#2026-05-31-ハズレ-概念を廃止-opentreasureresult-miss-フィールド削除)
+- [2026-05-31: コレクションアイテム獲得をひろば通知＋履歴・図鑑に反映](#2026-05-31-コレクションアイテム獲得をひろば通知-履歴-図鑑に反映)
+- [2026-05-31: コレクション獲得通知をダブり獲得でも飛ばす（同日同 entry の 2026-05-31 を部分撤回）](#2026-05-31-コレクション獲得通知をダブり獲得でも飛ばす-同日同-entry-の-2026-05-31-を部分撤回)
+- [2026-05-31: STREAK と PROXY を相互排他に（混合家庭の宝箱重複を解消）](#2026-05-31-streak-と-proxy-を相互排他に-混合家庭の宝箱重複を解消)
+- [2026-05-31: 「渡したよチェック」を親メモとして復活（2026-05-28 撤回）](#2026-05-31-渡したよチェック-を親メモとして復活-2026-05-28-撤回)
+- [2026-06-02: 宝箱の天井(pity)システムを廃止（5回連続ハズレ→強制ピック を撤回）](#2026-06-02-宝箱の天井-pity-システムを廃止-5回連続ハズレ-強制ピック-を撤回) ⚠️ superseded
+- [2026-06-03: 親ごほうび当選確率を引き下げ (COMMON 1/7→1/10 / UNCOMMON 1/14→1/20 / RARE 1/28→1/30)](#2026-06-03-親ごほうび当選確率を引き下げ-common-1-7-1-10-uncommon-1-14-1-20-rare-1-28-1-30) ⚠️ partial
+- [2026-06-03: RARE 当選確率をさらに引き下げ (1/30 → 1/45)](#2026-06-03-rare-当選確率をさらに引き下げ-1-30-1-45)
+- [2026-06-03: 実績100バッジの全面見直し（序盤を絞り中盤からの達成感を強化）](#2026-06-03-実績100バッジの全面見直し-序盤を絞り中盤からの達成感を強化)
+- [2026-06-03: 宝箱・コレクションアイテム・転生卵を実績の対象に追加（100バッジ維持）](#2026-06-03-宝箱-コレクションアイテム-転生卵を実績の対象に追加-100バッジ維持)
+- [2026-06-03: バッジ即時解錠フック + 進捗ヒント UI](#2026-06-03-バッジ即時解錠フック-進捗ヒント-ui)
+- [2026-06-03: ALL_COMPLETE 宝箱の boost (1.5倍) はスキップ 0 件のときに限定](#2026-06-03-all-complete-宝箱の-boost-1-5倍-はスキップ-0-件のときに限定)
+- [2026-06-03: 進化／孵化カットインの発火位置を子レイアウト常駐へ移す](#2026-06-03-進化-孵化カットインの発火位置を子レイアウト常駐へ移す)
+- [2026-06-08: 親モード（child-view）に「代理スキップ」と「進化／孵化カットイン」をスコープ追加](#2026-06-08-親モード-child-view-に-代理スキップ-と-進化-孵化カットイン-をスコープ追加)
+- [2026-06-09: 親画面タスクカードの「⏭ N日前スキップ」バッジを、その後 APPROVED があれば消す](#2026-06-09-親画面タスクカードの-n日前スキップ-バッジを-その後-approved-があれば消す)
+- [2026-06-10: 子レイアウトに Duolingo ライクの常駐ストリークバッジを追加](#2026-06-10-子レイアウトに-duolingo-ライクの常駐ストリークバッジを追加) ⚠️ partial
+- [2026-06-19: 持ち越し（carryOver）古日付の報告/スキップで宝箱集計を今日基準に切替＋システム rejectionReason を UI 非表示化](#2026-06-19-持ち越し-carryover-古日付の報告-スキップで宝箱集計を今日基準に切替-システム-rejectionreason-を-ui-非表示化)
+- [2026-06-24: 宝箱の天井(pity)システムを復活（10回連続ハズレ→次は強制 HIT）](#2026-06-24-宝箱の天井-pity-システムを復活-10回連続ハズレ-次は強制-hit)
+- [2026-06-24: チェックインカレンダーの導入](#2026-06-24-チェックインカレンダーの導入) ⚠️ partial
+- [2026-06-25: チェックインカレンダーを子画面で月→週(7日)表示に変更](#2026-06-25-チェックインカレンダーを子画面で月-週-7日-表示に変更)
+- [2026-06-25: 親側のチェックイン履歴を「記録 > 過去」に追加（専用 API）](#2026-06-25-親側のチェックイン履歴を-記録-過去-に追加-専用-api)
+- [2026-06-29: チェックイン成功時にフルカットイン演出を追加 + 左上常駐ストリークバッジを撤去](#2026-06-29-チェックイン成功時にフルカットイン演出を追加-左上常駐ストリークバッジを撤去)
+- [2026-07-02: 親代理経路でも全完了時に ALL_COMPLETE 宝箱を生成する（PROXY と共存）](#2026-07-02-親代理経路でも全完了時に-all-complete-宝箱を生成する-proxy-と共存)
+- [2026-07-02: 一時タスクも carryOver=true を選択可能にする](#2026-07-02-一時タスクも-carryover-true-を選択可能にする)
+- [2026-07-02: 親側チェックインカレンダーを HeatmapGrid に統合（ParentCheckinCalendar 廃止）](#2026-07-02-親側チェックインカレンダーを-heatmapgrid-に統合-parentcheckincalendar-廃止)
+- [2026-07-20: タスクの一時停止機能（親が子供画面での表示を pausedAt で停止／再開）](#2026-07-20-タスクの一時停止機能-親が子供画面での表示を-pausedat-で停止-再開)
+- [2026-07-22: 月限定コレクションアイテム 60 種を追加（通常80 → 総140）](#2026-07-22-月限定コレクションアイテム-60-種を追加-通常80-総140)
+- [2026-08-04: 差し戻し後もスキップ申請を許可（REJECTED → SKIP_REPORTED）](#2026-08-04-差し戻し後もスキップ申請を許可-rejected-skip-reported)
+- [2026-08-06: LP に「WHY IT WORKS」セクション（行動心理学に基づく設計解説）を追加](#2026-08-06-lp-に-why-it-works-セクション-行動心理学に基づく設計解説-を追加)
+- [2026-08-06: マネタイズ (FREE/PREMIUM) のスキーマ土台を導入](#2026-08-06-マネタイズ-free-premium-のスキーマ土台を導入)
+- [2026-08-06: マネタイズ Phase 1-2 — タスク数上限 (FREE 10個/子) を enforce](#2026-08-06-マネタイズ-phase-1-2-タスク数上限-free-10個-子-を-enforce)
+- [2026-08-06: マネタイズ Phase 1-3 — 子アカウント (FREE 1人) とごほうび (FREE 5個/子) を enforce](#2026-08-06-マネタイズ-phase-1-3-子アカウント-free-1人-とごほうび-free-5個-子-を-enforce)
+- [2026-08-06: マネタイズ Phase 1-4 — FREE は季節コレクション 80 種をロック (抽選プールから除外)](#2026-08-06-マネタイズ-phase-1-4-free-は季節コレクション-80-種をロック-抽選プールから除外)
+- [2026-08-06: マネタイズ Phase 1-5 — UI 側のエラー表示 + task 作成経路 (copy/bulk) の enforce 抜け穴を塞ぐ](#2026-08-06-マネタイズ-phase-1-5-ui-側のエラー表示-task-作成経路-copy-bulk-の-enforce-抜け穴を塞ぐ)
+- [2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除](#2026-08-06-子アカウント上限の-enforce-を正しい経路-api-family-members-に移動し-未使用の-auth-経路を削除)
+- [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
+- [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
+
+<!-- TOC:END -->
 
 ## 2026-03-11: 一時タスクの導入と画面別タスク作成権限
 
@@ -96,6 +200,16 @@
 - `network_mode: host` は Linux 専用。Windows (Docker Desktop) では動作せず ERR_CONNECTION_REFUSED になる
 - `host.docker.internal` は Docker Desktop (Win/Mac) がホスト側DNSに自動追加するため、ブラウザからもコンテナ内からも同じホスト名でアクセス可能
 
+## 2026-03-15: 親画面「今日の完了タスク」にSKIPPEDも表示
+
+### 決定内容
+- `/parent/completed` 画面に `APPROVED` だけでなく `SKIPPED` のクエストも表示する
+- スキップタスクはオレンジ枠＋「⏭ スキップ」ラベルで視覚的に区別し、XPは計上しない
+- サマリー行に完了数とスキップ数を分けて表示
+
+### 理由
+- 親がスキップを承認した以上、その結果を完了一覧で確認できるのが自然。ストリークでもSKIPPEDを算入済みであり、「親が承認した今日の全アクション」を一覧できる方が監督しやすい
+
 ## 2026-03-16: タスクをユーザー（子供）単位で管理
 
 ### 決定内容
@@ -162,16 +276,6 @@
 ### 理由
 - ADHD 特性上、具体的なタスク名を通知する方が行動に移しやすい（「画面見て」より「宿題をやろう！」の方が効果的）
 - 親が状況に応じて送るタイミングを選べる手動方式をまず導入し、自動トリガーはフェーズB以降に検討
-
-## 2026-03-15: 親画面「今日の完了タスク」にSKIPPEDも表示
-
-### 決定内容
-- `/parent/completed` 画面に `APPROVED` だけでなく `SKIPPED` のクエストも表示する
-- スキップタスクはオレンジ枠＋「⏭ スキップ」ラベルで視覚的に区別し、XPは計上しない
-- サマリー行に完了数とスキップ数を分けて表示
-
-### 理由
-- 親がスキップを承認した以上、その結果を完了一覧で確認できるのが自然。ストリークでもSKIPPEDを算入済みであり、「親が承認した今日の全アクション」を一覧できる方が監督しやすい
 
 ## 2026-03-22: 自動承認機能の導入
 
@@ -241,6 +345,17 @@
 - キャラ選択（男/女）の用途として再活用することで、既存の親画面「サイド選択UI」を活かせる
 - 画像がない状態でも、テーブルの参照先を切り替えるだけで後から差し替え可能な構造にした
 
+## 2026-03-25: 転生システムとコレクション機能の導入
+
+### 決定内容
+- 最終形態（stage 3）で転生閾値に達すると「転生」→ 卵（stage 0）にリセット
+- 転生しても過去に進化したモンスターの記録は collectedPaths（JSON配列）に保持
+- 図鑑は「現在の進化パス」ではなく「コレクション全体」を表示する形式に刷新
+
+### 理由
+- 最終形態到達後もゲームを続ける動機を与える（繰り返しプレイのループ設計）
+- コレクション要素により「全種類集めたい」という長期モチベーションを追加
+
 ## 2026-03-28: 転生サイクルを60pt（約2週間）に調整
 
 ### 決定内容
@@ -263,17 +378,6 @@
 - 初回1ptは「すぐモンスターに会える」体験を維持するため変更しない
 - 転生後は1ptだと孵化が瞬時に終わりすぎて達成感がない。5pt（1〜2日）程度の待機で次のサイクルへの期待感が生まれる
 - 1サイクル合計: 5+10+30+20=65pt（初回のみ1+10+30+20=61pt）
-
-## 2026-03-25: 転生システムとコレクション機能の導入
-
-### 決定内容
-- 最終形態（stage 3）で転生閾値に達すると「転生」→ 卵（stage 0）にリセット
-- 転生しても過去に進化したモンスターの記録は collectedPaths（JSON配列）に保持
-- 図鑑は「現在の進化パス」ではなく「コレクション全体」を表示する形式に刷新
-
-### 理由
-- 最終形態到達後もゲームを続ける動機を与える（繰り返しプレイのループ設計）
-- コレクション要素により「全種類集めたい」という長期モチベーションを追加
 
 ## 2026-03-29: 写真オプショナル化とフラットXP制への移行
 
@@ -318,17 +422,19 @@
 - タスク達成ストリーク（`recordDailyAchievement`）はタスクをこなさないと伸びないが、「アプリを開く習慣」自体も ADHD 支援の観点から報酬として認める
 - 10日サイクルにすることで ADHD 特性に合わせた短期フィードバックを実現しつつ、タスク達成 XP（最大3pt/日）に対してログインボーナスが過剰にならない頻度に抑える
 
-## 2026-04-02: URLルーティング再構成（/app プレフィックス導入・LP用 / 確保）
+## 2026-03-29: 報告期限をファミリー単位から子供単位に変更
 
 ### 決定内容
-- 全アプリ画面に `/app/` プレフィックスを付与（例: `/parent/tasks` → `/app/parent/tasks`）
-- 旧 `/`（ログイン選択画面）を `/login` に移動
-- `/` をLP専用パスとして確保（ログイン済みでもリダイレクトしない）
-- `/register` → `/app/register`
+- `Family.reportDeadlineTime` を廃止し、`User.reportDeadlineTime String?` に移動
+- 親は「メンバー管理」画面で子供ごとに報告期限時刻を設定する
+- `PATCH /api/family/settings` は `{ childId, reportDeadlineTime }` を受け取り、指定の子供の `reportDeadlineTime` を更新
+- `GET /api/family/code` のレスポンスで各メンバーに `reportDeadlineTime` を含める（トップレベルの `reportDeadlineTime` は削除）
+- `POST /api/quests/[id]/report` は Family を別途クエリせず、`user.reportDeadlineTime` を直接参照
 
 ### 理由
-- LPを `/` に配置するため、既存のアプリ画面と明確にパス分離する必要があった
-- `/app/*` vs `/api/*` でUIとAPIのパスを対称的に区別できる
+- 同じファミリーに複数の子供がいる場合、年齢や生活リズムが異なるため一律の報告期限は不合理
+- 子供Aは学校から帰る20時、子供Bは習い事で22時が妥当、といったケースを想定
+- Family への JOIN が不要になり `report/route.ts` の実装がシンプルになった
 
 ## 2026-04-01: LPモンスター表示方針の変更（スタイル選択・影・カウント更新）
 
@@ -342,6 +448,18 @@
 - DARKスタイル（男の子/ヒーロー系）とLIGHTスタイル（女の子/どうぶつ系）の差異はコードベースに既存の仕様（decisions.md 2026-03-25）であったが、LPに反映されていなかった
 - 第三形態全シルエット・第二形態部分シルエットにより「まだ見ぬモンスター」の存在をLPで示し、コレクション意欲を高める
 - ADHD向け訴求を強化するため、「時間感覚の歪み対策」「ドーパミン報酬設計の多段化」「タスク開始障壁の低減」「ワーキングメモリ補完」「親子関係改善」の観点を追加
+
+## 2026-04-02: URLルーティング再構成（/app プレフィックス導入・LP用 / 確保）
+
+### 決定内容
+- 全アプリ画面に `/app/` プレフィックスを付与（例: `/parent/tasks` → `/app/parent/tasks`）
+- 旧 `/`（ログイン選択画面）を `/login` に移動
+- `/` をLP専用パスとして確保（ログイン済みでもリダイレクトしない）
+- `/register` → `/app/register`
+
+### 理由
+- LPを `/` に配置するため、既存のアプリ画面と明確にパス分離する必要があった
+- `/app/*` vs `/api/*` でUIとAPIのパスを対称的に区別できる
 
 ## 2026-04-04: LP 訴求対象を「ADHD向け」→「一般の子ども向け、ADHDにも効果的」に変更
 
@@ -428,19 +546,6 @@
 - ADHD 特性上タスクを忘れること自体は避けられないため、タスクを消失させるより「まだやれる」状態を維持する方がモチベーション継続に有効
 - スキップ機能（子供が「やらない」と意思表示）とは役割が明確に異なるため、別フラグで管理
 
-## 2026-04-27: carryOver 後付け ON で浮上する stale クエストを REJECTED に自動降格
-
-### 決定内容
-- `src/lib/quests.ts` に `cleanupStaleCarryOverInstances({ childId, templates })` を追加
-- carryOver=true テンプレートについて「直近 APPROVED/SKIPPED より日付が古い PENDING / REPORTED / SKIP_REPORTED」を `status=REJECTED, rejectionReason="STALE_CARRYOVER_CLEANUP"` に一括変換
-- `ensureTodayQuests`（子供 quests/today・親 tasks 経由）と `GET /api/approve/pending` の双方から呼び出す遅延クリーンアップ方式
-- 直近 APPROVED/SKIPPED が無いテンプレートは判定不能のため対象外（ensureTodayQuests の 1 インスタンス保証で新規発生は防がれる）
-
-### 理由
-- carryOver=false で運用していたタスクで日付別に積もった過去 PENDING が、carryOver を後から ON にした瞬間に `quests/today` の `OR: [{ date: today }, { status: PENDING, template: { carryOver: true } }]` で全件浮上し、子供がまとめて報告 → 親の承認待ちが大量発生するバグの恒久対策
-- 3d1f3df では親管理画面の「持ち越し中バッジ」表示のみ stale を除外していたが、データ自体と他画面（子供のクエスト一覧・親の承認待ち）には反映されていなかった
-- 過去データを REJECTED に降格する形を取るのは、REJECTED は `date < today` なら子供の今日のリストに出現しないため副作用が無く、履歴上も「却下」として説明可能（rejectionReason で由来を識別可）
-
 ## 2026-04-24: QuestInstance 生成ロジックを `ensureTodayQuests` に集約し、親画面アクセス時も materialize する
 
 ### 決定内容
@@ -454,20 +559,6 @@
 - 共有ヘルパー化により `/api/tasks` と `/api/quests/today` の両方で整合性を保てる
 
 ---
-
-## 2026-03-29: 報告期限をファミリー単位から子供単位に変更
-
-### 決定内容
-- `Family.reportDeadlineTime` を廃止し、`User.reportDeadlineTime String?` に移動
-- 親は「メンバー管理」画面で子供ごとに報告期限時刻を設定する
-- `PATCH /api/family/settings` は `{ childId, reportDeadlineTime }` を受け取り、指定の子供の `reportDeadlineTime` を更新
-- `GET /api/family/code` のレスポンスで各メンバーに `reportDeadlineTime` を含める（トップレベルの `reportDeadlineTime` は削除）
-- `POST /api/quests/[id]/report` は Family を別途クエリせず、`user.reportDeadlineTime` を直接参照
-
-### 理由
-- 同じファミリーに複数の子供がいる場合、年齢や生活リズムが異なるため一律の報告期限は不合理
-- 子供Aは学校から帰る20時、子供Bは習い事で22時が妥当、といったケースを想定
-- Family への JOIN が不要になり `report/route.ts` の実装がシンプルになった
 
 ## 2026-04-26: あつまり機能（場所×合言葉グループ＋自動掲示板）の導入
 
@@ -496,6 +587,19 @@
 - 子供アクションでの掲示板書き込みAPIを追加する（仕様上禁止）
 - 掲示板ログにタスク名や具体的な内容を載せる（プライバシー）
 - `triggerXxxLog` を `await` で承認フローに組み込む（fire-and-forget で承認失敗を起こさない）
+
+## 2026-04-27: carryOver 後付け ON で浮上する stale クエストを REJECTED に自動降格
+
+### 決定内容
+- `src/lib/quests.ts` に `cleanupStaleCarryOverInstances({ childId, templates })` を追加
+- carryOver=true テンプレートについて「直近 APPROVED/SKIPPED より日付が古い PENDING / REPORTED / SKIP_REPORTED」を `status=REJECTED, rejectionReason="STALE_CARRYOVER_CLEANUP"` に一括変換
+- `ensureTodayQuests`（子供 quests/today・親 tasks 経由）と `GET /api/approve/pending` の双方から呼び出す遅延クリーンアップ方式
+- 直近 APPROVED/SKIPPED が無いテンプレートは判定不能のため対象外（ensureTodayQuests の 1 インスタンス保証で新規発生は防がれる）
+
+### 理由
+- carryOver=false で運用していたタスクで日付別に積もった過去 PENDING が、carryOver を後から ON にした瞬間に `quests/today` の `OR: [{ date: today }, { status: PENDING, template: { carryOver: true } }]` で全件浮上し、子供がまとめて報告 → 親の承認待ちが大量発生するバグの恒久対策
+- 3d1f3df では親管理画面の「持ち越し中バッジ」表示のみ stale を除外していたが、データ自体と他画面（子供のクエスト一覧・親の承認待ち）には反映されていなかった
+- 過去データを REJECTED に降格する形を取るのは、REJECTED は `date < today` なら子供の今日のリストに出現しないため副作用が無く、履歴上も「却下」として説明可能（rejectionReason で由来を識別可）
 
 ## 2026-04-28: 掲示板を日付グルーピング1ページ表示（直近4日）+ 種別ごとの絵文字バリエーション
 
@@ -544,6 +648,21 @@
 - `key` を unique に含めることで「同日に別バッジを複数件残す」「同日に異なる進化を複数件残す」が可能になり、掲示板の達成感フィードバックが正確になる
 - TASK_* は `key=""` 固定なので、進捗マイルストーン再評価の冪等性は維持される
 
+## 2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え
+
+### 決定内容
+- 2026-04-26 で「fire-and-forget でログ」と決めていた `triggerXxxLog` 呼び出しをすべて `after(() => trigger().catch(() => {}))` に変更
+- 影響箇所: `src/app/api/quests/[id]/report/route.ts`、`src/app/api/quests/[id]/skip/route.ts`、`src/app/api/rebirth/route.ts`、`src/lib/approve.ts`（`triggerMonsterEvolvedLog` / `triggerBadgeLog`）、`src/lib/streak.ts`（`triggerStreakTitleLog`）
+
+### 理由
+- Vercel など Serverless Functions は **レスポンスを返した瞬間に関数インスタンスが停止する**ため、`trigger().catch(() => {})` の Promise が完了しないことがあった
+- 「タスクを全部終わらせたのに掲示板に 100% 完了メッセージが来ないことがある」という症状の再発防止
+- `after()` は Next.js 15+ の標準 API で、レスポンス送信後にコールバックを確実に走らせる正規手段
+
+### やってはいけないこと
+- 新規に `triggerXxxLog(...).catch(() => {})` を書かない。必ず `after(() => triggerXxxLog(...).catch(() => {}))` で包む
+- `await triggerXxxLog(...)` でレスポンスをブロックしない（ユーザ操作のレイテンシが伸びる）
+
 ## 2026-05-02: main ブランチへのマージ元を develop のみに制限（GitHub Actions）
 
 ### 決定内容
@@ -558,6 +677,10 @@
 - 例外的に `feature/*` から直接 `main` にマージしようとして本ワークフローを無効化する（必要なら `develop` に一旦マージして fast-forward する）
 
 ## 2026-05-02: ひろば「エールを送る」スタンプ機能の導入
+
+> **⚠ PARTIALLY SUPERSEDED** — [2026-05-07: エール送信を掲示板（BulletinLog）にも記録する（2026-05-02 の禁止条項を撤回）](#2026-05-07-エール送信を掲示板-bulletinlog-にも記録する-2026-05-02-の禁止条項を撤回)
+>
+> 「掲示板への書き込み禁止」条項のみ 2026-05-07 で撤回。機能本体は現行。
 
 ### 決定内容
 - グループ参加中の子供が、グループ全員に「エールを送る」スタンプを 1日1回 押せる機能を追加
@@ -599,6 +722,26 @@
 - バースト束ねの時間窓を ms 単位で大きく取りすぎない（独立した2回の達成が同一バーストに混ざると体験が損なわれる）
 - TASK_* の最新1件残しは「同 childId + 同日」単位で行う（子供が違う／日付が違う場合は独立して残す）
 
+## 2026-05-05: エール Push を DONE 受信者にスキップし、ひろばマウント時に未読再生
+
+### 決定内容
+- `POST /api/gathering/stamp`: 受信側ごとに当日進捗を判定し、`status === "DONE"` のときは `sendPushToChild` をスキップする。`Stamp` 行作成と Realtime 配信は変更なし
+- 新規 `GET /api/gathering/stamps/received-today`: 自グループで自分宛・本日着の Stamp 一覧（自分送信は除外）を返却。レスポンス `{ stamps: [{ id, senderId, senderName }] }`
+- `GatheringStampPanel` マウント時に `received-today` を取得し、`localStorage["gathering:seenStampIds"]`（直近100件保持）に未保存のIDのみトーストで再生。Realtime 受信時も seenIds に追加して二重表示を防ぐ
+- DONE 判定はサーバ側 Push 配信とクライアント表示で同じ `getStampProgressStatus` を共有
+
+### 理由
+- 当日のクエストを全部終わらせている子に Push を飛ばすと、集中を切らさず終わらせた直後に通知音で割り込む UX 問題があった
+- 一方 Push を完全停止だけだと、Realtime チャンネル subscribe 前に届いた Stamp に DONE の子が気づけず「DONE の子だけ社会的フィードバックを失う」という別問題が生まれる
+- ひろばページのマウント時に過去 Stamp を再生することで、`Stamp` 行を「OS 通知＋Realtime＋次回ページ訪問時の補完」の三段配送に拡張し、DONE 受信者の体験を毀損せずに通知音だけ抑制できる
+- 既読管理を localStorage にとどめたのは、当日4件以下の低頻度アクションで別端末ログイン時の重複表示が許容範囲だったため。`StampReceipt` テーブル追加はオーバーキル
+- 2026-05-02 で決めた「個別メッセージで Push 配信」の例外条項として位置付け（自由文・タスク名露出などの禁止事項は維持）
+
+### やってはいけないこと
+- DONE 判定をクライアント側だけに置く（Push を抑制するためにサーバ側判定が必要）
+- DONE 受信時に Realtime トーストや未読再生まで止める（ページを開いている／開いた人は気づける状態を維持する）
+- localStorage の seenIds を無制限に肥大化させる（直近100件で trim、当日4日経過で API レスポンス側からも消える）
+
 ## 2026-05-06: LP に PAIN POINTS / BEFORE-AFTER / FAQ セクションを追加し ADHD 親への訴求を強化
 
 ### 決定内容
@@ -628,60 +771,6 @@
 - 「自分／うちだけが頑張ってる」という孤立感は ADHD 子育てで親が抱える大きな辛さの一つ。実装済みのひろば／エール機能はこれに直接効くのに LP で訴求できていなかった
 - 一方、「他人の子と交流させて大丈夫？」というプライバシー懸念は親側の購入障壁になりやすい。実装の核（自由文 API 不在・タスク名非表示・直近4日・モンスター名表示）はそのままトラブル防止の根拠になるため、機能訴求とセットでプライバシー設計を見せ、安心感まで含めて1セクションで完結させる
 - LP コピーに変更が入っても decisions.md（仕様規約）には影響しないが、LP セクションの増設は方針レベルの判断（孤独感対策・安全性訴求を主訴求に格上げ）を含むため記録を残す
-
-## 2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え
-
-### 決定内容
-- 2026-04-26 で「fire-and-forget でログ」と決めていた `triggerXxxLog` 呼び出しをすべて `after(() => trigger().catch(() => {}))` に変更
-- 影響箇所: `src/app/api/quests/[id]/report/route.ts`、`src/app/api/quests/[id]/skip/route.ts`、`src/app/api/rebirth/route.ts`、`src/lib/approve.ts`（`triggerMonsterEvolvedLog` / `triggerBadgeLog`）、`src/lib/streak.ts`（`triggerStreakTitleLog`）
-
-### 理由
-- Vercel など Serverless Functions は **レスポンスを返した瞬間に関数インスタンスが停止する**ため、`trigger().catch(() => {})` の Promise が完了しないことがあった
-- 「タスクを全部終わらせたのに掲示板に 100% 完了メッセージが来ないことがある」という症状の再発防止
-- `after()` は Next.js 15+ の標準 API で、レスポンス送信後にコールバックを確実に走らせる正規手段
-
-### やってはいけないこと
-- 新規に `triggerXxxLog(...).catch(() => {})` を書かない。必ず `after(() => triggerXxxLog(...).catch(() => {}))` で包む
-- `await triggerXxxLog(...)` でレスポンスをブロックしない（ユーザ操作のレイテンシが伸びる）
-
-## 2026-05-05: エール Push を DONE 受信者にスキップし、ひろばマウント時に未読再生
-
-### 決定内容
-- `POST /api/gathering/stamp`: 受信側ごとに当日進捗を判定し、`status === "DONE"` のときは `sendPushToChild` をスキップする。`Stamp` 行作成と Realtime 配信は変更なし
-- 新規 `GET /api/gathering/stamps/received-today`: 自グループで自分宛・本日着の Stamp 一覧（自分送信は除外）を返却。レスポンス `{ stamps: [{ id, senderId, senderName }] }`
-- `GatheringStampPanel` マウント時に `received-today` を取得し、`localStorage["gathering:seenStampIds"]`（直近100件保持）に未保存のIDのみトーストで再生。Realtime 受信時も seenIds に追加して二重表示を防ぐ
-- DONE 判定はサーバ側 Push 配信とクライアント表示で同じ `getStampProgressStatus` を共有
-
-### 理由
-- 当日のクエストを全部終わらせている子に Push を飛ばすと、集中を切らさず終わらせた直後に通知音で割り込む UX 問題があった
-- 一方 Push を完全停止だけだと、Realtime チャンネル subscribe 前に届いた Stamp に DONE の子が気づけず「DONE の子だけ社会的フィードバックを失う」という別問題が生まれる
-- ひろばページのマウント時に過去 Stamp を再生することで、`Stamp` 行を「OS 通知＋Realtime＋次回ページ訪問時の補完」の三段配送に拡張し、DONE 受信者の体験を毀損せずに通知音だけ抑制できる
-- 既読管理を localStorage にとどめたのは、当日4件以下の低頻度アクションで別端末ログイン時の重複表示が許容範囲だったため。`StampReceipt` テーブル追加はオーバーキル
-- 2026-05-02 で決めた「個別メッセージで Push 配信」の例外条項として位置付け（自由文・タスク名露出などの禁止事項は維持）
-
-### やってはいけないこと
-- DONE 判定をクライアント側だけに置く（Push を抑制するためにサーバ側判定が必要）
-- DONE 受信時に Realtime トーストや未読再生まで止める（ページを開いている／開いた人は気づける状態を維持する）
-- localStorage の seenIds を無制限に肥大化させる（直近100件で trim、当日4日経過で API レスポンス側からも消える）
-
-## 2026-05-10: TaskStreak / isTaskStreakActive を repeatDays ベースの「前回出現日からの連続性」で判定
-
-### 決定内容
-- `src/lib/date.ts` に純粋関数 `previousScheduledDate(repeatDays, today): Date | null` を追加（today より厳密に過去で `repeatDays` に含まれる曜日のうち最も近い日付を返す。直近7日のみ走査）
-- `isTaskStreakActive` のシグネチャを `(repeatDays, lastAchievedDate, todayStr?)` に変更し、判定を「`lastAchievedDate >= previousScheduledDate(repeatDays, today)`」に置き換え（`repeatDays` が空のとき / `lastAchievedDate` が null のときは false）
-- `recordTaskStreak` のシグネチャを `(taskId, childId, questDate, repeatDays)` に変更し、連続加算条件を「`lastAchievedDate === previousScheduledDate(repeatDays, questDate)`」に変更（旧: 暦日上の昨日固定）
-- `src/lib/approve.ts` の `QuestWithRelations.template` に `repeatDays: number[]` を追加し、`recordTaskStreak` 呼び出しに渡す
-- 親タスク管理画面（`src/app/app/parent/(app)/tasks/page.tsx`）の `isTaskStreakActive` 呼び出しに `task.repeatDays` を渡す
-
-### 理由
-- 旧実装は「暦日上の昨日に達成したか」だけで判定していたため、月水金タスク（`repeatDays=[1,3,5]`）では金曜完了 → 土曜時点では active のまま、日曜になるとストリークが切れる扱いになっていた
-- 実際の運用では「次の予定日（月曜）を逃すまではストリーク継続」が直感に合う。週末や休曜日を「無視」して、予定日同士の連続性を見るのが正しい
-- 例: 月水金で金曜→月曜の連続完了は streak +1、月曜を逃して水曜に達成した場合は 1 にリセット（best は保持）
-
-### やってはいけないこと
-- `recordTaskStreak` を `repeatDays` 引数なしで呼ぶ（type error にしてある）
-- `isTaskStreakActive(lastAchievedDate, today)` の旧2引数シグネチャで呼ぶ（同上）
-- `previousScheduledDate` を別ファイルに重複実装する（`src/lib/date.ts` に集約）
 
 ## 2026-05-07: エール送信を掲示板（BulletinLog）にも記録する（2026-05-02 の禁止条項を撤回）
 
@@ -768,6 +857,25 @@
 
 ### 関連既知の問題（未対応）
 - `recordTaskStreak` / `isTaskStreakActive` (`src/lib/streak.ts`, `src/lib/date.ts`) も「today/yesterday の暦日連続」で判定しているため、**週次タスクをきちんと毎週完了しても TaskStreak が常に 1 にリセットされる** 同種のバグを抱えている。本決定の対象外として別チケットで扱う
+
+## 2026-05-10: TaskStreak / isTaskStreakActive を repeatDays ベースの「前回出現日からの連続性」で判定
+
+### 決定内容
+- `src/lib/date.ts` に純粋関数 `previousScheduledDate(repeatDays, today): Date | null` を追加（today より厳密に過去で `repeatDays` に含まれる曜日のうち最も近い日付を返す。直近7日のみ走査）
+- `isTaskStreakActive` のシグネチャを `(repeatDays, lastAchievedDate, todayStr?)` に変更し、判定を「`lastAchievedDate >= previousScheduledDate(repeatDays, today)`」に置き換え（`repeatDays` が空のとき / `lastAchievedDate` が null のときは false）
+- `recordTaskStreak` のシグネチャを `(taskId, childId, questDate, repeatDays)` に変更し、連続加算条件を「`lastAchievedDate === previousScheduledDate(repeatDays, questDate)`」に変更（旧: 暦日上の昨日固定）
+- `src/lib/approve.ts` の `QuestWithRelations.template` に `repeatDays: number[]` を追加し、`recordTaskStreak` 呼び出しに渡す
+- 親タスク管理画面（`src/app/app/parent/(app)/tasks/page.tsx`）の `isTaskStreakActive` 呼び出しに `task.repeatDays` を渡す
+
+### 理由
+- 旧実装は「暦日上の昨日に達成したか」だけで判定していたため、月水金タスク（`repeatDays=[1,3,5]`）では金曜完了 → 土曜時点では active のまま、日曜になるとストリークが切れる扱いになっていた
+- 実際の運用では「次の予定日（月曜）を逃すまではストリーク継続」が直感に合う。週末や休曜日を「無視」して、予定日同士の連続性を見るのが正しい
+- 例: 月水金で金曜→月曜の連続完了は streak +1、月曜を逃して水曜に達成した場合は 1 にリセット（best は保持）
+
+### やってはいけないこと
+- `recordTaskStreak` を `repeatDays` 引数なしで呼ぶ（type error にしてある）
+- `isTaskStreakActive(lastAchievedDate, today)` の旧2引数シグネチャで呼ぶ（同上）
+- `previousScheduledDate` を別ファイルに重複実装する（`src/lib/date.ts` に集約）
 
 ## 2026-05-11: 親画面に「子供モード（child-view）」を導入（親が子供端末を持たない家庭向けの代理操作）
 
@@ -898,6 +1006,10 @@
 
 ## 2026-05-28: ごほうび（宝箱）システムの導入
 
+> **⚠ PARTIALLY SUPERSEDED** — [2026-05-31: auto-approve cron は AUTO 宝箱を生成しない（2026-05-28 を部分撤回）](#2026-05-31-auto-approve-cron-は-auto-宝箱を生成しない-2026-05-28-を部分撤回)
+>
+> 「自動承認 cron が (childId, date) 集約で AUTO 宝箱を生成する」部分のみ 2026-05-31 で撤回。制度本体は現行。
+
 ### 決定内容
 - ゲーム内報酬（XP・進化・バッジ）に加え、親が用意した「現実のごほうび」を確率抽選で結びつける宝箱機構を追加
 - 詳細仕様は `docs/reword-system-design.md` を正本とする（DB スキーマ、状態遷移、抽選アルゴリズム、UI 構成）
@@ -922,6 +1034,10 @@
 
 ## 2026-05-28: 親が宝箱プール未設定のときは宝箱を生成しない
 
+> **⚠ SUPERSEDED** — [2026-05-31: 親プール未設定でも宝箱を生成する（2026-05-28 を撤回）](#2026-05-31-親プール未設定でも宝箱を生成する-2026-05-28-を撤回)
+>
+> コレクション導入により「ハズレ→コレクション」を成立させる必要が出たため撤回。
+
 ### 決定内容
 - `generateTreasuresOnReport` と `generateAutoApproveTreasure` の冒頭で `prisma.treasureItem.count({ where: { childId, isActive: true } })` を確認し、0 件なら早期 return（LOCKED / AUTO どちらも作らない）
 - 結果として子供画面の `TreasureStock` は `locked=0 && unlocked=0` の分岐で何も表示されない → 親が設定するまで宝箱 UI 自体が存在しないクリーン状態に
@@ -938,6 +1054,10 @@
 - 親が後からプールをクリアした場合に既存 LOCKED を強制 CANCELLED する処理を入れる（差し戻し時の CANCEL とロジックが重なって状態遷移が複雑化する。手動で履歴クリアしたい場合は別途 admin 操作に切り出す）
 
 ## 2026-05-28: 「渡したよ」フロー廃止 + 子の「ごほうび履歴」を実績ページに統合
+
+> **⚠ PARTIALLY SUPERSEDED** — [2026-05-31: 「渡したよチェック」を親メモとして復活（2026-05-28 撤回）](#2026-05-31-渡したよチェック-を親メモとして復活-2026-05-28-撤回)
+>
+> 「渡したよ」チェック自体は 2026-05-31 で親メモとして復活。履歴を実績に統合する部分は現行。
 
 ### 決定内容
 - **A**: 子供画面のごほうび履歴の表示場所は **実績ページ（`/app/child/badges`）にタブ追加**。「🏅 実績 / 🎁 ごほうび」のトップタブで切替。`TreasureHistoryList` コンポーネントを `src/components/child/` に切り出し
@@ -960,6 +1080,10 @@
 - ごほうび履歴 API を別途新設する（`/api/treasures/status` の `opened` を流用。重複 API は作らない）
 
 ## 2026-05-29: 宝箱抽選を「レア度ごと独立抽選 + プールから均等選択」に変更
+
+> **⚠ SUPERSEDED** — [2026-05-30: 宝箱抽選を「レア度ごと独立抽選」から「排他的単発抽選」に変更](#2026-05-30-宝箱抽選を-レア度ごと独立抽選-から-排他的単発抽選-に変更)
+>
+> 1タスクで複数レア度当選する問題を解消するため 2026-05-30 で排他的抽選に置き換え。
 
 ### 決定内容
 - `drawTreasure` の抽選を **「各アイテムを独立に rng() < prob で判定」から「各レア度ごとに 1 回だけ rng() < prob を判定し、当たったレア度のプール内アイテムから均等に 1 個選ぶ」** に変更
@@ -1063,6 +1187,10 @@
 
 ## 2026-05-30: 親モード（child-view）に「宝箱」「コレクション」を追加 / 親代理で開封も可能
 
+> **⚠ PARTIALLY SUPERSEDED** — [2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）](#2026-05-31-treasuretrigger-auto-を-proxy-にリネーム-2026-05-30-の-proxy-禁止-を打ち消し)
+>
+> 「trigger=PROXY を新設しない」ルールは 2026-05-31 で撤回。機能本体は現行。
+
 ### 決定内容
 - `ChildViewBottomNav` を 3タブ（クエスト/育成/ひろば）から 5タブ（**+宝箱 +コレクション**）に拡張
   - 🎁 宝箱 → `/app/parent/child-view/[childId]/treasures`
@@ -1114,7 +1242,6 @@
 - `/app/parent/completed` `/app/parent/history` を即時 redirect / 削除する（外部リンクやブックマークを壊す）
 - ParentBottomNav / Sidebar に「完了」「履歴」を独立タブとして復活させる（タブ過密の方針に反する）
 - PushSubscriber をフッターから外して「ファミリー」ページ等の奥に移動する（通知許可率が落ちる）
-
 
 ## 2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）
 
@@ -1333,8 +1460,6 @@
 - `src/components/child/TreasureStock.tsx` + 子・親代理 treasures ページ — 型から `miss` 削除、履歴アイコンを emoji 化
 - テスト 6 ファイル（treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / 子・親代理 treasures page / treasures/status）から `miss` の mock/assertion 撤去
 
-
-
 ## 2026-05-31: コレクションアイテム獲得をひろば通知＋履歴・図鑑に反映
 
 ### 決定内容
@@ -1366,7 +1491,6 @@
 - UI: `src/app/app/child/treasures/page.tsx` + 親代理版 + `src/components/child/TreasureHistoryList.tsx` — 履歴行に具体アイテム表示
 - UI: `src/components/child/ItemsContent.tsx` — NEW バッジ + ヘッダー「きょう +N」
 
-
 ## 2026-05-31: コレクション獲得通知をダブり獲得でも飛ばす（同日同 entry の 2026-05-31 を部分撤回）
 
 ### 決定内容
@@ -1380,7 +1504,6 @@
 - ノイズ懸念で初獲得のみに絞っていたが、子供視点では **獲得イベント自体がお祝い**であり、ダブりだから黙る意味は薄い
 - ひろば UI 側の `coalesceBurst` がバースト書き込みを 1 エントリにまとめてくれるので、連打開封で 5 件並ぶこともない（視覚的にはコレクション 1 件＋カウンタ）
 - 「自分の獲得が必ずひろばに出る」という挙動の一貫性のほうが、子供に「予測可能性」を与える
-
 
 ## 2026-05-31: STREAK と PROXY を相互排他に（混合家庭の宝箱重複を解消）
 
@@ -1403,7 +1526,6 @@
 ### 該当箇所
 - `src/lib/treasureService.ts` — `generateProxyTreasure` の where に `trigger: { in: [...] }` + `status: { not: "CANCELLED" }`、`generateTreasuresOnReport` の STREAK 判定に PROXY を加算
 - `src/__tests__/lib/treasureService.test.ts` — STREAK→PROXY 抑制 / PROXY→STREAK 抑制 / PROXY+ALL_COMPLETE 共存 の 3 ケース追加
-
 
 ## 2026-05-31: 「渡したよチェック」を親メモとして復活（2026-05-28 撤回）
 
@@ -1434,6 +1556,10 @@
 
 ## 2026-06-02: 宝箱の天井(pity)システムを廃止（5回連続ハズレ→強制ピック を撤回）
 
+> **⚠ SUPERSEDED** — [2026-06-24: 宝箱の天井(pity)システムを復活（10回連続ハズレ→次は強制 HIT）](#2026-06-24-宝箱の天井-pity-システムを復活-10回連続ハズレ-次は強制-hit)
+>
+> 10連続ハズレという長期不運救済のため 2026-06-24 で復活（閾値は 5→10 に緩和）。
+
 ### 決定内容
 - `drawTreasure` から `pityCount` / `nextPityCount` / `pityTriggered` / `PITY_THRESHOLD` を撤廃。MISS は常に MISS のまま返す
 - `User.treasurePityCount` カラムを削除（マイグレーション `20260602000001_drop_user_treasure_pity_count`）
@@ -1462,6 +1588,10 @@
 - テスト 5 ファイル（treasure / treasureService / open route / child-view open / TreasureOpenCutscene / TreasureStock / child・parent treasures page）から pity 関連 mock/assertion を撤去
 
 ## 2026-06-03: 親ごほうび当選確率を引き下げ (COMMON 1/7→1/10 / UNCOMMON 1/14→1/20 / RARE 1/28→1/30)
+
+> **⚠ PARTIALLY SUPERSEDED** — [2026-06-03: RARE 当選確率をさらに引き下げ (1/30 → 1/45)](#2026-06-03-rare-当選確率をさらに引き下げ-1-30-1-45)
+>
+> RARE 当選確率のみ同日中に 1/30→1/45 に再調整。COMMON / UNCOMMON は現行値のまま。
 
 ### 決定
 - `RARITY_BASE_PROBABILITY` を `{ COMMON: 1/10, UNCOMMON: 1/20, RARE: 1/30 }` に変更
@@ -1539,7 +1669,6 @@
 - `src/lib/badges.data.ts` — `ALL_BADGES` と `BADGE_CONDITIONS` を全面書き換え
 - `src/__tests__/lib/badges.test.ts` — 旧IDの境界テストを新IDに置換、序盤同時解放数（初回承認で1個・初進化同時で2個）を境界テスト化
 - `BadgeContext` 型・`loadBadgeContext` は無変更（既存フィールドで全条件を表現可能）
-
 
 ## 2026-06-03: 宝箱・コレクションアイテム・転生卵を実績の対象に追加（100バッジ維持）
 
@@ -1713,6 +1842,10 @@
 
 ## 2026-06-10: 子レイアウトに Duolingo ライクの常駐ストリークバッジを追加
 
+> **⚠ PARTIALLY SUPERSEDED** — [2026-06-29: チェックイン成功時にフルカットイン演出を追加 + 左上常駐ストリークバッジを撤去](#2026-06-29-チェックイン成功時にフルカットイン演出を追加-左上常駐ストリークバッジを撤去)
+>
+> 左上の常駐バッジ表示は 2026-06-29 で撤去（カットイン演出に置き換え）。
+
 ### 決定内容
 - 子供向けレイアウト (`src/app/app/child/layout.tsx`) に **`StreakHeaderBadge`** を常駐し、画面左上に固定で🔥+連続日数を表示する
 - 表示状態は純粋関数 `getStreakDisplayState(currentStreak, lastAchievedDate, todayStr)` で4状態に分類:
@@ -1802,7 +1935,12 @@
 - `prisma/migrations/20260624000001_restore_user_treasure_pity_count/migration.sql`
 - `src/__tests__/lib/treasure.test.ts` — pity 単体テスト（境界・10回保証シナリオ含む）追加
 - `src/__tests__/lib/treasureService.test.ts` — User.findUnique/update の連携テスト追加・旧「pity 廃止」前提のアサーション更新
+
 ## 2026-06-24: チェックインカレンダーの導入
+
+> **⚠ PARTIALLY SUPERSEDED** — [2026-06-25: チェックインカレンダーを子画面で月→週(7日)表示に変更](#2026-06-25-チェックインカレンダーを子画面で月-週-7日-表示に変更)
+>
+> 子画面の月間グリッド表示は 2026-06-25 で週(7日)ストリップに置き換え。制度本体は現行。
 
 ### 決定内容
 - 親が `User.checkinDeadlineTime`（"HH:mm" or null）を設定すると、子供がクエスト画面を開いた瞬間にチェックイン判定（締切前=success, 締切後=fail）を行う
@@ -2108,23 +2246,6 @@
 - `src/app/page.tsx` — `HabitSection` の後に `PsychologySection` を挿入
 - `src/__tests__/lib/lp.test.ts` — `PSYCHOLOGY_INSIGHTS` の 8 テスト（5項目固定・スキーマ・見出しユニーク・本文に理論名を出さない方針・理論名網羅・機能網羅・宝箱の 10 回言及・自動承認の 0 時/翌日言及）
 
-## 2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加
-
-### 決定内容
-- LP の `MonstersSection`（`#monsters`）で、公開済み（`revealed=true`）モンスターをクリック/タップすると `MonsterImageModal` が開き、画像・名前・ステージ・description が表示される
-- description は `src/lib/monsters.ts` の `MONSTER_TABLE` / `MONSTER_TABLE_LIGHT` に既存の設定文をそのまま引用（LP 用に別コピーは作らない）
-- 未公開（シルエット）モンスターは意図的にクリック不能。ネタバレ防止と「集めたら見られる」体験の一貫性を保つ
-
-### 実装方針
-- 既存の共有コンポーネント `MonsterImageModal` に `description?: string` を optional prop で追加（`ZukanContent` など既存使用箇所は無変更）
-- `MonsterPath` に `onSelect?: (key) => void` と `monsterKey?: string` フィールドを追加、`revealed !== false && monsterKey` の時のみ `role="button"` + `onClick` を付与
-- `MonstersSection` は `useState<SelectedMonster | null>` で選択状態を保持し、`monsterStyle`（dark/light）に応じて参照テーブルを切り替える
-
-### 理由
-- LP でモンスター画像がタップできないと「見た目だけの飾り」に見えるが、description を見せることで各モンスターの世界観・成長イメージが伝わり、「集めたくなる」動機づけになる
-- MONSTER_TABLE の description は既にアプリ側の Zukan で提示されているコピーで、LP でも同じ品質を維持できる
-- 独立の LP モーダルを新設せずに共有コンポーネントを拡張したことで、将来 description 表示を Zukan 側にも展開しやすい
-
 ## 2026-08-06: マネタイズ (FREE/PREMIUM) のスキーマ土台を導入
 
 ### 決定内容
@@ -2296,3 +2417,33 @@
 - 削除: `src/app/api/auth/child-join/route.ts`, `src/app/api/auth/login/route.ts`
 - 削除: `src/__tests__/api/auth/child-join.test.ts`, `src/__tests__/api/auth/child-join-limit.test.ts`, `src/__tests__/api/auth/login.test.ts`
 - 新規: `src/__tests__/api/family/members-limit.test.ts` (0 人 / 1 人 / PREMIUM / where 条件の 4 件)
+
+## 2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加
+
+### 決定内容
+- LP の `MonstersSection`（`#monsters`）で、公開済み（`revealed=true`）モンスターをクリック/タップすると `MonsterImageModal` が開き、画像・名前・ステージ・description が表示される
+- description は `src/lib/monsters.ts` の `MONSTER_TABLE` / `MONSTER_TABLE_LIGHT` に既存の設定文をそのまま引用（LP 用に別コピーは作らない）
+- 未公開（シルエット）モンスターは意図的にクリック不能。ネタバレ防止と「集めたら見られる」体験の一貫性を保つ
+
+### 実装方針
+- 既存の共有コンポーネント `MonsterImageModal` に `description?: string` を optional prop で追加（`ZukanContent` など既存使用箇所は無変更）
+- `MonsterPath` に `onSelect?: (key) => void` と `monsterKey?: string` フィールドを追加、`revealed !== false && monsterKey` の時のみ `role="button"` + `onClick` を付与
+- `MonstersSection` は `useState<SelectedMonster | null>` で選択状態を保持し、`monsterStyle`（dark/light）に応じて参照テーブルを切り替える
+
+### 理由
+- LP でモンスター画像がタップできないと「見た目だけの飾り」に見えるが、description を見せることで各モンスターの世界観・成長イメージが伝わり、「集めたくなる」動機づけになる
+- MONSTER_TABLE の description は既にアプリ側の Zukan で提示されているコピーで、LP でも同じ品質を維持できる
+- 独立の LP モーダルを新設せずに共有コンポーネントを拡張したことで、将来 description 表示を Zukan 側にも展開しやすい
+
+## 2026-08-08: Claude Code サブエージェントによる開発フロー分業化
+
+### 決定内容
+- `.claude/agents/` に 5 つのサブエージェントを定義し、実装フローを分業化する
+  - `policy-checker` → `test-writer` → `implementer` → `code-reviewer` → `pr-submitter`
+- 各エージェントの役割・使用順序・スキップ条件は `CLAUDE.md` の「サブエージェント運用フロー」に記載
+
+### 理由
+- CLAUDE.md に蓄積した規約（XP 付与タイミング、進化引数、モジュール分割、ステータス遷移、Next.js プロキシ命名、日付処理等）を各フェーズで確実に適用するため、責務ごとにエージェントを分離
+- TDD（Red → Green → Refactor）を強制するには、テスト作成と実装を別エージェントに分ける方が「テストなし実装」が起きにくい
+- `policy-checker` を先頭に置くことで「決定と逆行する指示」「非標準アプローチ」を実装前に検出でき、確認の手戻りを最小化
+
