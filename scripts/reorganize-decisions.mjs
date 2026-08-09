@@ -157,6 +157,28 @@ const SUPERSEDED = {
     kind: "partial",
     note: "`quest_750` `streak_50` `login_60` `login_200` などいくつかのバッジは同日中に削除され、宝箱・コレクション・転生卵バッジ 8 件に置き換え。全体方針（100 バッジ維持・序盤絞り）は現行。",
   },
+  "2026-05-11: 親画面に「子供モード（child-view）」を導入（親が子供端末を持たない家庭向けの代理操作）": {
+    supersededBy: [
+      "2026-05-22: 子供モードの「子供セレクター画面」のフッターを親フッター（ParentBottomNav）に統一",
+      "2026-06-08: 親モード（child-view）に「代理スキップ」と「進化／孵化カットイン」をスコープ追加",
+    ],
+    kind: "partial",
+    note: "「子供セレクターに ParentBottomNav を出さない」ルールは 2026-05-22 で撤回。「代理スキップは MVP スコープ外」ルールは 2026-06-08 で撤回（`skip-approve` 追加）。child-view 制度本体は現行。",
+  },
+  "2026-05-26: 親画面の carryOver 放置バッジを「N日間未完了」→「N回未完了」（出現回数ベース）に変更": {
+    supersededBy: "2026-07-02: 一時タスクも carryOver=true を選択可能にする",
+    kind: "partial",
+    note: "`repeatDays` が空の一時タスクで `carryOverMissedCount` が 1 にフォールバックする挙動は 2026-07-02 で「経過日数（inclusive）」に変更。出現回数ベースの本体ロジックは現行。",
+  },
+  "2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）": {
+    supersededBy: [
+      "2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）",
+      "2026-05-31: 親プール未設定でも宝箱を生成する（2026-05-28 を撤回）",
+      "2026-07-02: 親代理経路でも全完了時に ALL_COMPLETE 宝箱を生成する（PROXY と共存）",
+    ],
+    kind: "partial",
+    note: "`AUTO` trigger は 2026-05-31 に `PROXY` へリネーム。「親プール空なら生成しない」ガードは 2026-05-31 で撤回。「1 日に最大 1 件・`treasureId` 単数返却」契約は 2026-07-02 で `PROXY + ALL_COMPLETE` の複数生成 + `treasureIds` 配列返却に拡張。親代理経路での生成という核は現行。",
+  },
 };
 
 // GitHub-style heading anchor slugifier — regex ported verbatim from
