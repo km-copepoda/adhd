@@ -43,7 +43,7 @@ test.describe("S7: クエストスキップ申請", () => {
     await page.getByText(/今日はスキップする/).click();
 
     // スキップ理由入力フォームが展開
-    await expect(page.getByText("スキップする理由を入力してね")).toBeVisible();
+    await expect(page.getByText("スキップする理由をえらんでね")).toBeVisible();
     await expect(page.locator('input[placeholder="理由を入力（必須）"]')).toBeVisible();
     await expect(page.getByRole("button", { name: /スキップを申請する/ })).toBeVisible();
   });

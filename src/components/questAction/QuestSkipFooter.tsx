@@ -36,7 +36,7 @@ export default function QuestSkipFooter({
           😴 今日はスキップする
         </button>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 overflow-y-auto max-h-[60dvh]">
           <p className="text-xs text-quest-dim text-center">スキップする理由をえらんでね</p>
           <div className="flex flex-wrap gap-1.5">
             {SKIP_REASON_TEMPLATES.map((t) => {

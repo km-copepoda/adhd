@@ -15,8 +15,8 @@ function renderFooter(overrides: Partial<React.ComponentProps<typeof QuestSkipFo
     onSkipSubmit: vi.fn(),
     ...overrides,
   };
-  render(<QuestSkipFooter {...props} />);
-  return props;
+  const utils = render(<QuestSkipFooter {...props} />);
+  return { ...props, container: utils.container };
 }
 
 describe("QuestSkipFooter スキップ理由テンプレート", () => {
@@ -56,6 +56,26 @@ describe("QuestSkipFooter スキップ理由テンプレート", () => {
     // 入力欄は placeholder で識別
     expect(screen.getByPlaceholderText(/理由を入力/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /スキップを申請する/ })).toBeTruthy();
+  });
+
+  it("拡張されたスキップフォームは狭いビューポートでもスクロール可能（overflow-y-auto + max-h）", () => {
+    // Codex P2 指摘: シートの max-h-[85dvh] を超えると input/申請ボタンが操作不能になる
+    const { container } = renderFooter();
+    const input = container.querySelector('input[placeholder="理由を入力（必須）"]');
+    expect(input).toBeTruthy();
+    // 拡張フォームのルート div（.space-y-2）を探す
+    let el: Element | null = input;
+    let expandedRoot: Element | null = null;
+    while (el && el.parentElement) {
+      el = el.parentElement;
+      if (el.className && typeof el.className === "string" && el.className.includes("space-y-2")) {
+        expandedRoot = el;
+        break;
+      }
+    }
+    expect(expandedRoot).toBeTruthy();
+    expect(expandedRoot!.className).toMatch(/overflow-y-auto/);
+    expect(expandedRoot!.className).toMatch(/max-h-/);
   });
 });
 
