@@ -24,10 +24,18 @@ const FILE = join(__dirname, "..", "docs", "decisions.md");
  * Map of superseded entries.
  *   key   = full title of the entry that is (partially) superseded
  *           (i.e. the text after "## ")
- *   value = { supersededBy: title of superseding entry, kind: "full"|"partial",
+ *   value = { supersededBy: title | title[] of superseding entry / entries,
+ *             kind: "full"|"partial",
  *             note: 短い日本語補足 }
+ *   supersededBy can be an array when multiple later decisions each reverse
+ *   different clauses of the original entry.
  */
 const SUPERSEDED = {
+  "2026-03-12: 仮タスク却下時のXP没収": {
+    supersededBy: "2026-03-12: XP付与タイミングを報告時→承認時に変更",
+    kind: "full",
+    note: "XP 付与を承認時に変更したため、却下時に減点すべき XP がそもそも存在しなくなった（同日中に前提が消失）。",
+  },
   "2026-05-02: ひろば「エールを送る」スタンプ機能の導入": {
     supersededBy: "2026-05-07: エール送信を掲示板（BulletinLog）にも記録する（2026-05-02 の禁止条項を撤回）",
     kind: "partial",
@@ -64,9 +72,12 @@ const SUPERSEDED = {
     note: "左上の常駐バッジ表示は 2026-06-29 で撤去（カットイン演出に置き換え）。",
   },
   "2026-05-28: ごほうび（宝箱）システムの導入": {
-    supersededBy: "2026-05-31: auto-approve cron は AUTO 宝箱を生成しない（2026-05-28 を部分撤回）",
+    supersededBy: [
+      "2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）",
+      "2026-05-31: auto-approve cron は AUTO 宝箱を生成しない（2026-05-28 を部分撤回）",
+    ],
     kind: "partial",
-    note: "「自動承認 cron が (childId, date) 集約で AUTO 宝箱を生成する」部分のみ 2026-05-31 で撤回。制度本体は現行。",
+    note: "「親代理経路では宝箱を生成しない」ルールは 2026-05-30 で撤回、「自動承認 cron が (childId, date) 集約で AUTO 宝箱を生成する」ルールは 2026-05-31 で撤回。制度本体は現行。",
   },
   "2026-06-03: 親ごほうび当選確率を引き下げ (COMMON 1/7→1/10 / UNCOMMON 1/14→1/20 / RARE 1/28→1/30)": {
     supersededBy: "2026-06-03: RARE 当選確率をさらに引き下げ (1/30 → 1/45)",
@@ -171,10 +182,16 @@ function assignSlugs(entries) {
     if (!byTitle.has(src)) {
       throw new Error(`SUPERSEDED map: source title not found in decisions.md: "${src}"`);
     }
-    if (!byTitle.has(meta.supersededBy)) {
-      throw new Error(`SUPERSEDED map: supersededBy title not found: "${meta.supersededBy}"`);
+    for (const t of successors(meta)) {
+      if (!byTitle.has(t)) {
+        throw new Error(`SUPERSEDED map: supersededBy title not found: "${t}"`);
+      }
     }
   }
+}
+
+function successors(meta) {
+  return Array.isArray(meta.supersededBy) ? meta.supersededBy : [meta.supersededBy];
 }
 
 function injectBanners(entries) {
@@ -183,14 +200,14 @@ function injectBanners(entries) {
     const meta = SUPERSEDED[e.title];
     if (!meta) continue;
     const label = meta.kind === "full" ? "⚠ SUPERSEDED" : "⚠ PARTIALLY SUPERSEDED";
-    const target = byTitle.get(meta.supersededBy);
-    const anchor = `#${target.slug}`;
-    const banner = [
-      `> **${label}** — [${meta.supersededBy}](${anchor})`,
-      `>`,
-      `> ${meta.note}`,
-      ``,
-    ];
+    const links = successors(meta).map((t) => {
+      const target = byTitle.get(t);
+      return `[${t}](#${target.slug})`;
+    });
+    const linkLine = links.length === 1
+      ? `> **${label}** — ${links[0]}`
+      : [`> **${label}** —`, ...links.map((l) => `> - ${l}`)].join("\n");
+    const banner = [linkLine, `>`, `> ${meta.note}`, ``];
     e.body = [...banner, ...e.body];
   }
 }
