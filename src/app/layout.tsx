@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP, Cinzel } from "next/font/google";
 import "./globals.css";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import IOSInstallPrompt from "@/components/IOSInstallPrompt";
 
@@ -48,6 +49,7 @@ export default function RootLayout({
         <ServiceWorkerRegistration />
         <IOSInstallPrompt />
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
