@@ -114,20 +114,44 @@ const SUPERSEDED = {
     kind: "partial",
     note: "`/api/auth/child-join` の enforcement は 2026-08-06 に `/api/family/members` へ移動、旧 auth 経路は削除。ごほうび上限などその他の条項は現行。",
   },
+  "2026-03-25: パラメータ連動の進化パス分岐（確率的選択）": {
+    supersededBy: "2026-03-25: Side（DARK/LIGHT）をキャラクタービジュアルセットに再活用",
+    kind: "partial",
+    note: "「`Side` を廃止し `evolutionPath` に一本化」条項は同日中に撤回。`Side` フィールドはビジュアルセット選択用として再活用された。パラメータ連動の分岐ロジック本体は現行。",
+  },
+  "2026-03-25: 転生システムとコレクション機能の導入": {
+    supersededBy: "2026-04-04: 転生を手動化＋卵選択ボーナス",
+    kind: "partial",
+    note: "「閾値到達で自動的に卵にリセット」フローは 2026-04-04 で撤回。以降は `rebirthPending` フラグ + ユーザ操作による転生に変更。コレクション機能本体は現行。",
+  },
+  "2026-03-29: 写真オプショナル化とフラットXP制への移行": {
+    supersededBy: "2026-03-29: 報告期限をファミリー単位から子供単位に変更",
+    kind: "partial",
+    note: "`Family.reportDeadlineTime` を導入する条項は同日中に撤回され、`User.reportDeadlineTime` へ移動。写真オプショナル化・フラット XP 制本体は現行。",
+  },
 };
 
-// GitHub-style heading anchor slugifier.
-// Rules (matching github.com's markdown renderer):
+// GitHub-style heading anchor slugifier — regex ported verbatim from
+// `github-slugger` (https://github.com/Flet/github-slugger), which is what
+// GitHub uses server-side for heading IDs. Do NOT switch to a Unicode
+// property allow-list: GitHub actually preserves symbols such as `→`,
+// `📊`, `←`, etc. in heading IDs and only strips a specific enumerated
+// set of punctuation.
+//
 //   1. Lowercase
-//   2. Strip punctuation but preserve Unicode letters/digits/marks, underscores, hyphens, spaces
-//      (full-width parens, colons, exclamation marks etc. are removed entirely, NOT converted to '-')
-//   3. Replace runs of whitespace with '-'
-//   4. Duplicate slugs get '-1', '-2', ... suffixes (handled by the caller's dedup Set).
+//   2. Strip the enumerated punctuation ranges (ASCII punct, general
+//      punctuation, full-width punct, CJK punct, etc.). Everything else
+//      — Unicode letters, digits, symbols, arrows, emoji — is preserved.
+//   3. Replace whitespace with '-'
+//   4. Duplicate slugs get '-1', '-2', ... suffixes (handled by makeSlugger).
+const GITHUB_STRIP_RE =
+  /[\0-\x1F!-,\.\/:-@\[-\^`\{-~\xA1-\xA7\xA9\xAB\xAC\xAE\xB0\xB1\xB6\xB7\xBB\xBF\xD7\xF7 -⁯⸀-⹿　-〿︰-﹏﹐-﹞＀-！＃-／：-＠［-｀｛-･]+/g;
+
 function githubSlug(text) {
   return text
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\p{M}_\- ]/gu, "")
-    .replace(/\s+/g, "-");
+    .replace(GITHUB_STRIP_RE, "")
+    .replace(/ /g, "-");
 }
 
 function makeSlugger() {
