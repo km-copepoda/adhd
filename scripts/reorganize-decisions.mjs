@@ -83,6 +83,11 @@ const SUPERSEDED = {
     kind: "partial",
     note: "「初獲得 (count===1) のみひろば通知する」ガードは同日中に撤回。ダブり獲得でも通知するようになった。他の内容は現行。",
   },
+  "2026-06-25: 親側のチェックイン履歴を「記録 > 過去」に追加（専用 API）": {
+    supersededBy: "2026-07-02: 親側チェックインカレンダーを HeatmapGrid に統合（ParentCheckinCalendar 廃止）",
+    kind: "partial",
+    note: "独立コンポーネント `ParentCheckinCalendar` は 2026-07-02 で廃止され HeatmapGrid にオーバーレイ統合。API / `buildMonthGrid` は現行。",
+  },
 };
 
 // GitHub-style heading anchor slugifier.
