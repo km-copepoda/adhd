@@ -29,6 +29,12 @@ jobs:
         run: npm run test:coverage
 
       - name: Report coverage on PR
-        # Skip on fork PRs (read-only GITHUB_TOKEN) — the action would 403 and fail the job.
-        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        # Skip when the workflow runs with a read-only GITHUB_TOKEN — the action
+        # would 403 and fail the job. Two cases:
+        #   1. PR from a fork (head repo != this repo)
+        #   2. Dependabot-triggered PRs (branch is same-repo, but GitHub still
+        #      downgrades the token to read-only unless explicitly enabled)
+        if: always()
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
         uses: davelosert/vitest-coverage-report-action@v2
