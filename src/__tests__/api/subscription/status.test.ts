@@ -115,6 +115,24 @@ describe("GET /api/subscription/status", () => {
     expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
   });
 
+  it("familyId=null + PREMIUM レコードあり → 単独モードは課金概念外なので FREE 固定", async () => {
+    // 単独モード (familyId=null) の User に PREMIUM Subscription が紐づいていても、
+    // 「課金・上限の概念外」の契約 (Phase 1-3 の判断) に従い FREE + FREE 上限で応答する
+    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as never);
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      plan: "PREMIUM",
+      currentPeriodEnd: new Date("2099-12-31"),
+    } as never);
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.plan).toBe("FREE");
+    expect(json.limits).toEqual({ child: 1, task: 10, treasure_item: 5 });
+    expect(json.usage).toEqual({ child: 0, perChild: [] });
+    expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+  });
+
   it("子の usage カウントは isActive/pausedAt=null 条件で問い合わせる", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as never);
     mockPrisma.subscription.findUnique.mockResolvedValue(null);

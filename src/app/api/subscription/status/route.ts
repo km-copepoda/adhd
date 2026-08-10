@@ -19,18 +19,20 @@ export async function GET() {
 
   const now = new Date();
   const sub = await getSubscription(user.id);
-  const plan = resolvePlan(sub, now);
-  const limits = LIMITS[plan];
 
-  // 単独モード (familyId=null) は課金・上限の概念外。children は空で返す。
+  // 単独モード (familyId=null) は課金・上限の概念外。Subscription が PREMIUM でも
+  // FREE + FREE 上限で返す (Phase 1-3 の判断と一貫。仕様書 §2.1)。
   if (!user.familyId) {
     return NextResponse.json({
-      plan,
-      currentPeriodEnd: sub?.currentPeriodEnd ?? null,
-      limits,
+      plan: "FREE",
+      currentPeriodEnd: null,
+      limits: LIMITS.FREE,
       usage: { child: 0, perChild: [] },
     });
   }
+
+  const plan = resolvePlan(sub, now);
+  const limits = LIMITS[plan];
 
   const children: { id: string; name: string | null; monsterName: string | null }[] =
     await prisma.user.findMany({

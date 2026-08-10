@@ -30,7 +30,12 @@ function formatLimit(n: number | null): string {
 function formatDateJST(iso: string | null): string {
   if (!iso) return "無期限";
   const d = new Date(iso);
-  return d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 export default function PlanPage() {
