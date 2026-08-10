@@ -35,3 +35,20 @@ export async function alertOnApiError(res: Response): Promise<boolean> {
   alert(err.message);
   return false;
 }
+
+/// PLAN_LIMIT_EXCEEDED (403) は confirm() で「プラン管理ページへ移動しますか？」を出し、
+/// OK なら /app/parent/plan へ遷移する。それ以外のエラーは alertOnApiError と同じ挙動。
+/// 親 UI の call site (タスク作成/再開・ごほうび・copy・bulk など) から使う。
+export async function confirmPlanLimitOrAlert(res: Response): Promise<boolean> {
+  const err = await readApiError(res);
+  if (!err) return true;
+  if (err.code === "PLAN_LIMIT_EXCEEDED") {
+    const goPlan = confirm(`${err.message}\n\nプラン管理ページを開きますか？`);
+    if (goPlan) {
+      location.href = "/app/parent/plan";
+    }
+    return false;
+  }
+  alert(err.message);
+  return false;
+}

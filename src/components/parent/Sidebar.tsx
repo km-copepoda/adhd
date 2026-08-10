@@ -13,6 +13,7 @@ const links = [
   { href: "/app/parent/gathering", emoji: "🏕️", label: "ひろば" },
   { href: "/app/parent/treasures", emoji: "🎁", label: "ごほうび" },
   { href: "/app/parent/family", emoji: "👨‍👩‍👧‍👦", label: "ファミリー" },
+  { href: "/app/parent/plan", emoji: "💎", label: "プラン" },
 ] as const;
 
 export default function Sidebar() {

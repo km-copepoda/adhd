@@ -8,7 +8,7 @@ import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { xpRangeLabel, calcActualXP } from "@/lib/xp";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 type PendingQuest = {
   id: string;
@@ -105,7 +105,7 @@ export default function ApprovePage() {
         body: JSON.stringify({ targetDate }),
       });
       // 上限到達で失敗しても、既に完了した承認処理は取り消さず、コピー失敗のみ通知する
-      await alertOnApiError(copyRes);
+      await confirmPlanLimitOrAlert(copyRes);
     }
 
     notifyApprovalsUpdated();

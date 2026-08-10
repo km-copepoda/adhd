@@ -5,7 +5,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
 import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
 import { RARITY_LABEL, type TreasureRarity } from "@/lib/treasureRarity";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 type Rarity = TreasureRarity;
 
@@ -79,7 +79,7 @@ export default function ParentTreasuresPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ childId: selectedChildId, title, rarity: newRarity }),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     setNewTitle("");
     void fetchItems(selectedChildId);
   };
@@ -92,14 +92,14 @@ export default function ParentTreasuresPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ childId: selectedChildId }),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     void fetchItems(selectedChildId);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("このアイテムを削除しますか？（過去の履歴は残ります）")) return;
     const res = await fetch(`/api/treasures/${id}`, { method: "DELETE" });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     void fetchItems(selectedChildId);
   };
 
@@ -109,7 +109,7 @@ export default function ParentTreasuresPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rarity }),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     void fetchItems(selectedChildId);
   };
 

@@ -14,7 +14,7 @@ import ChildSelector from "@/components/parent/ChildSelector";
 import PendingTaskCard from "@/components/parent/PendingTaskCard";
 import RegularTaskCard from "@/components/parent/RegularTaskCard";
 import TemporaryTaskCard from "@/components/parent/TemporaryTaskCard";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 type Task = {
   id: string;
@@ -143,7 +143,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     if (isEditingPending && editingId) {
       await fetch(`/api/tasks/${editingId}`, { method: "PATCH" });
       notifyApprovalsUpdated();
@@ -171,7 +171,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paused }),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     fetchTasks();
   }
 

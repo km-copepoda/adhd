@@ -2296,3 +2296,34 @@
 - 削除: `src/app/api/auth/child-join/route.ts`, `src/app/api/auth/login/route.ts`
 - 削除: `src/__tests__/api/auth/child-join.test.ts`, `src/__tests__/api/auth/child-join-limit.test.ts`, `src/__tests__/api/auth/login.test.ts`
 - 新規: `src/__tests__/api/family/members-limit.test.ts` (0 人 / 1 人 / PREMIUM / where 条件の 4 件)
+
+## 2026-08-10: マネタイズ Phase 1-6 — プラン管理 UI + 上限到達時のアップグレード誘導導線
+
+### 決定内容
+- 親画面に `/app/parent/plan` を新設し、現在のプラン (FREE / PREMIUM)・期限・子ごとの使用状況 (child / task / treasure_item) を表示
+- 新規 `GET /api/subscription/status` (PARENT 専用) がプラン + limits + usage を返す。単独モード (familyId=null) は FREE + 空 perChild で応答
+- UI ヘルパー `confirmPlanLimitOrAlert(res)` を `src/lib/apiError.ts` に追加。403 + `code=PLAN_LIMIT_EXCEEDED` を検出したら `confirm()` で「プラン管理ページを開きますか？」→ OK なら `location.href = "/app/parent/plan"`。それ以外のエラーは `alertOnApiError` と同じ挙動
+- 親側の 5 コールサイト (`tasks/page.tsx`, `treasures/page.tsx`, `approve/page.tsx`, `components/parent/CompletedContent.tsx`, `components/parent/TemplateImportSection.tsx`) を `confirmPlanLimitOrAlert` に差し替え。CHILD の `QuestAddForm.tsx` は据え置き (子は /app/parent/plan に遷移できない)
+- Sidebar のみに「💎 プラン」導線を追加。BottomNav は 7 タブで密集しているため対象外
+- **Stripe 決済統合は本 PR のスコープ外**。アップグレードボタンは disabled で「準備中」表記
+
+### 理由
+- Phase 1-2〜1-5 で API は 403 + `code` を返せるが、UI 側の受け止めが `alert()` だけで「上限に達しました → 次のアクションが分からない」で UX が詰まっていた。プラン管理ページを可視化し、アップグレード導線を明示することが Stripe 統合前の前提条件
+- Stripe 統合 (PR-6b) と切り離した理由: プラン画面 + 誘導導線は Stripe 依存なしで実装可能で、決済統合とは検証観点も分離できる。段階分割は Phase 1-1〜1-5 と同じ方針の踏襲
+- `confirmPlanLimitOrAlert` を新規追加 (既存 `alertOnApiError` を破壊的変更しない) にしたのは、CHILD 側のコールサイトは alert 動作のまま維持する必要があるため。ロールごとの分岐を UI 側で書かせずヘルパーを 2 種類持つほうが呼び出し側がシンプル
+- 単独モードで `user.findMany` を呼ばないのは、familyId=null なら課金・上限の概念外 (Phase 1-3 の child-join 判断と一貫)。無駄なクエリを避けつつ、テストも「呼ばれないこと」で明示
+
+### やってはいけないこと
+- `confirmPlanLimitOrAlert` の遷移先を hard-code で `/app/parent/plan` 以外にする (プラン管理ページの正典 URL を分散させると保守で追随漏れが起きる)
+- 既存 `alertOnApiError` を破壊的変更して confirm+redirect 動作に切り替える (CHILD 経路が壊れる。既存 `apiError.test.ts` が Green のまま維持されることが判断基準)
+- `/api/subscription/status` を CHILD 経由でも返す (課金主体は PARENT。子端末に金額・プラン情報を露出する導線は仕様書 §5.1 に反する)
+- BottomNav にプランタブを追加する (7 タブ + プッシュで既に横方向が飽和。導線は Sidebar とアップグレード誘導 confirm から辿れる)
+- アップグレードボタンを有効化して仮の Checkout 画面 (`/plan/checkout` 等) にリンクする (Phase 1-6 は導線設置まで。決済フローは PR-6b で Stripe と併せて追加する)
+
+### 該当箇所
+- 新規: `src/app/api/subscription/status/route.ts` — GET (PARENT 専用)
+- 新規: `src/app/app/parent/(app)/plan/page.tsx` — プラン管理ページ
+- `src/lib/apiError.ts` — `confirmPlanLimitOrAlert` 追加 (既存 `alertOnApiError` は維持)
+- `src/components/parent/Sidebar.tsx` — 「💎 プラン」導線追加
+- 差し替え: `src/app/app/parent/(app)/tasks/page.tsx`, `treasures/page.tsx`, `approve/page.tsx`, `src/components/parent/CompletedContent.tsx`, `src/components/parent/TemplateImportSection.tsx`
+- 新規テスト: `src/__tests__/api/subscription/status.test.ts` (認証/ロール/プラン別/単独モード/カウント条件の 8 件), `src/__tests__/lib/apiError-planLimit.test.ts` (confirm=true/false/非プランエラー/バリデーションエラー等 5 件)

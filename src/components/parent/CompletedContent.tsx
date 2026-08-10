@@ -5,7 +5,7 @@ import { CATEGORY_LABEL } from "@/lib/categories";
 import { calcActualXP } from "@/lib/xp";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 type CompletedQuest = {
   id: string;
@@ -60,7 +60,7 @@ export default function CompletedContent() {
       body: JSON.stringify({ targetDate }),
     });
     setCopyLoading((prev) => ({ ...prev, [quest.id]: false }));
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     setCopyDone((prev) => ({ ...prev, [quest.id]: true }));
   }
 
