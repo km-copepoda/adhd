@@ -4,6 +4,7 @@ import {
   getSubscription,
   getUserPlan,
   getFamilyPlan,
+  countActiveTasksForChild,
 } from "@/lib/subscriptionService";
 
 const mockPrisma = vi.mocked(prisma);
@@ -139,5 +140,45 @@ describe("getFamilyPlan", () => {
 
     const plan = await getFamilyPlan("fam-1", now);
     expect(plan).toBe("FREE");
+  });
+});
+
+/// FREE プラン上限用の「有効な (幽霊でない) タスク数」カウント。
+/// - 通常タスク (isTemporary=false) / 目標日 null / 目標日 >= today の一時タスクは含める
+/// - 目標日 < today の一時タスク (=親画面に表示されない幽霊) は除外する
+describe("countActiveTasksForChild", () => {
+  const today = new Date("2026-08-10T00:00:00.000Z"); // JST 日付想定 (UTC 0時保存)
+
+  it("assignedChildId + isActive + pausedAt=null + 幽霊除外 の where 句でカウントする", async () => {
+    mockPrisma.taskTemplate.count.mockResolvedValue(3);
+
+    const count = await countActiveTasksForChild("child-1", today);
+
+    expect(count).toBe(3);
+    expect(mockPrisma.taskTemplate.count).toHaveBeenCalledWith({
+      where: {
+        assignedChildId: "child-1",
+        isActive: true,
+        pausedAt: null,
+        NOT: {
+          isTemporary: true,
+          targetDate: { lt: today },
+        },
+      },
+    });
+  });
+
+  it("today 省略時は現在の JST 今日を使う (境界: today と等しい targetDate は幽霊扱いにしない)", async () => {
+    mockPrisma.taskTemplate.count.mockResolvedValue(0);
+
+    await countActiveTasksForChild("child-1");
+
+    const call = mockPrisma.taskTemplate.count.mock.calls[0]?.[0] as
+      | { where?: { NOT?: { targetDate?: { lt?: Date } } } }
+      | undefined;
+    const lt = call?.where?.NOT?.targetDate?.lt;
+    expect(lt).toBeInstanceOf(Date);
+    // lt は today ちょうど。境界の targetDate == today は幽霊にならない (lt なので)。
+    // 日次で変わる値なので絶対値ではなく型のみ確認。
   });
 });

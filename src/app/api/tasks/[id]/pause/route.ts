@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
-import { getFamilyPlan } from "@/lib/subscriptionService";
+import { getFamilyPlan, countActiveTasksForChild } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
 
 export async function POST(
@@ -32,9 +32,7 @@ export async function POST(
     }
     if (target.assignedChildId) {
       const plan = await getFamilyPlan(user.familyId);
-      const activeCount = await prisma.taskTemplate.count({
-        where: { assignedChildId: target.assignedChildId, isActive: true, pausedAt: null },
-      });
+      const activeCount = await countActiveTasksForChild(target.assignedChildId);
       const limitCheck = checkLimit(plan, "task", activeCount);
       if (!limitCheck.allowed) {
         return NextResponse.json(

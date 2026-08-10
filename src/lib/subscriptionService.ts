@@ -3,6 +3,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { resolvePlan, type SubscriptionPlan } from "@/lib/subscription";
+import { todayJST } from "@/lib/date";
 
 export async function getSubscription(userId: string) {
   return prisma.subscription.findUnique({ where: { userId } });
@@ -26,4 +27,29 @@ export async function getFamilyPlan(
   });
   if (!parent) return "FREE";
   return getUserPlan(parent.id, now);
+}
+
+/// FREE プラン上限判定用の「有効な (幽霊でない) タスク数」を返す。
+///
+/// 「有効」の定義:
+///   isActive AND pausedAt IS NULL AND NOT (isTemporary AND targetDate < today)
+///
+/// targetDate 経過済みの一時タスクは親画面 (isVisibleTemporaryTask) から除外され
+/// 「幽霊タスク」となる。幽霊を上限に含めると、月日が経つにつれ FREE ユーザーが
+/// 実質的に新タスクを作れなくなるため、表示に整合した数でカウントする。
+export async function countActiveTasksForChild(
+  assignedChildId: string,
+  today: Date = todayJST(),
+): Promise<number> {
+  return prisma.taskTemplate.count({
+    where: {
+      assignedChildId,
+      isActive: true,
+      pausedAt: null,
+      NOT: {
+        isTemporary: true,
+        targetDate: { lt: today },
+      },
+    },
+  });
 }
