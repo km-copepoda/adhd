@@ -7,6 +7,7 @@ import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 const EGG_BONUS_IMAGE: Record<string, string> = {
   STUDY: "/monsters/egg-study.webp",
@@ -216,8 +217,14 @@ export default function FamilyPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ monsterName: addForm.name, side: addForm.side }),
       });
+      const cloned = res.clone();
       const data = await res.json();
       if (!res.ok) {
+        // FREE 上限到達時は confirm でプラン管理へ誘導 (モバイルは Sidebar が無いため唯一の導線)
+        if (data.code === "PLAN_LIMIT_EXCEEDED") {
+          await confirmPlanLimitOrAlert(cloned);
+          return;
+        }
         setAddError(data.error || "追加に失敗しました");
         return;
       }
