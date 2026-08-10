@@ -21,11 +21,13 @@ export async function POST(
     return NextResponse.json({ error: "paused (boolean) は必須です" }, { status: 400 });
   }
 
-  // 再開 (paused=false) 時のみプラン上限を再確認する。停止は無制限。
+  // 再開 (paused=false) 時のみプラン上限を再確認し、pauseIntervals に今回停止分を追記する。
+  // 停止 (paused=true) は上限チェック不要。
+  let appendedIntervals: { start: string; end: string }[] | null = null;
   if (body.paused === false) {
     const target = await prisma.taskTemplate.findUnique({
       where: { id, familyId: user.familyId },
-      select: { assignedChildId: true },
+      select: { assignedChildId: true, pausedAt: true, pauseIntervals: true },
     });
     if (!target) {
       return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
@@ -49,11 +51,24 @@ export async function POST(
         );
       }
     }
+    // 実際に停止中だった場合のみインターバルを追記（重複再開の防御）
+    if (target.pausedAt) {
+      const prior = Array.isArray(target.pauseIntervals)
+        ? (target.pauseIntervals as { start: string; end: string }[])
+        : [];
+      appendedIntervals = [
+        ...prior,
+        { start: target.pausedAt.toISOString(), end: new Date().toISOString() },
+      ];
+    }
   }
 
   const task = await prisma.taskTemplate.update({
     where: { id, familyId: user.familyId },
-    data: { pausedAt: body.paused ? new Date() : null },
+    data: {
+      pausedAt: body.paused ? new Date() : null,
+      ...(appendedIntervals ? { pauseIntervals: appendedIntervals } : {}),
+    },
   });
 
   rlog.info("Task pause state updated", { taskId: id, paused: body.paused, userId: user.id });

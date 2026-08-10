@@ -113,6 +113,7 @@
 - [2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除](#2026-08-06-子アカウント上限の-enforce-を正しい経路-apifamilymembers-に移動し未使用の-auth-経路を削除)
 - [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
+- [2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く](#2026-08-10-停止中タスクの親バッジ未完了カウントスキップを停止時点で凍結し再開後は停止期間を差し引く)
 
 <!-- TOC:END -->
 
@@ -2562,4 +2563,32 @@
 - CLAUDE.md に蓄積した規約（XP 付与タイミング、進化引数、モジュール分割、ステータス遷移、Next.js プロキシ命名、日付処理等）を各フェーズで確実に適用するため、責務ごとにエージェントを分離
 - TDD（Red → Green → Refactor）を強制するには、テスト作成と実装を別エージェントに分ける方が「テストなし実装」が起きにくい
 - `policy-checker` を先頭に置くことで「決定と逆行する指示」「非標準アプローチ」を実装前に検出でき、確認の手戻りを最小化
+
+## 2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く
+
+### 決定内容
+- `TaskTemplate` に `pauseIntervals Json @default("[]")` を追加。停止解除時に `{ start: pausedAt, end: now }` を push する（現在停止中は `pausedAt` にのみ存在）
+- マイグレーション `20260810000001_add_pause_intervals_to_task_template`
+- `src/lib/taskSummary.ts`:
+  - 新 helper `parsePauseIntervals` / `totalPausedDaysInRange` / `computeEffectiveTodayForPausedTemplate`
+  - `calcCarryOverMissedCount` は `pauseIntervals` を追加引数で受け、範囲内の停止期間中の予定日 (repeatDays マッチ) を除外
+  - `getParentTaskSummaries` は effective today を計算して `carryOverMissedCount` と `lastSkippedDate`（7日窓）両方に適用
+- `POST /api/tasks/[id]/pause` の paused=false 経路で `pauseIntervals` に追記して update
+
+### 理由
+- 2026-07-20 で導入した一時停止は「表示だけ止める、DB は触らない」設計だったが、`getParentTaskSummaries` の carryOverMissedCount と recentSkipped 窓が `today` を基準に計算し続けるため、停止中もバッジが日々増加／シフトしていく問題があった
+- 停止は「その期間に発生しなかったことにする」意味合いなので、バッジも凍結し、再開後は停止期間ぶんを差し引くのが自然。子供画面 (`today` route) は既に `pausedAt: null` フィルタ済みで整合的
+- 累計日数 (Int) ではなく `pauseIntervals` (JSON) にしたのは、repeatDays タスクで「停止期間中の予定日を厳密に除外」するためには interval 情報が必須なため（累計日数だけでは approximation にしかならない）
+
+### やってはいけないこと
+- 停止時に既存 QuestInstance の `date` を書き換える（履歴改変で他のバッジ・ストリーク集計が壊れる。純粋に表示計算の side で処理する）
+- 停止解除時に `pauseIntervals` にマージ・結合ロジックを入れる（連続停止/複数区間はそのまま並べれば十分。区間圧縮はデバッグを困難にする割にコスト削減が小さい）
+- `pauseIntervals` を子画面 `today` route の filter に使う（`pausedAt: null` フィルタで十分。JSON 走査のコストを子画面に負わせる必要はない）
+
+### 該当箇所
+- `prisma/schema.prisma` — `TaskTemplate.pauseIntervals`
+- `prisma/migrations/20260810000001_add_pause_intervals_to_task_template/migration.sql`
+- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に interval 追記
+- `src/lib/taskSummary.ts` — parsePauseIntervals / totalPausedDaysInRange / computeEffectiveTodayForPausedTemplate / calcCarryOverMissedCount 拡張
+- テスト: `src/__tests__/lib/taskSummary.test.ts`, `src/__tests__/api/tasks/tasks-pause.test.ts`
 

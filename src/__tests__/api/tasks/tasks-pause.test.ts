@@ -51,10 +51,18 @@ describe("POST /api/tasks/[id]/pause", () => {
     vi.useRealTimers();
   });
 
-  it("paused=false で pausedAt を null にすること", async () => {
+  it("paused=false で pausedAt を null にし、既存 pauseIntervals に今回停止分を追記すること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const pausedAt = new Date("2026-07-20T10:00:00Z");
+    const now = new Date("2026-07-25T10:00:00Z");
+    vi.setSystemTime(now);
     // 再開時はプラン上限チェックのため findUnique + count を通る (デフォルト count=0 で allowed)
-    mockPrisma.taskTemplate.findUnique.mockResolvedValue({ assignedChildId: "child-1" } as any);
+    // findUnique は assignedChildId 取得と pauseIntervals 追記のため pausedAt / pauseIntervals も返す
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+      assignedChildId: "child-1",
+      pausedAt,
+      pauseIntervals: [{ start: "2026-06-01T00:00:00Z", end: "2026-06-05T00:00:00Z" }],
+    } as any);
     mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: null } as any);
 
     const res = await POST(
@@ -62,10 +70,34 @@ describe("POST /api/tasks/[id]/pause", () => {
       makeParams("t1"),
     );
     expect(res.status).toBe(200);
-    expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith({
-      where: { id: "t1", familyId: "fam-1" },
-      data: { pausedAt: null },
-    });
+    const called = (mockPrisma.taskTemplate.update as any).mock.calls[0][0];
+    expect(called.where).toEqual({ id: "t1", familyId: "fam-1" });
+    expect(called.data.pausedAt).toBeNull();
+    expect(called.data.pauseIntervals).toEqual([
+      { start: "2026-06-01T00:00:00Z", end: "2026-06-05T00:00:00Z" },
+      { start: pausedAt.toISOString(), end: now.toISOString() },
+    ]);
+    vi.useRealTimers();
+  });
+
+  it("paused=false で pausedAt が既に null の場合は pauseIntervals を触らない (重複再開の防御)", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue({
+      assignedChildId: "child-1",
+      pausedAt: null,
+      pauseIntervals: [],
+    } as any);
+    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: null } as any);
+
+    const res = await POST(
+      makeRequest("/api/tasks/t1/pause", { paused: false }),
+      makeParams("t1"),
+    );
+    expect(res.status).toBe(200);
+    const called = (mockPrisma.taskTemplate.update as any).mock.calls[0][0];
+    expect(called.data.pausedAt).toBeNull();
+    // pauseIntervals は data に含めない (既存値のまま)
+    expect(called.data.pauseIntervals).toBeUndefined();
   });
 
   it("paused 未指定は400を返すこと", async () => {
