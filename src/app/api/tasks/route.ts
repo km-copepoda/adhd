@@ -5,7 +5,7 @@ import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { todayJST } from "@/lib/date";
 import { getParentTaskSummaries } from "@/lib/taskSummary";
-import { getFamilyPlan } from "@/lib/subscriptionService";
+import { getFamilyPlan, countActiveTasksForChild } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
 
 export async function GET() {
@@ -58,9 +58,7 @@ export async function POST(request: Request) {
 
   // FREE プランのタスク上限を enforce (仕様: monetization-plan.md §2.2 / §4.4)
   const plan = await getFamilyPlan(user.familyId);
-  const activeCount = await prisma.taskTemplate.count({
-    where: { assignedChildId, isActive: true, pausedAt: null },
-  });
+  const activeCount = await countActiveTasksForChild(assignedChildId);
   const limitCheck = checkLimit(plan, "task", activeCount);
   if (!limitCheck.allowed) {
     return NextResponse.json(

@@ -38,9 +38,22 @@ describe("GET /api/subscription/child-task-limit", () => {
     const json = await res.json();
     expect(json).toEqual({ limit: 10, current: 8 });
     expect(json).not.toHaveProperty("plan"); // プラン名は返さない
-    expect(mockPrisma.taskTemplate.count).toHaveBeenCalledWith({
-      where: { assignedChildId: "child-1", isActive: true, pausedAt: null },
-    });
+    // enforce と同じ where (幽霊一時タスク除外)。develop の PR #13 と一致させる
+    const call = mockPrisma.taskTemplate.count.mock.calls[0]?.[0] as
+      | {
+          where?: {
+            assignedChildId?: string;
+            isActive?: boolean;
+            pausedAt?: null;
+            NOT?: { isTemporary?: boolean; targetDate?: { lt?: Date } };
+          };
+        }
+      | undefined;
+    expect(call?.where?.assignedChildId).toBe("child-1");
+    expect(call?.where?.isActive).toBe(true);
+    expect(call?.where?.pausedAt).toBeNull();
+    expect(call?.where?.NOT?.isTemporary).toBe(true);
+    expect(call?.where?.NOT?.targetDate?.lt).toBeInstanceOf(Date);
   });
 
   it("CHILD + Family の親が PREMIUM 有効 → limit=null (無制限)", async () => {

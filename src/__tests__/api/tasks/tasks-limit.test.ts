@@ -93,7 +93,7 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
     expect(mockPrisma.taskTemplate.create).toHaveBeenCalled();
   });
 
-  it("カウントは assignedChildId ごと (isActive && pausedAt IS NULL) に限定", async () => {
+  it("カウントは assignedChildId + isActive + pausedAt=null + 幽霊一時タスク除外 に限定", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as never);
     mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
@@ -108,13 +108,19 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
       }),
     );
 
-    expect(mockPrisma.taskTemplate.count).toHaveBeenCalledWith({
+    const call = mockPrisma.taskTemplate.count.mock.calls[0]?.[0] as {
       where: {
-        assignedChildId: "child-1",
-        isActive: true,
-        pausedAt: null,
-      },
-    });
+        assignedChildId: string;
+        isActive: boolean;
+        pausedAt: null;
+        NOT: { isTemporary: boolean; targetDate: { lt: Date } };
+      };
+    };
+    expect(call.where.assignedChildId).toBe("child-1");
+    expect(call.where.isActive).toBe(true);
+    expect(call.where.pausedAt).toBeNull();
+    expect(call.where.NOT.isTemporary).toBe(true);
+    expect(call.where.NOT.targetDate.lt).toBeInstanceOf(Date);
   });
 
   it("CHILD が作成する場合も、familyId の PARENT のプランで判定", async () => {
@@ -137,13 +143,37 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
       select: { id: true },
     });
     // 上限チェックは CHILD 自身の assignedChildId (self.id) を対象に
-    expect(mockPrisma.taskTemplate.count).toHaveBeenCalledWith({
-      where: {
+    const call = mockPrisma.taskTemplate.count.mock.calls[0]?.[0] as {
+      where: { assignedChildId: string };
+    };
+    expect(call.where.assignedChildId).toBe("child-1");
+  });
+
+  it("targetDate 経過済みの一時タスクは幽霊扱いで上限カウントに含めない (親画面から見えないため)", async () => {
+    // このテストの意味:
+    // - DB 上には isActive=true の TaskTemplate が 10 個ある (幽霊 3 個 + 有効 7 個)
+    // - Prisma の count は幽霊除外 where で 7 を返す想定
+    // - 11 個目 (実質 8 個目) の追加は成功する
+    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockPrisma.subscription.findUnique.mockResolvedValue(null); // FREE
+    mockPrisma.taskTemplate.count.mockResolvedValue(7); // 幽霊除外後
+    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-new" } as never);
+
+    const res = await POST(
+      makeRequest("/api/tasks", {
+        title: "追加成功",
+        category: "STUDY",
         assignedChildId: "child-1",
-        isActive: true,
-        pausedAt: null,
-      },
-    });
+      }),
+    );
+    expect(res.status).toBe(200);
+    // count クエリに幽霊除外の NOT 句が入っていること
+    const call = mockPrisma.taskTemplate.count.mock.calls[0]?.[0] as {
+      where: { NOT?: { isTemporary?: boolean; targetDate?: { lt?: Date } } };
+    };
+    expect(call.where.NOT?.isTemporary).toBe(true);
+    expect(call.where.NOT?.targetDate?.lt).toBeInstanceOf(Date);
   });
 
   it("assignedChildId 未指定 (PARENT) は既存の 400 が優先される (制限チェック前)", async () => {
