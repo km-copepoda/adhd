@@ -206,6 +206,20 @@ const SUPERSEDED = {
     kind: "partial",
     note: "5pt 固定閾値は 2026-04-04 の卵選択ボーナスにより「選んだ卵の `rebirthEggBonus` に応じて変化」する挙動に変更。`isReborn` フラグ (`collectedPaths.length > 0`) 判定も導入。単純な 5pt ロジックは撤回。",
   },
+  "2026-04-08: バッジ（実績）システムの導入": {
+    supersededBy: [
+      "2026-06-03: 実績100バッジの全面見直し（序盤を絞り中盤からの達成感を強化）",
+      "2026-06-03: 宝箱・コレクションアイテム・転生卵を実績の対象に追加（100バッジ維持）",
+      "2026-06-03: バッジ即時解錠フック + 進捗ヒント UI",
+    ],
+    kind: "partial",
+    note: "初期の 100 バッジ定義と `ALL_BADGES` の内容は 2026-06-03 の 3 決定で大幅リビジョン: (1) 全面見直しで序盤バッジを削り中盤中心に再構成、(2) 宝箱/コレクション/転生卵を新カテゴリとして追加、(3) 承認完了直後に即時解錠する専用フックと進捗ヒント UI を追加（fire-and-forget から昇格）。バッジ制度本体（`UserBadge` テーブル、純粋関数条件、`/api/badges`）は現行。",
+  },
+  "2026-04-22: タスク持ち越し機能（carryOver フラグ）の導入": {
+    supersededBy: "2026-07-02: 一時タスクも carryOver=true を選択可能にする",
+    kind: "partial",
+    note: "元は `TaskTemplate.carryOver` を繰り返しタスクのみに適用する想定だったが、2026-07-02 で一時タスクにも `carryOver=true` の選択を許可。carryOver 本体の挙動は現行。",
+  },
   "2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）": {
     supersededBy: [
       "2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）",
