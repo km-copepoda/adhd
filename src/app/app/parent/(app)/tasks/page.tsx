@@ -14,7 +14,7 @@ import ChildSelector from "@/components/parent/ChildSelector";
 import PendingTaskCard from "@/components/parent/PendingTaskCard";
 import RegularTaskCard from "@/components/parent/RegularTaskCard";
 import TemporaryTaskCard from "@/components/parent/TemporaryTaskCard";
-import { confirmPlanLimitOrAlert } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert, promptPlanLimit } from "@/lib/apiError";
 
 type Task = {
   id: string;
@@ -68,10 +68,19 @@ export default function TasksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));
+  // プラン上限 (FREE=10, PREMIUM=null)。ボタン押下時の preempt チェックに使う
+  const [taskLimit, setTaskLimit] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
+    Promise.all([fetchTasks(), fetchChildren(), fetchPlanLimit()]).finally(() => setLoading(false));
   }, []);
+
+  async function fetchPlanLimit() {
+    const res = await fetch("/api/subscription/status");
+    if (!res.ok) return;
+    const data: { limits?: { task?: number | null } } = await res.json();
+    setTaskLimit(data.limits?.task ?? null);
+  }
 
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
@@ -89,6 +98,18 @@ export default function TasksPage() {
   }
 
   function openFormForChild(childId: string) {
+    // FREE プランで既に上限に達している子は、フォームを開かず先にプラン誘導を出す
+    if (taskLimit !== null) {
+      const activeCount = tasks.filter(
+        (t) => t.assignedChildId === childId && t.isActive && !t.pausedAt,
+      ).length;
+      if (activeCount >= taskLimit) {
+        promptPlanLimit(
+          `無料プランではタスクは${taskLimit}個までです。プレミアムプランで無制限になります。`,
+        );
+        return;
+      }
+    }
     setForm(defaultForm(childId));
     setEditingId(null);
     setFormMode("regular");

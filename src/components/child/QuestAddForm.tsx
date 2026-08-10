@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
 import { alertOnApiError } from "@/lib/apiError";
@@ -12,6 +12,10 @@ type Props = {
   onAdded: () => void;
 };
 
+// CHILD 向けの上限到達メッセージ。プラン名や金額には触れない (仕様書 §5.1)
+const CHILD_LIMIT_MESSAGE =
+  "今日はもうこれ以上タスクを追加できないよ 🐾\nママ・パパにおねがいしてね！";
+
 export default function QuestAddForm({ onClose, onAdded }: Props) {
   const [formMode, setFormMode] = useState<FormMode>("temporary");
   const [form, setForm] = useState({
@@ -20,8 +24,27 @@ export default function QuestAddForm({ onClose, onAdded }: Props) {
     repeatDays: [0, 1, 2, 3, 4, 5, 6] as number[],
   });
   const [submitting, setSubmitting] = useState(false);
+  // 家族のプランに基づくタスク上限 (FREE=10, PREMIUM=null)。マウント時に取得
+  const [taskLimit, setTaskLimit] = useState<number | null>(null);
+  const [currentCount, setCurrentCount] = useState<number>(0);
+
+  useEffect(() => {
+    fetch("/api/subscription/child-task-limit")
+      .then(async (r) => (r.ok ? r.json() : null))
+      .then((data: { limit: number | null; current: number } | null) => {
+        if (!data) return;
+        setTaskLimit(data.limit);
+        setCurrentCount(data.current);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleAddTask() {
+    // preempt: FREE 上限に達している場合はサーバ問い合わせ前に子供向けメッセージで通知
+    if (taskLimit !== null && currentCount >= taskLimit) {
+      alert(CHILD_LIMIT_MESSAGE);
+      return;
+    }
     setSubmitting(true);
     const isTemporary = formMode === "temporary";
     const emoji = CATEGORY_LABEL[form.category].emoji;

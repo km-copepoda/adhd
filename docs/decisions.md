@@ -114,6 +114,7 @@
 - [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
 - [2026-08-10: マネタイズ Phase 1-6 — プラン管理 UI + 上限到達時のアップグレード誘導導線](#2026-08-10-マネタイズ-phase-1-6--プラン管理-ui--上限到達時のアップグレード誘導導線)
+- [2026-08-10: Phase 1-6 追補 — 追加ボタン押下時の preempt チェック (親・子両方)](#2026-08-10-phase-1-6-追補--追加ボタン押下時の-preempt-チェック-親・子両方)
 
 <!-- TOC:END -->
 
@@ -2594,4 +2595,32 @@
 - `src/components/parent/Sidebar.tsx` — 「💎 プラン」導線追加
 - 差し替え: `src/app/app/parent/(app)/tasks/page.tsx`, `treasures/page.tsx`, `approve/page.tsx`, `src/components/parent/CompletedContent.tsx`, `src/components/parent/TemplateImportSection.tsx`
 - 新規テスト: `src/__tests__/api/subscription/status.test.ts` (認証/ロール/プラン別/単独モード/カウント条件の 8 件), `src/__tests__/lib/apiError-planLimit.test.ts` (confirm=true/false/非プランエラー/バリデーションエラー等 5 件)
+
+## 2026-08-10: Phase 1-6 追補 — 追加ボタン押下時の preempt チェック (親・子両方)
+
+### 決定内容
+- 「タスク追加」ボタン押下時に、フォームを開く前 (親) / API 呼び出し前 (子) にプラン上限に達しているか判定し、達していれば UI を進めない
+  - **親** (`app/parent/tasks/page.tsx`): `openFormForChild` の冒頭で `tasks.filter(...).length >= taskLimit` を判定 → `promptPlanLimit` で /app/parent/plan へ誘導
+  - **子** (`components/child/QuestAddForm.tsx`): `handleAddTask` の冒頭で `currentCount >= taskLimit` を判定 → 子向けの alert (プラン名・金額に触れない) を出して return
+- 新規エンドポイント `GET /api/subscription/child-task-limit` (CHILD 専用) — 家族の親のプランに基づく `{ limit, current }` のみを返す。プラン名や `currentPeriodEnd` は含めない
+- `src/lib/apiError.ts` の `confirmPlanLimitOrAlert` から confirm+redirect 部分を `promptPlanLimit(message)` として抽出。エラーレスポンスが無い場面 (ボタン押下時の preempt) からも同じ導線を使えるように
+
+### 理由
+- Phase 1-6 本体では「送信 → 403 → confirm」の流れで、親の場合は入力内容が無駄になる UX 劣化があった。ボタン押下時に判定すれば無駄タイプ・無駄ローディングを防げる
+- サーバ側の enforce (`POST /api/tasks` の 403) はそのまま残す (二重防御。UI キャッシュずれや直接 API 叩きに対する保険)
+- 子側で `/api/subscription/status` を使わなかったのは、仕様書 §5.1「子供に課金 UI を見せない」に沿ってプラン名・金額を子端末に露出しないため。`/api/subscription/child-task-limit` は数値のみを返す最小 API
+- 子側のメッセージ (`CHILD_LIMIT_MESSAGE = "今日はもうこれ以上タスクを追加できないよ 🐾\nママ・パパにおねがいしてね！"`) から「プレミアム」「無制限」「アップグレード」等の課金訴求語を排除
+
+### やってはいけないこと
+- 子 UI から `/api/subscription/status` を叩いてプラン名を取得する (仕様書 §5.1 に反する)
+- 子側の上限到達時に「プレミアムでもっと追加できるよ」等の課金訴求文言を出す
+- サーバ側 enforce を preempt チェックで置き換える (UI キャッシュずれや直接 API 叩きに対する二重防御が消える)
+- `promptPlanLimit` の遷移先を `/app/parent/plan` 以外に振る (Phase 1-6 と同じく URL 分散を避ける)
+
+### 該当箇所
+- 新規: `src/app/api/subscription/child-task-limit/route.ts` — CHILD 専用 GET
+- `src/lib/apiError.ts` — `promptPlanLimit` 抽出 (`confirmPlanLimitOrAlert` は内部で呼び直し)
+- `src/app/app/parent/(app)/tasks/page.tsx` — `fetchPlanLimit` + `openFormForChild` に preempt チェック
+- `src/components/child/QuestAddForm.tsx` — マウント時に limit 取得 + `handleAddTask` に preempt チェック
+- 新規テスト: `src/__tests__/api/subscription/child-task-limit.test.ts` (認証/ロール/プラン別/単独モード/境界の 6 件)
 
