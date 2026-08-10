@@ -95,3 +95,26 @@ Vercelにデプロイすれば自動的にダッシュボードでデータが�
 | 広告出稿時 | アトリビューション | GA4 |
 
 MVPの現段階ではVercel Analyticsで十分。過剰な計測は入れない。
+
+---
+
+## 5. Speed Insights の併用（導入済み）
+
+Web Analytics（ページビュー）とは別に、**実ユーザーのブラウザから見たページ表示速度**（Core Web Vitals: LCP / INP / CLS / TTFB / FCP）を計測するため `@vercel/speed-insights` を導入済み。
+
+| 項目 | 内容 |
+|------|------|
+| パッケージ | `@vercel/speed-insights` |
+| 費用 | Hobbyプラン: 10,000 データポイント/月まで無料 |
+| Cookie | 不要 |
+| 導入場所 | `src/app/layout.tsx` の `<body>` 末尾に `<SpeedInsights />` |
+
+### Web Analytics との使い分け
+
+| 目的 | 使うツール |
+|------|-----------|
+| どのページが見られているか | Web Analytics（未導入） |
+| ページ表示が遅くないか | Speed Insights（導入済み） |
+| API リクエスト処理が遅くないか | サーバー側 `routeLogger` の `durationMs` ログ |
+
+Speed Insights は「ページを開いてから描画が完了するまで」の遅さのみを拾える。API 往復の遅さはサーバー側ログとの突き合わせで切り分ける。
