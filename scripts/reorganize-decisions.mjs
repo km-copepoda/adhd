@@ -103,9 +103,13 @@ const SUPERSEDED = {
     note: "独立コンポーネント `ParentCheckinCalendar` は 2026-07-02 で廃止され HeatmapGrid にオーバーレイ統合。API / `buildMonthGrid` は現行。",
   },
   "2026-04-26: あつまり機能（場所×合言葉グループ＋自動掲示板）の導入": {
-    supersededBy: "2026-05-09: ひろば なかま一覧の表示識別子を `monsterName` + `speciesName` の2軸に再構成し API から `name` を除去",
+    supersededBy: [
+      "2026-04-30: BulletinLog の unique に `key` を追加（同日に複数バッジ等を許可）",
+      "2026-05-01: 掲示板ログのトリガーを fire-and-forget から `next/server` の `after()` に切り替え",
+      "2026-05-09: ひろば なかま一覧の表示識別子を `monsterName` + `speciesName` の2軸に再構成し API から `name` を除去",
+    ],
     kind: "partial",
-    note: "参加メンバー一覧の `name`（本名）フォールバックは 2026-05-09 で撤回（プライバシー）。あつまり機能本体は現行。",
+    note: "`BulletinLog` の unique `[groupId, childId, type, date]` は 2026-04-30 で `key` を追加した 5 カラム構成に変更（同日同 type 重複を許可）。`triggerXxxLog` の fire-and-forget 呼び出しは 2026-05-01 で `after()` に切り替え（Serverless で消えないように）。参加メンバー一覧の `name`（本名）フォールバックは 2026-05-09 で撤回（プライバシー）。あつまり機能本体は現行。",
   },
   "2026-05-09: 「今日やる宣言ボーナス」の導入（放置タスク回避向け）": {
     supersededBy: "2026-05-09 (改): 「今日やる宣言」の放置判定を「直近 N 出現の連続非 APPROVED 数」に変更",
@@ -186,6 +190,21 @@ const SUPERSEDED = {
     supersededBy: "2026-08-06: マネタイズ Phase 1-4 — FREE は季節コレクション 80 種をロック (抽選プールから除外)",
     kind: "partial",
     note: "「全ユーザ 25 種プール」契約は 2026-08-06 で FREE=月限定 5 種のみ、PREMIUM/スタンドアロン=25 種に変更。総 140 種のマスター定義は現行。",
+  },
+  "2026-03-22: タスク報告への写真添付機能（Supabase Storage）": {
+    supersededBy: "2026-03-29: 写真オプショナル化とフラットXP制への移行",
+    kind: "partial",
+    note: "`TaskTemplate.requirePhoto Boolean` は 2026-03-29 で `photoBonus Boolean` にリネームされ、「写真必須で無ければ 400」の enforcement は撤回。写真は常時オプション、添付でボーナス XP。Supabase Storage の直接アップロード方式・`photoUrl` 保存は現行。",
+  },
+  "2026-03-28: 転生サイクルを60pt（約2週間）に調整": {
+    supersededBy: "2026-04-04: 転生を手動化＋卵選択ボーナス",
+    kind: "partial",
+    note: "「閾値到達で自動的に卵にリセット」フローは 2026-04-04 で撤回。以降は `rebirthPending` フラグを立て、子供の卵選択操作を経て転生する手動フロー。60pt サイクル（`REBIRTH_THRESHOLD`）は現行。",
+  },
+  "2026-03-28: 転生後の卵の孵化閾値を5ptに設定": {
+    supersededBy: "2026-04-04: 転生を手動化＋卵選択ボーナス",
+    kind: "partial",
+    note: "5pt 固定閾値は 2026-04-04 の卵選択ボーナスにより「選んだ卵の `rebirthEggBonus` に応じて変化」する挙動に変更。`isReborn` フラグ (`collectedPaths.length > 0`) 判定も導入。単純な 5pt ロジックは撤回。",
   },
   "2026-05-30: 親代理 report-approve でも宝箱を生成する（即 UNLOCKED / AUTO trigger）": {
     supersededBy: [
