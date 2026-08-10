@@ -113,6 +113,7 @@
 - [2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除](#2026-08-06-子アカウント上限の-enforce-を正しい経路-apifamilymembers-に移動し未使用の-auth-経路を削除)
 - [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
+- [2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外](#2026-08-10-free-プランのタスク上限カウントから幽霊一時タスク-targetdate--today-を除外)
 
 <!-- TOC:END -->
 
@@ -2562,4 +2563,32 @@
 - CLAUDE.md に蓄積した規約（XP 付与タイミング、進化引数、モジュール分割、ステータス遷移、Next.js プロキシ命名、日付処理等）を各フェーズで確実に適用するため、責務ごとにエージェントを分離
 - TDD（Red → Green → Refactor）を強制するには、テスト作成と実装を別エージェントに分ける方が「テストなし実装」が起きにくい
 - `policy-checker` を先頭に置くことで「決定と逆行する指示」「非標準アプローチ」を実装前に検出でき、確認の手戻りを最小化
+
+## 2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外
+
+### 決定内容
+- FREE プランのタスク上限判定に使う active カウントの where 条件を
+  `{ isActive: true, pausedAt: null }` から
+  `{ isActive: true, pausedAt: null, NOT: { isTemporary: true, targetDate: { lt: today } } }` に変更
+- 4 か所の enforce 経路 (`POST /api/tasks`, `POST /api/tasks/bulk`, `POST /api/tasks/[id]/pause` の再開時, `POST /api/tasks/[id]/copy`) を共通ヘルパー `countActiveTasksForChild(assignedChildId, today?)` (`src/lib/subscriptionService.ts`) に寄せる
+- 「有効タスク」の新定義: `isActive AND pausedAt IS NULL AND NOT (isTemporary AND targetDate < today)`
+- `docs/未実装仕様書/monetization-plan.md §2.2` と `src/lib/subscription.ts` の `LimitedResource` コメントを新定義に更新
+
+### 理由
+- 親画面のタスク一覧は `isVisibleTemporaryTask` (`src/lib/date.ts`) で「親作成・未完了・targetDate >= today」の一時タスクだけを表示する。targetDate が過去の一時タスクは幽霊化して見えない
+- 幽霊タスクを上限に含めると、月日が経つにつれ FREE ユーザーが「画面に何も見えないのに新タスクが作れない」状態になり、ユーザ体験としても課金導線としても破綻する
+- 表示（親画面の見た目）と課金上限（enforce ロジック）を整合させ、「今表示されているタスク数」で 10 個上限を判定する
+- `completedToday` は日次で変わる不安定な状態なので幽霊判定には含めない。翌日以降 targetDate 経過ですぐ幽霊化するため実質差は小さく、シンプルさを優先
+
+### やってはいけないこと
+- 4 経路の count クエリを個別に手書きに戻す (helper 経由に統一。where 条件が分散すると次に条件が変わったとき漏れる)
+- `completedToday` を幽霊条件に足す (日次変動でユーザーが上限に達したり外れたりする挙動になる)
+- `carryOver=true` の一時タスクだけ特別扱いする (幽霊判定は targetDate の一律比較で十分。carryOver は quests 側の materialize 判定で別途機能する)
+
+### 該当箇所
+- `src/lib/subscriptionService.ts` — `countActiveTasksForChild` を追加
+- `src/lib/subscription.ts` — `LimitedResource` の `task` コメントを新定義に更新
+- `src/app/api/tasks/route.ts` / `src/app/api/tasks/bulk/route.ts` / `src/app/api/tasks/[id]/pause/route.ts` / `src/app/api/tasks/[id]/copy/route.ts` — count 呼び出しを helper に置換
+- `docs/未実装仕様書/monetization-plan.md §2.2` — 有効タスク定義を更新
+- テスト: `src/__tests__/lib/subscriptionService.test.ts` / `src/__tests__/api/tasks/tasks-limit.test.ts`
 

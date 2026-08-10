@@ -6,7 +6,10 @@ export type SubscriptionPlan = "FREE" | "PREMIUM";
 
 /// 上限をかけるリソースの識別子。
 /// - child: 子アカウント数 (Family 内の CHILD ロールの User)
-/// - task: アクティブなタスク数 (isActive && pausedAt IS NULL) / 子1人あたり
+/// - task: 有効な (幽霊でない) タスク数 / 子1人あたり
+///   有効 = isActive && pausedAt IS NULL && !(isTemporary && targetDate < today)
+///   一時タスクは targetDate 経過後は親画面に表示されない (幽霊タスク) ため、
+///   上限のカウントからも除外する。実装は @/lib/subscriptionService の countActiveTasksForChild。
 /// - treasure_item: 親カスタムごほうび数 (isActive=true) / 子1人あたり
 export type LimitedResource = "child" | "task" | "treasure_item";
 
