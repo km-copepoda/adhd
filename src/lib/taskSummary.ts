@@ -53,28 +53,38 @@ export function totalPausedDaysInRange(
 }
 
 /**
- * 親画面バッジ計算で使う「effective today」を返す。
+ * 過去の停止期間に「現在停止中なら [pausedAt, today]」を追加した effective interval 一覧を返す。
+ * これを `calcCarryOverMissedCount` や `activeDaysBetween` に渡すことで、
+ * 「停止中は today の分もカウントから除外 = 実質的に凍結」を単一パスで表現できる。
  *
- * - 停止中 (`pausedAt != null`): pausedAt の JST 日付を返す（カウントを凍結）
- * - 再開後: today から累計停止日数を差し引いた日付を返す（停止期間ぶんを減算）
- *
- * 「N回未完了」の repeatDays パスでは `calcCarryOverMissedCount` の to 引数として使い、
- * 「⏭N日前スキップ」バッジの 7 日窓計算でも effective today を基準にする。
+ * 実今日 (`today`) を各計算で使い続けるため、「effective today シフト + interval 除外」の
+ * 二重減算に陥らないのがポイント。
  */
-export function computeEffectiveTodayForPausedTemplate(
-  today: Date,
+export function effectiveIntervalsFor(
+  pauseIntervals: PauseInterval[],
   pausedAt: Date | null,
+  today: Date,
+): PauseInterval[] {
+  if (!pausedAt) return pauseIntervals;
+  return [...pauseIntervals, { start: pausedAt, end: today }];
+}
+
+/**
+ * `[from, to]` の JST 日数差から停止期間の overlap ぶんを差し引いた「active な経過日数」。
+ * 「N日前スキップ」バッジで停止期間中は日数がカウントアップしないようにするために使う。
+ * from == to は 0、from > to は 0 で返す (未来スキップの防御)。
+ */
+export function activeDaysBetween(
+  from: Date,
+  to: Date,
   intervals: PauseInterval[],
-): Date {
-  if (pausedAt) return jstDateOf(pausedAt);
-  if (intervals.length === 0) return today;
-  const totalDays = intervals.reduce((sum, iv) => {
-    const s = jstDateOf(iv.start).getTime();
-    const e = jstDateOf(iv.end).getTime();
-    if (e < s) return sum;
-    return sum + Math.round((e - s) / MS_PER_DAY) + 1;
-  }, 0);
-  return new Date(jstDateOf(today).getTime() - totalDays * MS_PER_DAY);
+): number {
+  const fromMs = jstDateOf(from).getTime();
+  const toMs = jstDateOf(to).getTime();
+  if (toMs <= fromMs) return 0;
+  const diffDays = Math.round((toMs - fromMs) / MS_PER_DAY);
+  const paused = totalPausedDaysInRange(from, to, intervals);
+  return Math.max(0, diffDays - paused);
 }
 
 /**
@@ -244,26 +254,43 @@ export async function getParentTaskSummaries(familyId: string) {
   });
   const completedSet = new Set(completedQuests.map((q) => q.templateId));
 
-  // 直近7日間のSKIPPEDを取得（該当曜日でない日にも親がスキップに気づけるよう、タスクカードにバッジ表示するため）。
-  // ただし、その後に APPROVED が記録されていれば「完了済みなのにスキップだけ残る」UX を避けるためバッジを消す。
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  // 各テンプレートの effective 停止区間（過去 pauseIntervals + 現在停止中なら [pausedAt, today]）を
+  // 事前計算しておき、SQL 窓の拡張とバッジ計算で使い回す。
+  const perTemplateIntervals = new Map<string, PauseInterval[]>();
+  let maxTotalPauseSpanDays = 0;
+  for (const t of tasks) {
+    const past = parsePauseIntervals((t as { pauseIntervals?: unknown }).pauseIntervals);
+    const pausedAt = (t as { pausedAt?: Date | null }).pausedAt ?? null;
+    const eff = effectiveIntervalsFor(past, pausedAt, today);
+    perTemplateIntervals.set(t.id, eff);
+    const span = eff.reduce((sum, iv) => {
+      const s = jstDateOf(iv.start).getTime();
+      const e = jstDateOf(iv.end).getTime();
+      return sum + Math.max(0, Math.round((e - s) / MS_PER_DAY) + 1);
+    }, 0);
+    if (span > maxTotalPauseSpanDays) maxTotalPauseSpanDays = span;
+  }
+
+  // 直近「7 active days」相当を取得する。停止 8 日超のテンプレートでも停止直前スキップを
+  // 取りこぼさないよう、SQL 窓は `today - 7 - maxTotalPauseSpanDays` まで広げる。
+  // active days の絞り込みは per-template で JS 側 (activeDaysBetween) が最終判定する。
+  const skipWindowStart = new Date(today);
+  skipWindowStart.setUTCDate(skipWindowStart.getUTCDate() - 7 - maxTotalPauseSpanDays);
   const recentSkipped = await prisma.questInstance.findMany({
     where: {
       templateId: { in: taskIds },
       status: "SKIPPED",
-      date: { gte: sevenDaysAgo, lte: today },
+      date: { gte: skipWindowStart, lte: today },
     },
     select: { templateId: true, date: true },
     orderBy: { date: "desc" },
   });
-  // SKIPPED の最古日付以降に APPROVED があるかだけ確認できればよいので、同じ 7 日窓で取得する。
-  // 窓外（8日以上前）の APPROVED は窓外の SKIPPED に対するもので、本ロジックの判定対象外。
+  // SKIPPED の最古日付以降に APPROVED があるかだけ確認できればよいので、同じ窓で取得する。
   const recentApproved = await prisma.questInstance.findMany({
     where: {
       templateId: { in: taskIds },
       status: "APPROVED",
-      date: { gte: sevenDaysAgo, lte: today },
+      date: { gte: skipWindowStart, lte: today },
     },
     select: { templateId: true, date: true },
     orderBy: { date: "desc" },
@@ -298,30 +325,30 @@ export async function getParentTaskSummaries(familyId: string) {
   return tasks.map((t) => {
     const oldest = oldestPendingMap.get(t.id);
     const repeatDays = (t as { repeatDays?: number[] }).repeatDays ?? [];
-    const pauseIntervals = parsePauseIntervals(
-      (t as { pauseIntervals?: unknown }).pauseIntervals,
-    );
-    const pausedAt = (t as { pausedAt?: Date | null }).pausedAt ?? null;
-    const effectiveToday = computeEffectiveTodayForPausedTemplate(
-      today,
-      pausedAt,
-      pauseIntervals,
-    );
+    const activeIntervals = perTemplateIntervals.get(t.id) ?? [];
+    // スキップバッジ: active 経過日数 (activeDaysBetween) が 7 以下なら表示する。
+    // 表示側で `daysSinceJST` を再計算しないよう、`lastSkippedActiveDaysAgo` を server 側で算出して返す。
+    // rawSkip 生日付は tooltip 用に別途返す。
     const rawSkip = lastSkippedMap.get(t.id) ?? null;
-    // 「⏭ N日前スキップ」バッジも effective today 基準で 7 日窓を判定する:
-    // 停止中は pausedAt 側で凍結、再開後は停止期間ぶんを窓の実質長に還元する。
-    const sevenDaysAgoEff = new Date(effectiveToday.getTime() - 7 * MS_PER_DAY);
-    const lastSkippedDate =
-      rawSkip && rawSkip >= sevenDaysAgoEff && rawSkip <= effectiveToday ? rawSkip : null;
+    let lastSkippedDate: Date | null = null;
+    let lastSkippedActiveDaysAgo: number | null = null;
+    if (rawSkip) {
+      const ago = activeDaysBetween(rawSkip, today, activeIntervals);
+      if (ago <= 7) {
+        lastSkippedDate = rawSkip;
+        lastSkippedActiveDaysAgo = ago;
+      }
+    }
     return {
       ...t,
       completedToday: completedSet.has(t.id),
       lastSkippedDate,
+      lastSkippedActiveDaysAgo,
       carryOverMissedCount: calcCarryOverMissedCount(
         oldest,
-        effectiveToday,
+        today,
         repeatDays,
-        pauseIntervals,
+        activeIntervals,
       ),
     };
   });
