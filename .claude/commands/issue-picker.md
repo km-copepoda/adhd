@@ -116,13 +116,25 @@ $timeline = & $gh api --paginate "repos/{owner}/{repo}/issues/<N>/timeline" --jq
 if ($LASTEXITCODE -ne 0) { throw "timeline取得失敗 (exit=$LASTEXITCODE)" }
 $labeledAt = ($timeline | Where-Object { $_.event -eq "labeled" -and $_.label.name -eq "auto-pickup" } | Sort-Object created_at -Descending | Select-Object -First 1).created_at
 
-$issueDetail = & $gh api graphql -f query='query { repository(owner:"{owner}", name:"{repo}") { issue(number: <N>) { lastEditedAt } } }'
-if ($LASTEXITCODE -ne 0) { throw "lastEditedAt取得失敗 (exit=$LASTEXITCODE)" }
-$lastEditedAt = ($issueDetail | ConvertFrom-Json).data.repository.issue.lastEditedAt
+$repoNwo = & $gh repo view --json nameWithOwner --jq '.nameWithOwner'
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repoNwo)) { throw "リポジトリ名取得失敗 (exit=$LASTEXITCODE)" }
+$repoParts = $repoNwo.Trim().Split('/', 2)
+if ($repoParts.Count -ne 2) { throw "リポジトリ名の形式が不正: $repoNwo" }
+
+$issueDetailJson = & $gh api graphql `
+  -f query='query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){issue(number:$number){body lastEditedAt labels(first:100){nodes{name}}}}}' `
+  -F owner=$($repoParts[0]) -F repo=$($repoParts[1]) -F number=<N>
+if ($LASTEXITCODE -ne 0) { throw "Issueスナップショット取得失敗 (exit=$LASTEXITCODE)" }
+$issueSnapshot = ($issueDetailJson | ConvertFrom-Json).data.repository.issue
+if ($null -eq $issueSnapshot) { throw "Issueスナップショットが空" }
+$lastEditedAt = $issueSnapshot.lastEditedAt
+$snapshotLabels = $issueSnapshot.labels.nodes.name
+$approvedIssueBody = $issueSnapshot.body
 ```
+- **`$labeledAt` が取得できない、またはスナップショット上で `auto-pickup` が消えている場合** → 承認を検証できないため**Step 3以降に進まず**、上と同じく `auto:blocked` へ遷移して報告する
 - **`lastEditedAt` が存在し、かつ `$labeledAt` より新しい場合** → 本文が承認後に編集されている。**Step 3以降に進まず**、ラベルを `auto:in-progress` → `auto:blocked` に変更し、`gh issue comment <N>` で「auto-pickup付与後にIssue本文が編集されたため、安全のため自動実行を停止しました。内容を確認の上、問題なければ改めて auto-pickup ラベルを付け直してください」と日本語で報告する。`PushNotification("Issue #<N> は auto-pickup 付与後に本文が編集されたため自動実行を停止 — 確認してください")`。worktreeはまだ作成していないので破棄不要
-- **編集されていない場合（`lastEditedAt` が無い、または `$labeledAt` 以前）** → Step 3へ進む
-- GraphQLの `Issue.lastEditedAt` フィールド名・timeline APIの `labeled` イベント形状は実装時に `gh api graphql` で要検証（本ドキュメント作成時点では未実機検証）。同種のフィールドが取得できない場合は、代替として「`auto-pickup` を付与する人間は、付与前にIssue本文が確定している（今後編集しない）ことを前提運用にする」旨をREADME等に明記する運用回避も検討する
+- **編集されていない場合（`lastEditedAt` が無い、または `$labeledAt` 以前）** → `$approvedIssueBody` を承認済みの不変スナップショットとして固定し、Step 4以降の全サブエージェントには**Step 1で取得した可変の `$candidate.body` ではなく、必ず `$approvedIssueBody` だけを渡す**。この後にGitHub上の本文が再編集されても、実行中の指示は変化しない。Step 3へ進む
+- GraphQLでは REST URLの `{owner}` / `{repo}` プレースホルダーは自動展開されないため、`gh repo view`で取得した値をGraphQL変数として渡す。タイムラインの承認時刻と、本文・編集時刻・現在ラベルのスナップショットをすべて取得できた場合に限り自動実行する（fail closed）
 
 ### Step 2.5. 異常終了時のセーフティネット（Step 2でのラベル付与直後〜Step 6全体に適用）
 
@@ -145,7 +157,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 
 ### Step 4. `policy-checker`
 
-- Issueの `目的` / `背景` / `実装方針` セクションを結合したものを「ユーザーの指示」として渡す
+- Step 2.6 で固定した `$approvedIssueBody` から `目的` / `背景` / `実装方針` セクションを結合し、「ユーザーの指示」として渡す。GitHubから本文を再取得したり、Step 1の `$candidate.body` を使ったりしない
 - `NEEDS_CONFIRMATION` の場合:
   - `gh issue comment <N>` で衝突箇所を日本語で説明する
   - ラベルを `auto:in-progress` → `auto:blocked` に変更
