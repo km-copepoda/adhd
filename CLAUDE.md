@@ -294,7 +294,8 @@ const parent = await requireUser("PARENT");
 
 ```
 ユーザーの雑な指示
-  → issue-planner（深層思考でIssue化。gh issue create、影響範囲が妥当なら auto-pickup ラベル付き）
+  → issue-planner（深層思考でIssue化。gh issue create。ラベルは付けず、スコープ評価を本文に推奨として記載するのみ）
+  → 人間が内容を確認し auto-pickup ラベルを付与（この操作だけが実際の着手許可。issue-planner自身は付与しない）
   → issue-picker（`.claude/commands/issue-picker.md`。auto-pickup Issueを1件拾い policy-checker 以降の通常フローに乗せる）
   → pr-submitter が PR 作成
   → /codex-followup がレビュー反復・マージ可否通知
