@@ -138,21 +138,21 @@ $m = $mJson | ConvertFrom-Json
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
-  - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` 上で** **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを `$headBranch` へコミット + push する
+  - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` 上で** **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ（コミット・pushのタイミングは後述）
     - **対象が `.gitignore`・`docs/`・`.claude/agents/*.md`・`.claude/commands/*.md` 等、関数・モジュール・APIを持たないドキュメント/設定ファイルのみの指摘の場合、`test-writer` は呼ばず `implementer` → `code-reviewer` のみで進める**（`implementer`/`code-reviewer` 双方に「テスト対象外モード」があるので、そちらを使うよう呼び出し時に明示する）。判定に迷う場合は通常通り `test-writer` を呼ぶ側に倒す
 
     **作業場所の決め方（この反復で処理する全指摘に共通、指摘ごとに作り直さない）**:
-    - 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）→ **経路A**: 現在の作業ディレクトリで直接作業する
-    - 異なる場合（`/issue-picker` からPR番号を明示されて呼ばれ、worktreeを破棄済みのケース）→ **経路B**: この反復の**最初のコード修正指摘の処理を始める時に一度だけ** `git worktree add <path> $headBranch` で一時worktreeを作り、この反復で処理する残りの指摘も**同じworktreeを使い回す**（指摘ごとに作り直さない。2件目以降で毎回 `git worktree add` すると、既にそのworktreeが `$headBranch` をチェックアウト済みのため `already used by worktree` で失敗する）。この反復の処理が全て終わったら（成功・失敗を問わず）必ず `ExitWorktree` で破棄する
+    - まず `git fetch origin $headBranch` で `$headBranch` の最新状態を取得する（**ローカルの `$headBranch` がリモートより古い可能性があるため必須**。古いコミット上に修正を積むと push が non-fast-forward になり、再実行しても解消しない）
+    - 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）→ **経路A**: 現在の作業ディレクトリで直接作業する。`git status --porcelain` がクリーンな状態で、ローカルの `$headBranch` が `origin/$headBranch` より古ければ `git merge --ff-only origin/$headBranch`（このブランチはPRのhead以外の用途に使わないため、fast-forwardできないということは通常起きないはずだが、できない場合はそれ自体を異常として報告し終了する）
+    - 異なる場合（`/issue-picker` からPR番号を明示されて呼ばれ、worktreeを破棄済みのケース）→ **経路B**: この反復の**最初のコード修正指摘の処理を始める時に一度だけ** `git worktree add <path> -B $headBranch origin/$headBranch` で一時worktreeを作る。`-B` はローカルの `$headBranch` を `origin/$headBranch` の最新状態にリセットしてからチェックアウトする（別名の一時ブランチを作ってはいけない。それだと後でpushしても本来の `$headBranch`／PRが更新されない）。この反復で処理する残りの指摘も**同じworktreeを使い回す**（指摘ごとに作り直さない。2件目以降で毎回 `git worktree add` すると、既にそのworktreeが `$headBranch` をチェックアウト済みのため `already used by worktree` で失敗する）。この反復の処理が全て終わったら（成功・失敗を問わず）必ず `ExitWorktree` で破棄する
 
     **経路A（現在の作業ディレクトリで直接作業）の追加手順**:
     - 使う前に `git status --porcelain` でクリーンであることを確認する。未コミットの変更が既にある場合（ユーザー自身の作業中の可能性がある）、この反復では自動修正を行わず**反復全体をスキップ**する（「作業ディレクトリに未コミットの変更があるため今回は自動修正を見送り」と報告し、通常通り300秒後にScheduleWakeup。無関係な既存の変更を上書き・巻き込みコミットするリスクを避けるため、個別コメントだけでなく反復全体を止める）
-    - 成功（`APPROVED`）した場合: そのまま `git add`・`git commit`・`git push` を実行する
     - 反復上限（3回）に達し失敗した場合: 開始時点でクリーンだったことを利用し、`git checkout -- .`（追跡済みファイルの変更を復元）**と** `git clean -fd`（`test-writer` が作った新規テストファイル等、未追跡のまま残ったファイルを削除）の**両方**を実行する。`git checkout --` だけでは新規作成ファイルが消えず、次回以降ずっと「dirtyなので反復スキップ」を繰り返すことになる
 
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
     - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は経路Aなら上記の通り試行分の変更を完全に復元し（未承認の変更を残さない）、Codex に「規約違反で自動修正できない」と返信して 👀
-    - `APPROVED` を得たら、経路Bならその一時worktreeの承認済み変更を、経路Aならその場の変更を `$headBranch` にコミット + push
+    - **`APPROVED` を得ても、その場でコミット・pushしない**。この反復で処理する全ての「コード修正が必要」な指摘を処理し終えるまで作業ディレクトリ（経路A）/一時worktree（経路B）に変更を積み上げておき、**全指摘の処理が終わった後に1回だけ**まとめてコミット・pushする（「反復ごとに1コミット以下」の原則を守るため。指摘ごとに逐次コミットしない）
   - **コード修正後もその Codex コメントに PR 作者アカウントで 👀 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 
 **指摘カテゴリ判定**（専用エージェントは作らず、`implementer`/`test-writer` 呼び出し時のプロンプトに追加コンテキストとして注入する。理由: 規約チェック自体は `code-reviewer.md` の観点表に集約済みで全カテゴリ共通のため、エージェントを分けると重複する）:
