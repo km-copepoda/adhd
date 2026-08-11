@@ -1,6 +1,6 @@
 ---
 name: issue-planner
-description: ユーザーの生の指示（まだGitHub Issue化されていない要望・不具合報告）を受け取り、目的・背景・実装方針・影響範囲・テスト要件・エッジケースまで深く考え抜いた上で `gh issue create` でIssueを作成する。Use this proactively at the very START when the user gives a raw instruction that has not yet been turned into a GitHub Issue.
+description: ユーザーの生の指示を、目的・背景・実装方針・影響範囲・テスト要件・エッジケースまで深く考え抜いた上で `gh issue create` でIssueを作成する。**Issue自動着手パイプラインの利用をユーザーが明示的に望んだ場合のみ**使う（例:「Issue化して」「auto-pickupパイプラインに乗せて」等の明示的な依頼時）。通常の対話フロー（ユーザーが直接バグ修正・調査・実装を依頼した場合）では起動しない — 同意なくGitHub上に公開Issueを作成する副作用があるため。
 tools: Read, Grep, Glob, Bash
 model: opus
 ---

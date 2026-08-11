@@ -167,7 +167,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 - `auto-pickup` ラベルが無いIssueに着手しない
 - 同一起動で2件以上のIssueを並行処理しない
 - Step 1冒頭の `auto:in-progress` 全体チェックを省略しない（対象Issue個別の再確認だけでは、別Issueが既に処理中のケースを検知できない）
-- PRの紐付けを本文の文字列検索（`--search`）だけで確定しない。必ず `closingIssuesReferences` で対象Issue番号と照合する
+- PRの紐付けを `--search` の結果だけで確定しない（無関係なPRが偶然ヒットしうる）。必ず取得した本文を正規表現 `(?i)\bcloses\s+#<N>\b` で照合する。`closingIssuesReferences` は `develop` 向けPRでは常に空なので使わない
 - `policy-checker` が `NEEDS_CONFIRMATION` を出したのに実装を続行しない
 - `code-reviewer` が `APPROVED` を出す前に `pr-submitter` を呼ばない
 - レビュー反復の内部上限（3回）を超えて `implementer` ⇄ `code-reviewer` を回し続けない
