@@ -27,8 +27,13 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 ## 手順
 
 ### 1. PR & 作者特定
+- **PR番号が明示された場合**（例: `/issue-picker` からの引き継ぎ）はそれを使う。**指定が無い場合のみ**、現在のブランチから `gh pr view` で解決する。`/issue-picker` は worktree を破棄済みの状態からこのコマンドを呼ぶため、現在ブランチ依存の解決だけに頼ると対象PRを見失う
 ```powershell
-$prJson = & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state,author,title
+$prJson = if ($prNumber) {
+  & "C:\Program Files\GitHub CLI\gh.exe" pr view $prNumber --json number,url,state,author,title
+} else {
+  & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state,author,title
+}
 if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
 $pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
