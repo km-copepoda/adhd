@@ -72,9 +72,12 @@ $candidates = $candidates | ConvertFrom-Json
 ### Step 2. 着手宣言（排他制御）
 
 ```powershell
-$freshLabels = (& $gh issue view <N> --json labels | ConvertFrom-Json).labels.name
+$freshLabelsJson = & $gh issue view <N> --json labels
+if ($LASTEXITCODE -ne 0) { throw "ラベル再確認取得失敗 (exit=$LASTEXITCODE)" }
+$freshLabels = ($freshLabelsJson | ConvertFrom-Json).labels.name
 & $gh issue edit <N> --add-label "auto:in-progress"
 ```
+- **この `gh issue view` の `$LASTEXITCODE` を必ず検査する**。検査せずに進むと、一時的な取得失敗時に `$freshLabels` が空になり「衝突ラベルなし」と誤判定して `auto:in-progress` を重ねて付与してしまう（対象Issueが既に `auto:pr-open`/`auto:blocked` 等で他プロセスに処理済みだった場合、それを見落として二重着手する）
 - Step 1冒頭の `auto:in-progress` 全体チェックに加えて、ラベル付与の直前に対象Issue個別でも再確認する（`$freshLabels`）。`auto:in-progress`/`auto:pr-open`/`auto:merge-ready`/`auto:blocked`/`auto:done` のいずれかが既に付いていたら「他プロセスが先に着手済み」として何もせず終了する
 - **既知の限界**: `gh issue edit --add-label` はロック機構ではなく単なるラベル追加操作であり、2つの実行が真に同時（ミリ秒単位）にStep 1のチェックを通過した場合、両方が「他に着手中のIssueは無い」と判定してから同時にラベルを追加してしまう可能性が理論上残る（GitHub Labels APIに条件付き書き込み/CASが無いため）。本設計はこれを許容し、通常運用（cronルーティン1系統からの逐次起動、または単一のwebhookトリガー）では実質的に同時実行が起きない前提に立つ。真の排他制御が必要になった場合は、別リポジトリの専用ロックファイルやGitHub Actionsのconcurrencyグループ相当の仕組みを別途検討する
 - 失敗した場合（他プロセスが同時に処理を開始した等）は何もせず終了
