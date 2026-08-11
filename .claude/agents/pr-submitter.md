@@ -1,4 +1,4 @@
-﻿---
+---
 name: pr-submitter
 description: code-reviewer が APPROVED を出した後、コミット・プッシュ・GitHub PR 作成を行う。ブランチが未作成なら `feature/task-name` を作る。Use this ONLY after code-reviewer approves.
 tools: Read, Grep, Glob, Bash

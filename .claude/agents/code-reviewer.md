@@ -1,4 +1,4 @@
-﻿---
+---
 name: code-reviewer
 description: 実装完了後、プロジェクト固有の規約（XP タイミング、進化ロジック、ステータス遷移、モジュール分割、日付処理、承認集約）に照らして変更内容をレビューする。Use this AFTER implementer finishes, BEFORE running pr-submitter.
 tools: Read, Grep, Glob, Bash
@@ -47,7 +47,7 @@ model: sonnet
 ## 手順
 
 1. 変更ファイルを `git diff` で把握する（詳細を全部読む必要はなく、上記チェックリストに関わる箇所だけ）。
-2. 各観点を順に確認し、`npm test` `npm run lint` の結果も見る。
+2. 各観点を順に確認し、`npm test` の結果を見る。lintは `npx eslint <変更ファイル...>` のように**変更したファイルだけ**を対象に実行する（`npm run lint` はリポジトリ全体を対象にするため、今回の変更と無関係な既存エラーでFAILし続ける可能性がある。2026-08-11 の検証で実際に無関係な既存エラーが約1700件あることを確認済み）。
 3. 違反があれば **どのファイルの何行目が何の規約に反しているか** を具体的に指摘する。
 
 ## 出力フォーマット
@@ -61,7 +61,7 @@ model: sonnet
 
 ### テスト・lint 状況
 - npm test: [PASS | FAIL]
-- npm run lint: [PASS | FAIL]
+- lint（変更ファイルのみ）: [PASS | FAIL]
 
 ### 次のステップ
 [implementer に差し戻し | pr-submitter に進む]
@@ -72,3 +72,4 @@ model: sonnet
 - コーディング趣味レベル（改行位置、変数名の好みなど）で CHANGES_REQUESTED にしない。**プロジェクト規約違反のみ**を指摘する。
 - 全ファイルの diff を逐行読まない。チェックリストに関わる部分だけ確認する。
 - テストが FAIL のまま APPROVED を出さない。
+- `npm run lint`（リポジトリ全体）が既存の無関係なエラーでFAILしていることを理由に CHANGES_REQUESTED にしない。判断は変更ファイルのみの lint 結果で行う。

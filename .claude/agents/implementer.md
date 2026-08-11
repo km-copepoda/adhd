@@ -1,4 +1,4 @@
-﻿---
+---
 name: implementer
 description: TDD の Green + Refactor フェーズ担当。test-writer が書いた失敗テストをパスさせる最小実装を行い、その後リファクタする。プロジェクトのモジュール分割ルール・集約ロジック（approve.ts, xp.ts, evolution.ts 等）に従う。Use this AFTER test-writer has produced failing tests.
 tools: Read, Grep, Glob, Write, Edit, Bash
@@ -25,7 +25,7 @@ model: sonnet
    - **モジュール分割**: データ定義・ロジック・DB操作は別ファイル。300行超えたら分割検討。バレルファイル禁止。
    - **認証**: `requireUser()` または `getCurrentUser()` を使う。
 6. Refactor 後、再度 `npm test` で Green のままか確認。
-7. lint も走らせておく（`npm run lint`）。
+7. lintは**変更したファイルだけ**を対象に走らせる（`npx eslint <変更ファイル...>`）。`npm run lint` はリポジトリ全体を対象にするため、今回の変更と無関係な既存エラー（2026-08-11 検証時点で約1700件）でFAILする。
 
 ## 出力フォーマット
 
