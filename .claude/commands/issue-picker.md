@@ -50,11 +50,26 @@ $staleDoneIssues = $staleDoneIssues | ConvertFrom-Json
 ### Step 1. 対象Issue特定
 
 ```powershell
-$activeIssues = & $gh issue list --label "auto:in-progress" --state open --limit 200 --json number
+$activeIssues = & $gh issue list --label "auto:in-progress" --state open --limit 200 --json number,updatedAt
 if ($LASTEXITCODE -ne 0) { throw "auto:in-progress Issue一覧取得失敗 (exit=$LASTEXITCODE)" }
 $activeIssues = $activeIssues | ConvertFrom-Json
-if ($activeIssues.Count -gt 0) {
-  # 他の実行が既に着手中。今回は何もせず終了（「同時に処理するIssueは1件まで」の制約）
+
+$staleThresholdMinutes = 60
+$stillActive = @()
+foreach ($issue in $activeIssues) {
+  $ageMinutes = ((Get-Date).ToUniversalTime() - [DateTime]::Parse($issue.updatedAt).ToUniversalTime()).TotalMinutes
+  if ($ageMinutes -gt $staleThresholdMinutes) {
+    # 放置されたロックとみなして回収する（プロセス強制終了・セッション喪失等でStep 2.5のセーフティネットが
+    # 一度も走れなかった場合、ラベルに有効期限が無いためこのままだと以後の起動が永久に全滅する）
+    & $gh issue edit $issue.number --remove-label "auto:in-progress" --add-label "auto:blocked"
+    & $gh issue comment $issue.number --body "auto:in-progress が $([math]::Round($ageMinutes))分間更新されず放置されていたため、自動的に auto:blocked へ回収しました。状況を確認してください。"
+    # PushNotification("Issue #<issue.number> の着手ロックが放置されていたため自動回収しました — 確認してください")
+  } else {
+    $stillActive += $issue
+  }
+}
+if ($stillActive.Count -gt 0) {
+  # 他の実行が現在も着手中（閾値内）。今回は何もせず終了（「同時に処理するIssueは1件まで」の制約）
   return
 }
 
@@ -62,7 +77,8 @@ $candidates = & $gh issue list --label "auto-pickup" --state open --limit 200 --
 if ($LASTEXITCODE -ne 0) { throw "auto-pickup Issue一覧取得失敗 (exit=$LASTEXITCODE)" }
 $candidates = $candidates | ConvertFrom-Json
 ```
-- **`auto:in-progress` が付いたIssueがリポジトリ全体で1件でもあれば、候補選定に進まず即終了する**（「同時に処理するIssueは1件まで」を、対象Issue単体の再確認だけでなくリポジトリ全体の事前チェックとして行う）
+- **`auto:in-progress` が付いたIssueがリポジトリ全体にあり、かつ直近 `$staleThresholdMinutes`（60分）以内に更新されていれば、候補選定に進まず即終了する**（「同時に処理するIssueは1件まで」を、対象Issue単体の再確認だけでなくリポジトリ全体の事前チェックとして行う）
+- **60分を超えて更新が無い `auto:in-progress` は「放置されたロック」とみなし、自動的に `auto:blocked` へ回収してから処理を続行する**。ラベル自体には有効期限も所有者情報も無いため、着手したプロセスが強制終了・セッション喪失・runner停止等でStep 2.5のセーフティネットまで到達できなかった場合、回収機構が無いと1件の残留ラベルがパイプライン全体を無条件かつ永久に停止させてしまう。`updatedAt`（ラベル変更・コメント等で更新される）を目安の経過時間として使う
 - **`--limit` を明示すること**（`gh issue list` の既定値は30件。`auto-pickup` の付いたオープンIssueが30件を超えると、この後のクライアント側フィルタが届かない範囲に未着手Issueが埋もれ、「対象Issueなし」を誤って報告し続ける）
 - 各 `gh issue list` 呼び出しの直後に個別に `$LASTEXITCODE` を検査する（Step 0と同じ理由）
 - `labels` に `auto:in-progress` / `auto:pr-open` / `auto:merge-ready` / `auto:blocked` / `auto:done` のいずれかを含むIssueは除外する（＝まだどの状態にも入っていない、純粋に未着手のものだけを残す）。**`auto:merge-ready` も必ず含める**（正常系でCodex承認済み・マージ待ちのIssueも `auto-pickup` ラベル自体は残ったままなので、これを除外しないとユーザーがマージするまで同じIssueを毎回最古候補として選び続け、他の未着手Issueの処理が止まる）
