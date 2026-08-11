@@ -36,10 +36,11 @@ $mergeReadyIssues = & $gh issue list --label "auto:merge-ready" --state open --j
 ### Step 1. 対象Issue特定
 
 ```powershell
-$candidates = & $gh issue list --label "auto-pickup" --state open --json number,title,body,createdAt,labels | ConvertFrom-Json
+$candidates = & $gh issue list --label "auto-pickup" --state open --limit 200 --json number,title,body,createdAt,labels | ConvertFrom-Json
 ```
+- **`--limit` を明示すること**（`gh issue list` の既定値は30件。`auto-pickup` の付いたオープンIssueが30件を超えると、この後のクライアント側フィルタが届かない範囲に未着手Issueが埋もれ、「対象Issueなし」を誤って報告し続ける）
 - `$LASTEXITCODE -ne 0` → 取得失敗として終了
-- `labels` に `auto:in-progress` / `auto:pr-open` / `auto:blocked` / `auto:done` のいずれかを含むIssueは除外する（＝まだどの状態にも入っていない、純粋に未着手のものだけを残す）
+- `labels` に `auto:in-progress` / `auto:pr-open` / `auto:merge-ready` / `auto:blocked` / `auto:done` のいずれかを含むIssueは除外する（＝まだどの状態にも入っていない、純粋に未着手のものだけを残す）。**`auto:merge-ready` も必ず含める**（正常系でCodex承認済み・マージ待ちのIssueも `auto-pickup` ラベル自体は残ったままなので、これを除外しないとユーザーがマージするまで同じIssueを毎回最古候補として選び続け、他の未着手Issueの処理が止まる）
 - 残った候補が0件 → 「対象Issueなし」と報告して終了
 - 複数件残った場合は `createdAt` が最も古い1件だけを選ぶ
 
@@ -52,6 +53,15 @@ $freshLabels = (& $gh issue view <N> --json labels | ConvertFrom-Json).labels.na
 - **ラベル付与の直前にリポジトリ全体で再確認する**: Step 1の候補リストはこの起動の開始時点でのスナップショットであり、複数の `/issue-picker` が並行起動した場合に古い情報のまま同じ/別のIssueへ同時着手してしまう可能性がある。`gh issue edit --add-label` はロックではなく単なるラベル追加操作なので、付与前に必ず対象Issueを個別に再取得（`$freshLabels`）し、`auto:in-progress`/`auto:pr-open`/`auto:merge-ready`/`auto:blocked`/`auto:done` のいずれかが既に付いていたら「他プロセスが先に着手済み」として何もせず終了する
 - 失敗した場合（他プロセスが同時に処理を開始した等）は何もせず終了
 - 成功後、念のため `gh issue view <N> --json labels` で自分が付けたラベルが確かに付いていることを確認してから次に進む（二重着手防止の最終チェック）
+
+### Step 2.5. 異常終了時のセーフティネット（Step 3〜6全体に適用）
+
+Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー反復上限到達）以外にも、Step 3のworktree作成失敗、各サブエージェントの予期しないエラー、`pr-submitter` の失敗（push権限エラー等）が起こり得る。**これらの未想定の失敗を明示的な2分岐の外に放置しない**: Step 3〜6のどこで失敗しても、必ず以下を実行してから終了する。
+
+1. worktreeが作成済みなら `ExitWorktree` で破棄する（中途半端な変更を残さない）
+2. ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）
+3. `gh issue comment <N>` で「想定外のエラーで自動実装を中断した」旨とエラー概要を日本語で報告する
+4. `PushNotification("Issue #<N> 自動実装が想定外のエラーで中断 — 確認してください")`
 
 ### Step 3. Worktree作成
 
