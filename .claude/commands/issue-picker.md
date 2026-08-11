@@ -108,7 +108,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
   - `gh issue comment <N>` で衝突箇所を日本語で説明する
   - ラベルを `auto:in-progress` → `auto:blocked` に変更
   - `PushNotification("Issue #<N> は方針衝突のため自動着手不可 — 確認してください")`
-  - worktreeを破棄（`ExitWorktree`）して終了
+  - worktreeを破棄（`ExitWorktree`）し、**`git branch -D issue-<N>-<slug>` でローカルブランチも削除する**（この時点でpushはまだ行われていないので安全に削除できる。削除しないと、人間が内容を確認して `auto:blocked` を解除し同じIssueを再試行した際、Step 3の `-b` によるブランチ作成が `already exists` で失敗する）。終了
 - `OK` の場合 → Step 5へ
 
 ### Step 5. TDD実装ループ
