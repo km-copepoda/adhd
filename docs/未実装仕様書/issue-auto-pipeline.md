@@ -139,7 +139,8 @@ gh issue list --label auto-pickup --label -auto:in-progress --label -auto:pr-ope
 - `ExitWorktree` で後片付け（ブランチ自体はリモートに push 済みなので消えない）
 
 ### Step 8. レビュー反復への引き継ぎ
-- ここから先は既存の `/codex-followup` がそのまま担当する。`issue-picker` 側から追加の呼び出しは不要（`pr-submitter` がPRを作った時点で `/codex-followup` 用のcronルーティンが同じPRを見つけて拾えるように、案A/Bどちらのトリガーも「オープンPRでCodexレビュー未完了のもの」を巡回する設計にしておく）
+- **「オープンPRを別途巡回するルーティン」は現時点で存在しない**（8章の実装チェックリスト参照。webhook/cronルーティンの配線は未着手）。存在を前提にしない
+- `issue-picker` 自身が、Step 6で作成したPR番号を明示して `/codex-followup` を1反復実行する（`gh pr view` の現在ブランチ依存解決に頼らない。Step 7で既にworktreeを離れているため、明示的にPR番号を渡さないと対象PRを解決できない）。以降の反復は `/codex-followup` 自身の `ScheduleWakeup` によるセルフペーシングに委ねる（`.claude/commands/issue-picker.md` Step 8 / `.claude/commands/codex-followup.md` に実装済み、2026-08-11）
 
 ---
 
