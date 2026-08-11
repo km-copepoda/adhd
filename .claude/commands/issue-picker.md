@@ -150,7 +150,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 
 ### Step 6. `pr-submitter`
 
-- 既存の `pr-submitter` エージェントをそのまま呼ぶ（base=`develop`、コミット、push、`gh pr create`、`@codex review Please review in Japanese.` の投稿まで一式）
+- 既存の `pr-submitter` エージェントをそのまま呼ぶ（base=`develop`、コミット、push、`gh pr create`、`@codex review` 依頼コメント（文言は `pr-submitter.md` 参照）の投稿まで一式）
 - **追加指示（必須）**: `pr-submitter` の手順は「`main` にいる場合のみ `feature/<task-name>` を新規作成する」という条件付きロジックであり、Step 3で作った `issue-<N>-<slug>` ブランチをそのまま使う想定にはなっていない。呼び出し時に**現在のworktreeブランチ名（`issue-<N>-<slug>`）を明示し、新しいブランチを作らずそのまま push/head として使うよう**指示すること。指示を省略すると、`pr-submitter` が存在しない `feature/*` ブランチへのpushを試みて失敗する
 - **追加指示**: PR本文に `Closes #<N>` を含めるよう `pr-submitter` に伝える（自動クローズは発火しないが、GitHub UI上のIssue⇄PR相互参照として機能させるため。実際のクローズはStep 0で行う）
 - PR作成成功後:

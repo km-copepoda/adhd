@@ -38,7 +38,7 @@ if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
 $pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
 $headBranch = $pr.headRefName
-$iterationRequest = "@codex review Please review in Japanese."
+$iterationRequest = "@codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。"
 $viewer = & "C:\Program Files\GitHub CLI\gh.exe" api user --jq .login
 if ($LASTEXITCODE -ne 0) { throw "gh 認証ユーザー取得失敗 (exit=$LASTEXITCODE)" }
 ```
@@ -57,7 +57,7 @@ $reviewComments = & "C:\Program Files\GitHub CLI\gh.exe" api --paginate "repos/{
 if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCODE)" }
 ```
 - **いずれかの取得で `$LASTEXITCODE != 0`** → 「取得失敗のためこの反復をスキップ」と報告し、**300 秒後に ScheduleWakeup で再取得**（分類・通知に進まない）
-- **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body.Trim() -eq $iterationRequest` のもの。説明文中に `@codex review` を含む返信は marker にしない
+- **iteration marker**: `issueComments` のうち `user.login == $author` かつ `body.Trim().StartsWith("@codex review")` のもの（完全一致ではなく前方一致にする。依頼文に指摘の粒度を絞る指示文などを追記して変更しても、marker検出ロジック側を毎回同期する必要がなくなる）。ただし本文中に `@codex review` という語句が途中に出てくるだけの説明的な返信（例:「まだ@codex reviewを再依頼していません」）は、文頭に無い限り marker にしない
 - **Codex 投稿の分類**:
   - Issue コメント (Codex): `issueComments` から `user.login == "chatgpt-codex-connector[bot]"`（処理済み判定あり）
   - Review 本文: `reviews` から `user.login == "chatgpt-codex-connector[bot]"`（承認判定のみ）
@@ -186,7 +186,7 @@ $m = $mJson | ConvertFrom-Json
 ### 6. 反復上限チェック & 再レビュー依頼
 - **実コード修正が入った場合**:
   - 既存の iteration marker が >= 20 個なら「反復上限（20 回）に達したので追加依頼はせず終了」と報告し、**Step 6.5（上限到達時のエスカレーション）へ進む**
-  - そうでなければ `gh pr comment <num> --body "@codex review Please review in Japanese."` を投稿（= 新しい marker）
+  - そうでなければ `gh pr comment <num> --body $iterationRequest` を投稿（= 新しい marker。Step 1で定義した `$iterationRequest` をそのまま使う。文言をここで独自に書き直さない）
 - **返信のみで済んだ場合**: 再依頼しない
 
 ### 6.5. 上限到達時のエスカレーション（`/issue-picker` 由来のPRのみ該当）

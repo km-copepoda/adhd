@@ -131,7 +131,7 @@ gh issue list --label auto-pickup --label -auto:in-progress --label -auto:pr-ope
 - 上限到達で未承認のまま → worktreeを破棄（変更を残さない）、ラベルを `auto:blocked` に変更、`gh issue comment` で「自動実装できなかった」旨を報告、`PushNotification("Issue #<N> 自動実装失敗（レビュー規約に収束せず）")`。終了
 
 ### Step 6. `pr-submitter`
-- 既存手順のまま実行（base=`develop`、`@codex review Please review in Japanese.` を投稿）
+- 既存手順のまま実行（base=`develop`、`@codex review` 依頼コメント（致命的なバグ/セキュリティリスクに絞るよう指示文を付与済み、文言は `pr-submitter.md`/`codex-followup.md` 参照）を投稿）
 - **追加事項**: PR本文に `Closes #<N>` を含める（5章の理由により実際の自動クローズは効かないが、GitHub UI上でのIssue⇄PRの相互参照リンクとしては機能するため残す）
 - PR作成後、Issueラベルを `auto:in-progress` → `auto:pr-open` に変更し、`gh issue comment <N> --body "PR #<M> を作成しました: <URL>"` で経過を記録
 

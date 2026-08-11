@@ -38,10 +38,10 @@ model: sonnet
 6. **Codex レビュー依頼**
    - PR 作成直後に必ず以下のコメントを投稿し、Codex にレビューを依頼する:
      ```
-     @codex review Please review in Japanese.
+     @codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。
      ```
-   - 実行例: `gh pr comment <PR番号> --body "@codex review Please review in Japanese."`
-   - PowerShell 経由なら `& "C:\Program Files\GitHub CLI\gh.exe" pr comment <PR番号> --body "@codex review Please review in Japanese."`
+   - 実行例: `gh pr comment <PR番号> --body "@codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。"`
+   - PowerShell 経由なら `& "C:\Program Files\GitHub CLI\gh.exe" pr comment <PR番号> --body "@codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。"`
 
 ## PR Body テンプレート
 
