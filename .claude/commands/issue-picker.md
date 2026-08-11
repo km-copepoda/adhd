@@ -30,7 +30,7 @@ $mergeReadyIssues = & $gh issue list --label "auto:merge-ready" --state open --l
 - **両方の呼び出しに `--limit` を明示すること**（Step 1と同じ理由。`auto:pr-open`/`auto:merge-ready` のオープンIssueが既定値30件を超えると、31件目以降が後処理から漏れマージ済みでも永久にクローズされない）
 - `$LASTEXITCODE -ne 0` → 「Issue一覧取得失敗」と報告し終了
 - **検索対象は `auto:pr-open` と `auto:merge-ready` の両方**（正常系では `/codex-followup` がマージ可能判定時にラベルを `auto:pr-open` → `auto:merge-ready` に遷移させるため、`auto:pr-open` だけを見ているとユーザーがマージした後の後片付けを検知できない）
-- 各Issueについて、本文またはリンクされたPRから紐づくPR番号を特定する（`pr-submitter` がPR本文に `Closes #<N>` を書く運用のため、`gh pr list --search "<N> in:body" --state all` 等でIssue番号からPRを逆引きする）。**`--state` を明示すること**（gh CLIの `gh pr list` はデフォルトでopen PRのみを返すため、`--state` を付けないとマージ済みPRが検索結果から消えて永久にStep 0が完了しない）
+- 各Issueについて、本文またはリンクされたPRから紐づくPR番号を特定する（`pr-submitter` がPR本文に `Closes #<N>` を書く運用のため、`gh pr list --search "\"Closes #<N>\" in:body" --state all` 等でIssue番号からPRを逆引きする）。**`--state` を明示すること**（gh CLIの `gh pr list` はデフォルトでopen PRのみを返すため、`--state` を付けないとマージ済みPRが検索結果から消えて永久にStep 0が完了しない）
 - 紐づくPRが見つかり `state == "MERGED"` → **先にラベルを `auto:pr-open`/`auto:merge-ready` → `auto:done` に変更してから** `gh issue close <N> --comment "PR #<M> がマージされました"` を実行する（close→ラベル変更の順だと、close成功後にラベル変更だけ失敗した場合に「closed済みだが状態ラベルは進行中のまま」という発見しづらい不整合が残る。ラベル変更→closeの順なら、close側が失敗してもopenのまま `auto:done` ラベルが付くだけなので、次回起動時に目視で気づきやすく実害も小さい）
 - 見つからない/まだOPEN → 何もしない（`/codex-followup` の管轄なのでここでは触らない）
 
@@ -60,7 +60,7 @@ $freshLabels = (& $gh issue view <N> --json labels | ConvertFrom-Json).labels.na
 Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー反復上限到達）以外にも、Step 3のworktree作成失敗、各サブエージェントの予期しないエラー、`pr-submitter` の失敗（push権限エラー等）が起こり得る。**これらの未想定の失敗を明示的な2分岐の外に放置しない**: Step 3〜6のどこで失敗しても、必ず以下を実行してから終了する。
 
 1. worktreeが作成済みなら `ExitWorktree` で破棄する（中途半端な変更を残さない）
-2. **ラベルを決める前に、PRが既に作成されているか確認する**: `pr-submitter` はpush・PR作成・`gh pr comment`（`@codex review` 投稿）を順番に実行するため、PR自体は作成済みで直後の手順だけが失敗する部分成功があり得る。`gh pr list --search "<N> in:body" --state all --json number,state` 等でIssue番号に紐づくPRの有無を確認する
+2. **ラベルを決める前に、PRが既に作成されているか確認する**: `pr-submitter` はpush・PR作成・`gh pr comment`（`@codex review` 投稿）を順番に実行するため、PR自体は作成済みで直後の手順だけが失敗する部分成功があり得る。`gh pr list --search "\"Closes #<N>\" in:body" --state all --json number,state` 等でIssue番号に紐づくPRの有無を確認する
    - **PRが見つかった場合** → ラベルを `auto:in-progress` → `auto:pr-open` に変更する（`auto:blocked` にすると、既に存在するPRが `/codex-followup` の管轄からもStep 0の後処理対象からも外れ、マージされてもIssueが永久にcloseされなくなる）。`@codex review` がまだ投稿されていなければ投稿する
    - **PRが見つからない場合** → ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）
 3. `gh issue comment <N>` で「想定外のエラーで自動実装を中断した」旨とエラー概要（PRが見つかった場合はそのURLも）を日本語で報告する
