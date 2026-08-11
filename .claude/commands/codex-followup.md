@@ -180,9 +180,16 @@ $m = $mJson | ConvertFrom-Json
 
 ### 6. 反復上限チェック & 再レビュー依頼
 - **実コード修正が入った場合**:
-  - 既存の iteration marker が >= 20 個なら「反復上限（20 回）に達したので追加依頼はせず終了」と報告
+  - 既存の iteration marker が >= 20 個なら「反復上限（20 回）に達したので追加依頼はせず終了」と報告し、**Step 6.5（上限到達時のエスカレーション）へ進む**
   - そうでなければ `gh pr comment <num> --body "@codex review Please review in Japanese."` を投稿（= 新しい marker）
 - **返信のみで済んだ場合**: 再依頼しない
+
+### 6.5. 上限到達時のエスカレーション（`/issue-picker` 由来のPRのみ該当）
+外側の反復上限（20回）に達し、かつまだ未解決の指摘が残っている場合、そのまま終了すると `/issue-picker` 由来のPRは `auto:pr-open` のまま誰にも気づかれず永久停止する（`issue-picker` は次回以降このIssueを候補から除外し続けるため）。
+
+- PR本文に `Closes #<N>` の記載があるか確認する（無ければ `/issue-picker` 経由ではない通常のPRなので、この節は何もしない）
+- 記載がある場合、その Issue に `auto:pr-open` ラベルが付いていれば `gh issue edit <N> --remove-label "auto:pr-open" --add-label "auto:blocked"` で遷移させ、`gh issue comment <N>` で「Codexレビュー反復の上限（20回）に達したが未解決の指摘が残っているため中断」と日本語で報告する
+- `PushNotification("Issue #<N> / PR #<num> レビュー反復上限に到達、未解決の指摘あり — 確認してください")`
 
 ### 7. 次の wakeup
 - ステップ 6 で新しい marker を投稿した → **300 秒後に ScheduleWakeup**（Codex レビュー完了を待つ）
