@@ -231,6 +231,33 @@ describe("totalPausedDaysInRange", () => {
     ];
     expect(totalPausedDaysInRange(d("2026-05-01"), d("2026-05-10"), intervals)).toBe(4);
   });
+
+  it("JST 日単位で重なる境界日は 1 度だけ数える（同日再開→再停止など）", () => {
+    // [8/1, 8/2] と [8/2, 8/2] の和集合日は 8/1, 8/2 の 2 日
+    const intervals = [
+      { start: d("2026-08-01"), end: d("2026-08-02") },
+      { start: d("2026-08-02"), end: d("2026-08-02") },
+    ];
+    expect(totalPausedDaysInRange(d("2026-08-01"), d("2026-08-10"), intervals)).toBe(2);
+  });
+
+  it("完全に内包される区間は追加日を数えない", () => {
+    // [8/1, 8/5] が [8/2, 8/3] を内包 → 和集合日は 5
+    const intervals = [
+      { start: d("2026-08-01"), end: d("2026-08-05") },
+      { start: d("2026-08-02"), end: d("2026-08-03") },
+    ];
+    expect(totalPausedDaysInRange(d("2026-08-01"), d("2026-08-10"), intervals)).toBe(5);
+  });
+
+  it("順不同でも正しく union する", () => {
+    // [8/5, 8/6] と [8/1, 8/2] → 合計 4 日
+    const intervals = [
+      { start: d("2026-08-05"), end: d("2026-08-06") },
+      { start: d("2026-08-01"), end: d("2026-08-02") },
+    ];
+    expect(totalPausedDaysInRange(d("2026-08-01"), d("2026-08-10"), intervals)).toBe(4);
+  });
 });
 
 describe("computeLastSkippedDates", () => {

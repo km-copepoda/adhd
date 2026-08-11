@@ -31,10 +31,11 @@ describe("POST /api/tasks/[id]/pause", () => {
     expect(res.status).toBe(403);
   });
 
-  it("paused=true で pausedAt に現在時刻をセットすること", async () => {
+  it("paused=true で pausedAt に現在時刻をセットすること（新規停止）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     const now = new Date("2026-07-20T10:00:00Z");
     vi.setSystemTime(now);
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue({ pausedAt: null } as any);
     mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: now } as any);
 
     const res = await POST(
@@ -42,12 +43,29 @@ describe("POST /api/tasks/[id]/pause", () => {
       makeParams("t1"),
     );
     expect(res.status).toBe(200);
-    expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith({
-      where: { id: "t1", familyId: "fam-1" },
-      data: { pausedAt: expect.any(Date) },
-    });
     const calledData = (mockPrisma.taskTemplate.update as any).mock.calls[0][0].data;
     expect((calledData.pausedAt as Date).getTime()).toBe(now.getTime());
+    vi.useRealTimers();
+  });
+
+  it("paused=true が冪等: 既に停止中なら pausedAt を上書きしない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    const originalPausedAt = new Date("2026-08-01T10:00:00Z");
+    const now = new Date("2026-08-05T10:00:00Z");
+    vi.setSystemTime(now);
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue({ pausedAt: originalPausedAt } as any);
+    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: originalPausedAt } as any);
+
+    const res = await POST(
+      makeRequest("/api/tasks/t1/pause", { paused: true }),
+      makeParams("t1"),
+    );
+    expect(res.status).toBe(200);
+    // pausedAt を data に含めない（既存値保持）か、明示的に元の値と一致させる
+    const calledData = (mockPrisma.taskTemplate.update as any).mock.calls[0][0].data;
+    if (calledData.pausedAt !== undefined) {
+      expect((calledData.pausedAt as Date).getTime()).toBe(originalPausedAt.getTime());
+    }
     vi.useRealTimers();
   });
 

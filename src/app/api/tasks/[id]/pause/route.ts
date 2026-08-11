@@ -21,17 +21,24 @@ export async function POST(
     return NextResponse.json({ error: "paused (boolean) は必須です" }, { status: 400 });
   }
 
-  // 再開 (paused=false) 時のみプラン上限を再確認し、pauseIntervals に今回停止分を追記する。
-  // 停止 (paused=true) は上限チェック不要。
+  // 現在の状態を先に取得して冪等性を担保する:
+  //  - paused=true が重複到達しても既存 pausedAt を上書きしない（stale リクエスト対策）
+  //  - paused=false 時は pauseIntervals に今回停止分を追記し、プラン上限チェックを再確認
+  const target = await prisma.taskTemplate.findUnique({
+    where: { id, familyId: user.familyId },
+    select: { assignedChildId: true, pausedAt: true, pauseIntervals: true },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
+  }
+
   let appendedIntervals: { start: string; end: string }[] | null = null;
-  if (body.paused === false) {
-    const target = await prisma.taskTemplate.findUnique({
-      where: { id, familyId: user.familyId },
-      select: { assignedChildId: true, pausedAt: true, pauseIntervals: true },
-    });
-    if (!target) {
-      return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
-    }
+  let nextPausedAt: Date | null;
+  if (body.paused) {
+    // 既に停止中なら pausedAt を保持（冪等）。未停止なら現在時刻をセット。
+    nextPausedAt = target.pausedAt ?? new Date();
+  } else {
+    nextPausedAt = null;
     if (target.assignedChildId) {
       const plan = await getFamilyPlan(user.familyId);
       const activeCount = await prisma.taskTemplate.count({
@@ -66,7 +73,7 @@ export async function POST(
   const task = await prisma.taskTemplate.update({
     where: { id, familyId: user.familyId },
     data: {
-      pausedAt: body.paused ? new Date() : null,
+      pausedAt: nextPausedAt,
       ...(appendedIntervals ? { pauseIntervals: appendedIntervals } : {}),
     },
   });

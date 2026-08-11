@@ -30,8 +30,11 @@ export function parsePauseIntervals(raw: unknown): PauseInterval[] {
 }
 
 /**
- * [rangeStart, rangeEnd] inclusive に含まれる停止期間の暦日数（重複区間が無い前提の単純合算）。
- * 各 interval も JST 日付単位に正規化してから overlap を計算する。
+ * [rangeStart, rangeEnd] inclusive に含まれる停止期間の暦日数を JST 日単位で「和集合」として返す。
+ *
+ * 各区間を rangeStart/rangeEnd にクランプしたのちソート＆マージし、重なる境界日 (JST) を
+ * 二重に数えないようにする。例: `[8/1, 8/2]` + `[8/2, 8/2]` → 2 日（3 日ではない）。
+ * 同じ JST 日での再開→再停止や短時間 pause 再送で重複区間が並んでも正しく数えられる。
  */
 export function totalPausedDaysInRange(
   rangeStart: Date,
@@ -41,13 +44,21 @@ export function totalPausedDaysInRange(
   const rs = jstDateOf(rangeStart).getTime();
   const re = jstDateOf(rangeEnd).getTime();
   if (rs > re) return 0;
-  let total = 0;
+  const clamped: { s: number; e: number }[] = [];
   for (const iv of intervals) {
-    const is = jstDateOf(iv.start).getTime();
-    const ie = jstDateOf(iv.end).getTime();
-    const lo = Math.max(rs, is);
-    const hi = Math.min(re, ie);
-    if (hi >= lo) total += Math.round((hi - lo) / MS_PER_DAY) + 1;
+    const s = Math.max(rs, jstDateOf(iv.start).getTime());
+    const e = Math.min(re, jstDateOf(iv.end).getTime());
+    if (s <= e) clamped.push({ s, e });
+  }
+  clamped.sort((a, b) => a.s - b.s);
+  let total = 0;
+  let mergedEnd = -Infinity;
+  for (const { s, e } of clamped) {
+    // 次の interval の開始日が既にマージ済み末尾以下なら、その日は既に数え済み。
+    const effS = Math.max(s, mergedEnd + MS_PER_DAY);
+    if (effS > e) continue;
+    total += Math.round((e - effS) / MS_PER_DAY) + 1;
+    if (e > mergedEnd) mergedEnd = e;
   }
   return total;
 }
