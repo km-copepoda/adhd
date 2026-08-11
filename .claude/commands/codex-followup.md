@@ -22,7 +22,7 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
     - Reactions API あり（`/pulls/comments/<cid>/reactions`）→ 処理済み専用の 👀 マーカー可
 - gh CLI は `"C:\Program Files\GitHub CLI\gh.exe"` を PowerShell から呼ぶ
 - **`gh api` は `--paginate --jq '.[]'` の組で使う**（コメント履歴・リアクション両方）。URL テンプレート内では `{owner}` `{repo}` のみ gh が自動展開し、PR 番号は自動展開されないので明示的に埋め込む（PowerShell の場合は `$($pr.number)`）
-- 反復ごとに 1 コミット以下、原則 15 反復以内で完了
+- 反復ごとに 1 コミット以下、原則 20 反復以内で完了
 
 ## 手順
 
@@ -179,7 +179,7 @@ $m = $mJson | ConvertFrom-Json
 
 ### 6. 反復上限チェック & 再レビュー依頼
 - **実コード修正が入った場合**:
-  - 既存の iteration marker が >= 15 個なら「反復上限（15 回）に達したので追加依頼はせず終了」と報告
+  - 既存の iteration marker が >= 20 個なら「反復上限（20 回）に達したので追加依頼はせず終了」と報告
   - そうでなければ `gh pr comment <num> --body "@codex review Please review in Japanese."` を投稿（= 新しい marker）
 - **返信のみで済んだ場合**: 再依頼しない
 
@@ -192,7 +192,7 @@ $m = $mJson | ConvertFrom-Json
 ## 出力フォーマット
 
 ```
-### 反復 <M>/15 (PR #<num>) — <title>
+### 反復 <M>/20 (PR #<num>) — <title>
 - URL: <PR URL>
 - 未処理 Codex 指摘: <N 件>（issue X / inline Y）承認シグナル: [有/無]
 - 対応: [修正 <F> ファイル push / 返信 <R> 件 / 対応なし]
