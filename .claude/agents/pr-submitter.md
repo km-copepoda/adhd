@@ -36,12 +36,17 @@ model: sonnet
    - Body には Summary（1〜3 箇条書き）、Test plan（チェックリスト）を含める
    - decisions.md に追記した場合は Body に「Related decision: `docs/decisions.md#<日付>`」を書く
 6. **Codex レビュー依頼**
-   - PR 作成直後に必ず以下のコメントを投稿し、Codex にレビューを依頼する:
+   - PR 作成直後に必ず以下のコメントを投稿し、Codex にレビューを依頼する（先頭の `@codex review` は連携アプリのトリガー文字列なので変更しない。それ以降がレビュー範囲を絞るルール）:
      ```
-     @codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。
+     @codex review Please review in Japanese.
+
+     【ルール】
+     1. 動作不能になるバグ（Fatal Bug）、または明確なセキュリティ脆弱性のみ指摘してください。
+     2. コードスタイル、可読性、型定義の厳密化、パフォーマンスの極小な改善などの「些細な指摘」は一切出さないでください。
+     3. 指摘事項がある場合は、重要度が高い順に「最大3件まで」に絞って簡潔に教えてください。
+     4. 致命的な問題がない場合は、シンプルに「LGTM」とだけ返答してください。
      ```
-   - 実行例: `gh pr comment <PR番号> --body "@codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。"`
-   - PowerShell 経由なら `& "C:\Program Files\GitHub CLI\gh.exe" pr comment <PR番号> --body "@codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。"`
+   - 本文が長いので、`gh pr comment <PR番号> --body-file <tmp>` のように一時ファイル経由で渡す（PR Body と同様、HEREDOCやシェル引数直書きは改行・引用符でシェルごとに崩れやすいため避ける）
 
 ## PR Body テンプレート
 

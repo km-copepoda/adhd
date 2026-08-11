@@ -38,7 +38,15 @@ if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
 $pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
 $headBranch = $pr.headRefName
-$iterationRequest = "@codex review Please review in Japanese. 致命的なバグやセキュリティリスクのみを指摘してください。コードスタイルや些細な改善案は無視してください。指摘を修正する際は表面的な修正だけでなく設計全体の整合性を保ってください。"
+$iterationRequest = @"
+@codex review Please review in Japanese.
+
+【ルール】
+1. 動作不能になるバグ（Fatal Bug）、または明確なセキュリティ脆弱性のみ指摘してください。
+2. コードスタイル、可読性、型定義の厳密化、パフォーマンスの極小な改善などの「些細な指摘」は一切出さないでください。
+3. 指摘事項がある場合は、重要度が高い順に「最大3件まで」に絞って簡潔に教えてください。
+4. 致命的な問題がない場合は、シンプルに「LGTM」とだけ返答してください。
+"@
 $viewer = & "C:\Program Files\GitHub CLI\gh.exe" api user --jq .login
 if ($LASTEXITCODE -ne 0) { throw "gh 認証ユーザー取得失敗 (exit=$LASTEXITCODE)" }
 ```
