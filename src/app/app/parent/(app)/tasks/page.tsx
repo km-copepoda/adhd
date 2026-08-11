@@ -14,7 +14,7 @@ import ChildSelector from "@/components/parent/ChildSelector";
 import PendingTaskCard from "@/components/parent/PendingTaskCard";
 import RegularTaskCard from "@/components/parent/RegularTaskCard";
 import TemporaryTaskCard from "@/components/parent/TemporaryTaskCard";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert, promptPlanLimit } from "@/lib/apiError";
 
 type Task = {
   id: string;
@@ -68,10 +68,21 @@ export default function TasksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));
+  // プラン上限 (FREE=10, PREMIUM=null)。ボタン押下時の preempt チェックに使う
+  const [taskLimit, setTaskLimit] = useState<number | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
+    Promise.all([fetchTasks(), fetchChildren(), fetchPlanLimit()]).finally(() => setLoading(false));
   }, []);
+
+  async function fetchPlanLimit() {
+    // 軽量 endpoint /limits を叩く。/status を叩くと家族の子人数 × 2 件の count
+    // クエリが走って初期ロードが遅くなる (Codex P2 指摘)。
+    const res = await fetch("/api/subscription/limits");
+    if (!res.ok) return;
+    const data: { task?: number | null } = await res.json();
+    setTaskLimit(data.task ?? null);
+  }
 
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
@@ -89,6 +100,25 @@ export default function TasksPage() {
   }
 
   function openFormForChild(childId: string) {
+    // FREE プランで既に上限に達している子は、フォームを開かず先にプラン誘導を出す。
+    // サーバの countActiveTasksForChild と同じ「幽霊一時タスク除外」を適用しないと、
+    // 期限切れ一時タスクが蓄積した子で誤ってフォームを塞いでしまう (Codex P1 指摘)。
+    if (taskLimit !== null) {
+      const todayStr = todayStringJST();
+      const activeCount = tasks.filter(
+        (t) =>
+          t.assignedChildId === childId &&
+          t.isActive &&
+          !t.pausedAt &&
+          !(t.isTemporary && t.targetDate && t.targetDate.slice(0, 10) < todayStr),
+      ).length;
+      if (activeCount >= taskLimit) {
+        promptPlanLimit(
+          `無料プランではタスクは${taskLimit}個までです。プレミアムプランで無制限になります。`,
+        );
+        return;
+      }
+    }
     setForm(defaultForm(childId));
     setEditingId(null);
     setFormMode("regular");
@@ -143,7 +173,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     if (isEditingPending && editingId) {
       await fetch(`/api/tasks/${editingId}`, { method: "PATCH" });
       notifyApprovalsUpdated();
@@ -171,7 +201,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paused }),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     fetchTasks();
   }
 

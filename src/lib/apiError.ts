@@ -35,3 +35,46 @@ export async function alertOnApiError(res: Response): Promise<boolean> {
   alert(err.message);
   return false;
 }
+
+/// プラン上限メッセージを confirm() で提示し、OK なら /app/parent/plan へ遷移する。
+/// サーバ 403 のレスポンスがまだ無い段階 (ボタン押下時の preempt チェック等) からも
+/// 直接呼べるように、apiError の分岐から独立した「純粋な誘導導線」として提供する。
+/// 親 UI からのみ使う (子は /app/parent/plan にアクセスできない)。
+export function promptPlanLimit(message: string): boolean {
+  const goPlan = confirm(`${message}\n\nプラン管理ページを開きますか？`);
+  if (goPlan) {
+    location.href = "/app/parent/plan";
+  }
+  return goPlan;
+}
+
+/// PLAN_LIMIT_EXCEEDED (403) は promptPlanLimit で「プラン管理ページへ移動しますか？」を出し、
+/// OK なら /app/parent/plan へ遷移する。それ以外のエラーは alertOnApiError と同じ挙動。
+/// 親 UI の call site (タスク作成/再開・ごほうび・copy・bulk など) から使う。
+export async function confirmPlanLimitOrAlert(res: Response): Promise<boolean> {
+  const err = await readApiError(res);
+  if (!err) return true;
+  if (err.code === "PLAN_LIMIT_EXCEEDED") {
+    promptPlanLimit(err.message);
+    return false;
+  }
+  alert(err.message);
+  return false;
+}
+
+/// CHILD 端末で使う。PLAN_LIMIT_EXCEEDED を検知したら childMessage (プラン名や金額に
+/// 触れない子供向け文言) に置き換えて alert する。それ以外は既存の alertOnApiError と同じ。
+/// preempt チェックが未取得・失敗・競合で通り抜けた場合の最終ガード。
+export async function alertChildPlanLimit(
+  res: Response,
+  childMessage: string,
+): Promise<boolean> {
+  const err = await readApiError(res);
+  if (!err) return true;
+  if (err.code === "PLAN_LIMIT_EXCEEDED") {
+    alert(childMessage);
+    return false;
+  }
+  alert(err.message);
+  return false;
+}

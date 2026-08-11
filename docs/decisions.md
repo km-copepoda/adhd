@@ -113,6 +113,8 @@
 - [2026-08-06: 子アカウント上限の enforce を正しい経路 (/api/family/members) に移動し、未使用の auth 経路を削除](#2026-08-06-子アカウント上限の-enforce-を正しい経路-apifamilymembers-に移動し未使用の-auth-経路を削除)
 - [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
+- [2026-08-10: マネタイズ Phase 1-6 — プラン管理 UI + 上限到達時のアップグレード誘導導線](#2026-08-10-マネタイズ-phase-1-6--プラン管理-ui--上限到達時のアップグレード誘導導線)
+- [2026-08-10: Phase 1-6 追補 — 追加ボタン押下時の preempt チェック (親・子両方)](#2026-08-10-phase-1-6-追補--追加ボタン押下時の-preempt-チェック-親・子両方)
 - [2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外](#2026-08-10-free-プランのタスク上限カウントから幽霊一時タスク-targetdate--today-を除外)
 
 <!-- TOC:END -->
@@ -2563,6 +2565,65 @@
 - CLAUDE.md に蓄積した規約（XP 付与タイミング、進化引数、モジュール分割、ステータス遷移、Next.js プロキシ命名、日付処理等）を各フェーズで確実に適用するため、責務ごとにエージェントを分離
 - TDD（Red → Green → Refactor）を強制するには、テスト作成と実装を別エージェントに分ける方が「テストなし実装」が起きにくい
 - `policy-checker` を先頭に置くことで「決定と逆行する指示」「非標準アプローチ」を実装前に検出でき、確認の手戻りを最小化
+
+## 2026-08-10: マネタイズ Phase 1-6 — プラン管理 UI + 上限到達時のアップグレード誘導導線
+
+### 決定内容
+- 親画面に `/app/parent/plan` を新設し、現在のプラン (FREE / PREMIUM)・期限・子ごとの使用状況 (child / task / treasure_item) を表示
+- 新規 `GET /api/subscription/status` (PARENT 専用) がプラン + limits + usage を返す。単独モード (familyId=null) は FREE + 空 perChild で応答
+- UI ヘルパー `confirmPlanLimitOrAlert(res)` を `src/lib/apiError.ts` に追加。403 + `code=PLAN_LIMIT_EXCEEDED` を検出したら `confirm()` で「プラン管理ページを開きますか？」→ OK なら `location.href = "/app/parent/plan"`。それ以外のエラーは `alertOnApiError` と同じ挙動
+- 親側の 5 コールサイト (`tasks/page.tsx`, `treasures/page.tsx`, `approve/page.tsx`, `components/parent/CompletedContent.tsx`, `components/parent/TemplateImportSection.tsx`) を `confirmPlanLimitOrAlert` に差し替え。CHILD の `QuestAddForm.tsx` は据え置き (子は /app/parent/plan に遷移できない)
+- Sidebar のみに「💎 プラン」導線を追加。BottomNav は 7 タブで密集しているため対象外
+- **Stripe 決済統合は本 PR のスコープ外**。アップグレードボタンは disabled で「準備中」表記
+
+### 理由
+- Phase 1-2〜1-5 で API は 403 + `code` を返せるが、UI 側の受け止めが `alert()` だけで「上限に達しました → 次のアクションが分からない」で UX が詰まっていた。プラン管理ページを可視化し、アップグレード導線を明示することが Stripe 統合前の前提条件
+- Stripe 統合 (PR-6b) と切り離した理由: プラン画面 + 誘導導線は Stripe 依存なしで実装可能で、決済統合とは検証観点も分離できる。段階分割は Phase 1-1〜1-5 と同じ方針の踏襲
+- `confirmPlanLimitOrAlert` を新規追加 (既存 `alertOnApiError` を破壊的変更しない) にしたのは、CHILD 側のコールサイトは alert 動作のまま維持する必要があるため。ロールごとの分岐を UI 側で書かせずヘルパーを 2 種類持つほうが呼び出し側がシンプル
+- 単独モードで `user.findMany` を呼ばないのは、familyId=null なら課金・上限の概念外 (Phase 1-3 の child-join 判断と一貫)。無駄なクエリを避けつつ、テストも「呼ばれないこと」で明示
+
+### やってはいけないこと
+- `confirmPlanLimitOrAlert` の遷移先を hard-code で `/app/parent/plan` 以外にする (プラン管理ページの正典 URL を分散させると保守で追随漏れが起きる)
+- 既存 `alertOnApiError` を破壊的変更して confirm+redirect 動作に切り替える (CHILD 経路が壊れる。既存 `apiError.test.ts` が Green のまま維持されることが判断基準)
+- `/api/subscription/status` を CHILD 経由でも返す (課金主体は PARENT。子端末に金額・プラン情報を露出する導線は仕様書 §5.1 に反する)
+- BottomNav にプランタブを追加する (7 タブ + プッシュで既に横方向が飽和。導線は Sidebar とアップグレード誘導 confirm から辿れる)
+- アップグレードボタンを有効化して仮の Checkout 画面 (`/plan/checkout` 等) にリンクする (Phase 1-6 は導線設置まで。決済フローは PR-6b で Stripe と併せて追加する)
+
+### 該当箇所
+- 新規: `src/app/api/subscription/status/route.ts` — GET (PARENT 専用)
+- 新規: `src/app/app/parent/(app)/plan/page.tsx` — プラン管理ページ
+- `src/lib/apiError.ts` — `confirmPlanLimitOrAlert` 追加 (既存 `alertOnApiError` は維持)
+- `src/components/parent/Sidebar.tsx` — 「💎 プラン」導線追加
+- 差し替え: `src/app/app/parent/(app)/tasks/page.tsx`, `treasures/page.tsx`, `approve/page.tsx`, `src/components/parent/CompletedContent.tsx`, `src/components/parent/TemplateImportSection.tsx`
+- 新規テスト: `src/__tests__/api/subscription/status.test.ts` (認証/ロール/プラン別/単独モード/カウント条件の 8 件), `src/__tests__/lib/apiError-planLimit.test.ts` (confirm=true/false/非プランエラー/バリデーションエラー等 5 件)
+
+## 2026-08-10: Phase 1-6 追補 — 追加ボタン押下時の preempt チェック (親・子両方)
+
+### 決定内容
+- 「タスク追加」ボタン押下時に、フォームを開く前 (親) / API 呼び出し前 (子) にプラン上限に達しているか判定し、達していれば UI を進めない
+  - **親** (`app/parent/tasks/page.tsx`): `openFormForChild` の冒頭で `tasks.filter(...).length >= taskLimit` を判定 → `promptPlanLimit` で /app/parent/plan へ誘導
+  - **子** (`components/child/QuestAddForm.tsx`): `handleAddTask` の冒頭で `currentCount >= taskLimit` を判定 → 子向けの alert (プラン名・金額に触れない) を出して return
+- 新規エンドポイント `GET /api/subscription/child-task-limit` (CHILD 専用) — 家族の親のプランに基づく `{ limit, current }` のみを返す。プラン名や `currentPeriodEnd` は含めない
+- `src/lib/apiError.ts` の `confirmPlanLimitOrAlert` から confirm+redirect 部分を `promptPlanLimit(message)` として抽出。エラーレスポンスが無い場面 (ボタン押下時の preempt) からも同じ導線を使えるように
+
+### 理由
+- Phase 1-6 本体では「送信 → 403 → confirm」の流れで、親の場合は入力内容が無駄になる UX 劣化があった。ボタン押下時に判定すれば無駄タイプ・無駄ローディングを防げる
+- サーバ側の enforce (`POST /api/tasks` の 403) はそのまま残す (二重防御。UI キャッシュずれや直接 API 叩きに対する保険)
+- 子側で `/api/subscription/status` を使わなかったのは、仕様書 §5.1「子供に課金 UI を見せない」に沿ってプラン名・金額を子端末に露出しないため。`/api/subscription/child-task-limit` は数値のみを返す最小 API
+- 子側のメッセージ (`CHILD_LIMIT_MESSAGE = "今日はもうこれ以上タスクを追加できないよ 🐾\nママ・パパにおねがいしてね！"`) から「プレミアム」「無制限」「アップグレード」等の課金訴求語を排除
+
+### やってはいけないこと
+- 子 UI から `/api/subscription/status` を叩いてプラン名を取得する (仕様書 §5.1 に反する)
+- 子側の上限到達時に「プレミアムでもっと追加できるよ」等の課金訴求文言を出す
+- サーバ側 enforce を preempt チェックで置き換える (UI キャッシュずれや直接 API 叩きに対する二重防御が消える)
+- `promptPlanLimit` の遷移先を `/app/parent/plan` 以外に振る (Phase 1-6 と同じく URL 分散を避ける)
+
+### 該当箇所
+- 新規: `src/app/api/subscription/child-task-limit/route.ts` — CHILD 専用 GET
+- `src/lib/apiError.ts` — `promptPlanLimit` 抽出 (`confirmPlanLimitOrAlert` は内部で呼び直し)
+- `src/app/app/parent/(app)/tasks/page.tsx` — `fetchPlanLimit` + `openFormForChild` に preempt チェック
+- `src/components/child/QuestAddForm.tsx` — マウント時に limit 取得 + `handleAddTask` に preempt チェック
+- 新規テスト: `src/__tests__/api/subscription/child-task-limit.test.ts` (認証/ロール/プラン別/単独モード/境界の 6 件)
 
 ## 2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外
 
