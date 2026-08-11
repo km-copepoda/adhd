@@ -136,7 +136,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 ### Step 8. 引き継ぎ
 
 - **「オープンPRを別途巡回するルーティン」は現時点で存在しない**（`docs/未実装仕様書/issue-auto-pipeline.md` 8章の実装チェックリスト参照。webhook/cronルーティンの配線は未着手）。存在を前提にしない
-- 本コマンド自身が、Step 6で作成したPR番号を明示して `/codex-followup` を1反復実行する（`gh pr view` の現在ブランチ依存解決に頼らない。Step 7で既にworktreeを離れているため、明示的にPR番号を渡さないと対象PRを解決できない）
+- 本コマンド自身が「PR #<M> についてcodex-followupを実行する」のように**呼び出し指示の文中でPR番号を明示**して `/codex-followup` を1反復実行する（`gh pr view` の現在ブランチ依存解決に頼らない。Step 7で既にworktreeを離れているため、明示的にPR番号を渡さないと対象PRを解決できない。`codex-followup.md` 側もこの呼び出し指示中のPR番号の有無で分岐する規約になっている）
 - 以降の反復（Codexレビュー対応・マージ可否判定・通知）は `/codex-followup` 自身の `ScheduleWakeup` によるセルフペーシングに委ねる。本コマンドはその最初の1反復を起動するところまでが責務
 
 ## 出力フォーマット

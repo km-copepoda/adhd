@@ -27,20 +27,22 @@ description: 現在ブランチの PR に付いた Codex レビューを 1 反�
 ## 手順
 
 ### 1. PR & 作者特定
-- **PR番号が明示された場合**（例: `/issue-picker` からの引き継ぎ）はそれを使う。**指定が無い場合のみ**、現在のブランチから `gh pr view` で解決する。`/issue-picker` は worktree を破棄済みの状態からこのコマンドを呼ぶため、現在ブランチ依存の解決だけに頼ると対象PRを見失う
+- **PR番号は「このコマンドを呼び出した指示の中で明示的に名指しされているか」で決める**（PowerShellの関数引数のように自動的に渡される変数ではない。例えば `/issue-picker` のStep 8は「PR #<M> についてcodex-followupを実行する」のように呼び出し側の指示文でPR番号を明示すること。呼び出し指示にPR番号が無い場合のみ、現在のブランチから `gh pr view` で解決する）
 ```powershell
-$prJson = if ($prNumber) {
-  & "C:\Program Files\GitHub CLI\gh.exe" pr view $prNumber --json number,url,state,author,title
+$prJson = if ($prNumber) {  # $prNumber は呼び出し指示で明示された場合のみ設定されている
+  & "C:\Program Files\GitHub CLI\gh.exe" pr view $prNumber --json number,url,state,author,title,headRefName
 } else {
-  & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state,author,title
+  & "C:\Program Files\GitHub CLI\gh.exe" pr view --json number,url,state,author,title,headRefName
 }
 if ($LASTEXITCODE -ne 0) { throw "pr view 取得失敗 (exit=$LASTEXITCODE)" }
 $pr = $prJson | ConvertFrom-Json
 $author = $pr.author.login
+$headBranch = $pr.headRefName
 $iterationRequest = "@codex review Please review in Japanese."
 $viewer = & "C:\Program Files\GitHub CLI\gh.exe" api user --jq .login
 if ($LASTEXITCODE -ne 0) { throw "gh 認証ユーザー取得失敗 (exit=$LASTEXITCODE)" }
 ```
+- **`$headBranch`（PRのheadブランチ）を必ず控えておく**。Step 5でコード修正をコミット・pushする際、呼び出し元の「現在のブランチ」ではなく必ずこの `$headBranch` を対象にする（`/issue-picker` はworktreeを破棄済みの状態からこのコマンドを呼ぶため、現在ブランチは呼び出し元の `main` や別のfeatureブランチのままで、PRのheadブランチとは無関係）
 - **`$LASTEXITCODE != 0`（一時障害）** → 「PR 取得失敗のため再取得予約」と報告し、**300 秒後に ScheduleWakeup**（分類・通知に進まない）
 - `state != "OPEN"` → 「PR 無し / MERGED / CLOSED のため終了」と報告し、**ScheduleWakeup を呼ばない**
 - `$viewer -ne $author` → 「gh 認証ユーザーが PR 作者と異なるため終了」と報告し、**ScheduleWakeup を呼ばない**。リアクションと iteration marker は PR 作者アカウントで投稿・判定するため、共同作業者の認証では実行しない
@@ -136,10 +138,10 @@ $m = $mJson | ConvertFrom-Json
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
-  - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で この指摘専用の一時 worktree で **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを現ブランチへコミット + push する
+  - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` を明示的にチェックアウトした一時 worktree**（`git worktree add <path> $headBranch` で「既存のPRのheadブランチ」をそのまま開く。新規ブランチは作らない）で **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを `$headBranch` へコミット + push する（呼び出し元の「現在のブランチ」は使わない。`/issue-picker` から呼ばれた場合、現在のブランチはworktree破棄後の呼び出し元のままでPRのheadブランチとは無関係なため）
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
     - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は一時 worktree を破棄して未承認の変更を残さず、Codex に「規約違反で自動修正できない」と返信して 👀
-    - `APPROVED` を得たら一時 worktree の承認済み変更だけを現ブランチにコミット + push
+    - `APPROVED` を得たら一時 worktree の承認済み変更だけを `$headBranch` にコミット + push
   - **コード修正後もその Codex コメントに PR 作者アカウントで 👀 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 
 **指摘カテゴリ判定**（専用エージェントは作らず、`implementer`/`test-writer` 呼び出し時のプロンプトに追加コンテキストとして注入する。理由: 規約チェック自体は `code-reviewer.md` の観点表に集約済みで全カテゴリ共通のため、エージェントを分けると重複する）:
@@ -202,4 +204,5 @@ $m = $mJson | ConvertFrom-Json
 - `gh api` を **コメント履歴もリアクションも** `--paginate --jq '.[]'` の組み合わせなしで呼ばない
 - 「👀 リアクションあり」を投稿者に関わらず処理済み扱いしない（PR 作者アカウントの 👀 のみ）。👍 は通常の有用性評価であり処理済み判定に使わない
 - 返信のみで済んだ Codex コメントに 👀 リアクションを忘れると次回同じ返信を投稿する
-- 内部レビューが上限に達した変更を現ブランチへ残さない。一時 worktree を破棄し、承認済みの変更だけを取り込む
+- 内部レビューが上限に達した変更を `$headBranch` へ残さない。一時 worktree を破棄し、承認済みの変更だけを取り込む
+- Step 5の一時worktreeを呼び出し元の「現在のブランチ」から作らない。必ず `$headBranch` を明示的にチェックアウトする
