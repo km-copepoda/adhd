@@ -276,8 +276,9 @@ const parent = await requireUser("PARENT");
 ### スキップしてよい場合
 
 - **単純な質問への回答**（コード変更なし）: すべてスキップ
-- **既存 doc の閲覧・調査のみ**: `policy-checker` 以降スキップ
+- **既存 doc の閲覧・調査のみ**（ファイルを書き換えない）: `policy-checker` 以降スキップ
 - **1 行のバグ修正**: `policy-checker` は省略可（明らかに逆行しない場合）。`test-writer` は必須。
+- **`code-reviewer` は「ファイルを書き換える」作業である限り省略しない**。`src/` のアプリケーションコードだけでなく `.claude/agents/*.md`・`.claude/commands/*.md`・`docs/decisions.md` 等の変更も対象。「設定/ドキュメントだから」「変更が小さいから」は省略理由にならない。
 
 ### 大きな仕様変更を含む場合
 
