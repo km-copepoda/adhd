@@ -88,9 +88,9 @@ $freshLabels = ($freshLabelsJson | ConvertFrom-Json).labels.name
 Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー反復上限到達）以外にも、**Step 2で `auto:in-progress` を付与した直後**（確認用の `gh issue view` 失敗を含む）、Step 3のworktree作成失敗、各サブエージェントの予期しないエラー、`pr-submitter` の失敗（push権限エラー等）が起こり得る。**これらの未想定の失敗を明示的な2分岐の外に放置しない**: `auto:in-progress` を付与した**その瞬間から** Step 6が終わるまでのどこで失敗しても、必ず以下を実行してから終了する（Step 3以降に限定しない。Step 2の直後で失敗した場合、worktreeはまだ無いので1は該当なしとして次に進む）。
 
 1. worktreeが作成済みなら `ExitWorktree` で破棄する（中途半端な変更を残さない）。**`ExitWorktree` はworktreeディレクトリを消すだけでローカルブランチ `issue-<N>-<slug>` 自体は削除しない**点に注意（次項へ続く）
-2. **ラベルを決める前に、PRが既に作成されているか確認する**: `pr-submitter` はpush・PR作成・`gh pr comment`（`@codex review` 投稿）を順番に実行するため、PR自体は作成済みで直後の手順だけが失敗する部分成功があり得る。Step 0と同じ方法（`closingIssuesReferences` は使わず、`--search` で候補を絞ってから本文を正規表現 `(?i)\bcloses\s+#<N>\b` で検証。PowerShellでの引用符の書き方もStep 0と同じ）で「既に作成済みのPR」を判定する
-   - **PRが見つかった場合** → ラベルを `auto:in-progress` → `auto:pr-open` に変更する（`auto:blocked` にすると、既に存在するPRが `/codex-followup` の管轄からもStep 0の後処理対象からも外れ、マージされてもIssueが永久にcloseされなくなる）。`@codex review` がまだ投稿されていなければ投稿する。ローカルブランチはリモートに対応するので削除しない
-   - **PRが見つからない場合** → ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）。**「PRが無い」は「pushもされていない」を意味しない**（`pr-submitter` はpushしてから `gh pr create` するため、push成功後にPR作成だけ失敗する部分成功があり得る）。ローカルブランチを消す前に `git ls-remote --heads origin issue-<N>-<slug>` でリモートブランチの有無も確認する:
+2. **ラベルを決める前に、PRが既に作成されているか確認する**: `pr-submitter` はpush・PR作成・`gh pr comment`（`@codex review` 投稿）を順番に実行するため、PR自体は作成済みで直後の手順だけが失敗する部分成功があり得る。Step 0と同じ方法（`closingIssuesReferences` は使わず、`--search` で候補を絞ってから本文を正規表現 `(?i)\bcloses\s+#<N>\b` で検証。PowerShellでの引用符の書き方もStep 0と同じ）で候補PRを見つけたら、**`state == "OPEN"` のものだけを「既に作成済みのPR」として扱う**（過去の試行で作られCLOSEDになった無関係なPRが見つかっても無視する。CLOSEDを「PR見つかった」として`auto:pr-open`に戻すと、`/codex-followup`は即座にCLOSEDとして終了し、Step 0も`MERGED`条件に一致しないため、Issueが永久に`auto:pr-open`のまま停止する）
+   - **OPENなPRが見つかった場合** → ラベルを `auto:in-progress` → `auto:pr-open` に変更する（`auto:blocked` にすると、既に存在するPRが `/codex-followup` の管轄からもStep 0の後処理対象からも外れ、マージされてもIssueが永久にcloseされなくなる）。`@codex review` がまだ投稿されていなければ投稿する。ローカルブランチはリモートに対応するので削除しない
+   - **OPENなPRが見つからない場合**（無関係なCLOSED PRのみヒットした場合を含む）→ ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）。**「PRが無い」は「pushもされていない」を意味しない**（`pr-submitter` はpushしてから `gh pr create` するため、push成功後にPR作成だけ失敗する部分成功があり得る）。ローカルブランチを消す前に `git ls-remote --heads origin issue-<N>-<slug>` でリモートブランチの有無も確認する:
      - リモートブランチが**無い** → `git branch -D issue-<N>-<slug>` でローカルブランチを削除する
      - リモートブランチが**ある** → `git push origin --delete issue-<N>-<slug>` でリモートブランチも削除してから、ローカルブランチを削除する（リモートだけ残すと、再試行時に新しく作ったローカルブランチをpushする際、履歴が異なる同名リモートブランチに対してnon-fast-forwardで失敗し続ける）
 3. `gh issue comment <N>` で「想定外のエラーで自動実装を中断した」旨とエラー概要（PRが見つかった場合はそのURLも）を日本語で報告する
@@ -113,7 +113,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 
 ### Step 5. TDD実装ループ
 
-0. **対象がテスト可能なコード変更かどうかを先に判定する**: Issueの影響範囲がドキュメント/設定ファイル（`.gitignore`、`docs/`、`.claude/agents/*.md`、`.claude/commands/*.md` 等、関数・モジュール・APIを持たない変更）のみの場合、`test-writer` は「関数・モジュール・APIを対象に失敗テストを書く」契約であり正当なRedを作れない。この場合は `test-writer` を呼ばず `implementer` → `code-reviewer` のみで進める（`pr-submitter` の事前条件と同様、`npm test` は「該当なし」と明記してよい）。**判定に迷う場合は必ず `test-writer` を呼ぶ側に倒す**（テスト可能なのにスキップする方が、不要な判定コストより実害が大きい）
+0. **対象がテスト可能なコード変更かどうかを先に判定する**: Issueの影響範囲がドキュメント/設定ファイル（`.gitignore`、`docs/`、`.claude/agents/*.md`、`.claude/commands/*.md` 等、関数・モジュール・APIを持たない変更）のみの場合、`test-writer` は「関数・モジュール・APIを対象に失敗テストを書く」契約であり正当なRedを作れない。この場合は `test-writer` を呼ばず、**`implementer`/`code-reviewer` それぞれの「テスト対象外モード」を明示して**呼ぶ（両エージェントとも通常はテスト前提の設計になっているため、モードを明示しないと `implementer` が失敗テストを探して混乱するか、`code-reviewer` がテスト欠如を理由に `CHANGES_REQUESTED` を返し続けて `auto:blocked` になる）。**判定に迷う場合は必ず `test-writer` を呼ぶ側に倒す**（テスト可能なのにスキップする方が、不要な判定コストより実害が大きい）
 1. `test-writer`（Red）— 0で「テスト対象なし」と判定した場合はスキップ
 2. `implementer`（Green + Refactor）
 3. `code-reviewer`

@@ -139,6 +139,7 @@ $m = $mJson | ConvertFrom-Json
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
   - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` 上で** **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを `$headBranch` へコミット + push する
+    - **対象が `.gitignore`・`docs/`・`.claude/agents/*.md`・`.claude/commands/*.md` 等、関数・モジュール・APIを持たないドキュメント/設定ファイルのみの指摘の場合、`test-writer` は呼ばず `implementer` → `code-reviewer` のみで進める**（`implementer`/`code-reviewer` 双方に「テスト対象外モード」があるので、そちらを使うよう呼び出し時に明示する）。判定に迷う場合は通常通り `test-writer` を呼ぶ側に倒す
 
     **作業場所の決め方（この反復で処理する全指摘に共通、指摘ごとに作り直さない）**:
     - 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）→ **経路A**: 現在の作業ディレクトリで直接作業する
