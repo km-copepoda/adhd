@@ -84,10 +84,10 @@ $freshLabels = (& $gh issue view <N> --json labels | ConvertFrom-Json).labels.na
 
 Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー反復上限到達）以外にも、**Step 2で `auto:in-progress` を付与した直後**（確認用の `gh issue view` 失敗を含む）、Step 3のworktree作成失敗、各サブエージェントの予期しないエラー、`pr-submitter` の失敗（push権限エラー等）が起こり得る。**これらの未想定の失敗を明示的な2分岐の外に放置しない**: `auto:in-progress` を付与した**その瞬間から** Step 6が終わるまでのどこで失敗しても、必ず以下を実行してから終了する（Step 3以降に限定しない。Step 2の直後で失敗した場合、worktreeはまだ無いので1は該当なしとして次に進む）。
 
-1. worktreeが作成済みなら `ExitWorktree` で破棄する（中途半端な変更を残さない）
+1. worktreeが作成済みなら `ExitWorktree` で破棄する（中途半端な変更を残さない）。**`ExitWorktree` はworktreeディレクトリを消すだけでローカルブランチ `issue-<N>-<slug>` 自体は削除しない**点に注意（次項へ続く）
 2. **ラベルを決める前に、PRが既に作成されているか確認する**: `pr-submitter` はpush・PR作成・`gh pr comment`（`@codex review` 投稿）を順番に実行するため、PR自体は作成済みで直後の手順だけが失敗する部分成功があり得る。Step 0と同じ方法（`closingIssuesReferences` は使わず、`--search` で候補を絞ってから本文を正規表現 `(?i)\bcloses\s+#<N>\b` で検証。PowerShellでの引用符の書き方もStep 0と同じ）で「既に作成済みのPR」を判定する
-   - **PRが見つかった場合** → ラベルを `auto:in-progress` → `auto:pr-open` に変更する（`auto:blocked` にすると、既に存在するPRが `/codex-followup` の管轄からもStep 0の後処理対象からも外れ、マージされてもIssueが永久にcloseされなくなる）。`@codex review` がまだ投稿されていなければ投稿する
-   - **PRが見つからない場合** → ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）
+   - **PRが見つかった場合** → ラベルを `auto:in-progress` → `auto:pr-open` に変更する（`auto:blocked` にすると、既に存在するPRが `/codex-followup` の管轄からもStep 0の後処理対象からも外れ、マージされてもIssueが永久にcloseされなくなる）。`@codex review` がまだ投稿されていなければ投稿する。ローカルブランチはリモートに対応するので削除しない
+   - **PRが見つからない場合** → ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）。**さらに `git branch -D issue-<N>-<slug>` でローカルブランチも削除する**（PRが存在しない＝pushもされていないため削除して問題ない。削除しないと、人間が `auto:blocked` を解除して再試行した際にStep 3の `git worktree add -b issue-<N>-<slug> ...` が `a branch named ... already exists` で必ず失敗し、再試行できなくなる）
 3. `gh issue comment <N>` で「想定外のエラーで自動実装を中断した」旨とエラー概要（PRが見つかった場合はそのURLも）を日本語で報告する
 4. `PushNotification("Issue #<N> 自動実装が想定外のエラーで中断 — 確認してください")`
 
@@ -114,7 +114,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 3. `code-reviewer`
 4. `code-reviewer` が `CHANGES_REQUESTED` → `implementer` に差し戻し、`APPROVED` になるまで反復（内部上限3回）
 5. 上限到達で `APPROVED` にならなかった場合:
-   - worktreeの変更を破棄（`ExitWorktree`、ブランチは未pushなので何も残らない）
+   - worktreeの変更を破棄（`ExitWorktree`）し、**`git branch -D issue-<N>-<slug>` でローカルブランチも削除する**（`ExitWorktree` はworktreeディレクトリを消すだけでブランチ自体は残る。未pushとはいえ削除しないと、再試行時にStep 3の `-b` によるブランチ作成が `already exists` で失敗する）
    - ラベルを `auto:in-progress` → `auto:blocked` に変更
    - `gh issue comment <N>` で「自動実装できなかった」旨を日本語で報告
    - `PushNotification("Issue #<N> 自動実装失敗（レビュー規約に収束せず）")`

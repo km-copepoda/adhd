@@ -138,10 +138,11 @@ $m = $mJson | ConvertFrom-Json
 - **コード修正が必要**:
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
-  - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` を明示的にチェックアウトした一時 worktree**（`git worktree add <path> $headBranch` で「既存のPRのheadブランチ」をそのまま開く。新規ブランチは作らない）で **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを `$headBranch` へコミット + push する（呼び出し元の「現在のブランチ」は使わない。`/issue-picker` から呼ばれた場合、現在のブランチはworktree破棄後の呼び出し元のままでPRのheadブランチとは無関係なため）
+  - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` 上で** **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを `$headBranch` へコミット + push する
+    - **作業場所の決め方**: 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）は、**新しい worktree を作らずそのまま現在の作業ディレクトリで直接作業する**。`git worktree add <path> $headBranch` は「既にチェックアウト済みのブランチ」に対しては `fatal: '<branch>' is already used by worktree ...` で失敗するため、`$headBranch` が既にどこかでチェックアウト済みかどうかを先に確認すること。現在のブランチが `$headBranch` と異なる場合（`/issue-picker` からPR番号を明示されて呼ばれ、worktreeを破棄済みのケース）のみ、`git worktree add <path> $headBranch` で一時worktreeを作る
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
-    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は一時 worktree を破棄して未承認の変更を残さず、Codex に「規約違反で自動修正できない」と返信して 👀
-    - `APPROVED` を得たら一時 worktree の承認済み変更だけを `$headBranch` にコミット + push
+    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は（一時worktreeを作った場合のみ）それを破棄して未承認の変更を残さず、Codex に「規約違反で自動修正できない」と返信して 👀
+    - `APPROVED` を得たら（一時worktreeを作った場合のみ）その承認済み変更だけを `$headBranch` にコミット + push
   - **コード修正後もその Codex コメントに PR 作者アカウントで 👀 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 
 **指摘カテゴリ判定**（専用エージェントは作らず、`implementer`/`test-writer` 呼び出し時のプロンプトに追加コンテキストとして注入する。理由: 規約チェック自体は `code-reviewer.md` の観点表に集約済みで全カテゴリ共通のため、エージェントを分けると重複する）:
@@ -205,4 +206,4 @@ $m = $mJson | ConvertFrom-Json
 - 「👀 リアクションあり」を投稿者に関わらず処理済み扱いしない（PR 作者アカウントの 👀 のみ）。👍 は通常の有用性評価であり処理済み判定に使わない
 - 返信のみで済んだ Codex コメントに 👀 リアクションを忘れると次回同じ返信を投稿する
 - 内部レビューが上限に達した変更を `$headBranch` へ残さない。一時 worktree を破棄し、承認済みの変更だけを取り込む
-- Step 5の一時worktreeを呼び出し元の「現在のブランチ」から作らない。必ず `$headBranch` を明示的にチェックアウトする
+- Step 5で作業対象が `$headBranch` であることを確認せずに進めない。ただし現在のブランチが既に `$headBranch` なら新しい worktree を作ろうとしない（`already used by worktree` で失敗する）
