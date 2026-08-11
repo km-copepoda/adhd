@@ -286,7 +286,7 @@ const parent = await requireUser("PARENT");
 
 ### Codex レビューの自動反復
 
-`pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 10 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。指摘は UI / ロジック・パフォーマンス / QA の3カテゴリに判定した上で `implementer` に重点確認事項を注入する（専用エージェントには分けない）。
+`pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 15 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。指摘は UI / ロジック・パフォーマンス / QA の3カテゴリに判定した上で `implementer` に重点確認事項を注入する（専用エージェントには分けない）。
 
 ### Issue自動着手パイプライン（実装中）
 
