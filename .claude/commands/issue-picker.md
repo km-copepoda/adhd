@@ -78,9 +78,9 @@ $freshLabels = (& $gh issue view <N> --json labels | ConvertFrom-Json).labels.na
 - 失敗した場合（他プロセスが同時に処理を開始した等）は何もせず終了
 - 成功後、念のため `gh issue view <N> --json labels` で自分が付けたラベルが確かに付いていることを確認してから次に進む（二重着手防止の最終チェック）
 
-### Step 2.5. 異常終了時のセーフティネット（Step 3〜6全体に適用）
+### Step 2.5. 異常終了時のセーフティネット（Step 2でのラベル付与直後〜Step 6全体に適用）
 
-Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー反復上限到達）以外にも、Step 3のworktree作成失敗、各サブエージェントの予期しないエラー、`pr-submitter` の失敗（push権限エラー等）が起こり得る。**これらの未想定の失敗を明示的な2分岐の外に放置しない**: Step 3〜6のどこで失敗しても、必ず以下を実行してから終了する。
+Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー反復上限到達）以外にも、**Step 2で `auto:in-progress` を付与した直後**（確認用の `gh issue view` 失敗を含む）、Step 3のworktree作成失敗、各サブエージェントの予期しないエラー、`pr-submitter` の失敗（push権限エラー等）が起こり得る。**これらの未想定の失敗を明示的な2分岐の外に放置しない**: `auto:in-progress` を付与した**その瞬間から** Step 6が終わるまでのどこで失敗しても、必ず以下を実行してから終了する（Step 3以降に限定しない。Step 2の直後で失敗した場合、worktreeはまだ無いので1は該当なしとして次に進む）。
 
 1. worktreeが作成済みなら `ExitWorktree` で破棄する（中途半端な変更を残さない）
 2. **ラベルを決める前に、PRが既に作成されているか確認する**: `pr-submitter` はpush・PR作成・`gh pr comment`（`@codex review` 投稿）を順番に実行するため、PR自体は作成済みで直後の手順だけが失敗する部分成功があり得る。`gh pr list --search '"Closes #<N>" in:body' --state all --json number,state,closingIssuesReferences` で候補を絞り込み、Step 0と同様に `closingIssuesReferences` に対象Issue番号が含まれるものだけを「既に作成済みのPR」と判定する（本文の文字列検索だけで確定させない。PowerShellでの引用符の書き方もStep 0と同じ）
@@ -91,9 +91,8 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 
 ### Step 3. Worktree作成
 
-- `EnterWorktree` でIssue専用の一時worktreeを作る
+- **`develop` を明示的な起点にすること**。`EnterWorktree` はデフォルトでリポジトリの「デフォルトブランチ」（`origin/<default-branch>`）を起点にするが、このリポジトリのデフォルトブランチは `main` であり `develop` ではない（`pr-submitter` のPR base規約と同じ）。`EnterWorktree` の既定動作に任せず、`git fetch origin develop` の後 `git worktree add .claude/worktrees/issue-<N>-<slug> -b issue-<N>-<slug> origin/develop` のように**起点を `origin/develop` に固定して明示的に作成する**（呼び出し元の現在ブランチが `main` や別のfeatureブランチであっても、必ず `develop` を起点にする）
 - ブランチ名: `issue-<N>-<slug>`（`slug` はIssueタイトルから生成。日本語タイトルの場合はローマ字化 or 簡略な英語スラッグに変換する）
-- ベースは `develop`
 
 ### Step 4. `policy-checker`
 
