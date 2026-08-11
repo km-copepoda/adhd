@@ -176,6 +176,7 @@ GitHubの `Closes #<N>` / `Fixes #<N>` によるIssue自動クローズは、**�
 - **マージは自動化しない**。`/codex-followup` の「MERGE READY通知で停止」という既存設計をそのまま踏襲する
 - 同時に処理するIssueは1件まで（worktree・CI・レビュー枠の競合防止）
 - `auto:blocked` になったIssueを自動で再試行しない。人間がラベルを付け直すまで放置する
+- **`auto-pickup` 付与後にIssue本文が編集されていないか必ず検証する**（Codexレビューで指摘、2026-08-11）。人間が承認した時点の内容と実行時点の内容が異なりうる（Issue作成者は付与後も本文を再編集できる）ため、そのまま「ユーザーの指示」としてBash/Write権限を持つエージェントへ渡すとプロンプトインジェクションによる権限迂回のリスクがある。`issue-picker` Step 2.6で実装（`.claude/commands/issue-picker.md` 参照）
 
 ---
 
