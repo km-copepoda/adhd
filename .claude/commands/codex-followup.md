@@ -139,10 +139,14 @@ $m = $mJson | ConvertFrom-Json
   - `policy-checker` サブエージェントで CLAUDE.md / decisions.md との衝突を確認
   - 衝突あり → 修正せず `gh pr comment <num> --body "..."` で理由を日本語で返信 → その Codex コメントに **PR 作者アカウントで** 👀 リアクション追加
   - 衝突なし → **指摘のカテゴリ判定**（下表）を行い、対応するコンテキストを付与した上で **`$headBranch` 上で** **`test-writer` (Red)** → **`implementer` (Green + Refactor)** → **`code-reviewer`** の順でサブエージェントを呼ぶ。`APPROVED` になった変更だけを `$headBranch` へコミット + push する
-    - **作業場所の決め方**: 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）は、**新しい worktree を作らずそのまま現在の作業ディレクトリで直接作業する**。`git worktree add <path> $headBranch` は「既にチェックアウト済みのブランチ」に対しては `fatal: '<branch>' is already used by worktree ...` で失敗するため、`$headBranch` が既にどこかでチェックアウト済みかどうかを先に確認すること。現在のブランチが `$headBranch` と異なる場合（`/issue-picker` からPR番号を明示されて呼ばれ、worktreeを破棄済みのケース）のみ、`git worktree add <path> $headBranch` で一時worktreeを作る
+    - **作業場所の決め方**: 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）は「現在の作業ディレクトリで直接作業する」経路（以下A）、異なる場合（`/issue-picker` からPR番号を明示されて呼ばれ、worktreeを破棄済みのケース）は「一時worktreeを作る」経路（以下B）を使う
+    - **経路A（現在の作業ディレクトリで直接作業）を使う前に、`git status --porcelain` でクリーンであることを確認する**。未コミットの変更が既にある場合（ユーザー自身の作業中の可能性がある）、このコメントの自動修正は行わず、**この反復全体をスキップ**する（「作業ディレクトリに未コミットの変更があるため今回は自動修正を見送り」と報告し、通常通り300秒後にScheduleWakeup。無関係な既存の変更を上書き・巻き込みコミットするリスクを避けるため、個別コメントだけでなく反復全体を止める）
+      - 経路Aで成功（`APPROVED`）した場合: そのまま現在の作業ディレクトリで `git add`・`git commit`・`git push` を実行する（一時worktreeは無いので「worktreeを破棄」は不要）
+      - 経路Aで反復上限（3回）に達し失敗した場合: 開始時点でクリーンだったことを利用し、`git checkout -- .` 等で今回の試行による未コミット変更のみを復元する（ブランチ自体やコミット済み履歴には触れない）
+    - 経路B（一時worktree）: `git worktree add <path> $headBranch` で作成する（`$headBranch` が既にどこかでチェックアウト済みの場合は経路Aのはずなので、経路Bに来た時点でチェックアウト競合は起きない）
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）
-    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は（一時worktreeを作った場合のみ）それを破棄して未承認の変更を残さず、Codex に「規約違反で自動修正できない」と返信して 👀
-    - `APPROVED` を得たら（一時worktreeを作った場合のみ）その承認済み変更だけを `$headBranch` にコミット + push
+    - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は経路Bなら一時worktreeを破棄、経路Aなら上記の通り試行分の変更のみ復元し、いずれも未承認の変更を残さない。Codex に「規約違反で自動修正できない」と返信して 👀
+    - `APPROVED` を得たら、経路Bならその一時worktreeの承認済み変更を、経路Aならその場の変更を `$headBranch` にコミット + push
   - **コード修正後もその Codex コメントに PR 作者アカウントで 👀 リアクションを追加**（上限到達で新しい marker を投稿できない場合や、Codex の再レビューが同じ指摘を再掲した場合に、二重処理を防ぐため）
 
 **指摘カテゴリ判定**（専用エージェントは作らず、`implementer`/`test-writer` 呼び出し時のプロンプトに追加コンテキストとして注入する。理由: 規約チェック自体は `code-reviewer.md` の観点表に集約済みで全カテゴリ共通のため、エージェントを分けると重複する）:
