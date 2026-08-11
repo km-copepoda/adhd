@@ -25,10 +25,12 @@ description: `auto-pickup` ラベルの付いたオープンIssueを1件拾い�
 ```powershell
 $gh = "C:\Program Files\GitHub CLI\gh.exe"
 $prOpenIssues = & $gh issue list --label "auto:pr-open" --state open --json number,body | ConvertFrom-Json
+$mergeReadyIssues = & $gh issue list --label "auto:merge-ready" --state open --json number,body | ConvertFrom-Json
 ```
 - `$LASTEXITCODE -ne 0` → 「Issue一覧取得失敗」と報告し終了
-- 各Issueについて、本文またはリンクされたPRから紐づくPR番号を特定する（`pr-submitter` がPR本文に `Closes #<N>` を書く運用のため、`gh pr list --search "<N> in:body"` 等でIssue番号からPRを逆引きする）
-- 紐づくPRが見つかり `state == "MERGED"` → `gh issue close <N> --comment "PR #<M> がマージされました"`、ラベルを `auto:pr-open` → `auto:done` に変更
+- **検索対象は `auto:pr-open` と `auto:merge-ready` の両方**（正常系では `/codex-followup` がマージ可能判定時にラベルを `auto:pr-open` → `auto:merge-ready` に遷移させるため、`auto:pr-open` だけを見ているとユーザーがマージした後の後片付けを検知できない）
+- 各Issueについて、本文またはリンクされたPRから紐づくPR番号を特定する（`pr-submitter` がPR本文に `Closes #<N>` を書く運用のため、`gh pr list --search "<N> in:body" --state all` 等でIssue番号からPRを逆引きする）。**`--state` を明示すること**（gh CLIの `gh pr list` はデフォルトでopen PRのみを返すため、`--state` を付けないとマージ済みPRが検索結果から消えて永久にStep 0が完了しない）
+- 紐づくPRが見つかり `state == "MERGED"` → `gh issue close <N> --comment "PR #<M> がマージされました"`、ラベルを `auto:pr-open`/`auto:merge-ready` → `auto:done` に変更
 - 見つからない/まだOPEN → 何もしない（`/codex-followup` の管轄なのでここでは触らない）
 
 ### Step 1. 対象Issue特定
@@ -44,8 +46,10 @@ $candidates = & $gh issue list --label "auto-pickup" --state open --json number,
 ### Step 2. 着手宣言（排他制御）
 
 ```powershell
+$freshLabels = (& $gh issue view <N> --json labels | ConvertFrom-Json).labels.name
 & $gh issue edit <N> --add-label "auto:in-progress"
 ```
+- **ラベル付与の直前にリポジトリ全体で再確認する**: Step 1の候補リストはこの起動の開始時点でのスナップショットであり、複数の `/issue-picker` が並行起動した場合に古い情報のまま同じ/別のIssueへ同時着手してしまう可能性がある。`gh issue edit --add-label` はロックではなく単なるラベル追加操作なので、付与前に必ず対象Issueを個別に再取得（`$freshLabels`）し、`auto:in-progress`/`auto:pr-open`/`auto:merge-ready`/`auto:blocked`/`auto:done` のいずれかが既に付いていたら「他プロセスが先に着手済み」として何もせず終了する
 - 失敗した場合（他プロセスが同時に処理を開始した等）は何もせず終了
 - 成功後、念のため `gh issue view <N> --json labels` で自分が付けたラベルが確かに付いていることを確認してから次に進む（二重着手防止の最終チェック）
 
@@ -81,6 +85,7 @@ $candidates = & $gh issue list --label "auto-pickup" --state open --json number,
 ### Step 6. `pr-submitter`
 
 - 既存の `pr-submitter` エージェントをそのまま呼ぶ（base=`develop`、コミット、push、`gh pr create`、`@codex review Please review in Japanese.` の投稿まで一式）
+- **追加指示（必須）**: `pr-submitter` の手順は「`main` にいる場合のみ `feature/<task-name>` を新規作成する」という条件付きロジックであり、Step 3で作った `issue-<N>-<slug>` ブランチをそのまま使う想定にはなっていない。呼び出し時に**現在のworktreeブランチ名（`issue-<N>-<slug>`）を明示し、新しいブランチを作らずそのまま push/head として使うよう**指示すること。指示を省略すると、`pr-submitter` が存在しない `feature/*` ブランチへのpushを試みて失敗する
 - **追加指示**: PR本文に `Closes #<N>` を含めるよう `pr-submitter` に伝える（自動クローズは発火しないが、GitHub UI上のIssue⇄PR相互参照として機能させるため。実際のクローズはStep 0で行う）
 - PR作成成功後:
   - ラベルを `auto:in-progress` → `auto:pr-open` に変更

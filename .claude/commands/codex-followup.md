@@ -119,6 +119,11 @@ $m = $mJson | ConvertFrom-Json
    - `mergeable == "UNKNOWN"` → GitHub 計算中。**通知しない**、**60 秒後に ScheduleWakeup**
    - `mergeStateStatus` がその他（`DRAFT` / `BLOCKED` / `BEHIND` / `DIRTY` / `UNSTABLE` 等）→ `PushNotification("PR #<num> ready except mergeStateStatus=<X> — needs manual review")`、報告して終了
 
+**MERGE READY 時の Issue ラベル遷移（`/issue-picker` 由来のPRのみ該当）**:
+- PR本文に `Closes #<N>` の記載があるか確認する
+- 記載がある場合、その Issue に `auto:pr-open` ラベルが付いていれば `gh issue edit <N> --remove-label "auto:pr-open" --add-label "auto:merge-ready"` で遷移させる（`/issue-picker` の Step 0 が `auto:merge-ready` も検索対象にしているため、この遷移を怠るとマージ後にIssueが `auto:done` にならず放置される）
+- `Closes #<N>` の記載が無い場合（`/issue-picker` 経由ではない通常のPR）は何もしない
+
 ### 5. 指摘への対応
 
 各未処理指摘（issue コメント + インラインコメント）を分類して処理:
