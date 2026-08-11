@@ -143,6 +143,7 @@ $m = $mJson | ConvertFrom-Json
 
     **作業場所の決め方（この反復で処理する全指摘に共通、指摘ごとに作り直さない）**:
     - まず `git fetch origin $headBranch` で `$headBranch` の最新状態を取得する（**ローカルの `$headBranch` がリモートより古い可能性があるため必須**。古いコミット上に修正を積むと push が non-fast-forward になり、再実行しても解消しない）
+    - **ローカルが `origin/$headBranch` より進んでいないか確認する**（前回の反復で最終pushが失敗し、コミットだけがローカルに残っている可能性がある）。進んでいる場合は新しい指摘の処理を始める前に、まずその未pushコミットの `git push` を再試行する。成功したら、そのコミットメッセージに埋め込まれた指摘のCodexコメントID（下記「pushの実行」参照）に 👀 を付けてから、この反復の新しい指摘の処理に進む。再試行しても失敗する場合は新しい指摘の処理はせず、失敗を報告して120秒後にScheduleWakeup
     - 現在のブランチが既に `$headBranch` である場合（`gh pr view` を引数無しで解決した通常運用のケース。このコマンドを反復実行してきたこのセッション自体がこれに該当する）→ **経路A**: 現在の作業ディレクトリで直接作業する。`git status --porcelain` がクリーンな状態で、ローカルの `$headBranch` が `origin/$headBranch` より古ければ `git merge --ff-only origin/$headBranch`（このブランチはPRのhead以外の用途に使わないため、fast-forwardできないということは通常起きないはずだが、できない場合はそれ自体を異常として報告し終了する）
     - 異なる場合（`/issue-picker` からPR番号を明示されて呼ばれ、worktreeを破棄済みのケース）→ **経路B**: この反復の**最初のコード修正指摘の処理を始める時に一度だけ** `git worktree add <path> -B $headBranch origin/$headBranch` で一時worktreeを作る。`-B` はローカルの `$headBranch` を `origin/$headBranch` の最新状態にリセットしてからチェックアウトする（別名の一時ブランチを作ってはいけない。それだと後でpushしても本来の `$headBranch`／PRが更新されない）。この反復で処理する残りの指摘も**同じworktreeを使い回す**（指摘ごとに作り直さない。2件目以降で毎回 `git worktree add` すると、既にそのworktreeが `$headBranch` をチェックアウト済みのため `already used by worktree` で失敗する）。この反復の処理が全て終わったら（成功・失敗を問わず）必ず `ExitWorktree` で破棄する
 
@@ -152,9 +153,10 @@ $m = $mJson | ConvertFrom-Json
     **指摘単位の隔離（経路A・経路B共通、複数のコード修正指摘を1反復で扱う場合に必須）**:
     - この反復の処理を始める前に `$iterationStartCommit = git rev-parse HEAD` を記録する
     - **各指摘の処理を始める直前**に `$findingCheckpoint = git rev-parse HEAD` を記録する
-    - その指摘が `APPROVED` になったら、push はせず**その場でローカルにチェックポイントコミットする**（`git add -A; git commit -m "wip: <指摘の要約>"`）。これにより後続の指摘の失敗が、この指摘の承認済み変更を巻き込まなくなる
+    - その指摘が `APPROVED` になったら、push はせず**その場でローカルにチェックポイントコミットする**（`git add -A; git commit -m "wip: <指摘の要約> (comment: <その指摘のCodexコメントID>)"`。**コメントIDをコミットメッセージに埋め込む**のは、後述の最終pushが失敗した場合に、どの指摘がこのコミットに含まれるかを次回の反復から復元して👀を付けられるようにするため）。これにより後続の指摘の失敗が、この指摘の承認済み変更を巻き込まなくなる
     - その指摘が内部反復上限（3回）に達して失敗したら、`git reset --hard $findingCheckpoint`（この指摘の分の追跡済み変更のみを復元。$findingCheckpoint以前にチェックポイントコミット済みの他の指摘には触れない）**に続けて** `git clean -fd`（この指摘の試行で作られた未追跡ファイルを削除）を実行する
-    - **この反復で処理する全指摘が終わったら**、`git rev-parse HEAD` が `$iterationStartCommit` から進んでいれば（＝1件以上APPROVEDになっていれば）、`git reset --soft $iterationStartCommit` で複数のチェックポイントコミットを1つにまとめ、改めて1回だけコミットしてから push する（「反復ごとに1コミット以下」の原則を守るため。チェックポイントコミットをそのまま複数push しない）
+    - **この反復で処理する全指摘が終わったら**、`git rev-parse HEAD` が `$iterationStartCommit` から進んでいれば（＝1件以上APPROVEDになっていれば）、`git reset --soft $iterationStartCommit` で複数のチェックポイントコミットを1つにまとめる。まとめた最終コミットのメッセージにも、含まれる全指摘のコメントIDを列挙して残す。その上で1回だけコミットしてから push する（「反復ごとに1コミット以下」の原則を守るため。チェックポイントコミットをそのまま複数push しない）
+    - **pushの実行**: `git push` を試み、失敗したら間を置かずもう2回まで再試行する（一時的なネットワーク障害を想定）。それでも失敗する場合は**コミットは取り消さずローカルに残したまま**（せっかく承認された変更を失わないため）、「push失敗、次回反復で再試行」と報告し、**👀リアクションは付けずに**120秒後にScheduleWakeupする（次回の反復開始時に上記「ローカルが進んでいないか確認する」の手順で再試行される）
 
     - CLAUDE.md の TDD 規約に従い、test-writer をスキップしない（`implementer` は失敗テストが存在することを前提としている）。**ただし142行目の「テスト対象外モード」に該当する指摘は例外**（この一文は通常モードにのみ適用される）
     - `code-reviewer` が **`CHANGES_REQUESTED`** を返した場合は **`APPROVED` になるまで `implementer` → `code-reviewer` を反復する**（CLAUDE.md サブエージェント運用フロー準拠）。反復回数の内部上限は 3 とし、超えた場合は上記の指摘単位の隔離手順で**この指摘の分だけ**復元し、Codex に「規約違反で自動修正できない」と返信して **その場で** 👀 リアクションを追加する（この指摘は諦めるという結論が確定しているため、他の指摘の結果を待たずに処理済みにしてよい）
