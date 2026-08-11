@@ -76,10 +76,12 @@ export default function TasksPage() {
   }, []);
 
   async function fetchPlanLimit() {
-    const res = await fetch("/api/subscription/status");
+    // 軽量 endpoint /limits を叩く。/status を叩くと家族の子人数 × 2 件の count
+    // クエリが走って初期ロードが遅くなる (Codex P2 指摘)。
+    const res = await fetch("/api/subscription/limits");
     if (!res.ok) return;
-    const data: { limits?: { task?: number | null } } = await res.json();
-    setTaskLimit(data.limits?.task ?? null);
+    const data: { task?: number | null } = await res.json();
+    setTaskLimit(data.task ?? null);
   }
 
   async function fetchTasks() {
@@ -98,10 +100,17 @@ export default function TasksPage() {
   }
 
   function openFormForChild(childId: string) {
-    // FREE プランで既に上限に達している子は、フォームを開かず先にプラン誘導を出す
+    // FREE プランで既に上限に達している子は、フォームを開かず先にプラン誘導を出す。
+    // サーバの countActiveTasksForChild と同じ「幽霊一時タスク除外」を適用しないと、
+    // 期限切れ一時タスクが蓄積した子で誤ってフォームを塞いでしまう (Codex P1 指摘)。
     if (taskLimit !== null) {
+      const todayStr = todayStringJST();
       const activeCount = tasks.filter(
-        (t) => t.assignedChildId === childId && t.isActive && !t.pausedAt,
+        (t) =>
+          t.assignedChildId === childId &&
+          t.isActive &&
+          !t.pausedAt &&
+          !(t.isTemporary && t.targetDate && t.targetDate.slice(0, 10) < todayStr),
       ).length;
       if (activeCount >= taskLimit) {
         promptPlanLimit(

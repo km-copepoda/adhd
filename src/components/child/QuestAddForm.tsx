@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
-import { alertOnApiError } from "@/lib/apiError";
+import { alertChildPlanLimit } from "@/lib/apiError";
 
 type FormMode = "regular" | "temporary";
 
@@ -69,7 +69,9 @@ export default function QuestAddForm({ onClose, onAdded }: Props) {
       body: JSON.stringify(body),
     });
     setSubmitting(false);
-    if (!(await alertOnApiError(res))) return;
+    // preempt が未取得・失敗・競合で通り抜けた場合の最終ガード。
+    // PLAN_LIMIT_EXCEEDED はサーバのプレミアム訴求メッセージではなく子向け文言に置換
+    if (!(await alertChildPlanLimit(res, CHILD_LIMIT_MESSAGE))) return;
     onClose();
     setForm({ title: "", category: "STUDY", repeatDays: [0, 1, 2, 3, 4, 5, 6] });
     onAdded();

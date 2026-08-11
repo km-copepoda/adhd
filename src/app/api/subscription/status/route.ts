@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { getSubscription } from "@/lib/subscriptionService";
+import { countActiveTasksForChild, getSubscription } from "@/lib/subscriptionService";
 import { LIMITS, resolvePlan } from "@/lib/subscription";
 
 /// GET /api/subscription/status
@@ -43,10 +43,9 @@ export async function GET() {
 
   const perChild = await Promise.all(
     children.map(async (c) => {
+      // enforce と同じ「幽霊一時タスク除外」の定義で数える
       const [taskCount, treasureItemCount] = await Promise.all([
-        prisma.taskTemplate.count({
-          where: { assignedChildId: c.id, isActive: true, pausedAt: null },
-        }),
+        countActiveTasksForChild(c.id),
         prisma.treasureItem.count({
           where: { childId: c.id, isActive: true },
         }),

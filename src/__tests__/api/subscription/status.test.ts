@@ -133,7 +133,7 @@ describe("GET /api/subscription/status", () => {
     expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
   });
 
-  it("子の usage カウントは isActive/pausedAt=null 条件で問い合わせる", async () => {
+  it("子の usage カウントは enforce と同じ幽霊除外条件 + isActive/pausedAt=null で問い合わせる", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as never);
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.user.findMany.mockResolvedValue([
@@ -144,9 +144,22 @@ describe("GET /api/subscription/status", () => {
 
     await GET();
 
-    expect(mockPrisma.taskTemplate.count).toHaveBeenCalledWith({
-      where: { assignedChildId: "child-1", isActive: true, pausedAt: null },
-    });
+    // taskTemplate.count は countActiveTasksForChild を経由するため、幽霊除外 NOT が付く
+    const taskCall = mockPrisma.taskTemplate.count.mock.calls[0]?.[0] as
+      | {
+          where?: {
+            assignedChildId?: string;
+            isActive?: boolean;
+            pausedAt?: null;
+            NOT?: { isTemporary?: boolean; targetDate?: { lt?: Date } };
+          };
+        }
+      | undefined;
+    expect(taskCall?.where?.assignedChildId).toBe("child-1");
+    expect(taskCall?.where?.isActive).toBe(true);
+    expect(taskCall?.where?.pausedAt).toBeNull();
+    expect(taskCall?.where?.NOT?.isTemporary).toBe(true);
+    expect(taskCall?.where?.NOT?.targetDate?.lt).toBeInstanceOf(Date);
     expect(mockPrisma.treasureItem.count).toHaveBeenCalledWith({
       where: { childId: "child-1", isActive: true },
     });
