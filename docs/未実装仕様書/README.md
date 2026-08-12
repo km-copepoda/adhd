@@ -9,6 +9,7 @@
 | [monetization-plan.md](monetization-plan.md) | 完全未実装 | マネタイズ設計（フリーミアム + 買い切りセット + ストア対応） |
 | [monster-theme-sets.md](monster-theme-sets.md) | 完全未実装 | 買い切りモンスターテーマセット11種の全429体の名前・説明 |
 | [single-user-app.md](single-user-app.md) | 完全未実装 | シングルユーザーToDoアプリ（別アプリ）。親承認なしの自己管理版 |
+| [issue-auto-pipeline.md](issue-auto-pipeline.md) | 完全未実装 | 雑指示→深層思考Issue化→TDD実装→PR作成→Codexレビュー反復（カテゴリ別ルーティング）→マージ前ユーザー確認、をClaude Code純正構成で実現する自律パイプライン |
 
 ## 運用ルール
 

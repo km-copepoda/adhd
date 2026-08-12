@@ -1,4 +1,4 @@
-﻿---
+---
 name: test-writer
 description: TDD の Red フェーズ担当。`src/__tests__/` に失敗するテストを書き、`npm test` で失敗を確認する。境界値テストを含める。Use this BEFORE writing any implementation code for new features or bug fixes.
 tools: Read, Grep, Glob, Write, Edit, Bash

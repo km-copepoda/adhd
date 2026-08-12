@@ -1,4 +1,4 @@
-﻿---
+---
 name: policy-checker
 description: タスク着手前に `docs/decisions.md` と `CLAUDE.md` を読み、プロジェクト方針と逆行する指示や非標準的アプローチを検出する。Use this proactively at the START of any implementation task (feature/bugfix/refactor) before writing code or tests.
 tools: Read, Grep, Glob

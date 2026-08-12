@@ -253,6 +253,7 @@ const parent = await requireUser("PARENT");
 
 | # | エージェント | 役割 | 起動タイミング |
 |---|--------------|------|----------------|
+| 0 | `issue-planner` | ユーザーの雑な指示を目的・背景・実装方針・影響範囲・テスト要件・エッジケースまで深掘りし `gh issue create`（Issue自動着手パイプライン用。通常の対話フローでは不要） | Issue化されていない指示を Issue 自動着手パイプラインに乗せたい場合のみ |
 | 1 | `policy-checker` | `docs/decisions.md` / `CLAUDE.md` 参照、方針衝突・非標準アプローチ検出 | タスク着手時（必ず最初） |
 | 2 | `test-writer` | TDD Red: `src/__tests__/` に失敗テストを書く | `policy-checker` が OK / ユーザー確認後 |
 | 3 | `implementer` | TDD Green + Refactor: 最小実装 → 規約準拠に整理 | `test-writer` の失敗テスト取得後 |
@@ -275,8 +276,9 @@ const parent = await requireUser("PARENT");
 ### スキップしてよい場合
 
 - **単純な質問への回答**（コード変更なし）: すべてスキップ
-- **既存 doc の閲覧・調査のみ**: `policy-checker` 以降スキップ
+- **既存 doc の閲覧・調査のみ**（ファイルを書き換えない）: `policy-checker` 以降スキップ
 - **1 行のバグ修正**: `policy-checker` は省略可（明らかに逆行しない場合）。`test-writer` は必須。
+- **`code-reviewer` は「ファイルを書き換える」作業である限り省略しない**。`src/` のアプリケーションコードだけでなく `.claude/agents/*.md`・`.claude/commands/*.md`・`docs/decisions.md` 等の変更も対象。「設定/ドキュメントだから」「変更が小さいから」は省略理由にならない。
 
 ### 大きな仕様変更を含む場合
 
@@ -284,4 +286,21 @@ const parent = await requireUser("PARENT");
 
 ### Codex レビューの自動反復
 
-`pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 3 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。
+`pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 20 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。指摘は UI / ロジック・パフォーマンス / QA の3カテゴリに判定した上で `implementer` に重点確認事項を注入する（専用エージェントには分けない）。
+
+### Issue自動着手パイプライン（実装中）
+
+雑な指示から Issue 化 → 自動実装 → PR → Codex レビュー反復 → マージ前ユーザー確認、まで一気通貫で回すためのパイプライン。設計・ラベル定義・盲点は `docs/未実装仕様書/issue-auto-pipeline.md` を参照。
+
+```
+ユーザーの雑な指示
+  → issue-planner（深層思考でIssue化。gh issue create。ラベルは付けず、スコープ評価を本文に推奨として記載するのみ）
+  → 人間が内容を確認し auto-pickup ラベルを付与（この操作だけが実際の着手許可。issue-planner自身は付与しない）
+  → issue-picker（`.claude/commands/issue-picker.md`。auto-pickup Issueを1件拾い policy-checker 以降の通常フローに乗せる）
+  → pr-submitter が PR 作成
+  → /codex-followup がレビュー反復・マージ可否通知
+  → ユーザーが手動マージ
+```
+
+- 現状の実装状況: `issue-planner` エージェント・6種のGitHubラベル（`auto-pickup`/`auto:in-progress`/`auto:pr-open`/`auto:merge-ready`/`auto:blocked`/`auto:done`）・`issue-picker` コマンドまでは実装済み。**Issue作成/PR作成を検知して自動起動するトリガー（webhook/cronルーティン）は未配線**なので、現状は `issue-planner` と `issue-picker` をそれぞれ手動で起動する運用
+- マージは意図的に自動化しない（`/codex-followup` が「MERGE READY通知で停止」する設計をそのまま踏襲）
