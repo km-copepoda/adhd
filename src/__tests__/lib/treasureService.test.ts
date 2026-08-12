@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import {
   generateTreasuresOnReport,
   unlockTreasuresOnApprove,
@@ -8,13 +7,22 @@ import {
   openOldestTreasure,
 } from "@/lib/treasureService";
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { treasureLog, treasureItem, childUser, userCollectionItem } from "../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerCollectionItemLog: vi.fn(),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockTriggerCollectionLog = vi.mocked(triggerCollectionItemLog);
+
+// vitest-mock-extended の DeepMockProxy は findMany/findUnique 等の select/include
+// バリエーションを型として区別しない（引数に関わらず戻り値はベースの Prisma モデル型）。
+// そのため findMany({ select: { trigger: true } }) のようなクエリの戻り値も、
+// 実際にコードが参照するフィールド以外は `treasureLog()` フィクスチャの既定値で埋めて渡す。
+function treasureItemPoolRow(overrides?: Parameters<typeof treasureItem>[0]) {
+  return treasureItem({ id: "item-1", title: "おやつ", rarity: "COMMON", ...overrides });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -30,10 +38,9 @@ describe("generateTreasuresOnReport", () => {
   });
 
   it("STREAK が既に OPENED 状態でも、その後 ALL_COMPLETE 条件が満たされたら ALL_COMPLETE を新規作成する", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { trigger: "STREAK" },
-    ] as any);
-    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "t-all" } as any);
+    const existing = [treasureLog({ trigger: "STREAK" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -60,8 +67,8 @@ describe("generateTreasuresOnReport", () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "t-streak" } as any)
-      .mockResolvedValueOnce({ id: "t-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "t-streak" }))
+      .mockResolvedValueOnce(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -107,7 +114,7 @@ describe("generateTreasuresOnReport", () => {
 
   it("minTasks 達成・全完了でない → STREAK LOCKED 1個", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "t1" } as any);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "t1" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -134,8 +141,8 @@ describe("generateTreasuresOnReport", () => {
   it("全完了 → STREAK + ALL_COMPLETE(boosted) の LOCKED 2個", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "t-streak" } as any)
-      .mockResolvedValueOnce({ id: "t-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "t-streak" }))
+      .mockResolvedValueOnce(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -161,8 +168,8 @@ describe("generateTreasuresOnReport", () => {
   it("全完了だがスキップを含む → ALL_COMPLETE は boosted=false で生成", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "t-streak" } as any)
-      .mockResolvedValueOnce({ id: "t-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "t-streak" }))
+      .mockResolvedValueOnce(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -184,8 +191,8 @@ describe("generateTreasuresOnReport", () => {
   it("全タスクスキップ (totalCount === skippedCount) → ALL_COMPLETE は boosted=false", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "t-streak" } as any)
-      .mockResolvedValueOnce({ id: "t-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "t-streak" }))
+      .mockResolvedValueOnce(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -205,10 +212,9 @@ describe("generateTreasuresOnReport", () => {
   });
 
   it("既存 STREAK がある日に再報告しても重複生成しない", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { id: "existing", trigger: "STREAK" } as any,
-    ]);
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "t-all" } as any);
+    const existing = [treasureLog({ trigger: "STREAK" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -227,10 +233,8 @@ describe("generateTreasuresOnReport", () => {
   });
 
   it("既存 STREAK + ALL_COMPLETE があれば何も作らない (完全冪等)", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { id: "e1", trigger: "STREAK" } as any,
-      { id: "e2", trigger: "ALL_COMPLETE" } as any,
-    ]);
+    const existing = [treasureLog({ trigger: "STREAK" }), treasureLog({ trigger: "ALL_COMPLETE" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
     const ids = await generateTreasuresOnReport({
       childId: "c1",
       date: dateJST,
@@ -248,10 +252,8 @@ describe("generateTreasuresOnReport", () => {
   // 親 or 子があとからタスクを追加 (totalCount=4) → その追加タスクも完了して再び 4/4 になっても、
   // 当日同 trigger が既にあるので追加の宝箱は出ない (1日 1セットの上限を守る)
   it("全完了後にタスク追加→再全完了でも追加の宝箱は出ない", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { id: "e1", trigger: "STREAK" } as any,
-      { id: "e2", trigger: "ALL_COMPLETE" } as any,
-    ]);
+    const existing = [treasureLog({ trigger: "STREAK" }), treasureLog({ trigger: "ALL_COMPLETE" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
     const ids = await generateTreasuresOnReport({
       childId: "c1",
       date: dateJST,
@@ -266,9 +268,8 @@ describe("generateTreasuresOnReport", () => {
   });
 
   it("既存 PROXY があれば STREAK は作らない (PROXY は STREAK の代替)", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { id: "p1", trigger: "PROXY" } as any,
-    ]);
+    const existing = [treasureLog({ trigger: "PROXY" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
     const ids = await generateTreasuresOnReport({
       childId: "c1",
       date: dateJST,
@@ -288,7 +289,7 @@ describe("generateTreasuresOnReport", () => {
   it("既存 STREAK が CANCELLED のみなら再生成する (差し戻し→再報告)", async () => {
     // CANCELLED は findMany で除外されている前提なので、戻り値は空
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "t-streak-2" } as any);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "t-streak-2" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -321,7 +322,7 @@ describe("generateTreasuresOnReport", () => {
   it("totalCount < minTasks でも全完了なら STREAK + ALL_COMPLETE を両方生成する", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     // mockResolvedValueOnce のキューは vi.clearAllMocks では消えないので mockResolvedValue で統一
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "created" } as any);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "created" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -359,10 +360,9 @@ describe("generateTreasuresOnReport", () => {
   });
 
   it("既存 PROXY + 全完了 → ALL_COMPLETE のみ作る (PROXY とは共存)", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { id: "p1", trigger: "PROXY" } as any,
-    ]);
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "t-all" } as any);
+    const existing = [treasureLog({ trigger: "PROXY" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "t-all" }));
 
     const ids = await generateTreasuresOnReport({
       childId: "c1",
@@ -384,7 +384,7 @@ describe("generateTreasuresOnReport", () => {
 // ─── unlockTreasuresOnApprove ───────────────────────────────────────────────
 describe("unlockTreasuresOnApprove", () => {
   it("同日 LOCKED を UNLOCKED に updateMany", async () => {
-    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 2 } as any);
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 2 });
     const n = await unlockTreasuresOnApprove("c1", dateJST);
     expect(n).toBe(2);
     expect(mockPrisma.treasureLog.updateMany).toHaveBeenCalledWith({
@@ -397,7 +397,7 @@ describe("unlockTreasuresOnApprove", () => {
 // ─── cancelTreasuresOnReject ────────────────────────────────────────────────
 describe("cancelTreasuresOnReject", () => {
   it("差し戻し後 reportedCount < minTasks → 同日 LOCKED 全部 CANCELLED", async () => {
-    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 2 } as any);
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 2 });
     const n = await cancelTreasuresOnReject({
       childId: "c1",
       date: dateJST,
@@ -415,7 +415,7 @@ describe("cancelTreasuresOnReject", () => {
   });
 
   it("minTasks は満たすが全完了でなくなった → ALL_COMPLETE のみ CANCELLED", async () => {
-    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
     const n = await cancelTreasuresOnReject({
       childId: "c1",
       date: dateJST,
@@ -462,8 +462,8 @@ describe("generateProxyTreasure", () => {
     mockPrisma.treasureItem.count.mockResolvedValue(0);
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "tp" } as any)
-      .mockResolvedValueOnce({ id: "tp-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "tp" }))
+      .mockResolvedValueOnce(treasureLog({ id: "tp-all" }));
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -494,7 +494,7 @@ describe("generateProxyTreasure", () => {
   it("totalCount < minTasks でも全完了なら PROXY + ALL_COMPLETE を即 UNLOCKED で生成", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     // mockResolvedValueOnce のキューは vi.clearAllMocks では消えないので mockResolvedValue で統一
-    mockPrisma.treasureLog.create.mockResolvedValue({ id: "created" } as any);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "created" }));
 
     const ids = await generateProxyTreasure({
       childId: "c1",
@@ -517,7 +517,7 @@ describe("generateProxyTreasure", () => {
 
   it("条件を満たす + 未全完了 → PROXY 1個のみ", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "tp" } as any);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce(treasureLog({ id: "tp" }));
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -542,8 +542,8 @@ describe("generateProxyTreasure", () => {
   it("全完了 → PROXY + ALL_COMPLETE(boosted) の即 UNLOCKED 2個", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "tp" } as any)
-      .mockResolvedValueOnce({ id: "tp-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "tp" }))
+      .mockResolvedValueOnce(treasureLog({ id: "tp-all" }));
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -565,8 +565,8 @@ describe("generateProxyTreasure", () => {
   it("全完了だがスキップを含む → ALL_COMPLETE は boosted=false", async () => {
     mockPrisma.treasureLog.findMany.mockResolvedValue([]);
     mockPrisma.treasureLog.create
-      .mockResolvedValueOnce({ id: "tp" } as any)
-      .mockResolvedValueOnce({ id: "tp-all" } as any);
+      .mockResolvedValueOnce(treasureLog({ id: "tp" }))
+      .mockResolvedValueOnce(treasureLog({ id: "tp-all" }));
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -583,10 +583,9 @@ describe("generateProxyTreasure", () => {
   });
 
   it("当日既に PROXY 宝箱があれば PROXY は作らない (冪等) — 全完了なら ALL_COMPLETE のみ作る", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { trigger: "PROXY" } as any,
-    ]);
-    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "tp-all" } as any);
+    const existing = [treasureLog({ trigger: "PROXY" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce(treasureLog({ id: "tp-all" }));
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -603,10 +602,9 @@ describe("generateProxyTreasure", () => {
   });
 
   it("当日既に STREAK 宝箱があれば PROXY は作らない — 全完了なら ALL_COMPLETE を追加 (混合家庭)", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { trigger: "STREAK" } as any,
-    ]);
-    mockPrisma.treasureLog.create.mockResolvedValueOnce({ id: "tp-all" } as any);
+    const existing = [treasureLog({ trigger: "STREAK" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
+    mockPrisma.treasureLog.create.mockResolvedValueOnce(treasureLog({ id: "tp-all" }));
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -620,16 +618,14 @@ describe("generateProxyTreasure", () => {
       data: expect.objectContaining({ trigger: "ALL_COMPLETE", status: "UNLOCKED" }),
     });
     // 集約クエリで CANCELLED を除外していることも担保
-    const callArg = (mockPrisma.treasureLog.findMany as any).mock.calls[0][0];
-    expect(callArg.where.trigger).toEqual({ in: ["STREAK", "ALL_COMPLETE", "PROXY"] });
-    expect(callArg.where.status).toEqual({ not: "CANCELLED" });
+    const callArg = mockPrisma.treasureLog.findMany.mock.calls[0][0];
+    expect(callArg?.where?.trigger).toEqual({ in: ["STREAK", "ALL_COMPLETE", "PROXY"] });
+    expect(callArg?.where?.status).toEqual({ not: "CANCELLED" });
   });
 
   it("当日既に STREAK + ALL_COMPLETE があれば何も作らない (完全冪等)", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { trigger: "STREAK" } as any,
-      { trigger: "ALL_COMPLETE" } as any,
-    ]);
+    const existing = [treasureLog({ trigger: "STREAK" }), treasureLog({ trigger: "ALL_COMPLETE" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -643,9 +639,8 @@ describe("generateProxyTreasure", () => {
   });
 
   it("未全完了で PROXY 既存なら何も作らない", async () => {
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
-      { trigger: "PROXY" } as any,
-    ]);
+    const existing = [treasureLog({ trigger: "PROXY" })];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
     const ids = await generateProxyTreasure({
       childId: "c1",
       date: dateJST,
@@ -663,8 +658,8 @@ describe("generateProxyTreasure", () => {
 describe("openOldestTreasure", () => {
   beforeEach(() => {
     // pity カウンタの既定値 (各テストで上書き可)
-    mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 0 } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 0, familyId: null }));
+    mockPrisma.user.update.mockResolvedValue(childUser());
   });
 
   it("UNLOCKED 宝箱が無いとき null", async () => {
@@ -674,15 +669,9 @@ describe("openOldestTreasure", () => {
   });
 
   it("最古の UNLOCKED を取得し抽選してアイテム確定", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-1",
-      childId: "c1",
-      boosted: false,
-    } as any);
-    mockPrisma.treasureItem.findMany.mockResolvedValue([
-      { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-    ]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-1", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
     const result = await openOldestTreasure("c1", { rng: () => 0.0 });
 
@@ -703,15 +692,9 @@ describe("openOldestTreasure", () => {
   });
 
   it("親ごほうび当選時で pityCount=0 のままなら User.update はスキップする", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-1b",
-      childId: "c1",
-      boosted: false,
-    } as any);
-    mockPrisma.treasureItem.findMany.mockResolvedValue([
-      { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-    ]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-1b", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
     const result = await openOldestTreasure("c1", { rng: () => 0.0 });
     expect(result!.collectionItem).toBeNull();
@@ -725,16 +708,10 @@ describe("openOldestTreasure", () => {
   });
 
   it("プールが空ならコレクションアイテムを付与 (item=null)", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-2",
-      childId: "c1",
-      boosted: false,
-    } as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-2", childId: "c1", boosted: false }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-    mockPrisma.userCollectionItem.upsert.mockResolvedValue({
-      count: 1,
-    } as any);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
     const result = await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
     expect(result).not.toBeNull();
@@ -759,18 +736,10 @@ describe("openOldestTreasure", () => {
   });
 
   it("親プールがあっても抽選結果が無アイテムならコレクションを付与", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-3",
-      childId: "c1",
-      boosted: false,
-    } as any);
-    mockPrisma.treasureItem.findMany.mockResolvedValue([
-      { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-    ]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-    mockPrisma.userCollectionItem.upsert.mockResolvedValue({
-      count: 1,
-    } as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-3", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
     const result = await openOldestTreasure("c1", {
       rng: () => 0.99,
@@ -788,15 +757,9 @@ describe("openOldestTreasure", () => {
   });
 
   it("親ごほうび当選時はコレクションアイテム付与しない", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-hit",
-      childId: "c1",
-      boosted: false,
-    } as any);
-    mockPrisma.treasureItem.findMany.mockResolvedValue([
-      { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-    ]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-hit", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
     const result = await openOldestTreasure("c1", {
       rng: () => 0.0,
@@ -809,14 +772,10 @@ describe("openOldestTreasure", () => {
   // ─── pity (天井) 統合テスト — 2026-06-24 復活 ────────────────────────────
   describe("pity (天井) — User.treasurePityCount 連携", () => {
     it("HIT 時: pityCount を 0 にリセットする (5 → 0)", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 5 } as any);
-      mockPrisma.treasureLog.findFirst.mockResolvedValue({
-        id: "log-pity-hit", childId: "c1", boosted: false,
-      } as any);
-      mockPrisma.treasureItem.findMany.mockResolvedValue([
-        { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-      ]);
-      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 5, familyId: null }));
+      mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-pity-hit", childId: "c1", boosted: false }));
+      mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+      mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
       const result = await openOldestTreasure("c1", { rng: () => 0.0 });
       expect(result!.item?.id).toBe("item-1");
@@ -827,15 +786,11 @@ describe("openOldestTreasure", () => {
     });
 
     it("MISS 時: pityCount を +1 する (3 → 4)", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 3 } as any);
-      mockPrisma.treasureLog.findFirst.mockResolvedValue({
-        id: "log-pity-miss", childId: "c1", boosted: false,
-      } as any);
-      mockPrisma.treasureItem.findMany.mockResolvedValue([
-        { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-      ]);
-      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 3, familyId: null }));
+      mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-pity-miss", childId: "c1", boosted: false }));
+      mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+      mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
       const result = await openOldestTreasure("c1", {
         rng: () => 0.99,
@@ -849,14 +804,10 @@ describe("openOldestTreasure", () => {
     });
 
     it("pityCount=9 で MISS rng → pity 発動: 親ごほうび確定 + pityCount=0 リセット", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 9 } as any);
-      mockPrisma.treasureLog.findFirst.mockResolvedValue({
-        id: "log-pity-trigger", childId: "c1", boosted: false,
-      } as any);
-      mockPrisma.treasureItem.findMany.mockResolvedValue([
-        { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-      ]);
-      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 9, familyId: null }));
+      mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-pity-trigger", childId: "c1", boosted: false }));
+      mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+      mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
       const result = await openOldestTreasure("c1", {
         rng: () => 0.99,
@@ -874,13 +825,11 @@ describe("openOldestTreasure", () => {
     });
 
     it("pityCount=9 でプール空 → pity 発動できず MISS のままだが pityCount は +1", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ treasurePityCount: 9 } as any);
-      mockPrisma.treasureLog.findFirst.mockResolvedValue({
-        id: "log-pity-empty", childId: "c1", boosted: false,
-      } as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 9, familyId: null }));
+      mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-pity-empty", childId: "c1", boosted: false }));
       mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+      mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
       const result = await openOldestTreasure("c1", {
         now: new Date("2026-07-15T03:00:00Z"),
@@ -896,16 +845,10 @@ describe("openOldestTreasure", () => {
   });
 
   it("ダブり獲得時 collectionItem.count に upsert 結果の値が入る", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-dup",
-      childId: "c1",
-      boosted: false,
-    } as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-dup", childId: "c1", boosted: false }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-    mockPrisma.userCollectionItem.upsert.mockResolvedValue({
-      count: 3,
-    } as any);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 3 }));
 
     const result = await openOldestTreasure("c1", {
       now: new Date("2026-07-15T03:00:00Z"),
@@ -914,12 +857,10 @@ describe("openOldestTreasure", () => {
   });
 
   it("初獲得 (count===1) はひろば書き込みをトリガー (item id + count を渡す)", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-new", childId: "c1", boosted: false,
-    } as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-new", childId: "c1", boosted: false }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-    mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
     const result = await openOldestTreasure("c1", {
       now: new Date("2026-07-15T03:00:00Z"),
@@ -930,12 +871,10 @@ describe("openOldestTreasure", () => {
   });
 
   it("ダブり獲得 (count>=2) もひろば書き込みをトリガーする (count をそのまま渡す)", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-dup2", childId: "c1", boosted: false,
-    } as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-dup2", childId: "c1", boosted: false }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-    mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 3 } as any);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 3 }));
 
     const result = await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
     expect(mockTriggerCollectionLog).toHaveBeenCalledTimes(1);
@@ -943,13 +882,9 @@ describe("openOldestTreasure", () => {
   });
 
   it("親ごほうび当選時はコレクション書き込みをトリガーしない", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-hit2", childId: "c1", boosted: false,
-    } as any);
-    mockPrisma.treasureItem.findMany.mockResolvedValue([
-      { id: "item-1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
-    ]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-hit2", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
     await openOldestTreasure("c1", {
       rng: () => 0.0,
@@ -972,14 +907,10 @@ describe("openOldestTreasure", () => {
     ];
 
     it.each(cases)("%s", async (_label, now, expectedSeason, expectedMonth) => {
-      mockPrisma.treasureLog.findFirst.mockResolvedValue({
-        id: "log-season",
-        childId: "c1",
-        boosted: false,
-      } as any);
+      mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-season", childId: "c1", boosted: false }));
       mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+      mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
       const monthPrefix = `m${String(expectedMonth).padStart(2, "0")}-`;
       for (const rngVal of [0.0, 0.05, 0.25, 0.5, 0.75, 0.99]) {
@@ -1002,12 +933,10 @@ describe("openOldestTreasure", () => {
   // 月限定アイテム（2026-07-21 追加）が抽選プールに含まれることの担保
   describe("月限定アイテムが抽選プールに含まれる", () => {
     it("JST 7月中に MISS すると m07-XX が引かれることがある (rng を振って月限定にヒットさせる)", async () => {
-      mockPrisma.treasureLog.findFirst.mockResolvedValue({
-        id: "log-monthly", childId: "c1", boosted: false,
-      } as any);
+      mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-monthly", childId: "c1", boosted: false }));
       mockPrisma.treasureItem.findMany.mockResolvedValue([]);
-      mockPrisma.treasureLog.update.mockResolvedValue({} as any);
-      mockPrisma.userCollectionItem.upsert.mockResolvedValue({ count: 1 } as any);
+      mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+      mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
 
       // rng を細かく振って、いずれかで m07-XX を引けることを確認する。
       // 25 種プール (summer 20 + m07 5) からユニフォーム抽選なので、tier 内で 2 回目 rng を
@@ -1032,18 +961,14 @@ describe("openOldestTreasure", () => {
   });
 
   it("boosted ログは抽選オプションに boosted=true を渡す", async () => {
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "log-4",
-      childId: "c1",
-      boosted: true,
-    } as any);
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-4", childId: "c1", boosted: true }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([
       // COMMON 1/10 = 0.1、boosted で 1.5/10 = 0.15
       // 合計 hit 率: 通常 31/180 ≈ 0.172、boosted で 31/120 ≈ 0.258
       // rng=0.2 → 通常 (>0.172) は MISS、boosted (<0.258) で COMMON 当選
-      { id: "i1", title: "おやつ", rarity: "COMMON", isActive: true } as any,
+      treasureItemPoolRow({ id: "i1" }),
     ]);
-    mockPrisma.treasureLog.update.mockResolvedValue({} as any);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
 
     const result = await openOldestTreasure("c1", { rng: () => 0.2 });
     expect(result!.collectionItem).toBeNull();
