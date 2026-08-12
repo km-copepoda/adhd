@@ -25,15 +25,15 @@ type ChildOption = {
 
 type Props = {
   task: PendingTask;
-  children: ChildOption[];
+  childOptions: ChildOption[];
   onEdit: (task: PendingTask) => void;
   onApprove: (id: string) => void;
   onDelete: (id: string) => void;
 };
 
-export default function PendingTaskCard({ task, children, onEdit, onApprove, onDelete }: Props) {
+export default function PendingTaskCard({ task, childOptions, onEdit, onApprove, onDelete }: Props) {
   const cat = CATEGORY_LABEL[task.category];
-  const assignedChild = children.find((c) => c.id === task.assignedChildId);
+  const assignedChild = childOptions.find((c) => c.id === task.assignedChildId);
   return (
     <div className="bg-quest-card border border-purple-400/30 rounded-xl p-4 flex items-center gap-4">
       <div className="text-2xl">{task.emoji}</div>

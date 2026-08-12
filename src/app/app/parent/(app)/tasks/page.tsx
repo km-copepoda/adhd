@@ -237,7 +237,7 @@ export default function TasksPage() {
       )}
 
       <ChildSelector
-        children={children}
+        childOptions={children}
         selectedChildId={selectedChildId}
         onSelect={(id) => {
           setSelectedChildId(id);
@@ -327,7 +327,7 @@ export default function TasksPage() {
                     <PendingTaskCard
                       key={task.id}
                       task={task}
-                      children={children}
+                      childOptions={children}
                       onEdit={startEdit}
                       onApprove={handleApprove}
                       onDelete={handleDelete}
@@ -347,7 +347,7 @@ export default function TasksPage() {
                       key={task.id}
                       task={task}
                       childId={child.id}
-                      children={children}
+                      childOptions={children}
                       todayDow={todayDow}
                       onEdit={startEdit}
                       onDelete={handleDelete}
@@ -367,7 +367,7 @@ export default function TasksPage() {
                     <TemporaryTaskCard
                       key={task.id}
                       task={task}
-                      children={children}
+                      childOptions={children}
                       onDelete={handleDelete}
                       onTogglePause={handleTogglePause}
                     />

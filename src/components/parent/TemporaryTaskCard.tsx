@@ -22,14 +22,14 @@ type ChildOption = {
 
 type Props = {
   task: TemporaryTask;
-  children: ChildOption[];
+  childOptions: ChildOption[];
   onDelete: (id: string) => void;
   onTogglePause: (id: string, paused: boolean) => void;
 };
 
-export default function TemporaryTaskCard({ task, children, onDelete, onTogglePause }: Props) {
+export default function TemporaryTaskCard({ task, childOptions, onDelete, onTogglePause }: Props) {
   const cat = CATEGORY_LABEL[task.category];
-  const assignedChild = children.find((c) => c.id === task.assignedChildId);
+  const assignedChild = childOptions.find((c) => c.id === task.assignedChildId);
   const isPaused = task.pausedAt !== null;
   const dateStr = task.targetDate
     ? new Date(task.targetDate).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })

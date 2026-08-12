@@ -6,16 +6,16 @@ type ChildOption = {
 };
 
 type Props = {
-  children: ChildOption[];
+  childOptions: ChildOption[];
   selectedChildId: string | null;
   onSelect: (childId: string) => void;
 };
 
-export default function ChildSelector({ children, selectedChildId, onSelect }: Props) {
-  if (children.length <= 1) return null;
+export default function ChildSelector({ childOptions, selectedChildId, onSelect }: Props) {
+  if (childOptions.length <= 1) return null;
   return (
     <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-      {children.map((child) => {
+      {childOptions.map((child) => {
         const name = child.monsterName || "名前未設定";
         return (
           <button

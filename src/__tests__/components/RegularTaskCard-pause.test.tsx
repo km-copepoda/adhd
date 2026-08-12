@@ -28,7 +28,7 @@ function baseTask(overrides: Record<string, unknown> = {}) {
 }
 
 describe("RegularTaskCard 一時停止ボタン", () => {
-  const children = [{ id: "child-1", reportDeadlineTime: null }];
+  const childOptions = [{ id: "child-1", reportDeadlineTime: null }];
 
   it("pausedAt=null のとき '⏸ 停止' ボタンを表示し、クリックで onTogglePause(id, true) を呼ぶ", () => {
     const onTogglePause = vi.fn();
@@ -36,7 +36,7 @@ describe("RegularTaskCard 一時停止ボタン", () => {
       <RegularTaskCard
         task={baseTask()}
         childId="child-1"
-        children={children}
+        childOptions={childOptions}
         todayDow={1}
         onEdit={() => {}}
         onDelete={() => {}}
@@ -55,7 +55,7 @@ describe("RegularTaskCard 一時停止ボタン", () => {
       <RegularTaskCard
         task={baseTask({ pausedAt: "2026-07-20T10:00:00Z" })}
         childId="child-1"
-        children={children}
+        childOptions={childOptions}
         todayDow={1}
         onEdit={() => {}}
         onDelete={() => {}}
@@ -73,7 +73,7 @@ describe("RegularTaskCard 一時停止ボタン", () => {
       <RegularTaskCard
         task={baseTask({ pausedAt: "2026-07-20T10:00:00Z" })}
         childId="child-1"
-        children={children}
+        childOptions={childOptions}
         todayDow={1}
         onEdit={() => {}}
         onDelete={() => {}}
@@ -88,7 +88,7 @@ describe("RegularTaskCard 一時停止ボタン", () => {
       <RegularTaskCard
         task={baseTask({ pausedAt: "2026-07-20T10:00:00Z", repeatDays: [0] })}
         childId="child-1"
-        children={children}
+        childOptions={childOptions}
         todayDow={1}
         onEdit={() => {}}
         onDelete={() => {}}

@@ -34,7 +34,7 @@ type ChildOption = {
 type Props = {
   task: RegularTask;
   childId: string;
-  children: ChildOption[];
+  childOptions: ChildOption[];
   todayDow: number;
   onEdit: (task: RegularTask) => void;
   onDelete: (id: string) => void;
@@ -56,7 +56,7 @@ function formatPendingCarryBadge(missedCount: number | null): string | null {
   return `${missedCount}回未完了`;
 }
 
-export default function RegularTaskCard({ task, childId, children, todayDow, onEdit, onDelete, onTogglePause }: Props) {
+export default function RegularTaskCard({ task, childId, childOptions, todayDow, onEdit, onDelete, onTogglePause }: Props) {
   const cat = CATEGORY_LABEL[task.category];
   const streakEntry = (task.taskStreaks ?? []).find((s) => s.childId === childId);
   const streak = isTaskStreakActive(task.repeatDays, streakEntry?.lastAchievedDate ?? null)
@@ -64,7 +64,7 @@ export default function RegularTaskCard({ task, childId, children, todayDow, onE
     : 0;
   const isOffDay = !task.repeatDays.includes(todayDow);
   const isPaused = task.pausedAt !== null;
-  const assignedChild = children.find((c) => c.id === task.assignedChildId);
+  const assignedChild = childOptions.find((c) => c.id === task.assignedChildId);
   const carryLabel = formatPendingCarryBadge(task.carryOverMissedCount);
   const hasBadges = isPaused || task.completedToday || streak >= 1 || task.lastSkippedDate || carryLabel;
   const dimmed = task.completedToday || isPaused;
