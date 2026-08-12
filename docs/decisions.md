@@ -2592,3 +2592,24 @@
 - `docs/未実装仕様書/monetization-plan.md §2.2` — 有効タスク定義を更新
 - テスト: `src/__tests__/lib/subscriptionService.test.ts` / `src/__tests__/api/tasks/tasks-limit.test.ts`
 
+## 2026-08-12: fetch-in-effect パターンの `react-hooks/set-state-in-effect` は eslint-disable で受け入れる（Issue #22）
+
+### 決定内容
+- マウント時・依存値変更時に `useEffect` からデータを fetch し、開始時に `setLoading(true)` を同期的に呼ぶ「fetch-in-effect」パターンは、`react-hooks/set-state-in-effect` を理由コメント付き `eslint-disable-next-line` で明示的に許容する
+- `useSyncExternalStore` 化などの根本的な再設計は現時点では行わない（`useApiFetch` は現状どの画面からも import されておらず、再設計のリスクを取る実利が薄いため）
+- disable コメントは「検知をすり抜けているだけ」の飾りにせず、実際にそのルールを発火させて抑制する形にする。`useApiFetch` は当初 `async/await` + `try/catch` で実装しており、これが React Compiler ベースの lint ルール群（`react-hooks/set-state-in-effect` 等）の解析を丸ごとバイパスさせていた（bailout）ため、`fetchData` を `try/catch` から `.then/.catch/.finally` のプロミスチェーンに書き換え、レンダー中の ref 書き込み（`transformRef.current = transform`）も専用 `useEffect` に移し、解析が正しく走った上で `setLoading(true)` の行に disable コメントを付与している
+
+### 理由
+- Issue #19 で禁止した「eslint-disable で黙らせるだけ」（=ルールの検知を回避しただけで実際の挙動は変わらない状態）を再発させないため、disable コメントは必ず「そのルールが実際に発火する箇所」に付ける方針とする
+- `async/await` + `try/catch` は可読性が高い一方、React Compiler 系の lint ルールがこの構文パターンで解析全体を bailout する（今回の調査で判明）。これにより `eslint-disable-next-line` を追加しても `Unused eslint-disable directive` 警告になり、かえって「本当は何も保証していない disable コメント」という同型の問題を生んでしまう
+- fetch-in-effect パターン自体はこのプロジェクト全体で標準的に使われており、個々のフックだけ再設計するより「eslint-disable で受け入れる」という方針を明文化する方が一貫性がある
+
+### やってはいけないこと
+- ルールが実際には発火していない行（＝ eslint が `Unused eslint-disable directive` を出す行）に disable コメントを付けて「対応済み」とする
+- `react-hooks/set-state-in-effect` を止めるためだけに `try/catch` を `.then/.catch` に書き換えるなど、挙動を変えずに解析の bailout を意図的に発生させたり解除したりする改変を、理由の説明なしに行う
+- この方針を「lint が厳しいルールは disable すればよい」という一般則として拡大解釈する。対象はあくまで fetch-in-effect の `set-state-in-effect` のような、このプロジェクトで標準化されたパターンに限る
+
+### 該当箇所
+- `src/hooks/useApiFetch.ts` — `fetchData` を promise チェーンに書き換え、`transformRef` の同期を専用 `useEffect` に分離、`setLoading(true)` に理由コメント付き disable を付与
+- テスト: `src/__tests__/hooks/useApiFetch.test.tsx`（既存の回帰テストのみ、要件追加なし）
+
