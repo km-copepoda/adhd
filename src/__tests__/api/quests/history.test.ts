@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { NextRequest } from "next/server";
 import { GET } from "@/app/api/quests/history/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -12,7 +13,7 @@ function makeRequest(params?: Record<string, string>) {
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  return new Request(url.toString());
+  return new NextRequest(url.toString());
 }
 
 beforeEach(() => {

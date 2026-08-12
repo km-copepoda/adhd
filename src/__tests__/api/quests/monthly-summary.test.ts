@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { GET } from "@/app/api/quests/monthly-summary/route";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
@@ -10,7 +11,7 @@ const mockGetCurrentUser = vi.mocked(getCurrentUser);
 function makeRequest(params: Record<string, string> = {}) {
   const url = new URL("http://localhost/api/quests/monthly-summary");
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  return new Request(url.toString());
+  return new NextRequest(url.toString());
 }
 
 beforeEach(() => {

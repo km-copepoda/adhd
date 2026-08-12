@@ -29,13 +29,13 @@ describe("GET /api/family/code", () => {
   it("ファミリー情報とメンバー一覧を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.family.findUnique.mockResolvedValue(
-      family({
-        code: "ABCD12",
+      {
+        ...family({ code: "ABCD12" }),
         users: [
           { id: "u1", name: "パパ", role: "PARENT", monsterName: null, side: null, childCode: null },
           { id: "u2", name: "太郎", role: "CHILD", monsterName: "ドラゴン", side: "DARK", childCode: "1234" },
         ],
-      }) as any,
+      } as any,
     );
 
     const res = await GET();
@@ -69,12 +69,13 @@ describe("GET /api/family/code", () => {
   it("子供メンバーのXPフィールドを返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     mockPrisma.family.findUnique.mockResolvedValue(
-      family({
+      {
+        ...family(),
         users: [
           { id: "u2", name: "太郎", role: "CHILD", monsterName: "ドラゴン", side: "DARK", childCode: "1234",
             studyPt: 5, staminaPt: 3, lifePt: 2 },
         ],
-      }) as any,
+      } as any,
     );
 
     const res = await GET();
@@ -87,7 +88,7 @@ describe("GET /api/family/code", () => {
 
   it("usersをcreatedAt昇順で取得すること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.family.findUnique.mockResolvedValue(family({ users: [] }) as any);
+    mockPrisma.family.findUnique.mockResolvedValue({ ...family(), users: [] } as any);
 
     await GET();
 
