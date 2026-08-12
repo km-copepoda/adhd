@@ -133,6 +133,21 @@ export function childUserWithFamily(
   };
 }
 
+/**
+ * `include: { family: true }` 付きクエリの戻り値用。 `parentUser` + `family` の合成。
+ * `getCurrentUser()` のモック（`family` が必須プロパティ）に使う。
+ * familyOverrides に `null` を渡すと `family: null`（familyId なしのケース）を表現する。
+ */
+export function parentUserWithFamily(
+  overrides?: Partial<User>,
+  familyOverrides?: Partial<Family> | null,
+): Prisma.UserGetPayload<{ include: { family: true } }> {
+  return {
+    ...parentUser(overrides),
+    family: familyOverrides === null ? null : family(familyOverrides),
+  };
+}
+
 // ─── Subscription ─────────────────────────────────────
 
 export function subscription(overrides?: Partial<Subscription>): Subscription {
