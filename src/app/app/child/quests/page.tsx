@@ -80,10 +80,6 @@ export default function QuestsPage() {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    fetchMonster();
-  }, []);
-
   async function fetchMonster() {
     const res = await fetch("/api/monster-status");
     if (!res.ok) return;
@@ -102,6 +98,10 @@ export default function QuestsPage() {
       }),
     );
   }
+
+  useEffect(() => {
+    fetchMonster();
+  }, []);
 
   async function handleReport(questId: string, comment: string | null, photoUrl: string | null) {
     const res = await fetch(`/api/quests/${questId}/report`, {

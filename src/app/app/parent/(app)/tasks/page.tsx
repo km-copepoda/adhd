@@ -69,10 +69,6 @@ export default function TasksPage() {
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));
 
-  useEffect(() => {
-    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
-  }, []);
-
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
     if (res.ok) setTasks(await res.json());
@@ -87,6 +83,10 @@ export default function TasksPage() {
       setSelectedChildId((prev) => prev ?? (kids[0]?.id ?? null));
     }
   }
+
+  useEffect(() => {
+    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
+  }, []);
 
   function openFormForChild(childId: string) {
     setForm(defaultForm(childId));
