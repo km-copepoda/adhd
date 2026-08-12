@@ -11,7 +11,7 @@ import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { todayJST, jstDateOf } from "@/lib/date";
 import { unlockTreasuresOnApprove } from "@/lib/treasureService";
 
-type QuestWithRelations = {
+export type QuestWithRelations = {
   id: string;
   date: Date;
   reportedAt?: Date | null;
@@ -43,7 +43,7 @@ type QuestWithRelations = {
   };
 };
 
-type FreshChildData = {
+export type FreshChildData = {
   id: string;
   evolutionStage: number;
   evolutionPath: string;
