@@ -117,7 +117,7 @@ describe("POST /api/push/notify-child", () => {
     expect(res.status).toBe(400);
   });
 
-  if("子供がアプリ未起動でもQuestInstanceを生成してリマインドを送ること", async () => {
+  it("子供がアプリ未起動でもQuestInstanceを生成してリマインドを送ること", async () => {
     const parent = parentUser();
     const child = childUser();
     const tpl1 = taskTemplate({ id: "tpl-1", title: "宿題" });
@@ -156,7 +156,7 @@ describe("POST /api/push/notify-child", () => {
     );
   });
 
-  if("テンプレートがあっても全タスク完了済みなら400を返すこと", async () => {
+  it("テンプレートがあっても全タスク完了済みなら400を返すこと", async () => {
     const parent = parentUser();
     const child = childUser();
     const tpl = taskTemplate({ id: "tpl-1" });
@@ -170,6 +170,6 @@ describe("POST /api/push/notify-child", () => {
     const res = await POST(makeRequest("/api/push/notify-child", { childId: "child-1" }));
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("未完了のリクエストがありません");
+    expect(json.error).toBe("未完了のクエストがありません");
   }); 
 });

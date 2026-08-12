@@ -399,7 +399,7 @@ describe("GET /api/tasks", () => {
 });
 
 describe("POST /api/tasks", () => {
-  if("タスク名が空の場合、400を返すこと", async () => {
+  it("タスク名が空の場合、400を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     const res = await POST(makeRequest("/api/tasks", { title: "", assignedChildId: "child-1" }));
     expect(res.status).toBe(400);
@@ -407,7 +407,7 @@ describe("POST /api/tasks", () => {
     expect(json.error).toBe("タスク名は必須です");
   });
   
-  if("タスク名が32文字を超える場合、400を返すこと", async () => {
+  it("タスク名が32文字を超える場合、400を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
     const res = await POST(
       makeRequest("/api/tasks", {
@@ -421,8 +421,9 @@ describe("POST /api/tasks", () => {
     expect(json.error).toBe("タスク名は32文字以内にしてください");
   });
   
-  if("タスク名が32文字ちょうどなら作成できること", async () => {
+  it("タスク名が32文字ちょうどなら作成できること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-exact32" } as any);
     const res = await POST(
       makeRequest("/api/tasks", {
         title: "あ".repeat(32),
