@@ -252,12 +252,10 @@ describe("POST /api/quests/[id]/skip", () => {
 
       mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
       mockPrisma.questInstance.findUnique.mockResolvedValue(
-        questInstance({
-          id: "q1",
-          status: "PENDING",
-          date: oldDate,
-          template: { id: "tpl-1", carryOver: true } as any,
-        }) as any,
+        {
+          ...questInstance({ id: "q1", status: "PENDING", date: oldDate }),
+          template: { id: "tpl-1", carryOver: true },
+        } as any,
       );
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       // 今日（2026-03-28）には PENDING タスクが 2件（carryOver 自身は別日付なので含まれない）
@@ -296,12 +294,10 @@ describe("POST /api/quests/[id]/skip", () => {
 
       mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
       mockPrisma.questInstance.findUnique.mockResolvedValue(
-        questInstance({
-          id: "q1",
-          status: "PENDING",
-          date: oldDate,
-          template: { id: "tpl-1", carryOver: false } as any,
-        }) as any,
+        {
+          ...questInstance({ id: "q1", status: "PENDING", date: oldDate }),
+          template: { id: "tpl-1", carryOver: false },
+        } as any,
       );
       mockPrisma.questInstance.update.mockResolvedValue({} as any);
       mockPrisma.questInstance.findMany.mockResolvedValue([
