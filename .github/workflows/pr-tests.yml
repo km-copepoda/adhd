@@ -38,3 +38,22 @@ jobs:
           && github.event.pull_request.head.repo.full_name == github.repository
           && github.actor != 'dependabot[bot]'
         uses: davelosert/vitest-coverage-report-action@v2
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    # Stage 1: visualize lint results without blocking PRs. There are ~1670
+    # pre-existing errors (see #19-#23 for the cleanup plan). Flip this to
+    # false only after that debt is paid down (tracked in #24).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - name: Run ESLint
+        run: npm run lint
