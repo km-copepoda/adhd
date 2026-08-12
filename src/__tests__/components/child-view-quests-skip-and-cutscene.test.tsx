@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ childId: "child-1" }),
@@ -38,7 +38,6 @@ vi.mock("@/components/LoadingSpinner", () => ({
 vi.mock("next/image", () => ({
   __esModule: true,
   default: ({ src, alt }: { src: string; alt: string }) => (
-    // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt={alt} />
   ),
 }));

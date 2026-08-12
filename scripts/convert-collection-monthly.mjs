@@ -17,7 +17,7 @@
  */
 import sharp from "sharp";
 import { execSync } from "child_process";
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from "fs";
+import { mkdirSync, writeFileSync, unlinkSync } from "fs";
 import { join, basename, dirname } from "path";
 import { fileURLToPath } from "url";
 

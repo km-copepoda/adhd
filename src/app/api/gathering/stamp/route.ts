@@ -15,7 +15,7 @@ import { log } from "@/lib/logger";
  * Push 配信はレスポンス前に await する。1日1回の低頻度アクションなので
  * Vercel Function の終了でメッセージが落ちないことを優先（高頻度ログのような after() 化は不要）。
  */
-export async function POST(_request: Request) {
+export async function POST() {
   const user = await getCurrentUser();
   if (!user || user.role !== "CHILD") {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
