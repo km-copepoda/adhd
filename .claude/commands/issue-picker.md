@@ -145,7 +145,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
    - **OPENなPRが見つかった場合** → ラベルを `auto:in-progress` → `auto:pr-open` に変更する（`auto:blocked` にすると、既に存在するPRが `/codex-followup` の管轄からもStep 0の後処理対象からも外れ、マージされてもIssueが永久にcloseされなくなる）。`@codex review` がまだ投稿されていなければ投稿する。ローカルブランチはリモートに対応するので削除しない
    - **OPENなPRが見つからない場合**（無関係なCLOSED PRのみヒットした場合を含む）→ ラベルを `auto:in-progress` → `auto:blocked` に変更する（`auto:blocked` にしないと、Step 1が次回もこのIssueを毎回最古候補として選び直し、同じ失敗を無限に繰り返す）。**「PRが無い」は「pushもされていない」を意味しない**（`pr-submitter` はpushしてから `gh pr create` するため、push成功後にPR作成だけ失敗する部分成功があり得る）。ローカルブランチを消す前に `git ls-remote --exit-code --heads origin issue-<N>-<slug>` でリモートブランチの有無も確認する（**`--exit-code` を付けること**: 終了コード `0`＝一致するref有り、`2`＝一致するref無し（正常に「無い」と判定できる）、それ以外（`128`等）＝認証切れやネットワーク障害などの取得失敗。取得失敗を「無い」と誤認すると、実際には存在するリモートブランチを見落としてローカルだけ削除してしまい、再試行時のpushが残存リモートに対してnon-fast-forwardで失敗し続ける）:
      - 終了コード `2`（リモートブランチが**無い**） → `git branch -D issue-<N>-<slug>` でローカルブランチを削除する
-     - 終了コード `0`（リモートブランチが**ある**） → `git push origin --delete issue-<N>-<slug>` でリモートブランチも削除してから、ローカルブランチを削除する（リモートだけ残すと、再試行時に新しく作ったローカルブランチをpushする際、履歴が異なる同名リモートブランチに対してnon-fast-forwardで失敗し続ける）
+     - 終了コード `0`（リモートブランチが**ある**） → `git push origin --delete issue-<N>-<slug>` を実行し、**この `$LASTEXITCODE` も必ず検査する**。成功した場合のみローカルブランチを削除する（リモートだけ残すと、再試行時に新しく作ったローカルブランチをpushする際、履歴が異なる同名リモートブランチに対してnon-fast-forwardで失敗し続ける）。削除コマンド自体が失敗した場合（認証切れ・ネットワーク障害等）はローカルブランチを削除せず、「リモートブランチ削除に失敗したため中断」と報告する（ローカルだけ消すと、リモートに残った古いブランチへ次回pushする際に同じくnon-fast-forwardで失敗し続ける上、削除できたはずのローカル参照も失われ再試行の手がかりがなくなる）
      - それ以外の終了コード（**取得失敗**） → どちらのブランチも削除せず、「リモートブランチ存否確認に失敗したため中断」と報告する
 3. `gh issue comment <N>` で「想定外のエラーで自動実装を中断した」旨とエラー概要（PRが見つかった場合はそのURLも）を日本語で報告する
 4. `PushNotification("Issue #<N> 自動実装が想定外のエラーで中断 — 確認してください")`
@@ -185,8 +185,8 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 - **追加指示（必須）**: `pr-submitter` の手順は「`main` にいる場合のみ `feature/<task-name>` を新規作成する」という条件付きロジックであり、Step 3で作った `issue-<N>-<slug>` ブランチをそのまま使う想定にはなっていない。呼び出し時に**現在のworktreeブランチ名（`issue-<N>-<slug>`）を明示し、新しいブランチを作らずそのまま push/head として使うよう**指示すること。指示を省略すると、`pr-submitter` が存在しない `feature/*` ブランチへのpushを試みて失敗する
 - **追加指示**: PR本文に `Closes #<N>` を含めるよう `pr-submitter` に伝える（自動クローズは発火しないが、GitHub UI上のIssue⇄PR相互参照として機能させるため。実際のクローズはStep 0で行う）
 - PR作成成功後:
-  - ラベルを `auto:in-progress` → `auto:pr-open` に変更
-  - `gh issue comment <N> --body "PR #<M> を作成しました: <URL>"` で経過を記録
+  - `gh issue edit <N> --remove-label "auto:in-progress" --add-label "auto:pr-open"` を実行し、**`$LASTEXITCODE` を必ず検査する**。失敗した場合（一時的なAPI障害等）、Issueは `auto:in-progress` のまま取り残され、Step 0・`/codex-followup` のどちらの検索対象にも入らず放置される。この場合は経過コメントの投稿には進まず、上記「Step 2.5. 異常終了時のセーフティネット」の手順（PRは既に作成済みなので2の「OPENなPRが見つかった場合」の分岐と同じ扱い）に従い、ラベルを `auto:blocked` に変更・`gh issue comment` で報告・`PushNotification` を行ってから終了する
+  - ラベル変更が成功したことを確認できた場合のみ `gh issue comment <N> --body "PR #<M> を作成しました: <URL>"` で経過を記録
 
 ### Step 7. Worktree破棄
 
