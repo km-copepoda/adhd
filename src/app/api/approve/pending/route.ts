@@ -51,8 +51,8 @@ export async function GET() {
   // QuestDeclaration をルックアップする。approveQuestInstance と同じ
   // 照合キーを使い、親が見る +Xpt と実際の付与額を一致させる。
   const declarationKeys = quests
-    .filter((q: any) => q.reportedAt)
-    .map((q: any) => ({
+    .filter((q): q is typeof q & { reportedAt: Date } => q.reportedAt != null)
+    .map((q) => ({
       templateId: q.templateId,
       childId: q.childId,
       date: jstDateOf(q.reportedAt),
@@ -71,7 +71,7 @@ export async function GET() {
     );
   }
 
-  const enriched = quests.map((q: any) => {
+  const enriched = quests.map((q) => {
     const declaredToday = q.reportedAt
       ? declaredSet.has(`${q.templateId}|${q.childId}|${jstDateOf(q.reportedAt).toISOString()}`)
       : false;

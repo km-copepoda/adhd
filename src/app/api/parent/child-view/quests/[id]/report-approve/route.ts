@@ -80,7 +80,7 @@ export async function POST(
   };
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
-  await approveQuestInstance(updatedQuest as any, stamp ?? undefined);
+  await approveQuestInstance(updatedQuest, stamp ?? undefined);
 
   // 親代理経路でも PROXY / ALL_COMPLETE 宝箱を即 UNLOCKED で生成する。
   // (2026-07-02) 全完了時に子セルフ経路と同じ ALL_COMPLETE ボーナスも出すように変更。

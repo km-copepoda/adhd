@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   if (!resolved.ok) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
-  const child = resolved.child as any;
+  const child = resolved.child;
 
   if (!child.rebirthPending) {
     return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
