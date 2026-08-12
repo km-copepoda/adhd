@@ -91,7 +91,7 @@ function setupFetch(opts: {
   reportResponse?: { treasureIds: string[] };
   skipResponse?: { treasureIds: string[] };
 }) {
-  global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+  const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (url.includes("/api/quests/today")) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve([quest]) });
     }
@@ -108,7 +108,9 @@ function setupFetch(opts: {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(opts.skipResponse ?? { treasureIds: [] }) });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-  }) as unknown as typeof fetch;
+  });
+  global.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
 }
 
 beforeEach(() => {
@@ -122,7 +124,7 @@ afterEach(() => {
 
 describe("child quests page - 宝箱ゲット演出", () => {
   it("report API が treasureIds を返したら、シートが閉じたあと「宝箱ゲット！」が表示される", async () => {
-    setupFetch({ reportResponse: { treasureIds: ["t1"] } });
+    const fetchMock = setupFetch({ reportResponse: { treasureIds: ["t1"] } });
     await act(async () => {
       render(<ChildQuestsPage />);
     });
@@ -131,6 +133,12 @@ describe("child quests page - 宝箱ゲット演出", () => {
     await waitFor(() => {
       expect(screen.getByText(/宿題/)).toBeTruthy();
     });
+
+    // マウント時に fetchMonster が1回だけ呼ばれる（回帰テスト）
+    const monsterStatusCalls = () =>
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes("/api/monster-status"));
+    expect(monsterStatusCalls()).toHaveLength(1);
+
     await act(async () => {
       fireEvent.click(screen.getByText(/宿題/));
     });
@@ -146,6 +154,9 @@ describe("child quests page - 宝箱ゲット演出", () => {
     await waitFor(() => {
       expect(screen.getByText("宝箱ゲット！")).toBeTruthy();
     });
+
+    // 報告後も /api/monster-status は再取得されない（マウント時1回のまま）
+    expect(monsterStatusCalls()).toHaveLength(1);
   });
 
   it("treasureIds が空なら宝箱ゲット演出は出ない", async () => {
