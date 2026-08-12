@@ -2613,3 +2613,47 @@
 - `src/hooks/useApiFetch.ts` — `fetchData` を promise チェーンに書き換え、`transformRef` の同期を専用 `useEffect` に分離、`setLoading(true)` に理由コメント付き disable を付与
 - テスト: `src/__tests__/hooks/useApiFetch.test.tsx`（既存の回帰テストのみ、要件追加なし）
 
+## 2026-08-12: テストの `no-explicit-any` 解消（案B）— Prisma モックを `vitest-mock-extended` の `mockDeep` に置き換える（Issue #35, #23 の基盤1）
+
+### 決定内容
+- `src/__tests__/setup.ts` の Prisma モックを、手書きの `{ user: { findUnique: vi.fn(), ... } }` オブジェクトから `vitest-mock-extended` の `mockDeep<PrismaClient>()` に置き換えた
+- 型付きアクセサを 1 箇所に集約する `src/__tests__/helpers/prisma-mock.ts` を新設し、`export const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>` という「プロジェクト内で唯一許容するキャスト」を提供する
+- 旧 setup.ts が持っていたデフォルト値（`$transaction` の配列 `Promise.all` 実装、`user.count` / `taskTemplate.count` / `treasureItem.count` の `0`、`questInstance.groupBy` / `questDeclaration.findMany` / `treasureItem.findMany` / `treasureLog.findMany` / `userCollectionItem.findMany` / `checkinLog.findMany` の `[]`）は関数 `applyPrismaDefaults()` に集約し、初回適用に加えて `vi.resetAllMocks` / `vi.restoreAllMocks` 自体をラップして呼び出し直後に再適用する設計にした（47 箇所が `beforeEach` 等でこれらを呼んでおり、フックの登録順序に依存すると再適用が効かないケースがあるため）
+- `package.json` に `"typecheck": "tsc --noEmit"` を追加。CI ゲート化はしない（本 Issue 完了後も型エラーが約 1500 件残るため）
+- `tsconfig.json` の `compilerOptions.types` に `"vitest/globals"` を追加した。副作用を検証した結果、既存の describe/it/expect 未定義エラー（約 70 件）が消えるのみで新規エラーは 0 件だったため実施した（検証内容は下記「検証結果」）
+- 各テストファイル（80 ファイル、`as any` 1621 件）の移行自体は本 Issue のスコープ外。以降の 14 個の移行 Issue が本基盤の上に乗る形で順次対応する
+
+### 案A・案C を採らなかった理由
+- #23 の推奨は案C（`eslint` の `no-explicit-any` を `src/__tests__` 配下だけ override で緩める設定変更）だったが、ユーザーが「正攻法である案Bを採る」ことを #23 で決定済み。案Cは型検査を諦めて lint 警告を黙らせるだけで、モックの意図と実装コードの乖離を検出する力が一切増えない
+- 案A（Prisma モックを使わず実 DB や sqlite 等でテストする）はここでは採用対象にすら挙げていない。既存の 183 ファイル・2506 件のテストが Prisma モック前提で書かれており、置き換えは本 Issue の規模を大きく超える
+
+### 型検査による乖離検出の効果は限定的（正直な検証結果）
+- 事前スパイクで確認済みの通り、`mockDeep<PrismaClient>()` の `mockResolvedValue()` は Prisma の fluent client 型が複雑なため、明らかに不正な形のオブジェクトを渡してもエラーにならないケースがある（`@ts-expect-error` が "Unused" と判定された）
+- したがって #23 が案Bの利点として挙げていた「モックの意図と実装の乖離を型検査で検出できる」は、期待するほど強力ではない。効果として確実に得られるのは「`as any` が消え、引数の型チェックと補完が効く」ところまでである
+- 実測でも、本 Issue の変更だけでは `npx tsc --noEmit` のエラー件数はほぼ変化しない（後述）。エラーの大半（`TS2339: Property 'mockResolvedValue' does not exist ...`）は各テストファイルが `vi.mocked(prisma)` で実 `PrismaClient` 型を経由してモックしていることに起因し、これを解消するには各テストファイルを `prismaMock`（`@/__tests__/helpers/prisma-mock`）に移行する必要がある。その移行は本 Issue のスコープ外であり、後続の 14 個の移行 Issue で順次対応する
+
+### 最大のリスクと対応
+- `mockDeep` は手書きモックと異なり、未モックのモデル/メソッド呼び出しに対して `TypeError` で落ちる代わりに `undefined` を自動生成して返す。これにより「モック漏れがテストを偽陽性で通してしまう」リスクがあるため、「`npm test` が green」だけを根拠にせず、旧 setup.ts のデフォルト値を 1 件ずつ突き合わせて移植した
+- `vi.clearAllMocks()` / `vi.resetAllMocks()` は `mockDeep` が内部で生成する `vi.fn()` にも到達することを実行時に確認済み（vitest のグローバルなモックレジストリで追跡されるため、オブジェクトグラフの探索に依存しない）
+- `$transaction` は配列形式（`Prisma.PrismaPromise[]`）のみが実装側で使われている（`child-rejoin` / `family/members/[id]`）ことを確認済みで、`(ops) => Promise.all(ops)` のデフォルト実装を維持した。コールバック形式は未使用のため対応していない
+
+### 検証結果（本 Issue 実施環境での実測値。before/after）
+- `npm test`: before 183 ファイル / 2506 件 green → after 183 ファイル / 2506 件 green（完全一致、skip/todo化なし）
+- `npm run test:coverage`: lines 73.19%→73.19%、statements 70.86%→70.86%、functions 59.66%→59.66%、branches 61.78%→61.83%（低下なし）
+- `npx tsc --noEmit`（実施環境に `.next/types/validator.ts` が存在しないため、Issue 起票時の 1507 件とは前提が異なる）: 変更前 1502 件 → 変更後（`vitest/globals` 追加込み）1432 件。差分は describe/it 等のグローバル未定義エラーの解消のみで、新規エラーは 0 件（`comm` で全件突き合わせ済み）
+- `npx eslint src/__tests__` の `no-explicit-any`: 1621 件 / 80 ファイルで変更前後一致（本 Issue ではテストファイルを触っていないため）
+- `npm ci && npx prisma generate && npm run test:coverage`（CI 手順）: green で完走
+- `src/__tests__/lib/push.test.ts` の `vi.unmock("@/lib/push")` パターン、`$transaction` に配列を渡す境界値テスト、count/findMany デフォルトに依存するマネタイズ上限テスト、`vi.resetAllMocks()` を呼ぶ 47 箇所すべて green
+- `npm run test:integration` はローカル検証環境で Docker/Supabase が起動していないため実行できなかった（DB 実接続テストのため、Prisma モックを変更した本 Issue の影響を受けない設計だが、実行確認自体は次のステップ・CI で行う必要がある）
+
+### やってはいけないこと
+- 各テストファイルの `vi.mocked(prisma)` を `prismaMock` に置き換える作業を本 Issue の範囲に含める（移行 Issue の担当）
+- 「型検査でモックの誤りを完全に検出できるようになった」という誤った前提で以降の移行 Issue を進める（効果は限定的。実際に効くのは `as any` の除去と補完）
+- `vi.resetAllMocks()` 後にデフォルトが失われる問題を、個々のテストファイル側の `beforeEach` 修正で対処する（グローバル側の `vi.resetAllMocks` ラップで一元対応済み）
+
+### 該当箇所
+- `package.json` — `vitest-mock-extended` を devDependencies に追加、`typecheck` スクリプト追加
+- `src/__tests__/setup.ts` — `mockDeep<PrismaClient>()` ベースに置き換え、デフォルト値の再適用ロジックを追加
+- `src/__tests__/helpers/prisma-mock.ts` — 新規。型付きアクセサ `prismaMock`
+- `tsconfig.json` — `compilerOptions.types` に `"vitest/globals"` を追加
+
