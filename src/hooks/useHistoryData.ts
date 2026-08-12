@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatDate, type DaySummary } from "@/lib/heatmap";
 import type { Category } from "@/types";
 
@@ -45,7 +45,7 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(true);
-  const firstLoad = useRef(true);
+  const [firstLoad, setFirstLoad] = useState(true);
 
   useEffect(() => {
     fetch("/api/family/code")
@@ -86,7 +86,7 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setItems(data))
       .finally(() => {
-        firstLoad.current = false;
+        setFirstLoad(false);
         setLoadingItems(false);
       });
   }, [selectedDate, selectedChildId]);
@@ -99,6 +99,6 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
     monthlySummary,
     loadingItems,
     loadingSummary,
-    isFirstLoad: firstLoad.current,
+    isFirstLoad: firstLoad,
   };
 }
