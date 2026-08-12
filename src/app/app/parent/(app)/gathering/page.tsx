@@ -56,6 +56,9 @@ export default function ParentGatheringPage() {
   // 子供が変わったらグループを取得
   useEffect(() => {
     if (!selectedChildId) return;
+    // selectedChildId変更時にグループ再取得の直前でローディング表示に切り替え、前回のグループ情報をクリアする。
+    // fetch自体が外部システムとの同期であり、その開始を示す状態の即時反映が必要なため。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setGroup(undefined);
 

@@ -43,7 +43,10 @@ export default function HistoryContent() {
   const [checkin, setCheckin] = useState<CheckinResponse | null>(null);
 
   useEffect(() => {
+    // selectedChildId/viewMonth変更時にチェックイン再取得の直前で前回結果をクリアする。
+    // fetch自体が外部システムとの同期であり、その開始を示す状態の即時反映が必要なため。
     if (!selectedChildId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCheckin(null);
       return;
     }

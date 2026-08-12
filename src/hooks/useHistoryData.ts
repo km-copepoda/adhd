@@ -71,6 +71,9 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
     if (!selectedChildId) return;
     const year = viewMonth.getFullYear();
     const month = viewMonth.getMonth() + 1;
+    // viewMonth/selectedChildId変更時にサマリー再取得の直前でローディング表示に切り替える。
+    // fetch自体が外部システムとの同期であり、その開始を示すloading状態の即時反映が必要なため。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingSummary(true);
     setMonthlySummary(null);
     fetch(`/api/quests/monthly-summary?year=${year}&month=${month}&childId=${selectedChildId}`)
@@ -81,6 +84,9 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
 
   useEffect(() => {
     if (!selectedChildId) return;
+    // selectedDate/selectedChildId変更時に履歴再取得の直前でローディング表示に切り替える。
+    // fetch自体が外部システムとの同期であり、その開始を示すloading状態の即時反映が必要なため。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingItems(true);
     fetch(`/api/quests/history?date=${formatDate(selectedDate)}&childId=${selectedChildId}`)
       .then((res) => (res.ok ? res.json() : []))
