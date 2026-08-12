@@ -20,6 +20,10 @@ export function MonsterImg({
     );
   }
   return (
+    // next/image はビルド時に固定 width/height を要求する最適化前提のコンポーネントで、
+    // 画像読み込み失敗時に onError でフォールバック絵文字へ差し替えるこのユースケースとは相性が悪いため、
+    // 意図的に生の <img> を使用する。
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
