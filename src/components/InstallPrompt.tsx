@@ -1,13 +1,19 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+// beforeinstallprompt は lib.dom に型定義が存在しないブラウザ独自イベント
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 export default function InstallPrompt() {
-  const [prompt, setPrompt] = useState<Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> } | null>(null);
+  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
-      setPrompt(e as any);
+      setPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);

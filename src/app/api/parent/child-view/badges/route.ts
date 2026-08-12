@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }),
   ]);
 
-  const unlockedMap = new Map(unlockedRecords.map((r: any) => [r.badgeId, r.unlockedAt]));
+  const unlockedMap = new Map(unlockedRecords.map((r) => [r.badgeId, r.unlockedAt]));
 
   const badges = ALL_BADGES.map((badge) => ({
     ...badge,

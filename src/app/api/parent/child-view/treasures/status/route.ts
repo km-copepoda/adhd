@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     locked,
     unlocked,
     hasPool: poolSize > 0,
-    opened: opened.map((o: any) => {
+    opened: opened.map((o) => {
       const ci = o.collectionItemId ? getCollectionItemById(o.collectionItemId) : null;
       return {
         id: o.id,

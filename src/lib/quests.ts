@@ -125,8 +125,8 @@ export async function ensureTodayQuests(params: {
   await cleanupStaleCarryOverInstances({ childId, templates });
 
   // carryOver タスクは既存 PENDING がある場合 upsert をスキップ（1インスタンス保証）
-  const carryOverTemplates = templates.filter((t) => (t as any).carryOver);
-  const normalTemplates = templates.filter((t) => !(t as any).carryOver);
+  const carryOverTemplates = templates.filter((t) => t.carryOver);
+  const normalTemplates = templates.filter((t) => !t.carryOver);
 
   // PENDING だけでなく REPORTED / SKIP_REPORTED も「親の承認待ちで残っているアクティブ」として扱う。
   // ここで REPORTED を見落とすと、昨日の PENDING を今日報告した直後に新しい今日 PENDING が upsert され、

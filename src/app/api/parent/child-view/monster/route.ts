@@ -21,14 +21,14 @@ export async function GET(request: Request) {
   if (!resolved.ok) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
   }
-  const child = resolved.child as any;
+  const child = resolved.child;
 
   const pendingQuests = await prisma.questInstance.findMany({
     where: { childId: child.id, status: "REPORTED" },
     include: { template: true },
   });
 
-  const templateIds = Array.from(new Set((pendingQuests as any[]).map((q) => q.templateId)));
+  const templateIds = Array.from(new Set(pendingQuests.map((q) => q.templateId)));
   const declarations = templateIds.length
     ? await prisma.questDeclaration.findMany({
         where: { childId: child.id, templateId: { in: templateIds } },
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     STUDY: pendingStudyPt,
     STAMINA: pendingStaminaPt,
     LIFE: pendingLifePt,
-  } = pendingXpByCategory(pendingQuests as any[], declarations);
+  } = pendingXpByCategory(pendingQuests, declarations);
 
   return NextResponse.json({
     name: child.monsterName || child.name || "ぼうけんしゃ",
