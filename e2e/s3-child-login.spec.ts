@@ -61,7 +61,6 @@ test.describe("S3: 子供ログイン", () => {
     // ページ内で toUpperCase 変換が行われるかを確認
     const input = page.locator('input[placeholder="ABC123"]');
     await input.fill("vjzqsh");
-    const value = await input.inputValue();
     // JavaScriptによりUI上ではUpperCaseになるが、最終submitで正しく処理される
     // (実際の変換はonChange内で行われる)
     await page.fill('input[placeholder="1234"]', "0321");

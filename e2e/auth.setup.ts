@@ -8,7 +8,7 @@
 import { test as setup, expect } from "./fixtures";
 import path from "path";
 import fs from "fs";
-import { AUTH_DIR, VERCEL_BASE_URL, createBrowserContext, getBypassHeaders } from "./credentials";
+import { AUTH_DIR, createBrowserContext, getBypassHeaders } from "./credentials";
 
 const CREDENTIALS_FILE = path.join(AUTH_DIR, "qa-credentials.json");
 
