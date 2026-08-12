@@ -118,6 +118,9 @@ export function useChildQuests(): UseChildQuestsResult {
   }
 
   useEffect(() => {
+    // マウント時に一度だけ今日のクエストを取得する。fetchQuests内部でsetLoading/setQuestsを呼ぶが、
+    // 外部API（サーバー）との同期が目的でありレンダー時算出はできないためuseEffect内が正しい。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchQuests();
 
     const supabase = createClient();
