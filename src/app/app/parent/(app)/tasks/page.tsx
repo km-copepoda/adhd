@@ -85,6 +85,9 @@ export default function TasksPage() {
   }
 
   useEffect(() => {
+    // マウント時に一度だけタスク・子供一覧を取得する。fetchTasks/fetchChildren内部でsetState系を呼ぶが、
+    // 外部API（サーバー）との同期が目的でありレンダー時算出はできないためuseEffect内が正しい。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
   }, []);
 
