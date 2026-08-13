@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/treasures/fulfill/[id]/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser, parentUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, parentUserWithFamily, treasureLog } from "../../helpers/fixtures";
 import { makeParams, makeRequest } from "../../helpers/request";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -23,7 +22,7 @@ describe("POST /api/treasures/fulfill/[id]", () => {
   });
 
   it("CHILD ロールで 403 (親のみ操作可)", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(
       makeRequest("/api/treasures/fulfill/t1", { fulfilled: true }),
       makeParams("t1"),
@@ -32,7 +31,7 @@ describe("POST /api/treasures/fulfill/[id]", () => {
   });
 
   it("対象 TreasureLog が無ければ 404", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
     const res = await POST(
       makeRequest("/api/treasures/fulfill/t-missing", { fulfilled: true }),
@@ -42,7 +41,7 @@ describe("POST /api/treasures/fulfill/[id]", () => {
   });
 
   it("別 family の TreasureLog で 404 (familyId スコープ)", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: "fam-1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
     mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
     const res = await POST(
       makeRequest("/api/treasures/fulfill/t1", { fulfilled: true }),
@@ -50,18 +49,19 @@ describe("POST /api/treasures/fulfill/[id]", () => {
     );
     expect(res.status).toBe(404);
     // findFirst の where に familyId スコープが入っていることを確認
-    const callArg = (mockPrisma.treasureLog.findFirst as any).mock.calls[0][0];
-    expect(callArg.where.child.familyId).toBe("fam-1");
+    const callArg = mockPrisma.treasureLog.findFirst.mock.calls[0][0];
+    const where = callArg?.where as { child?: { familyId?: unknown } };
+    expect(where.child?.familyId).toBe("fam-1");
   });
 
   it("親ごほうび当選 (item not null) を fulfilled=true で更新", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: "fam-1" }) as any);
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "t1",
-      itemId: "item-1",
-      fulfilled: false,
-    } as any);
-    mockPrisma.treasureLog.update.mockResolvedValue({ id: "t1", fulfilled: true } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "t1", itemId: "item-1", fulfilled: false }),
+    );
+    mockPrisma.treasureLog.update.mockResolvedValue(
+      treasureLog({ id: "t1", itemId: "item-1", fulfilled: true }),
+    );
 
     const res = await POST(
       makeRequest("/api/treasures/fulfill/t1", { fulfilled: true }),
@@ -79,13 +79,13 @@ describe("POST /api/treasures/fulfill/[id]", () => {
   });
 
   it("fulfilled=false で取り消し可能 (誤チェック復旧用)", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: "fam-1" }) as any);
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "t1",
-      itemId: "item-1",
-      fulfilled: true,
-    } as any);
-    mockPrisma.treasureLog.update.mockResolvedValue({ id: "t1", fulfilled: false } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "t1", itemId: "item-1", fulfilled: true }),
+    );
+    mockPrisma.treasureLog.update.mockResolvedValue(
+      treasureLog({ id: "t1", itemId: "item-1", fulfilled: false }),
+    );
 
     const res = await POST(
       makeRequest("/api/treasures/fulfill/t1", { fulfilled: false }),
@@ -101,13 +101,15 @@ describe("POST /api/treasures/fulfill/[id]", () => {
   });
 
   it("コレクション獲得 (itemId=null) は 400 (実物受け渡しが無いので fulfilled の意味なし)", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: "fam-1" }) as any);
-    mockPrisma.treasureLog.findFirst.mockResolvedValue({
-      id: "t-col",
-      itemId: null,
-      collectionItemId: "summer-01",
-      fulfilled: false,
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({
+        id: "t-col",
+        itemId: null,
+        collectionItemId: "summer-01",
+        fulfilled: false,
+      }),
+    );
 
     const res = await POST(
       makeRequest("/api/treasures/fulfill/t-col", { fulfilled: true }),
@@ -118,9 +120,9 @@ describe("POST /api/treasures/fulfill/[id]", () => {
   });
 
   it("body.fulfilled が boolean でなければ 400", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: "fam-1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
     const res = await POST(
-      makeRequest("/api/treasures/fulfill/t1", { fulfilled: "yes" } as any),
+      makeRequest("/api/treasures/fulfill/t1", { fulfilled: "yes" }),
       makeParams("t1"),
     );
     expect(res.status).toBe(400);
