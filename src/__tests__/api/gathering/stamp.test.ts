@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/gathering/stamp/route";
 import { GET as GET_TODAY } from "@/app/api/gathering/stamp/today/route";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { sendPushToChild } from "@/lib/push";
 import { triggerStampSentLog } from "@/lib/bulletinLog";
-import { makeRequest } from "../../helpers/request";
 import { childUser, parentUser } from "../../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
@@ -24,20 +24,20 @@ beforeEach(() => {
 describe("POST /api/gathering/stamp", () => {
   it("未認証は401", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(401);
   });
 
   it("PARENTは401（子供専用）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(401);
   });
 
   it("グループ未参加は404", async () => {
     mockGetCurrentUser.mockResolvedValue(childUser() as never);
     vi.mocked(prisma.gatheringMember.findUnique).mockResolvedValue(null);
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(404);
   });
 
@@ -48,7 +48,7 @@ describe("POST /api/gathering/stamp", () => {
       group: { members: [] },
     } as never);
     vi.mocked(prisma.stamp.findUnique).mockResolvedValue({ id: "s-1" } as never);
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(409);
     const data = await res.json();
     expect(data.error).toContain("今日");
@@ -71,7 +71,7 @@ describe("POST /api/gathering/stamp", () => {
     // 並行実行のため mockResolvedValueOnce では順序保証できないので一律 0 を返す
     vi.mocked(prisma.questInstance.count).mockResolvedValue(0);
 
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(200);
 
     // Stamp 作成
@@ -103,7 +103,7 @@ describe("POST /api/gathering/stamp", () => {
       .mockResolvedValueOnce(3) // total
       .mockResolvedValueOnce(1); // done → IN_PROGRESS
 
-    await POST(makeRequest("/api/gathering/stamp", {}));
+    await POST();
 
     const payload = mockSendPush.mock.calls[0][1];
     // 送信者の monsterName を優先
@@ -127,19 +127,24 @@ describe("POST /api/gathering/stamp", () => {
     vi.mocked(prisma.stamp.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.stamp.create).mockResolvedValue({ id: "s-1" } as never);
     // 各 childId ごとに total/done を返す
-    vi.mocked(prisma.questInstance.count).mockImplementation((args: never) => {
-      const a = args as { where: { childId: string; status?: unknown } };
-      const isDoneCount = !!a.where.status;
-      if (a.where.childId === "child-2") {
-        return Promise.resolve(isDoneCount ? 3 : 3) as never; // DONE
+    vi.mocked(prisma.questInstance.count).mockImplementation((args) => {
+      const where = args?.where as { childId?: string; status?: unknown } | undefined;
+      const isDoneCount = !!where?.status;
+      let result: number;
+      if (where?.childId === "child-2") {
+        result = isDoneCount ? 3 : 3; // DONE
+      } else if (where?.childId === "child-3") {
+        result = isDoneCount ? 1 : 3; // IN_PROGRESS
+      } else {
+        result = 0;
       }
-      if (a.where.childId === "child-3") {
-        return Promise.resolve(isDoneCount ? 1 : 3) as never; // IN_PROGRESS
-      }
-      return Promise.resolve(0) as never;
+      // Prisma.PrismaPromise は `[Symbol.toStringTag]` プロパティを要求し、
+      // 通常の Promise では構造的に代入できない。テストのモック実装として
+      // ランタイムの挙動には影響しないため `as unknown as` で表現する。
+      return Promise.resolve(result) as unknown as Prisma.PrismaPromise<number>;
     });
 
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(200);
 
     const pushedIds = mockSendPush.mock.calls.map((c) => c[0]);
@@ -161,7 +166,7 @@ describe("POST /api/gathering/stamp", () => {
       .mockResolvedValueOnce(3)
       .mockResolvedValueOnce(0);
 
-    await POST(makeRequest("/api/gathering/stamp", {}));
+    await POST();
     expect(mockSendPush).toHaveBeenCalledTimes(1);
     expect(mockSendPush.mock.calls[0][0]).toBe("child-2");
   });
@@ -178,7 +183,7 @@ describe("POST /api/gathering/stamp", () => {
       Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
     );
 
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(409);
   });
 
@@ -192,7 +197,7 @@ describe("POST /api/gathering/stamp", () => {
     vi.mocked(prisma.stamp.create).mockResolvedValue({ id: "s-1" } as never);
     vi.mocked(prisma.questInstance.count).mockResolvedValue(0);
 
-    const res = await POST(makeRequest("/api/gathering/stamp", {}));
+    const res = await POST();
     expect(res.status).toBe(200);
 
     expect(mockTriggerStampSentLog).toHaveBeenCalledTimes(1);
@@ -210,7 +215,7 @@ describe("POST /api/gathering/stamp", () => {
       Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
     );
 
-    await POST(makeRequest("/api/gathering/stamp", {}));
+    await POST();
     expect(mockTriggerStampSentLog).not.toHaveBeenCalled();
   });
 
@@ -222,7 +227,7 @@ describe("POST /api/gathering/stamp", () => {
     } as never);
     vi.mocked(prisma.stamp.findUnique).mockResolvedValue({ id: "s-1" } as never);
 
-    await POST(makeRequest("/api/gathering/stamp", {}));
+    await POST();
     expect(mockTriggerStampSentLog).not.toHaveBeenCalled();
   });
 });

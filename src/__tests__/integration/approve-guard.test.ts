@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
+import type { Family, TaskTemplate, User } from "@/generated/prisma/client";
 import {
     prisma,
     mockAsUser,
@@ -12,10 +13,10 @@ import {
 } from "./helpers";
 
 describe("承認ガード（不正ステータス遷移の防止）", () => {
-    let family: any;
-    let parent: any;
-    let child: any;
-    let task: any;
+    let family: Family;
+    let parent: User;
+    let child: User;
+    let task: TaskTemplate;
 
     beforeAll(async () => {
         await cleanAll();
@@ -33,7 +34,7 @@ describe("承認ガード（不正ステータス遷移の防止）", () => {
     it("PENDINGタスクを承認しようとすると400を返し、XPが加算されないこと", async () => {
         const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-05"), "PENDING");
 
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         const res = await approveQuest(
             makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
             makeParams(quest.id),
@@ -54,7 +55,7 @@ describe("承認ガード（不正ステータス遷移の防止）", () => {
         // 正規フローで確認する
         const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-06"), "REPORTED");
 
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         const res1 = await approveQuest(
             makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
             makeParams(quest.id),
@@ -81,7 +82,7 @@ describe("承認ガード（不正ステータス遷移の防止）", () => {
     it("REJECTEDクエストを承認しようとすると400を返すこと", async () => {
         const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-07"), "REJECTED");
 
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         const res = await approveQuest(
             makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
             makeParams(quest.id),
