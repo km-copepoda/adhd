@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/auth/child-rejoin/route";
-import { prisma } from "@/lib/prisma";
 import { makeRequest } from "../../helpers/request";
-import { family, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { family, childUser, parentUser } from "../../helpers/fixtures";
 import { mockSupabaseUser } from "../../helpers/auth-mock";
-
-const mockPrisma = vi.mocked(prisma);
 
 const req = (body: Record<string, unknown>) => makeRequest("/api/auth/child-rejoin", body);
 
@@ -14,9 +12,11 @@ beforeEach(() => vi.clearAllMocks());
 describe("POST /api/auth/child-rejoin", () => {
   it("正しいコードの組み合わせで再参加できること", async () => {
     mockSupabaseUser({ id: "sup-new" }); // anonymous session (no email)
-    mockPrisma.family.findUnique.mockResolvedValue(family() as any);
-    mockPrisma.user.findUnique.mockResolvedValue(childUser({ monsterName: "ドラゴン", side: "DARK" }) as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.family.findUnique.mockResolvedValue(family());
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ monsterName: "ドラゴン", side: "DARK" }),
+    );
+    mockPrisma.user.update.mockResolvedValue(childUser({ supabaseId: "sup-new" }));
 
     const res = await POST(req({ familyCode: "ABC123", childCode: "1234" }));
     const json = await res.json();
@@ -59,7 +59,7 @@ describe("POST /api/auth/child-rejoin", () => {
 
   it("子どもコードが見つからない場合、404を返すこと", async () => {
     mockSupabaseUser({ id: "sup-new" });
-    mockPrisma.family.findUnique.mockResolvedValue(family() as any);
+    mockPrisma.family.findUnique.mockResolvedValue(family());
     mockPrisma.user.findUnique.mockResolvedValue(null);
     const res = await POST(req({ familyCode: "ABC123", childCode: "9999" }));
     expect(res.status).toBe(404);
@@ -67,17 +67,17 @@ describe("POST /api/auth/child-rejoin", () => {
 
   it("PARENTロールのユーザーでは再参加できないこと", async () => {
     mockSupabaseUser({ id: "sup-new" });
-    mockPrisma.family.findUnique.mockResolvedValue(family() as any);
-    mockPrisma.user.findUnique.mockResolvedValue({ id: "p-1", role: "PARENT" } as any);
+    mockPrisma.family.findUnique.mockResolvedValue(family());
+    mockPrisma.user.findUnique.mockResolvedValue(parentUser({ id: "p-1" }));
     const res = await POST(req({ familyCode: "ABC123", childCode: "1234" }));
     expect(res.status).toBe(404);
   });
 
   it("ファミリーコードを大文字変換して検索すること", async () => {
     mockSupabaseUser({ id: "sup-new" });
-    mockPrisma.family.findUnique.mockResolvedValue(family() as any);
-    mockPrisma.user.findUnique.mockResolvedValue(childUser() as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.family.findUnique.mockResolvedValue(family());
+    mockPrisma.user.findUnique.mockResolvedValue(childUser());
+    mockPrisma.user.update.mockResolvedValue(childUser({ supabaseId: "sup-new" }));
 
     await POST(req({ familyCode: "abc123", childCode: "5678" }));
     expect(mockPrisma.family.findUnique).toHaveBeenCalledWith({ where: { code: "ABC123" } });
@@ -85,9 +85,11 @@ describe("POST /api/auth/child-rejoin", () => {
 
   it("detachはCHILDロールのみ対象にし、PARENTのsupabaseIdを奪わないこと", async () => {
     mockSupabaseUser({ id: "sup-new" });
-    mockPrisma.family.findUnique.mockResolvedValue(family() as any);
-    mockPrisma.user.findUnique.mockResolvedValue(childUser({ monsterName: "ドラゴン", side: "DARK" }) as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.family.findUnique.mockResolvedValue(family());
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ monsterName: "ドラゴン", side: "DARK" }),
+    );
+    mockPrisma.user.update.mockResolvedValue(childUser({ supabaseId: "sup-new" }));
 
     await POST(req({ familyCode: "ABC123", childCode: "1234" }));
 
