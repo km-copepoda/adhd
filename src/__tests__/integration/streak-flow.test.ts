@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
+import type { Family, TaskTemplate, User } from "@/generated/prisma/client";
 import {
   prisma,
   mockAsUser,
@@ -12,10 +13,10 @@ import {
 } from "./helpers";
 
 describe("ストリークフロー（連続達成→マイルストーン）", () => {
-  let family: any;
-  let parent: any;
-  let child: any;
-  let task: any;
+  let family: Family;
+  let parent: User;
+  let child: User;
+  let task: TaskTemplate;
 
   beforeAll(async () => {
     await cleanAll();
@@ -37,7 +38,7 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
     const day1 = new Date("2026-03-13");
     const quest = await seedQuestForDate(task.id, child.id, day1, "REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     const res = await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),
@@ -53,7 +54,7 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
     const day2 = new Date("2026-03-14");
     const quest = await seedQuestForDate(task.id, child.id, day2, "REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),
@@ -72,7 +73,7 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
     const day3 = new Date("2026-03-15");
     const quest = await seedQuestForDate(task.id, child.id, day3, "REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),
@@ -96,7 +97,7 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
     const day5 = new Date("2026-03-17");
     const quest = await seedQuestForDate(task.id, child.id, day5, "REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),
@@ -112,7 +113,7 @@ describe("ストリークフロー（連続達成→マイルストーン）", (
     const day6 = new Date("2026-03-18");
     const quest = await seedQuestForDate(task.id, child.id, day6, "SKIP_REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),

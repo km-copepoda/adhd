@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
 import { POST as rebirthQuest } from "@/app/api/rebirth/route";
+import type { Family, TaskTemplate, User } from "@/generated/prisma/client";
 import {
     prisma,
     mockAsUser,
@@ -13,10 +14,10 @@ import {
 } from "./helpers";
 
 describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値）", () => {
-    let family: any;
-    let parent: any;
-    let child: any;
-    let task: any;
+    let family: Family;
+    let parent: User;
+    let child: User;
+    let task: TaskTemplate;
 
     beforeAll(async () => {
         await cleanAll();
@@ -32,7 +33,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
         // stage0, 1ptで孵化（初回閾値=1pt）
         const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-01"), "REPORTED");
 
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         await approveQuest(
             makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
             makeParams(quest.id),
@@ -62,7 +63,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
 
         const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-10"), "REPORTED");
 
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         await approveQuest(
             makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
             makeParams(quest.id),
@@ -86,7 +87,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
         });
 
         const questRebirth = await seedQuestForDate(task.id, child.id, new Date("2026-04-20"), "REPORTED");
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         await approveQuest(
             makeRequest(`/api/approve/${questRebirth.id}`, { action: "approve" }),
             makeParams(questRebirth.id),
@@ -97,7 +98,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
         expect(c!.rebirthPending).toBe(true);
 
         // 転生実行
-        mockAsUser({ ...child, familyId: family.id, role: "CHILD" });
+        mockAsUser({ ...child, family, role: "CHILD" });
         await rebirthQuest(makeRequest("/api/rebirth", { eggType: "STUDY" }));
 
         c = await prisma.user.findUnique({ where: { id: child.id } });
@@ -106,7 +107,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
 
         // 1pt では孵化しないこと（転生後は REBIRTH_EGG_THRESHOLD=5pt）
         const quest1pt = await seedQuestForDate(task.id, child.id, new Date("2026-04-25"), "REPORTED");
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         await approveQuest(
             makeRequest(`/api/approve/${quest1pt.id}`, { action: "approve" }),
             makeParams(quest1pt.id),
@@ -123,7 +124,7 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
             date.setDate(date.getDate() + (i * 2));
 
             const q = await seedQuestForDate(task.id, child.id, date, "REPORTED");
-            mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+            mockAsUser({ ...parent, family, role: "PARENT" });
             await approveQuest(
                 makeRequest(`/api/approve/${q.id}`, { action: "approve" }),
                 makeParams(q.id),
@@ -136,10 +137,10 @@ describe("進化詳細（collectedPaths/monsterLevels/転生後の孵化閾値�
 });
 
 describe("ストリークマイルストーンボーナスでの進化時にcollectedPathsが更新されること", () => {
-    let family: any;
-    let parent: any;
-    let child: any;
-    let task: any;
+    let family: Family;
+    let parent: User;
+    let child: User;
+    let task: TaskTemplate;
 
     beforeAll(async () => {
         await cleanAll();
@@ -168,7 +169,7 @@ describe("ストリークマイルストーンボーナスでの進化時にcoll
             const date = new Date(`2026-04-${i + 1}`);
             const q= await seedQuestForDate(task.id, child.id, date, "REPORTED");
 
-            mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+            mockAsUser({ ...parent, family, role: "PARENT" });
             await approveQuest(
                 makeRequest(`/api/approve/${q.id}`, { action: "approve" }),
                 makeParams(q.id),
