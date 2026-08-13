@@ -102,14 +102,22 @@ describe("calcCarryOverMissedCount", () => {
 
   it("停止中は「現在停止区間」を effectiveIntervalsFor で含めれば count が凍結される (repeatDays 空)", () => {
     // 5/1 持ち越し, pausedAt=5/4 (以降 today=5/8 まで停止中)
-    // 現在停止区間 [5/4, 5/8] を含めると 5/1..5/3 の 3 日だけ残るが、
-    // Math.max(1, ...) は使わない(停止分ぶんは差し引きたい)。
-    // spec: pausedAt 側で凍結 = 「5/4 に到達したのが直近の 4 日目」
-    // 実装は effectiveIntervalsFor + calcCarryOverMissedCount(today=実今日) で表現
+    // 停止開始日 (5/4) 自体はまだ active だった日なので減算対象に含めない。
+    // 現在停止区間は (5/4, 5/8] = 5/5..5/8 の 4 日 → 5/1..5/8 の 8 日から 4 日引いて 4 日
+    // (= 停止直前の 5/1..5/4 の値 4 日で凍結される)
     const pausedAt = d("2026-05-04");
     const intervals = effectiveIntervalsFor([], pausedAt, today);
-    // 5/1..5/8 の 8 日から停止 5/4..5/8 の 5 日を除外 → 3 日
-    expect(calcCarryOverMissedCount(d("2026-05-01"), today, [], intervals)).toBe(3);
+    expect(calcCarryOverMissedCount(d("2026-05-01"), today, [], intervals)).toBe(4);
+  });
+
+  it("停止開始当日は carryOverMissedCount が停止直前の値から1日巻き戻らない", () => {
+    // pausedAt === today（停止した瞬間）でも、5/1..5/4 の 4 日のまま
+    const pausedAt = d("2026-05-04");
+    const pauseDayToday = d("2026-05-04");
+    const intervals = effectiveIntervalsFor([], pausedAt, pauseDayToday);
+    expect(
+      calcCarryOverMissedCount(d("2026-05-01"), pauseDayToday, [], intervals),
+    ).toBe(4);
   });
 
   it("停止期間中の repeatDays 出現は除外される", () => {
@@ -160,19 +168,27 @@ describe("effectiveIntervalsFor", () => {
     expect(effectiveIntervalsFor(past, null, today)).toEqual(past);
   });
 
-  it("停止中なら [pausedAt, today] を追加する（凍結を今日まで延長）", () => {
+  it("停止中なら (pausedAt翌日, today] を追加する（凍結を今日まで延長。開始日自体は除外）", () => {
+    // 停止開始日は「押すまでは active だった日」なので減算対象に含めない（翌日から today まで）
     const pausedAt = d("2026-05-15");
     const past = [{ start: d("2026-05-01"), end: d("2026-05-03") }];
     expect(effectiveIntervalsFor(past, pausedAt, today)).toEqual([
       ...past,
-      { start: pausedAt, end: today },
+      { start: d("2026-05-16"), end: today },
     ]);
   });
 
-  it("intervals 空でも停止中なら 1 件返す", () => {
+  it("intervals 空でも停止中なら 1 件返す（開始日翌日から）", () => {
     const pausedAt = d("2026-05-15");
     expect(effectiveIntervalsFor([], pausedAt, today)).toEqual([
-      { start: pausedAt, end: today },
+      { start: d("2026-05-16"), end: today },
+    ]);
+  });
+
+  it("today が停止開始当日と同じなら (pausedAt翌日, today] は空区間になる", () => {
+    const pausedAt = d("2026-05-20"); // == today
+    expect(effectiveIntervalsFor([], pausedAt, today)).toEqual([
+      { start: d("2026-05-21"), end: d("2026-05-20") },
     ]);
   });
 });
@@ -204,6 +220,24 @@ describe("activeDaysBetween", () => {
       { start: d("2026-05-10"), end: d("2026-05-12") },
     ];
     expect(activeDaysBetween(d("2026-05-01"), d("2026-05-20"), intervals)).toBe(14);
+  });
+
+  it("停止開始当日に effectiveIntervalsFor 経由で凍結しても、直前の値から1日巻き戻らない", () => {
+    // 昨日 SKIPPED、今日 pause した直後: 「1日前スキップ」のまま据え置かれるべき
+    // (停止開始日を丸ごと減算すると 0 になり「今日スキップ」に見えてしまうのが元のバグ)
+    const rawSkip = d("2026-05-07");
+    const pausedAt = d("2026-05-08");
+    const today = d("2026-05-08");
+    const intervals = effectiveIntervalsFor([], pausedAt, today);
+    expect(activeDaysBetween(rawSkip, today, intervals)).toBe(1);
+  });
+
+  it("停止開始から数日経過しても、開始当日時点の値のまま凍結され続ける", () => {
+    const rawSkip = d("2026-05-07");
+    const pausedAt = d("2026-05-08");
+    const laterToday = d("2026-05-11");
+    const intervals = effectiveIntervalsFor([], pausedAt, laterToday);
+    expect(activeDaysBetween(rawSkip, laterToday, intervals)).toBe(1);
   });
 });
 

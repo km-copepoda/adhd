@@ -64,12 +64,16 @@ export function totalPausedDaysInRange(
 }
 
 /**
- * 過去の停止期間に「現在停止中なら [pausedAt, today]」を追加した effective interval 一覧を返す。
+ * 過去の停止期間に「現在停止中なら (pausedAt翌日, today]」を追加した effective interval 一覧を返す。
  * これを `calcCarryOverMissedCount` や `activeDaysBetween` に渡すことで、
  * 「停止中は today の分もカウントから除外 = 実質的に凍結」を単一パスで表現できる。
  *
+ * 停止開始日 (pausedAt 当日) は、停止ボタンを押すまでは active だった日なので減算対象に含めない。
+ * ここを inclusive にすると、停止した瞬間に経過日数・出現回数が凍結前の値から1日巻き戻ってしまう
+ * （例: 昨日 SKIPPED → 今日停止した直後に「1日前」→「今日」に見えてしまう）。
+ *
  * 実今日 (`today`) を各計算で使い続けるため、「effective today シフト + interval 除外」の
- * 二重減算に陥らないのがポイント。
+ * 二重減算に陥らないのもポイント。
  */
 export function effectiveIntervalsFor(
   pauseIntervals: PauseInterval[],
@@ -77,7 +81,8 @@ export function effectiveIntervalsFor(
   today: Date,
 ): PauseInterval[] {
   if (!pausedAt) return pauseIntervals;
-  return [...pauseIntervals, { start: pausedAt, end: today }];
+  const dayAfterPausedAt = new Date(jstDateOf(pausedAt).getTime() + MS_PER_DAY);
+  return [...pauseIntervals, { start: dayAfterPausedAt, end: today }];
 }
 
 /**
