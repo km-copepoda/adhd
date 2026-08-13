@@ -1,16 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { after } from "next/server";
 import { POST } from "@/app/api/parent/child-view/rebirth/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { triggerMonsterRebornLog } from "@/lib/bulletinLog";
-import { parentUser, childUser } from "../../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, childUser } from "../../../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerMonsterRebornLog: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockAfter = vi.mocked(after);
 const mockTriggerRebornLog = vi.mocked(triggerMonsterRebornLog);
@@ -34,28 +33,28 @@ describe("POST /api/parent/child-view/rebirth", () => {
   });
 
   it("CHILD ロールでは 403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(makeReq({ childId: "child-1" }));
     expect(res.status).toBe(403);
   });
 
   it("childId 未指定で 400 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(makeReq({}));
     expect(res.status).toBe(400);
   });
 
   it("別 family の childId で 404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await POST(makeReq({ childId: "child-other" }));
     expect(res.status).toBe(404);
   });
 
   it("rebirthPending=false の子供では 400 を返す（転生待ちでない）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", rebirthPending: false }) as any,
+      childUser({ id: "child-1", rebirthPending: false }),
     );
     const res = await POST(makeReq({ childId: "child-1" }));
     expect(res.status).toBe(400);
@@ -63,7 +62,7 @@ describe("POST /api/parent/child-view/rebirth", () => {
   });
 
   it("正常系: 卵ボーナス無し（NORMAL 卵）でステージ・ポイントをリセットする", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
       childUser({
         id: "child-1",
@@ -73,9 +72,9 @@ describe("POST /api/parent/child-view/rebirth", () => {
         studyPt: 10,
         staminaPt: 5,
         lifePt: 5,
-      }) as any,
+      }),
     );
-    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await POST(makeReq({ childId: "child-1" }));
     expect(res.status).toBe(200);
@@ -95,15 +94,15 @@ describe("POST /api/parent/child-view/rebirth", () => {
   });
 
   it("usedEggBonuses は触らない（NORMAL なので使用済みに記録しない）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
       childUser({
         id: "child-1",
         rebirthPending: true,
         usedEggBonuses: '["STUDY"]',
-      }) as any,
+      }),
     );
-    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
 
     await POST(makeReq({ childId: "child-1" }));
 
@@ -113,23 +112,23 @@ describe("POST /api/parent/child-view/rebirth", () => {
   });
 
   it("rebirthPending=trueで読み込んだ後、update時には他経路で既に転生済み(count=0)の場合は400を返す（TOCTOUレース）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", rebirthPending: true, usedEggBonuses: "[]" }) as any,
+      childUser({ id: "child-1", rebirthPending: true, usedEggBonuses: "[]" }),
     );
     // 子供本人が同時に転生実行済みのケースを模擬
-    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 } as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 });
 
     const res = await POST(makeReq({ childId: "child-1" }));
     expect(res.status).toBe(400);
   });
 
   it("after() で MonsterReborn 掲示板ログをスケジュールする", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", rebirthPending: true, usedEggBonuses: "[]" }) as any,
+      childUser({ id: "child-1", rebirthPending: true, usedEggBonuses: "[]" }),
     );
-    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
 
     await POST(makeReq({ childId: "child-1" }));
 

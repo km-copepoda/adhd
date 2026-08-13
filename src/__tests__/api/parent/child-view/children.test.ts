@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/parent/child-view/children/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { parentUser, childUser } from "../../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, childUser } from "../../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -19,21 +18,23 @@ describe("GET /api/parent/child-view/children", () => {
   });
 
   it("CHILD ロールの場合、403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET();
     expect(res.status).toBe(403);
   });
 
   it("familyId が無い親の場合、403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await GET();
     expect(res.status).toBe(403);
   });
 
   it("正常系: 家族内の CHILD を返し、モンスター画像とXPバー描画に必要なフィールドを含む", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findMany.mockResolvedValue([
-      {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    // `select` クエリでも DeepMockProxy の mockResolvedValue はベースの User 完全型を要求するため、
+    // childUser フィクスチャで完全な値を用意する（実装は select で絞るので余剰フィールドは無視される）。
+    const children = [
+      childUser({
         id: "child-1",
         name: "太郎",
         monsterName: "ドラゴン",
@@ -45,8 +46,8 @@ describe("GET /api/parent/child-view/children", () => {
         lifePt: 0,
         collectedPaths: "[]",
         rebirthEggBonus: null,
-      },
-      {
+      }),
+      childUser({
         id: "child-2",
         name: "花子",
         monsterName: "ユニコーン",
@@ -58,8 +59,9 @@ describe("GET /api/parent/child-view/children", () => {
         lifePt: 0,
         collectedPaths: "[]",
         rebirthEggBonus: null,
-      },
-    ] as any);
+      }),
+    ];
+    mockPrisma.user.findMany.mockResolvedValue(children);
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -88,7 +90,7 @@ describe("GET /api/parent/child-view/children", () => {
   });
 
   it("子供が居ない場合、空配列を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findMany.mockResolvedValue([]);
 
     const res = await GET();
