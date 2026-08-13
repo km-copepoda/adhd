@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { getFamilyPlan, countActiveTasksForChild } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
+import { closedPauseInterval } from "@/lib/taskSummary";
 
 export async function POST(
   request: Request,
@@ -21,15 +22,24 @@ export async function POST(
     return NextResponse.json({ error: "paused (boolean) は必須です" }, { status: 400 });
   }
 
-  // 再開 (paused=false) 時のみプラン上限を再確認する。停止は無制限。
-  if (body.paused === false) {
-    const target = await prisma.taskTemplate.findUnique({
-      where: { id, familyId: user.familyId },
-      select: { assignedChildId: true },
-    });
-    if (!target) {
-      return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
-    }
+  // 現在の状態を先に取得して冪等性を担保する:
+  //  - paused=true が重複到達しても既存 pausedAt を上書きしない（stale リクエスト対策）
+  //  - paused=false 時は pauseIntervals に今回停止分を追記し、プラン上限チェックを再確認
+  const target = await prisma.taskTemplate.findUnique({
+    where: { id, familyId: user.familyId },
+    select: { assignedChildId: true, pausedAt: true, pauseIntervals: true },
+  });
+  if (!target) {
+    return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
+  }
+
+  let appendedIntervals: { start: string; end: string }[] | null = null;
+  let nextPausedAt: Date | null;
+  if (body.paused) {
+    // 既に停止中なら pausedAt を保持（冪等）。未停止なら現在時刻をセット。
+    nextPausedAt = target.pausedAt ?? new Date();
+  } else {
+    nextPausedAt = null;
     if (target.assignedChildId) {
       const plan = await getFamilyPlan(user.familyId);
       const activeCount = await countActiveTasksForChild(target.assignedChildId);
@@ -47,13 +57,37 @@ export async function POST(
         );
       }
     }
+    // 実際に停止中だった場合のみインターバルを追記（重複再開の防御）
+    if (target.pausedAt) {
+      const prior = Array.isArray(target.pauseIntervals)
+        ? (target.pauseIntervals as { start: string; end: string }[])
+        : [];
+      const closed = closedPauseInterval(target.pausedAt, new Date());
+      appendedIntervals = [
+        ...prior,
+        { start: closed.start.toISOString(), end: closed.end.toISOString() },
+      ];
+    }
   }
 
-  const task = await prisma.taskTemplate.update({
-    where: { id, familyId: user.familyId },
-    data: { pausedAt: body.paused ? new Date() : null },
+  // where に読み取り時点の pausedAt を含め、書き込みを条件付きにする。
+  // 別タブ等からの並行リクエストが同じ古い pausedAt を読んで別々に書き込むと、
+  // 後勝ちで一方の変更（停止/再開の履歴）が黙って消えてしまうため、
+  // 読み取り後に状態が変わっていれば count=0 になり検出できるようにする。
+  const result = await prisma.taskTemplate.updateMany({
+    where: { id, familyId: user.familyId, pausedAt: target.pausedAt },
+    data: {
+      pausedAt: nextPausedAt,
+      ...(appendedIntervals ? { pauseIntervals: appendedIntervals } : {}),
+    },
   });
+  if (result.count === 0) {
+    return NextResponse.json(
+      { error: "他の操作と競合しました。もう一度お試しください。", code: "PAUSE_STATE_CONFLICT" },
+      { status: 409 },
+    );
+  }
 
   rlog.info("Task pause state updated", { taskId: id, paused: body.paused, userId: user.id });
-  return NextResponse.json(task);
+  return NextResponse.json({ id, pausedAt: nextPausedAt });
 }

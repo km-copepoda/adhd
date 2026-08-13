@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PUT, PATCH, DELETE } from "@/app/api/tasks/[id]/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest, makeParams } from "../../helpers/request";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, childUser, taskTemplate, questInstance } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -22,15 +21,15 @@ describe("PUT /api/tasks/[id]", () => {
   });
 
   it("CHILDロールの場合、403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await PUT(makeRequest("/api/tasks/t1", { title: "test" }), makeParams("t1"));
     expect(res.status).toBe(403);
   });
 
   it("PARENTがタスクを更新できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    const updated = { id: "t1", title: "更新後" };
-    mockPrisma.taskTemplate.update.mockResolvedValue(updated as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    const updated = taskTemplate({ id: "t1", title: "更新後" });
+    mockPrisma.taskTemplate.update.mockResolvedValue(updated);
 
     const res = await PUT(
       makeRequest("/api/tasks/t1", {
@@ -57,8 +56,8 @@ describe("PUT /api/tasks/[id]", () => {
   });
 
   it("photoBonus=true を指定してタスクを更新できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", photoBonus: true } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1", photoBonus: true }));
 
     const res = await PUT(
       makeRequest("/api/tasks/t1", {
@@ -80,7 +79,7 @@ describe("PUT /api/tasks/[id]", () => {
   });
 
   it("familyIdがnullのPARENTは403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await PUT(
       makeRequest("/api/tasks/t1", { title: "test" }),
       makeParams("t1")
@@ -99,14 +98,14 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("CHILDロールの場合、403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await PATCH(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     expect(res.status).toBe(403);
   });
 
   it("PARENTが仮タスクを承認（createdBy→PARENT）できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", createdBy: "PARENT" } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1", createdBy: "PARENT" }));
 
     const res = await PATCH(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     const json = await res.json();
@@ -129,9 +128,9 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("子供が自分の一時タスクを削除できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({ id: "t1", createdBy: "CHILD" } as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", isActive: false } as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(taskTemplate({ id: "t1", createdBy: "CHILD" }));
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1", isActive: false }));
 
     const res = await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     const json = await res.json();
@@ -144,7 +143,7 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("子供が他人のタスクを削除できないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.taskTemplate.findFirst.mockResolvedValue(null);
 
     const res = await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
@@ -152,40 +151,30 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("親が仮タスクを却下する際、APPROVED済みクエストのXPのみ差し引くこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      id: "t1",
-      createdBy: "CHILD",
-      photoBonus: false,
-      category: "STUDY",
+    const taskWithQuests = {
+      ...taskTemplate({ id: "t1", createdBy: "CHILD", photoBonus: false, category: "STUDY" }),
       quests: [
         {
-          id: "q1",
-          childId: "child-1",
-          status: "REPORTED",
-          deadlineBonusEarned: false,
-          photoUrl: null,
-          child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+          ...questInstance({ id: "q1", childId: "child-1", status: "REPORTED", deadlineBonusEarned: false, photoUrl: null }),
+          child: childUser({ id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 }),
         },
         {
-          id: "q2",
-          childId: "child-1",
-          status: "APPROVED",
-          deadlineBonusEarned: false,
-          photoUrl: null,
-          child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+          ...questInstance({ id: "q2", childId: "child-1", status: "APPROVED", deadlineBonusEarned: false, photoUrl: null }),
+          child: childUser({ id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 }),
         },
       ],
-    } as any);
+    };
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(taskWithQuests);
 
     // findUnique で最新データを取得（stale data対策）
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3,
-    } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 })
+    );
+    mockPrisma.user.update.mockResolvedValue(childUser());
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 });
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate());
 
     const res = await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     const json = await res.json();
@@ -209,40 +198,30 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("複数APPROVED クエストのXPが正しく累計で差し引かれること（stale data防止）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      id: "t1-multi",
-      createdBy: "CHILD",
-      photoBonus: true,
-      category: "STUDY",
+    const taskWithQuests = {
+      ...taskTemplate({ id: "t1-multi", createdBy: "CHILD", photoBonus: true, category: "STUDY" }),
       quests: [
         {
-          id: "q-a1",
-          childId: "child-1",
-          status: "APPROVED",
-          deadlineBonusEarned: true,
-          photoUrl: "photo.jpg",
-          child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+          ...questInstance({ id: "q-a1", childId: "child-1", status: "APPROVED", deadlineBonusEarned: true, photoUrl: "photo.jpg" }),
+          child: childUser({ id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 }),
         },
         {
-          id: "q-a2",
-          childId: "child-1",
-          status: "APPROVED",
-          deadlineBonusEarned: false,
-          photoUrl: null,
-          child: { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+          ...questInstance({ id: "q-a2", childId: "child-1", status: "APPROVED", deadlineBonusEarned: false, photoUrl: null }),
+          child: childUser({ id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 }),
         },
       ],
-    } as any);
+    };
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(taskWithQuests);
 
     // 最新のchildデータ
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3,
-    } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 })
+    );
+    mockPrisma.user.update.mockResolvedValue(childUser());
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 });
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate());
 
     await DELETE(makeRequest("/api/tasks/t1-multi", {}), makeParams("t1-multi"));
 
@@ -259,14 +238,14 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("親がPARENT作成タスクを削除する際、XP差し引きしないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      id: "t2",
-      createdBy: "PARENT",
-      quests: [],
-    } as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
+    const taskWithQuests = {
+      ...taskTemplate({ id: "t2", createdBy: "PARENT" }),
+      quests: [] as unknown[],
+    };
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(taskWithQuests);
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate());
 
     const res = await DELETE(makeRequest("/api/tasks/t2", {}), makeParams("t2"));
     const json = await res.json();
@@ -276,31 +255,25 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("XP差し引きで負数にならないこと（Math.max(0, ...)）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      id: "t3",
-      createdBy: "CHILD",
-      photoBonus: false,
-      category: "STAMINA",
+    const taskWithQuests = {
+      ...taskTemplate({ id: "t3", createdBy: "CHILD", photoBonus: false, category: "STAMINA" }),
       quests: [
         {
-          id: "q3",
-          childId: "child-2",
-          status: "APPROVED",
-          deadlineBonusEarned: false,
-          photoUrl: null,
-          child: { id: "child-2", studyPt: 2, staminaPt: 0, lifePt: 0 },
+          ...questInstance({ id: "q3", childId: "child-2", status: "APPROVED", deadlineBonusEarned: false, photoUrl: null }),
+          child: childUser({ id: "child-2", studyPt: 2, staminaPt: 0, lifePt: 0 }),
         },
       ],
-    } as any);
+    };
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(taskWithQuests);
 
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: "child-2", studyPt: 2, staminaPt: 0, lifePt: 0,
-    } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 } as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ id: "child-2", studyPt: 2, staminaPt: 0, lifePt: 0 })
+    );
+    mockPrisma.user.update.mockResolvedValue(childUser());
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate());
 
     await DELETE(makeRequest("/api/tasks/t3", {}), makeParams("t3"));
 
@@ -319,7 +292,7 @@ describe("DELETE /api/tasks/[id]", () => {
   // なく、親A が他 family のタスク ID を渡すと XP 剥奪 + REJECTED 反映が通ってしまう。
   // findUnique を family スコープ付きに変え、対象なしなら 404 を返す。
   it("親が他 family のタスクを削除しようとしても 404 を返す（IDOR 防止）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     // 他 family のタスクは findFirst で null を返す
     mockPrisma.taskTemplate.findFirst.mockResolvedValue(null);
 
@@ -336,7 +309,7 @@ describe("DELETE /api/tasks/[id]", () => {
 
   // 親が familyId を持たない不整合状態でも DELETE を通してはいけない (Deep defense)
   it("PARENT で familyId=null の場合 403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
 
     const res = await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     expect(res.status).toBe(403);
@@ -348,7 +321,7 @@ describe("DELETE /api/tasks/[id]", () => {
 // ─── IDOR 深層防御 (PATCH) ─────────────────────────
 describe("PATCH /api/tasks/[id] - IDOR 防御", () => {
   it("PARENT で familyId=null の場合 403 を返す (WHERE 句無効化 → 全件マッチ攻撃を防ぐ)", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await PATCH(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
     expect(res.status).toBe(403);
     expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();

@@ -3,6 +3,10 @@ import {
   computeOldestPendingDates,
   calcCarryOverMissedCount,
   computeLastSkippedDates,
+  totalPausedDaysInRange,
+  effectiveIntervalsFor,
+  activeDaysBetween,
+  closedPauseInterval,
 } from "@/lib/taskSummary";
 
 const d = (s: string) => new Date(s);
@@ -95,6 +99,238 @@ describe("calcCarryOverMissedCount", () => {
     expect(calcCarryOverMissedCount(today, today, [5])).toBe(1);
     // 該当曜日でなければ 0
     expect(calcCarryOverMissedCount(today, today, [1])).toBe(0);
+  });
+
+  it("停止中は「現在停止区間」を effectiveIntervalsFor で含めれば count が凍結される (repeatDays 空)", () => {
+    // 5/1 持ち越し, pausedAt=5/4 (以降 today=5/8 まで停止中)
+    // 停止開始日 (5/4) 自体はまだ active だった日なので減算対象に含めない。
+    // 現在停止区間は (5/4, 5/8] = 5/5..5/8 の 4 日 → 5/1..5/8 の 8 日から 4 日引いて 4 日
+    // (= 停止直前の 5/1..5/4 の値 4 日で凍結される)
+    const pausedAt = d("2026-05-04");
+    const intervals = effectiveIntervalsFor([], pausedAt, today);
+    expect(calcCarryOverMissedCount(d("2026-05-01"), today, [], intervals)).toBe(4);
+  });
+
+  it("停止開始当日は carryOverMissedCount が停止直前の値から1日巻き戻らない", () => {
+    // pausedAt === today（停止した瞬間）でも、5/1..5/4 の 4 日のまま
+    const pausedAt = d("2026-05-04");
+    const pauseDayToday = d("2026-05-04");
+    const intervals = effectiveIntervalsFor([], pausedAt, pauseDayToday);
+    expect(
+      calcCarryOverMissedCount(d("2026-05-01"), pauseDayToday, [], intervals),
+    ).toBe(4);
+  });
+
+  it("停止期間中の repeatDays 出現は除外される", () => {
+    // 5/1 (Fri) 〜 5/8 (Fri) の月水金: 5/1 Fri, 5/4 Mon, 5/6 Wed, 5/8 Fri = 4回
+    // 停止期間 5/4-5/7 の中の月(5/4)・水(5/6) を除外 → 5/1 Fri, 5/8 Fri = 2 回
+    const intervals = [{ start: d("2026-05-04"), end: d("2026-05-07") }];
+    expect(
+      calcCarryOverMissedCount(d("2026-05-01"), today, [1, 3, 5], intervals),
+    ).toBe(2);
+  });
+
+  it("停止期間が repeatDays を含まない場合はカウントに影響しない", () => {
+    // repeatDays=[1] (月のみ)、停止 5/2 (Sat) 〜 5/3 (Sun) は月曜を含まない
+    // 5/4 (Mon) のみ → 1 回
+    const intervals = [{ start: d("2026-05-02"), end: d("2026-05-03") }];
+    expect(
+      calcCarryOverMissedCount(d("2026-05-01"), today, [1], intervals),
+    ).toBe(1);
+  });
+
+  it("repeatDays 空 (一時タスク) は停止期間ぶんの日数を差し引く", () => {
+    // 5/1〜5/8 inclusive = 8 日、停止 5/3〜5/5 (3 日) を差し引く → 5 日
+    const intervals = [{ start: d("2026-05-03"), end: d("2026-05-05") }];
+    expect(
+      calcCarryOverMissedCount(d("2026-05-01"), today, [], intervals),
+    ).toBe(5);
+  });
+
+  it("停止期間が oldest 以前 / today 以降にはみ出しても範囲内のみ差し引く", () => {
+    // oldest=5/3, today=5/8, intervals=[4/29〜5/4, 5/7〜5/12]
+    // 範囲 [5/3, 5/8] の内、5/3, 5/4 (前半停止), 5/7, 5/8 (後半停止) の 4 日が停止
+    // 5/5, 5/6 が非停止 → 2 日
+    const intervals = [
+      { start: d("2026-04-29"), end: d("2026-05-04") },
+      { start: d("2026-05-07"), end: d("2026-05-12") },
+    ];
+    expect(
+      calcCarryOverMissedCount(d("2026-05-03"), today, [], intervals),
+    ).toBe(2);
+  });
+});
+
+describe("effectiveIntervalsFor", () => {
+  const today = d("2026-05-20");
+
+  it("停止していない場合は既存の配列をそのまま返す", () => {
+    const past = [{ start: d("2026-05-01"), end: d("2026-05-03") }];
+    expect(effectiveIntervalsFor(past, null, today)).toEqual(past);
+  });
+
+  it("停止中なら (pausedAt翌日, today] を追加する（凍結を今日まで延長。開始日自体は除外）", () => {
+    // 停止開始日は「押すまでは active だった日」なので減算対象に含めない（翌日から today まで）
+    const pausedAt = d("2026-05-15");
+    const past = [{ start: d("2026-05-01"), end: d("2026-05-03") }];
+    expect(effectiveIntervalsFor(past, pausedAt, today)).toEqual([
+      ...past,
+      { start: d("2026-05-16"), end: today },
+    ]);
+  });
+
+  it("intervals 空でも停止中なら 1 件返す（開始日翌日から）", () => {
+    const pausedAt = d("2026-05-15");
+    expect(effectiveIntervalsFor([], pausedAt, today)).toEqual([
+      { start: d("2026-05-16"), end: today },
+    ]);
+  });
+
+  it("today が停止開始当日と同じなら (pausedAt翌日, today] は空区間になる", () => {
+    const pausedAt = d("2026-05-20"); // == today
+    expect(effectiveIntervalsFor([], pausedAt, today)).toEqual([
+      { start: d("2026-05-21"), end: d("2026-05-20") },
+    ]);
+  });
+});
+
+describe("closedPauseInterval", () => {
+  it("pausedAt 翌日 〜 resumedAt 前日を区間として返す（両端の当日は active なので除外）", () => {
+    // pausedAt=7/20 10:00Z (JST 7/20), resumedAt=7/25 10:00Z (JST 7/25)
+    // → 完全に停止していたのは 7/21〜7/24 の間の日だけ
+    const pausedAt = new Date("2026-07-20T10:00:00Z");
+    const resumedAt = new Date("2026-07-25T10:00:00Z");
+    expect(closedPauseInterval(pausedAt, resumedAt)).toEqual({
+      start: d("2026-07-21"),
+      end: d("2026-07-24"),
+    });
+  });
+
+  it("翌日に再開した場合は間の日が無いので空区間になる", () => {
+    const pausedAt = d("2026-05-04");
+    const resumedAt = d("2026-05-05");
+    const interval = closedPauseInterval(pausedAt, resumedAt);
+    // start > end の空区間（totalPausedDaysInRange 等では 0 日として扱われる）
+    expect(interval.start.getTime()).toBeGreaterThan(interval.end.getTime());
+  });
+
+  it("再開日と実質パウス日数の一貫性: 5/1持ち越し・5/4停止・5/8再開でも, 停止中に凍結されていた4回から5/8分の1回だけ増えて5回になる", () => {
+    // Codex 指摘の再現ケース: 停止中は effectiveIntervalsFor で 4 回に凍結されるが、
+    // 再開直後に旧実装 (inclusive な [pausedAt, now]) だと 3 回に巻き戻ってしまっていた。
+    const oldest = d("2026-05-01");
+    const pausedAt = d("2026-05-04");
+    const resumedAt = d("2026-05-08");
+
+    // 停止中 (5/4 時点) に凍結されていた値
+    const frozenIntervals = effectiveIntervalsFor([], pausedAt, pausedAt);
+    const frozenCount = calcCarryOverMissedCount(oldest, pausedAt, [], frozenIntervals);
+    expect(frozenCount).toBe(4);
+
+    // 再開後 (5/8) の値: 停止中の凍結値 + 再開日ぶんの 1 回 = 5
+    const closed = closedPauseInterval(pausedAt, resumedAt);
+    const afterResumeCount = calcCarryOverMissedCount(oldest, resumedAt, [], [closed]);
+    expect(afterResumeCount).toBe(5);
+  });
+});
+
+describe("activeDaysBetween", () => {
+  it("停止なし: 単純な JST 日数差", () => {
+    // 5/1..5/5 = 4 日 (「4日前」の意味)
+    expect(activeDaysBetween(d("2026-05-01"), d("2026-05-05"), [])).toBe(4);
+  });
+
+  it("同日は 0 日", () => {
+    expect(activeDaysBetween(d("2026-05-05"), d("2026-05-05"), [])).toBe(0);
+  });
+
+  it("停止期間ぶんを差し引いて active 経過日数を返す", () => {
+    // 5/1..5/10 = 9 日、停止 5/3..5/6 (4 日) を除外 → 5 日
+    const intervals = [{ start: d("2026-05-03"), end: d("2026-05-06") }];
+    expect(activeDaysBetween(d("2026-05-01"), d("2026-05-10"), intervals)).toBe(5);
+  });
+
+  it("from が to より未来の場合は 0", () => {
+    expect(activeDaysBetween(d("2026-05-10"), d("2026-05-05"), [])).toBe(0);
+  });
+
+  it("複数区間を合算して除外", () => {
+    // 5/1..5/20 = 19 日、停止 5/3..5/4 (2 日) + 5/10..5/12 (3 日) → 14 日
+    const intervals = [
+      { start: d("2026-05-03"), end: d("2026-05-04") },
+      { start: d("2026-05-10"), end: d("2026-05-12") },
+    ];
+    expect(activeDaysBetween(d("2026-05-01"), d("2026-05-20"), intervals)).toBe(14);
+  });
+
+  it("停止開始当日に effectiveIntervalsFor 経由で凍結しても、直前の値から1日巻き戻らない", () => {
+    // 昨日 SKIPPED、今日 pause した直後: 「1日前スキップ」のまま据え置かれるべき
+    // (停止開始日を丸ごと減算すると 0 になり「今日スキップ」に見えてしまうのが元のバグ)
+    const rawSkip = d("2026-05-07");
+    const pausedAt = d("2026-05-08");
+    const today = d("2026-05-08");
+    const intervals = effectiveIntervalsFor([], pausedAt, today);
+    expect(activeDaysBetween(rawSkip, today, intervals)).toBe(1);
+  });
+
+  it("停止開始から数日経過しても、開始当日時点の値のまま凍結され続ける", () => {
+    const rawSkip = d("2026-05-07");
+    const pausedAt = d("2026-05-08");
+    const laterToday = d("2026-05-11");
+    const intervals = effectiveIntervalsFor([], pausedAt, laterToday);
+    expect(activeDaysBetween(rawSkip, laterToday, intervals)).toBe(1);
+  });
+});
+
+describe("totalPausedDaysInRange", () => {
+  it("intervals が空なら 0", () => {
+    expect(totalPausedDaysInRange(d("2026-05-01"), d("2026-05-10"), [])).toBe(0);
+  });
+
+  it("interval が範囲内に完全包含される場合は inclusive 日数", () => {
+    // 5/3〜5/5 = 3 日
+    const intervals = [{ start: d("2026-05-03"), end: d("2026-05-05") }];
+    expect(totalPausedDaysInRange(d("2026-05-01"), d("2026-05-10"), intervals)).toBe(3);
+  });
+
+  it("interval が範囲を跨ぐ場合は範囲内部分のみを日数化", () => {
+    // interval 4/25〜5/2 と 範囲 5/1〜5/5 の overlap は 5/1〜5/2 = 2 日
+    const intervals = [{ start: d("2026-04-25"), end: d("2026-05-02") }];
+    expect(totalPausedDaysInRange(d("2026-05-01"), d("2026-05-05"), intervals)).toBe(2);
+  });
+
+  it("複数 intervals をすべて合算する (重複なし想定)", () => {
+    const intervals = [
+      { start: d("2026-05-02"), end: d("2026-05-03") }, // 2 日
+      { start: d("2026-05-06"), end: d("2026-05-07") }, // 2 日
+    ];
+    expect(totalPausedDaysInRange(d("2026-05-01"), d("2026-05-10"), intervals)).toBe(4);
+  });
+
+  it("JST 日単位で重なる境界日は 1 度だけ数える（同日再開→再停止など）", () => {
+    // [8/1, 8/2] と [8/2, 8/2] の和集合日は 8/1, 8/2 の 2 日
+    const intervals = [
+      { start: d("2026-08-01"), end: d("2026-08-02") },
+      { start: d("2026-08-02"), end: d("2026-08-02") },
+    ];
+    expect(totalPausedDaysInRange(d("2026-08-01"), d("2026-08-10"), intervals)).toBe(2);
+  });
+
+  it("完全に内包される区間は追加日を数えない", () => {
+    // [8/1, 8/5] が [8/2, 8/3] を内包 → 和集合日は 5
+    const intervals = [
+      { start: d("2026-08-01"), end: d("2026-08-05") },
+      { start: d("2026-08-02"), end: d("2026-08-03") },
+    ];
+    expect(totalPausedDaysInRange(d("2026-08-01"), d("2026-08-10"), intervals)).toBe(5);
+  });
+
+  it("順不同でも正しく union する", () => {
+    // [8/5, 8/6] と [8/1, 8/2] → 合計 4 日
+    const intervals = [
+      { start: d("2026-08-05"), end: d("2026-08-06") },
+      { start: d("2026-08-01"), end: d("2026-08-02") },
+    ];
+    expect(totalPausedDaysInRange(d("2026-08-01"), d("2026-08-10"), intervals)).toBe(4);
   });
 });
 

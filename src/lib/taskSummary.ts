@@ -1,8 +1,126 @@
 import { prisma } from "@/lib/prisma";
-import { todayJST, countScheduledOccurrences } from "@/lib/date";
+import { todayJST, countScheduledOccurrences, jstDateOf } from "@/lib/date";
 import { ensureTodayQuests } from "@/lib/quests";
 
 type QuestRow = { templateId: string; date: Date | null };
+
+/** JSON カラムから復元される停止期間。start / end とも JST 日付相当の Date（UTC 0時表現に正規化して扱う）*/
+export type PauseInterval = { start: Date; end: Date };
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * 生の pauseIntervals JSON 値 (`{ start: ISO, end: ISO }[]`) を Date 化する。
+ * 予期しない形状は無視して空配列にフォールバック（過去データ・手動編集への防御）。
+ */
+export function parsePauseIntervals(raw: unknown): PauseInterval[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PauseInterval[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const start = (item as { start?: unknown }).start;
+    const end = (item as { end?: unknown }).end;
+    if (typeof start !== "string" || typeof end !== "string") continue;
+    const s = new Date(start);
+    const e = new Date(end);
+    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) continue;
+    out.push({ start: s, end: e });
+  }
+  return out;
+}
+
+/**
+ * [rangeStart, rangeEnd] inclusive に含まれる停止期間の暦日数を JST 日単位で「和集合」として返す。
+ *
+ * 各区間を rangeStart/rangeEnd にクランプしたのちソート＆マージし、重なる境界日 (JST) を
+ * 二重に数えないようにする。例: `[8/1, 8/2]` + `[8/2, 8/2]` → 2 日（3 日ではない）。
+ * 同じ JST 日での再開→再停止や短時間 pause 再送で重複区間が並んでも正しく数えられる。
+ */
+export function totalPausedDaysInRange(
+  rangeStart: Date,
+  rangeEnd: Date,
+  intervals: PauseInterval[],
+): number {
+  const rs = jstDateOf(rangeStart).getTime();
+  const re = jstDateOf(rangeEnd).getTime();
+  if (rs > re) return 0;
+  const clamped: { s: number; e: number }[] = [];
+  for (const iv of intervals) {
+    const s = Math.max(rs, jstDateOf(iv.start).getTime());
+    const e = Math.min(re, jstDateOf(iv.end).getTime());
+    if (s <= e) clamped.push({ s, e });
+  }
+  clamped.sort((a, b) => a.s - b.s);
+  let total = 0;
+  let mergedEnd = -Infinity;
+  for (const { s, e } of clamped) {
+    // 次の interval の開始日が既にマージ済み末尾以下なら、その日は既に数え済み。
+    const effS = Math.max(s, mergedEnd + MS_PER_DAY);
+    if (effS > e) continue;
+    total += Math.round((e - effS) / MS_PER_DAY) + 1;
+    if (e > mergedEnd) mergedEnd = e;
+  }
+  return total;
+}
+
+/**
+ * 過去の停止期間に「現在停止中なら (pausedAt翌日, today]」を追加した effective interval 一覧を返す。
+ * これを `calcCarryOverMissedCount` や `activeDaysBetween` に渡すことで、
+ * 「停止中は today の分もカウントから除外 = 実質的に凍結」を単一パスで表現できる。
+ *
+ * 停止開始日 (pausedAt 当日) は、停止ボタンを押すまでは active だった日なので減算対象に含めない。
+ * ここを inclusive にすると、停止した瞬間に経過日数・出現回数が凍結前の値から1日巻き戻ってしまう
+ * （例: 昨日 SKIPPED → 今日停止した直後に「1日前」→「今日」に見えてしまう）。
+ *
+ * 実今日 (`today`) を各計算で使い続けるため、「effective today シフト + interval 除外」の
+ * 二重減算に陥らないのもポイント。
+ */
+export function effectiveIntervalsFor(
+  pauseIntervals: PauseInterval[],
+  pausedAt: Date | null,
+  today: Date,
+): PauseInterval[] {
+  if (!pausedAt) return pauseIntervals;
+  const dayAfterPausedAt = new Date(jstDateOf(pausedAt).getTime() + MS_PER_DAY);
+  return [...pauseIntervals, { start: dayAfterPausedAt, end: today }];
+}
+
+/**
+ * 再開時に `pauseIntervals` へ追記する、確定済みの停止区間を計算する。
+ *
+ * `effectiveIntervalsFor` が「停止開始当日は active」として翌日から除外するのと対称に、
+ * 再開当日 (resumedAt) も「再開ボタンを押した後は active」なので除外する。
+ * 両端を inclusive にすると、境界日ぶん二重に active 日数を失い、再開直後に
+ * カウント／バッジが停止中に凍結されていた値から巻き戻って見える
+ * （Codex 指摘, 2026-08-13: 5/1持ち越し・5/4停止・5/8再開で 4→3 に巻き戻る）。
+ *
+ * pausedAt と resumedAt が同じ JST 日、または隣接する JST 日の場合は
+ * 完全に停止していた日が存在しないため、start > end の空区間を返す
+ * （`totalPausedDaysInRange` 等の呼び出し先は空区間を 0 日として扱う）。
+ */
+export function closedPauseInterval(pausedAt: Date, resumedAt: Date): PauseInterval {
+  const start = new Date(jstDateOf(pausedAt).getTime() + MS_PER_DAY);
+  const end = new Date(jstDateOf(resumedAt).getTime() - MS_PER_DAY);
+  return { start, end };
+}
+
+/**
+ * `[from, to]` の JST 日数差から停止期間の overlap ぶんを差し引いた「active な経過日数」。
+ * 「N日前スキップ」バッジで停止期間中は日数がカウントアップしないようにするために使う。
+ * from == to は 0、from > to は 0 で返す (未来スキップの防御)。
+ */
+export function activeDaysBetween(
+  from: Date,
+  to: Date,
+  intervals: PauseInterval[],
+): number {
+  const fromMs = jstDateOf(from).getTime();
+  const toMs = jstDateOf(to).getTime();
+  if (toMs <= fromMs) return 0;
+  const diffDays = Math.round((toMs - fromMs) / MS_PER_DAY);
+  const paused = totalPausedDaysInRange(from, to, intervals);
+  return Math.max(0, diffDays - paused);
+}
 
 /**
  * carryOver タスクの「過去から持ち越し中の最古 PENDING 日付」を計算する。
@@ -72,27 +190,64 @@ export function computeLastSkippedDates(
 }
 
 /**
+ * 指定日 (JST 日付) が pauseIntervals のいずれかの区間に含まれるか。
+ * インターバル境界日 (start / end) は inclusive 扱い。
+ */
+function isDayInPauseIntervals(day: Date, intervals: PauseInterval[]): boolean {
+  const t = jstDateOf(day).getTime();
+  for (const iv of intervals) {
+    const s = jstDateOf(iv.start).getTime();
+    const e = jstDateOf(iv.end).getTime();
+    if (t >= s && t <= e) return true;
+  }
+  return false;
+}
+
+/**
  * carryOver タスクの「N回未完了」を計算する。
  *
  * - 通常タスク: 最古 PENDING の日付から today までの inclusive 範囲で、repeatDays に当たる出現回数
  * - 一時タスク (repeatDays が空): 出現は 1 度のみ定義だが、carryOver で持ち越しているため
  *   「持ち越し何日目か」(oldestPendingDate から today までの暦日 inclusive) を返す。
  *   親バッジで「何日放置されたか」の視覚シグナルを得るための挙動。
+ *
+ * `pauseIntervals` が渡されると、範囲 [oldestPendingDate, today] のうち停止期間中の日を除外する
+ * （停止中に発生した予定日はカウントしない）。停止中の凍結は呼び出し側が `today` に
+ * `computeEffectiveTodayForPausedTemplate` を渡すことで実現する。
  */
 export function calcCarryOverMissedCount(
   oldestPendingDate: Date | null | undefined,
   today: Date,
   repeatDays: number[],
+  pauseIntervals: PauseInterval[] = [],
 ): number | null {
   if (!oldestPendingDate) return null;
-  if (repeatDays.length === 0) {
-    const MS_PER_DAY = 86_400_000;
-    const diffDays = Math.floor(
-      (today.getTime() - oldestPendingDate.getTime()) / MS_PER_DAY,
-    );
-    return Math.max(1, diffDays + 1);
+  if (jstDateOf(today).getTime() < jstDateOf(oldestPendingDate).getTime()) {
+    return repeatDays.length === 0 ? 1 : 0;
   }
-  return countScheduledOccurrences(oldestPendingDate, today, repeatDays);
+  if (repeatDays.length === 0) {
+    const diffDays = Math.floor(
+      (jstDateOf(today).getTime() - jstDateOf(oldestPendingDate).getTime()) / MS_PER_DAY,
+    );
+    const inclusiveDays = diffDays + 1;
+    const paused = totalPausedDaysInRange(oldestPendingDate, today, pauseIntervals);
+    return Math.max(1, inclusiveDays - paused);
+  }
+  if (pauseIntervals.length === 0) {
+    return countScheduledOccurrences(oldestPendingDate, today, repeatDays);
+  }
+  // 停止期間中に当たる予定日 (repeatDays マッチ) を除外して数える
+  const fromMs = jstDateOf(oldestPendingDate).getTime();
+  const toMs = jstDateOf(today).getTime();
+  const days = Math.round((toMs - fromMs) / MS_PER_DAY) + 1;
+  let count = 0;
+  for (let i = 0; i < days; i++) {
+    const d = new Date(fromMs + i * MS_PER_DAY);
+    if (!repeatDays.includes(d.getUTCDay())) continue;
+    if (isDayInPauseIntervals(d, pauseIntervals)) continue;
+    count++;
+  }
+  return count;
 }
 
 /**
@@ -134,26 +289,43 @@ export async function getParentTaskSummaries(familyId: string) {
   });
   const completedSet = new Set(completedQuests.map((q) => q.templateId));
 
-  // 直近7日間のSKIPPEDを取得（該当曜日でない日にも親がスキップに気づけるよう、タスクカードにバッジ表示するため）。
-  // ただし、その後に APPROVED が記録されていれば「完了済みなのにスキップだけ残る」UX を避けるためバッジを消す。
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  // 各テンプレートの effective 停止区間（過去 pauseIntervals + 現在停止中なら [pausedAt, today]）を
+  // 事前計算しておき、SQL 窓の拡張とバッジ計算で使い回す。
+  const perTemplateIntervals = new Map<string, PauseInterval[]>();
+  let maxTotalPauseSpanDays = 0;
+  for (const t of tasks) {
+    const past = parsePauseIntervals((t as { pauseIntervals?: unknown }).pauseIntervals);
+    const pausedAt = (t as { pausedAt?: Date | null }).pausedAt ?? null;
+    const eff = effectiveIntervalsFor(past, pausedAt, today);
+    perTemplateIntervals.set(t.id, eff);
+    const span = eff.reduce((sum, iv) => {
+      const s = jstDateOf(iv.start).getTime();
+      const e = jstDateOf(iv.end).getTime();
+      return sum + Math.max(0, Math.round((e - s) / MS_PER_DAY) + 1);
+    }, 0);
+    if (span > maxTotalPauseSpanDays) maxTotalPauseSpanDays = span;
+  }
+
+  // 直近「7 active days」相当を取得する。停止 8 日超のテンプレートでも停止直前スキップを
+  // 取りこぼさないよう、SQL 窓は `today - 7 - maxTotalPauseSpanDays` まで広げる。
+  // active days の絞り込みは per-template で JS 側 (activeDaysBetween) が最終判定する。
+  const skipWindowStart = new Date(today);
+  skipWindowStart.setUTCDate(skipWindowStart.getUTCDate() - 7 - maxTotalPauseSpanDays);
   const recentSkipped = await prisma.questInstance.findMany({
     where: {
       templateId: { in: taskIds },
       status: "SKIPPED",
-      date: { gte: sevenDaysAgo, lte: today },
+      date: { gte: skipWindowStart, lte: today },
     },
     select: { templateId: true, date: true },
     orderBy: { date: "desc" },
   });
-  // SKIPPED の最古日付以降に APPROVED があるかだけ確認できればよいので、同じ 7 日窓で取得する。
-  // 窓外（8日以上前）の APPROVED は窓外の SKIPPED に対するもので、本ロジックの判定対象外。
+  // SKIPPED の最古日付以降に APPROVED があるかだけ確認できればよいので、同じ窓で取得する。
   const recentApproved = await prisma.questInstance.findMany({
     where: {
       templateId: { in: taskIds },
       status: "APPROVED",
-      date: { gte: sevenDaysAgo, lte: today },
+      date: { gte: skipWindowStart, lte: today },
     },
     select: { templateId: true, date: true },
     orderBy: { date: "desc" },
@@ -188,11 +360,31 @@ export async function getParentTaskSummaries(familyId: string) {
   return tasks.map((t) => {
     const oldest = oldestPendingMap.get(t.id);
     const repeatDays = (t as { repeatDays?: number[] }).repeatDays ?? [];
+    const activeIntervals = perTemplateIntervals.get(t.id) ?? [];
+    // スキップバッジ: active 経過日数 (activeDaysBetween) が 7 以下なら表示する。
+    // 表示側で `daysSinceJST` を再計算しないよう、`lastSkippedActiveDaysAgo` を server 側で算出して返す。
+    // rawSkip 生日付は tooltip 用に別途返す。
+    const rawSkip = lastSkippedMap.get(t.id) ?? null;
+    let lastSkippedDate: Date | null = null;
+    let lastSkippedActiveDaysAgo: number | null = null;
+    if (rawSkip) {
+      const ago = activeDaysBetween(rawSkip, today, activeIntervals);
+      if (ago <= 7) {
+        lastSkippedDate = rawSkip;
+        lastSkippedActiveDaysAgo = ago;
+      }
+    }
     return {
       ...t,
       completedToday: completedSet.has(t.id),
-      lastSkippedDate: lastSkippedMap.get(t.id) ?? null,
-      carryOverMissedCount: calcCarryOverMissedCount(oldest, today, repeatDays),
+      lastSkippedDate,
+      lastSkippedActiveDaysAgo,
+      carryOverMissedCount: calcCarryOverMissedCount(
+        oldest,
+        today,
+        repeatDays,
+        activeIntervals,
+      ),
     };
   });
 }

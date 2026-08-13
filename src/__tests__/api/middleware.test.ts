@@ -18,11 +18,14 @@ function makeRequest(pathname: string): NextRequest {
 function mockSupabaseAuth(
   user: { id: string; email?: string; is_anonymous?: boolean } | null
 ) {
+  // updateSession は supabase クライアントの `auth.getUser()` しか呼ばないため、
+  // テスト用モックは SupabaseClient のごく一部（auth.getUser）のみを実装する。
+  // 完全な SupabaseClient 型を満たせないため `as unknown as ReturnType<...>` で明示する。
   mockCreateServerClient.mockReturnValue({
     auth: {
       getUser: vi.fn().mockResolvedValue({ data: { user } }),
     },
-  } as any);
+  } as unknown as ReturnType<typeof createServerClient>);
 }
 
 const parentUser = { id: "parent-1", email: "parent@example.com", is_anonymous: false };

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { loadBadgeContext } from "@/lib/badges";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
+import type { Family, TaskTemplate, User } from "@/generated/prisma/client";
 import {
     prisma,
     mockAsUser,
@@ -13,10 +14,10 @@ import {
 } from "./helpers";
 
 describe("バッジコンテキスト計算の正確性", () => {
-    let family: any;
-    let parent: any;
-    let child: any;
-    let task: any;
+    let family: Family;
+    let parent: User;
+    let child: User;
+    let task: TaskTemplate;
 
     beforeAll(async () => {
         await cleanAll();
@@ -78,7 +79,7 @@ describe("バッジコンテキスト計算の正確性", () => {
             const date = new Date(`2026-04-${20 + i * 2}`); // 4/20, 4/22, 4/24
             const quest = await seedQuestForDate(task.id, child.id, date, "REPORTED");
 
-            mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+            mockAsUser({ ...parent, family, role: "PARENT" });
             await approveQuest(
                 makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
                 makeParams(quest.id),

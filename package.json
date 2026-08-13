@@ -13,6 +13,7 @@
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "husky": "^9.1.7",
     "jsdom": "^29.0.2",
     "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest-mock-extended": "^5.1.1"
   }
 }

@@ -25,6 +25,8 @@ export default function AchievementBell() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // localStorage依存の既読状態はSSR時に読めないため、マウント後にuseEffect内で一度だけ確定させる。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSeenTitles(getSeenTitles());
     fetch("/api/streak")
       .then((r) => r.json())

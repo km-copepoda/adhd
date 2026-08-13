@@ -134,6 +134,11 @@ model TaskTemplate {
   /// 再開時に null に戻す。テンプレート自体は削除ではないため repeatDays / targetDate は保持される。
   /// 用途: 夏休み中に通常タスクを止めつつ夏休み用タスクだけ表示する等。
   pausedAt          DateTime?
+  /// 過去の停止期間 (JSON 配列)。各要素: `{ start: ISO文字列, end: ISO文字列 }`。
+  /// 現在停止中の期間は pausedAt にのみ存在し、再開時にここへ push されて pausedAt は null に戻る。
+  /// 親画面の「N回未完了」バッジ計算で停止期間中の予定日を除外し、
+  /// 「解除後にカウントが停止日数ぶん暴騰する」問題を防ぐために使う。
+  pauseIntervals    Json               @default("[]")
   assignedChildId   String?
   assignedChild     User?              @relation("AssignedTasks", fields: [assignedChildId], references: [id])
   quests            QuestInstance[]

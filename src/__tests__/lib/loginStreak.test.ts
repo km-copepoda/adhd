@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { recordLoginActivity } from "@/lib/loginStreak";
 import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { childUser, streak } from "../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
@@ -10,7 +10,6 @@ vi.mock("@/lib/bulletinLog", () => ({
   triggerStreakTitleLog: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockTriggerMonsterEvolvedLog = vi.mocked(triggerMonsterEvolvedLog);
 
 beforeEach(() => {
@@ -22,9 +21,9 @@ describe("recordLoginActivity", () => {
 
   it("初回ログインで loginCurrentStreak=1 になる", async () => {
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 0, loginBestStreak: 0, lastLoginDate: null }) as any,
+      streak({ loginCurrentStreak: 0, loginBestStreak: 0, lastLoginDate: null }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -42,7 +41,7 @@ describe("recordLoginActivity", () => {
 
   it("同日2回目のログインでは変化なし", async () => {
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 3, loginBestStreak: 5, lastLoginDate: today }) as any,
+      streak({ loginCurrentStreak: 3, loginBestStreak: 5, lastLoginDate: today }),
     );
 
     const result = await recordLoginActivity("child-1", today);
@@ -55,9 +54,9 @@ describe("recordLoginActivity", () => {
   it("昨日もログインしていれば連続日数が +1 になる", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 5, loginBestStreak: 10, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 5, loginBestStreak: 10, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -75,9 +74,9 @@ describe("recordLoginActivity", () => {
   it("途切れた場合は loginCurrentStreak=1 にリセット、bestStreak は保持", async () => {
     const threeDaysAgo = new Date("2026-03-26");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 10, loginBestStreak: 20, lastLoginDate: threeDaysAgo }) as any,
+      streak({ loginCurrentStreak: 10, loginBestStreak: 20, lastLoginDate: threeDaysAgo }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -96,13 +95,13 @@ describe("recordLoginActivity", () => {
   it("10日連続ログインで +1pt が最少カテゴリ（全同値→STUDY）に付与される", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -118,13 +117,13 @@ describe("recordLoginActivity", () => {
   it("20日連続で +1pt が最少カテゴリ（LIFE=1）に付与される", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 19, loginBestStreak: 19, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 19, loginBestStreak: 19, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 3, staminaPt: 2, lifePt: 1 }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 3, staminaPt: 2, lifePt: 1 }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -140,13 +139,13 @@ describe("recordLoginActivity", () => {
   it("+1pt が最少カテゴリ（STAMINA=1）に付与される", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 3, staminaPt: 1, lifePt: 2 }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 3, staminaPt: 1, lifePt: 2 }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -161,9 +160,9 @@ describe("recordLoginActivity", () => {
   it("9日連続ではボーナスなし", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 8, loginBestStreak: 8, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 8, loginBestStreak: 8, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -174,9 +173,9 @@ describe("recordLoginActivity", () => {
   it("rebirthPending中はボーナスでXPのみ加算し進化チェックをスキップ", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
         evolutionStage: 3,
@@ -184,14 +183,15 @@ describe("recordLoginActivity", () => {
         studyPt: 15, staminaPt: 2, lifePt: 2,
         rebirthPending: true,
         collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
-      }) as any,
+      }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     const result = await recordLoginActivity("child-1", today);
 
     expect(result.bonusGranted).toBe(1);
-    // XPのみ加算、進化関連フィールドなし
+    // XPのみ加算、進化関連フィールドなし（= rebirthPendingチェックが先に行われ
+    // isReborn/rebirthEggBonus を使う進化チェック分岐がスキップされたことの確認）
     const updateData = mockPrisma.user.update.mock.calls[0][0].data;
     // addBonusToMinCategory: min=2(STAMINA=LIFE) → STAMINA に+1
     expect(updateData.staminaPt).toBe(3);
@@ -203,9 +203,9 @@ describe("recordLoginActivity", () => {
     vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     // stage1、9pt蓄積中。ボーナス1ptで total=10 → 10以上なので進化する
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
@@ -214,12 +214,13 @@ describe("recordLoginActivity", () => {
         studyPt: 4, staminaPt: 3, lifePt: 2,
         collectedPaths: '["STUDY"]',
         monsterLevels: "{}",
-      }) as any,
+      }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordLoginActivity("child-1", today);
 
+    // isReborn（collectedPaths.length > 0）で進化した結果、collectedPaths/monsterLevels が更新されること
     const updateData = mockPrisma.user.update.mock.calls[0][0].data;
     expect(updateData).toHaveProperty("collectedPaths");
     expect(updateData).toHaveProperty("monsterLevels");
@@ -232,9 +233,9 @@ describe("recordLoginActivity", () => {
     vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
         evolutionStage: 1,
@@ -242,9 +243,9 @@ describe("recordLoginActivity", () => {
         studyPt: 4, staminaPt: 3, lifePt: 2,
         collectedPaths: '["STUDY"]',
         monsterLevels: "{}",
-      }) as any,
+      }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordLoginActivity("child-1", today);
     await new Promise((r) => setImmediate(r));
@@ -260,14 +261,14 @@ describe("recordLoginActivity", () => {
   it("ボーナスで進化しなかった場合、triggerMonsterEvolvedLog は呼ばれない", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     // 進化が発動しない範囲: stage1, 合計2+1=3pt < 10
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 0, staminaPt: 1, lifePt: 1 }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 0, staminaPt: 1, lifePt: 1 }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordLoginActivity("child-1", today);
     await new Promise((r) => setImmediate(r));
@@ -278,9 +279,9 @@ describe("recordLoginActivity", () => {
   it("rebirthPending中のボーナスでは進化しないので triggerMonsterEvolvedLog は呼ばれない", async () => {
     const yesterday = new Date("2026-03-28");
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }) as any,
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
         evolutionStage: 3,
@@ -288,9 +289,9 @@ describe("recordLoginActivity", () => {
         studyPt: 15, staminaPt: 2, lifePt: 2,
         rebirthPending: true,
         collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
-      }) as any,
+      }),
     );
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordLoginActivity("child-1", today);
     await new Promise((r) => setImmediate(r));

@@ -53,6 +53,8 @@ export default function PushSubscriber({
 
   useEffect(() => {
     if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    // Notification API依存の判定でSSR時は実行できないため、マウント後にuseEffect内で一度だけ現在の許可状態を確認する。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPermission(Notification.permission);
     // 既に許可済みなら購読を静かに更新
     if (Notification.permission === "granted") {

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
-import { prisma } from "@/lib/prisma";
+import type { QuestWithRelations } from "@/lib/approve";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import { unlockTreasuresOnApprove } from "@/lib/treasureService";
+import { prismaMock } from "@/__tests__/helpers/prisma-mock";
+import { childUser, questInstance, taskTemplate } from "@/__tests__/helpers/fixtures";
 
 vi.mock("@/lib/streak", () => ({
   recordDailyAchievement: vi.fn().mockResolvedValue(undefined),
@@ -17,7 +19,7 @@ vi.mock("@/lib/treasureService", () => ({
   unlockTreasuresOnApprove: vi.fn().mockResolvedValue(0),
 }));
 
-const mockPrisma = vi.mocked(prisma);
+const mockPrisma = prismaMock;
 const mockRecordDailyAchievement = vi.mocked(recordDailyAchievement);
 const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
 const mockUnlockTreasures = vi.mocked(unlockTreasuresOnApprove);
@@ -25,28 +27,32 @@ const mockUnlockTreasures = vi.mocked(unlockTreasuresOnApprove);
 beforeEach(() => {
   vi.clearAllMocks();
   // デフォルト: DBからの最新childデータをbaseQuestと同じ値で返す
-  mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
+  // (childUser() の既定値は baseQuest.child と同じ studyPt/staminaPt/lifePt/evolution 系の値)
+  mockPrisma.user.findUnique.mockResolvedValue(childUser());
 });
 
-const baseQuest = {
+const baseQuest: QuestWithRelations = {
   id: "q-1",
   date: new Date("2026-03-21"),
   childId: "child-1",
   templateId: "tpl-1",
-  status: "REPORTED" as const,
+  deadlineBonusEarned: false,
+  photoUrl: null,
+  snapshotCategory: "STUDY",
   template: {
     id: "tpl-1",
-    category: "STUDY" as const,
-    createdBy: "PARENT" as const,
+    category: "STUDY",
+    photoBonus: false,
+    createdBy: "PARENT",
     isTemporary: false,
     repeatDays: [1, 2, 3, 4, 5],
+    carryOver: false,
   },
   child: {
     id: "child-1",
     evolutionStage: 0,
     evolutionPath: "",
     collectedPaths: "[]",
-    monsterLevels: "{}",
     studyPt: 0,
     staminaPt: 0,
     lifePt: 0,
@@ -62,21 +68,21 @@ describe("approveQuestInstance", () => {
     };
     // DB上の最新データ: studyPt = 5（別クエスト承認済み）
     // evolutionStage = 1 にして進化閾値10ptを超えないようにする（5+3=8 < 10 → 進化なし）
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: "child-1",
-      evolutionStage: 1,
-      evolutionPath: "STUDY",
-      collectedPaths: "[]",
-      monsterLevels: "{}",
-      studyPt: 5,
-      staminaPt: 0,
-      lifePt: 0,
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 1,
+        evolutionPath: "STUDY",
+        collectedPaths: "[]",
+        studyPt: 5,
+        staminaPt: 0,
+        lifePt: 0,
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     // baseQuest は基本1pt（deadline/photoBonus なし）
-    await approveQuestInstance(staleQuest as any);
+    await approveQuestInstance(staleQuest);
 
     // stale data (0+1=1) ではなく fresh data (5+1=6) で更新されること
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -88,13 +94,11 @@ describe("approveQuestInstance", () => {
   });
 
   it("APPROVED に更新しXPを付与すること", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
-      ...baseQuest.child,
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ ...baseQuest.child }));
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -116,39 +120,39 @@ describe("approveQuestInstance", () => {
   });
 
   it("ストリークを記録すること", async () => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
 
     expect(mockRecordDailyAchievement).toHaveBeenCalledWith("child-1", baseQuest.date);
     expect(mockRecordTaskStreak).toHaveBeenCalledWith("tpl-1", "child-1", baseQuest.date, [1, 2, 3, 4, 5]);
   });
 
   it("一時タスクはタスク別ストリークを記録しないこと", async () => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     const temporaryQuest = {
       ...baseQuest,
       template: { ...baseQuest.template, isTemporary: true },
     };
-    await approveQuestInstance(temporaryQuest as any);
+    await approveQuestInstance(temporaryQuest);
 
     expect(mockRecordDailyAchievement).toHaveBeenCalled();
     expect(mockRecordTaskStreak).not.toHaveBeenCalled();
   });
 
   it("子供作成テンプレートをPARENTに昇格すること", async () => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate());
 
     const childCreatedQuest = {
       ...baseQuest,
       template: { ...baseQuest.template, createdBy: "CHILD" as const },
     };
-    await approveQuestInstance(childCreatedQuest as any);
+    await approveQuestInstance(childCreatedQuest);
 
     expect(mockPrisma.taskTemplate.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -160,24 +164,16 @@ describe("approveQuestInstance", () => {
 });
 
 describe("進化・転生の閾値テスト", () => {
-  const makeChild = (overrides: Partial<typeof baseQuest.child & { rebirthPending: boolean; rebirthEggBonus: string | null; monsterLevels: string }>) => ({
-    ...baseQuest.child,
-    rebirthPending: false,
-    rebirthEggBonus: null,
-    monsterLevels: "{}",
-    ...overrides,
-  });
-
   beforeEach(() => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
   });
 
   it("たまご（stage 0）は 1pt で stage 1 に孵化する", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 0, studyPt: 0, collectedPaths: "[]" }) as any,
+      childUser({ evolutionStage: 0, studyPt: 0, collectedPaths: "[]" }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // total = 0 + 1 = 1 >= EVOLUTION_THRESHOLDS[0](1) → 進化
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -188,9 +184,9 @@ describe("進化・転生の閾値テスト", () => {
 
   it("転生後の卵（collectedPaths あり）は 4pt では孵化しない（境界値: 5pt 必要）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 0, studyPt: 3, collectedPaths: '["STUDY"]' }) as any,
+      childUser({ evolutionStage: 0, studyPt: 3, collectedPaths: '["STUDY"]' }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // isReborn=true → REBIRTH_EGG_THRESHOLD=5 が適用される
     // total = 3 + 1 = 4 < 5 → 孵化しない
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -202,9 +198,9 @@ describe("進化・転生の閾値テスト", () => {
 
   it("転生後の卵は 5pt で stage 1 に孵化する（REBIRTH_EGG_THRESHOLD）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 0, studyPt: 4, collectedPaths: '["STUDY"]' }) as any,
+      childUser({ evolutionStage: 0, studyPt: 4, collectedPaths: '["STUDY"]' }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // isReborn=true → total = 4 + 1 = 5 >= REBIRTH_EGG_THRESHOLD(5) → 進化
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -212,21 +208,21 @@ describe("進化・転生の閾値テスト", () => {
       }),
     );
   });
-  
+
   it("全ステージの進化で rebirthEggBonus はクリアされないこと（次の転生まで持続）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 0, studyPt: 0, rebirthEggBonus: "STUDY" }) as any,
+      childUser({ evolutionStage: 0, studyPt: 0, rebirthEggBonus: "STUDY" }),
     );
-    await approveQuestInstance(baseQuest as any);
-    const callArgs = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const callArgs = mockPrisma.user.update.mock.calls[0][0];
     expect(callArgs.data.rebirthEggBonus).toBeUndefined();
   });
 
   it("stage 1 は 9pt では stage 2 に進化しない（境界値: 10pt 必要）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 8 }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 8 }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // total = 8 + 1 = 9 < EVOLUTION_THRESHOLDS[1](10) → 進化しない
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -237,9 +233,9 @@ describe("進化・転生の閾値テスト", () => {
 
   it("stage 1 は 10pt で stage 2 に進化する", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 9 }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 9 }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // total = 9 + 1 = 10 >= EVOLUTION_THRESHOLDS[1](10) → 進化
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -250,9 +246,9 @@ describe("進化・転生の閾値テスト", () => {
 
   it("stage 2 は 29pt では stage 3 に進化しない（境界値: 30pt 必要）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 2, evolutionPath: "STUDY_STUDY", studyPt: 28 }) as any,
+      childUser({ evolutionStage: 2, evolutionPath: "STUDY_STUDY", studyPt: 28 }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // total = 28 + 1 = 29 < EVOLUTION_THRESHOLDS[2](30) → 進化しない
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -263,9 +259,9 @@ describe("進化・転生の閾値テスト", () => {
 
   it("stage 2 は 30pt で stage 3 に進化する", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 2, evolutionPath: "STUDY_STUDY", studyPt: 29 }) as any,
+      childUser({ evolutionStage: 2, evolutionPath: "STUDY_STUDY", studyPt: 29 }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // total = 29 + 1 = 30 >= EVOLUTION_THRESHOLDS[2](30) → 進化
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -276,9 +272,9 @@ describe("進化・転生の閾値テスト", () => {
 
   it("stage 3 は 19pt では転生しない（境界値: 20pt 必要）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 3, evolutionPath: "STUDY_STUDY_STUDY", studyPt: 18 }) as any,
+      childUser({ evolutionStage: 3, evolutionPath: "STUDY_STUDY_STUDY", studyPt: 18 }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // total = 18 + 1 = 19 < REBIRTH_THRESHOLD(20) → 転生しない
     // reborn=false → 通常XP加算パスで更新される
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -290,10 +286,10 @@ describe("進化・転生の閾値テスト", () => {
 
   it("進化時に collectedPaths に新しいパスが追加される", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 0, studyPt: 0, collectedPaths: "[]" }) as any,
+      childUser({ evolutionStage: 0, studyPt: 0, collectedPaths: "[]" }),
     );
-    await approveQuestInstance(baseQuest as any);
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
     const savedPaths = JSON.parse(call.data.collectedPaths as string) as string[];
     expect(savedPaths).toHaveLength(1);
     expect(["STUDY", "STAMINA", "LIFE"]).toContain(savedPaths[0]);
@@ -302,43 +298,44 @@ describe("進化・転生の閾値テスト", () => {
   it("転生トリガー後も collectedPaths は保持される（リセットされない）", async () => {
     const existingPaths = '["STUDY","STUDY_STUDY","STUDY_STUDY_STUDY"]';
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({
+      childUser({
         evolutionStage: 3,
         evolutionPath: "STUDY_STUDY_STUDY",
         studyPt: 19,
         collectedPaths: existingPaths,
-      }) as any,
+      }),
     );
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
     // reborn=true → rebirthPending=true をセット。collectedPaths は変更しない
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ rebirthPending: true }),
       }),
     );
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    const call = mockPrisma.user.update.mock.calls[0][0];
     expect(call.data.collectedPaths).toBeUndefined(); // pendingセット時はcollectedPathsを触らない
   });
 });
 
 describe("転生保留（rebirthPending）", () => {
   it("stage3でREBIRTH_THRESHOLD到達時にrebirthPending=trueをセットしstageをリセットしないこと", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: "child-1",
-      evolutionStage: 3,
-      evolutionPath: "STUDY_STAMINA_LIFE",
-      collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
-      monsterLevels: '{"STUDY_STAMINA_LIFE":1}',
-      studyPt: 19,
-      staminaPt: 0,
-      lifePt: 0,
-      rebirthPending: false,
-      rebirthEggBonus: null,
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 3,
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+        monsterLevels: '{"STUDY_STAMINA_LIFE":1}',
+        studyPt: 19,
+        staminaPt: 0,
+        lifePt: 0,
+        rebirthPending: false,
+        rebirthEggBonus: null,
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
 
     // user.update は rebirthPending=true をセットすること
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -354,21 +351,22 @@ describe("転生保留（rebirthPending）", () => {
   });
 
   it("rebirthPending=true のときXPを加算するがevolution/rebirthを実行しないこと", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
-      id: "child-1",
-      evolutionStage: 3,
-      evolutionPath: "STUDY_STAMINA_LIFE",
-      collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
-      studyPt: 20,
-      staminaPt: 0,
-      lifePt: 0,
-      rebirthPending: true,
-      rebirthEggBonus: null,
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        evolutionStage: 3,
+        evolutionPath: "STUDY_STAMINA_LIFE",
+        collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
+        studyPt: 20,
+        staminaPt: 0,
+        lifePt: 0,
+        rebirthPending: true,
+        rebirthEggBonus: null,
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
 
     // studyPt は +1 されること (20+1=21)
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -388,34 +386,16 @@ describe("転生保留（rebirthPending）", () => {
 
 describe("monsterLevels（最終形態レベル）", () => {
   beforeEach(() => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
-  });
-
-  const makeChild = (overrides: Partial<{
-    evolutionStage: number; evolutionPath: string; collectedPaths: string;
-    monsterLevels: string; studyPt: number; staminaPt: number; lifePt: number;
-    rebirthPending: boolean; rebirthEggBonus: string | null;
-  }>) => ({
-    id: "child-1",
-    evolutionStage: 0,
-    evolutionPath: "",
-    collectedPaths: "[]",
-    monsterLevels: "{}",
-    studyPt: 0,
-    staminaPt: 0,
-    lifePt: 0,
-    rebirthPending: false,
-    rebirthEggBonus: null,
-    ...overrides,
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
   });
 
   it("stage 2 → stage 3 進化時に monsterLevels[newPath] が 1 になる", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 2, evolutionPath: "STUDY_STUDY", studyPt: 29, monsterLevels: "{}" }) as any,
+      childUser({ evolutionStage: 2, evolutionPath: "STUDY_STUDY", studyPt: 29, monsterLevels: "{}" }),
     );
-    await approveQuestInstance(baseQuest as any);
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
     const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
     // 進化後の path は "STUDY_STUDY_STUDY"（確率的だが STUDY タスクなので STUDY が最も高い確率）
     // ここでは monsterLevels に何かが追加されること、かつその値が 1 であることを確認
@@ -427,19 +407,19 @@ describe("monsterLevels（最終形態レベル）", () => {
   it("同じ stage3 モンスターに 2 度目到達で monsterLevels が 2 になる", async () => {
     const path = "STUDY_STUDY_STUDY";
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({
+      childUser({
         evolutionStage: 2,
         evolutionPath: "STUDY_STUDY",
         studyPt: 29,
         collectedPaths: JSON.stringify([path]),
         monsterLevels: JSON.stringify({ [path]: 1 }),
-      }) as any,
+      }),
     );
     // checkEvolution は確率的なので、STUDY系タスク3連続を想定した状況をモックするには
     // 実際の進化先が "STUDY_STUDY_STUDY" になるよう studyPt が圧倒的
     // 注: 確率的テストのため、期待値は「既存 Lv +1」の確認のみ
-    await approveQuestInstance(baseQuest as any);
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
     const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
     // 少なくとも1エントリあり、その値は 2 以上（前回の1 + 今回の1）
     const values = Object.values(levels);
@@ -452,35 +432,35 @@ describe("monsterLevels（最終形態レベル）", () => {
 
   it("stage 1 への孵化では monsterLevels は変化しない", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 0, studyPt: 0, monsterLevels: "{}" }) as any,
+      childUser({ evolutionStage: 0, studyPt: 0, monsterLevels: "{}" }),
     );
-    await approveQuestInstance(baseQuest as any);
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
     const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
     expect(Object.keys(levels)).toHaveLength(0);
   });
 
   it("stage 2 への進化では monsterLevels は変化しない", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 9, monsterLevels: "{}" }) as any,
+      childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 9, monsterLevels: "{}" }),
     );
-    await approveQuestInstance(baseQuest as any);
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
     const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
     expect(Object.keys(levels)).toHaveLength(0);
   });
 
   it("転生 pending 時は monsterLevels を変更しない", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      makeChild({
+      childUser({
         evolutionStage: 3,
         evolutionPath: "STUDY_STUDY_STUDY",
         studyPt: 19,
         monsterLevels: '{"STUDY_STUDY_STUDY":1}',
-      }) as any,
+      }),
     );
-    await approveQuestInstance(baseQuest as any);
-    const call = mockPrisma.user.update.mock.calls[0][0] as any;
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
     // rebirthPending セット時は monsterLevels を触らない
     expect(call.data.monsterLevels).toBeUndefined();
   });
@@ -488,10 +468,10 @@ describe("monsterLevels（最終形態レベル）", () => {
 
 describe("approveSkipQuestInstance", () => {
   it("SKIPPED に更新しストリークを記録すること", async () => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const skipQuest = { ...baseQuest, status: "SKIP_REPORTED" as const };
-    await approveSkipQuestInstance(skipQuest as any);
+    await approveSkipQuestInstance(skipQuest);
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -505,20 +485,20 @@ describe("approveSkipQuestInstance", () => {
 
 describe("宝箱アンロック", () => {
   it("approveQuestInstance 経由で同日 LOCKED が UNLOCKED になる", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findUnique.mockResolvedValue(childUser(baseQuest.child));
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
-    await approveQuestInstance(baseQuest as any);
+    await approveQuestInstance(baseQuest);
 
     expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", baseQuest.date);
   });
 
   it("approveSkipQuestInstance 経由でも同日 LOCKED が UNLOCKED になる", async () => {
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const skipQuest = { ...baseQuest, status: "SKIP_REPORTED" as const };
-    await approveSkipQuestInstance(skipQuest as any);
+    await approveSkipQuestInstance(skipQuest);
 
     expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", skipQuest.date);
   });
@@ -536,9 +516,9 @@ describe("宝箱アンロック", () => {
     });
 
     it("approveQuestInstance: carryOver=true かつ quest.date < today → unlock は today で呼ぶ", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
-      mockPrisma.user.update.mockResolvedValue({} as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser(baseQuest.child));
+      mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+      mockPrisma.user.update.mockResolvedValue(childUser());
 
       const today = new Date("2026-03-28T00:00:00.000Z");
       const oldQuest = {
@@ -546,13 +526,13 @@ describe("宝箱アンロック", () => {
         date: new Date("2026-03-19T00:00:00.000Z"), // 9日前
         template: { ...baseQuest.template, carryOver: true, photoBonus: false },
       };
-      await approveQuestInstance(oldQuest as any);
+      await approveQuestInstance(oldQuest);
 
       expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", today);
     });
 
     it("approveSkipQuestInstance: carryOver=true かつ quest.date < today → unlock は today で呼ぶ", async () => {
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.update.mockResolvedValue(questInstance());
       const today = new Date("2026-03-28T00:00:00.000Z");
       const oldSkipQuest = {
         ...baseQuest,
@@ -560,15 +540,15 @@ describe("宝箱アンロック", () => {
         date: new Date("2026-03-19T00:00:00.000Z"),
         template: { ...baseQuest.template, carryOver: true },
       };
-      await approveSkipQuestInstance(oldSkipQuest as any);
+      await approveSkipQuestInstance(oldSkipQuest);
 
       expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", today);
     });
 
     it("carryOver=false は quest.date < today でも unlock は quest.date のまま", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
-      mockPrisma.user.update.mockResolvedValue({} as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser(baseQuest.child));
+      mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+      mockPrisma.user.update.mockResolvedValue(childUser());
 
       const oldDate = new Date("2026-03-19T00:00:00.000Z");
       const oldQuest = {
@@ -576,15 +556,15 @@ describe("宝箱アンロック", () => {
         date: oldDate,
         template: { ...baseQuest.template, carryOver: false, photoBonus: false },
       };
-      await approveQuestInstance(oldQuest as any);
+      await approveQuestInstance(oldQuest);
 
       expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", oldDate);
     });
 
     it("carryOver=true でも quest.date === today なら unlock は quest.date (=today) のまま", async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(baseQuest.child as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
-      mockPrisma.user.update.mockResolvedValue({} as any);
+      mockPrisma.user.findUnique.mockResolvedValue(childUser(baseQuest.child));
+      mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+      mockPrisma.user.update.mockResolvedValue(childUser());
 
       const today = new Date("2026-03-28T00:00:00.000Z");
       const todayQuest = {
@@ -592,7 +572,7 @@ describe("宝箱アンロック", () => {
         date: today,
         template: { ...baseQuest.template, carryOver: true, photoBonus: false },
       };
-      await approveQuestInstance(todayQuest as any);
+      await approveQuestInstance(todayQuest);
 
       expect(mockUnlockTreasures).toHaveBeenCalledWith("child-1", today);
     });

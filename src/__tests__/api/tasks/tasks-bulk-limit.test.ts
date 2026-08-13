@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/tasks/bulk/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest } from "../../helpers/request";
-import { parentUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, parentUser, childUser, subscription } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 function bulkReq(tasks: Array<{ title: string; category: string; repeatDays: number[] }>) {
@@ -19,7 +18,7 @@ const oneTask = { title: "宿題", category: "STUDY", repeatDays: [1, 2, 3, 4, 5
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetCurrentUser.mockResolvedValue(parentUser() as never);
+  mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 });
 
 /// bulk 作成も FREE プランのタスク上限を enforce する (合計 <= 10 個)。
@@ -27,8 +26,8 @@ beforeEach(() => {
 describe("POST /api/tasks/bulk — FREE プランのタスク数上限 (バルク)", () => {
   it("FREE + 0 個 + 11 個 bulk: 403 (合計 11 > 10)", async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: "child-1" } as never) // ensureFamilyChild
-      .mockResolvedValueOnce({ id: "parent-1" } as never); // getFamilyPlan
+      .mockResolvedValueOnce(childUser({ id: "child-1" })) // ensureFamilyChild
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" })); // getFamilyPlan
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(0);
 
@@ -43,11 +42,11 @@ describe("POST /api/tasks/bulk — FREE プランのタスク数上限 (バル�
 
   it("FREE + 0 個 + 10 個 bulk: 上限ちょうどで成功", async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: "child-1" } as never)
-      .mockResolvedValueOnce({ id: "parent-1" } as never);
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(0);
-    mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 10 } as never);
+    mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 10 });
 
     const res = await POST(bulkReq(Array(10).fill(oneTask)));
     expect(res.status).toBe(200);
@@ -55,8 +54,8 @@ describe("POST /api/tasks/bulk — FREE プランのタスク数上限 (バル�
 
   it("FREE + 既に 3 個 + 8 個 bulk: 403 (合計 11)", async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: "child-1" } as never)
-      .mockResolvedValueOnce({ id: "parent-1" } as never);
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(3);
 
@@ -67,11 +66,11 @@ describe("POST /api/tasks/bulk — FREE プランのタスク数上限 (バル�
 
   it("FREE + 既に 3 個 + 7 個 bulk: 合計 10 で成功", async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: "child-1" } as never)
-      .mockResolvedValueOnce({ id: "parent-1" } as never);
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(3);
-    mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 7 } as never);
+    mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 7 });
 
     const res = await POST(bulkReq(Array(7).fill(oneTask)));
     expect(res.status).toBe(200);
@@ -79,14 +78,13 @@ describe("POST /api/tasks/bulk — FREE プランのタスク数上限 (バル�
 
   it("PREMIUM は 30 個でも成功 (bulk 自体の 30 上限内)", async () => {
     mockPrisma.user.findFirst
-      .mockResolvedValueOnce({ id: "child-1" } as never)
-      .mockResolvedValueOnce({ id: "parent-1" } as never);
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      plan: "PREMIUM",
-      currentPeriodEnd: new Date("2099-12-31"),
-    } as never);
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
+    mockPrisma.subscription.findUnique.mockResolvedValue(
+      subscription({ plan: "PREMIUM", currentPeriodEnd: new Date("2099-12-31") }),
+    );
     mockPrisma.taskTemplate.count.mockResolvedValue(100);
-    mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 30 } as never);
+    mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 30 });
 
     const res = await POST(bulkReq(Array(30).fill(oneTask)));
     expect(res.status).toBe(200);

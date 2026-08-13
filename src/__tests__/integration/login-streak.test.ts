@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { POST as loginCheck } from "@/app/api/streak/login-check/route";
 import { todayJST } from "@/lib/date";
+import type { Family, User } from "@/generated/prisma/client";
 import {
     prisma,
     mockAsUser,
     seedFamily,
     cleanAll,
-    makeRequest,
 } from "./helpers";
 
 describe("ログインストリーク（記録 => ボーナス付与 -> 進化）", () => {
-    let family: any;
-    let child: any;
+    let family: Family;
+    let child: User;
     
     beforeAll(async () => {
         await cleanAll();
@@ -28,9 +28,9 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
     });
 
     it("初回ログインでloginCurrentStreak=1になること", async () => {
-        mockAsUser({ ...child, familyId: family.id });
+        mockAsUser({ ...child, family });
 
-        const res = await loginCheck(makeRequest("/api/streak/login-check", {}));
+        const res = await loginCheck();
         const json = await res.json();
 
         expect(json.loginStreak).toBe(1);
@@ -51,8 +51,8 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
             },
         });
 
-        mockAsUser({ ...child, familyId: family.id });
-        const res = await loginCheck(makeRequest("/api/streak/login-check", {}));
+        mockAsUser({ ...child, family });
+        const res = await loginCheck();
         const json = await res.json();
 
         expect(json.loginStreak).toBe(10);
@@ -90,8 +90,8 @@ describe("ログインストリーク（記録 => ボーナス付与 -> 進化�
             },
         });
 
-        mockAsUser({ ...child, familyId: family.id });
-        const res = await loginCheck(makeRequest("/api/streak/login-check", {}));
+        mockAsUser({ ...child, family });
+        const res = await loginCheck();
         const json = await res.json();
 
         expect(json.loginStreak).toBe(20);

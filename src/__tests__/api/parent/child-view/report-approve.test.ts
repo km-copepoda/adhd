@@ -1,13 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { after } from "next/server";
+import type { Prisma } from "@/generated/prisma/client";
 import { POST } from "@/app/api/parent/child-view/quests/[id]/report-approve/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import * as approveModule from "@/lib/approve";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { generateProxyTreasure } from "@/lib/treasureService";
-import { parentUser, childUser } from "../../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  childUser,
+  questWithTemplateAndChild,
+  questInstance,
+} from "../../../helpers/fixtures";
 import { makeParams } from "../../../helpers/request";
+
+/**
+ * `mockImplementation` は Prisma のメソッドが返す `Prisma.PrismaPromise<T>` を要求するが、
+ * 通常の `async () => T` は構造的に一致しない（`PrismaPromise` はテスト対象コードが直接
+ * `await` する分には `Promise` と等価に振る舞うが、型としては別物）ため、呼び出し順序を
+ * 検証するテストでのみこのヘルパーで包む。
+ */
+function asPrismaPromise<T>(value: T): Prisma.PrismaPromise<T> {
+  return Promise.resolve(value) as unknown as Prisma.PrismaPromise<T>;
+}
 
 vi.mock("@/lib/approve", () => ({
   approveQuestInstance: vi.fn(),
@@ -22,7 +39,6 @@ vi.mock("@/lib/treasureService", () => ({
   generateProxyTreasure: vi.fn().mockResolvedValue([]),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApprove = vi.mocked(approveModule.approveQuestInstance);
 const mockAfter = vi.mocked(after);
@@ -41,7 +57,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-03-12T09:00:00Z")); // JST 18:00
   // 既定では「today のクエストは無い」状態に。AUTO 宝箱生成は minTasks=1 達成しないため発火しない。
-  mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -56,62 +72,56 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   });
 
   it("CHILD ロールの場合、403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(403);
   });
 
   it("childId 未指定の場合、400 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(makeReq({}), makeParams("q1"));
     expect(res.status).toBe(400);
   });
 
   it("別 family の子を指定された場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await POST(makeReq({ childId: "child-other" }), makeParams("q1"));
     expect(res.status).toBe(404);
   });
 
   it("クエストが見つからない場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     mockPrisma.questInstance.findUnique.mockResolvedValue(null);
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(404);
   });
 
   it("クエストが指定の子供のものでない場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-OTHER",
-      status: "PENDING",
-      template: { category: "STUDY", photoBonus: false },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-OTHER", status: "PENDING" }),
+    );
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(404);
   });
 
   it("PENDING 状態のクエストは PENDING→REPORTED 経由せず一気に APPROVED まで進める", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", reportDeadlineTime: null }) as any,
+      childUser({ id: "child-1", reportDeadlineTime: null }),
     );
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      deadlineBonusEarned: false,
-      photoUrl: null,
-      snapshotCategory: "STUDY",
-      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const res = await POST(
       makeReq({ childId: "child-1", comment: "代理報告", stamp: "🎉" }),
@@ -135,47 +145,39 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   });
 
   it("既に APPROVED 済みのクエストは 400 を返す（二重承認防止）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "APPROVED",
-      template: { category: "STUDY", photoBonus: false },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "APPROVED" }),
+    );
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(400);
     expect(mockApprove).not.toHaveBeenCalled();
   });
 
   it("SKIPPED 済みのクエストは 400 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "SKIPPED",
-      template: { category: "STUDY", photoBonus: false },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "SKIPPED" }),
+    );
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(400);
   });
 
   it("REJECTED 状態（差し戻し後）の再報告も APPROVED にできる", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "REJECTED",
-      date: new Date("2026-03-12T00:00:00Z"),
-      deadlineBonusEarned: true,
-      photoUrl: null,
-      snapshotCategory: "STUDY",
-      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "REJECTED",
+        date: new Date("2026-03-12T00:00:00Z"),
+        deadlineBonusEarned: true,
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const res = await POST(
       makeReq({ childId: "child-1", comment: "やり直し" }),
@@ -186,23 +188,20 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   });
 
   it("PENDING 初回: 期限内なら deadlineBonusEarned=true で update される", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", reportDeadlineTime: "20:00" }) as any,
+      childUser({ id: "child-1", reportDeadlineTime: "20:00" }),
     );
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      deadlineBonusEarned: false,
-      photoUrl: null,
-      snapshotCategory: "STUDY",
-      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-      child: { id: "child-1" },
-    } as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
     // 2026-03-12T09:00:00Z = JST 18:00（20:00 より前なので期限内）
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
@@ -213,22 +212,20 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   });
 
   it("REJECTED 再報告: deadlineBonusEarned は変更しない（既存値保持）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", reportDeadlineTime: "20:00" }) as any,
+      childUser({ id: "child-1", reportDeadlineTime: "20:00" }),
     );
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "REJECTED",
-      date: new Date("2026-03-12T00:00:00Z"),
-      deadlineBonusEarned: true,
-      photoUrl: null,
-      snapshotCategory: "STUDY",
-      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "REJECTED",
+        date: new Date("2026-03-12T00:00:00Z"),
+        deadlineBonusEarned: true,
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
@@ -237,20 +234,17 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   });
 
   it("掲示板の TASK_* 進捗ログを after() 経由で発火する（子供本人の報告と同等の社会的フィードバックを保つ）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      deadlineBonusEarned: false,
-      photoUrl: null,
-      snapshotCategory: "STUDY",
-      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
@@ -259,20 +253,18 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   });
 
   it("REPORTED 状態（子供が既に報告済み）も APPROVED にできる", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "REPORTED",
-      date: new Date("2026-03-12T00:00:00Z"),
-      deadlineBonusEarned: true,
-      photoUrl: null,
-      snapshotCategory: "STUDY",
-      template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "REPORTED",
+        date: new Date("2026-03-12T00:00:00Z"),
+        deadlineBonusEarned: true,
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
     expect(res.status).toBe(200);
@@ -284,33 +276,28 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
   // 2026-05-31: trigger を AUTO → PROXY にリネーム（cron 経由生成も同日に撤回）。
   describe("親代理経路で PROXY 宝箱を即 UNLOCKED で生成する", () => {
     function setupApprovedQuest(opts: { minTasksForStreak?: number } = {}) {
-      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
         childUser({
           id: "child-1",
           minTasksForStreak: opts.minTasksForStreak ?? 1,
-        }) as any,
+        }),
       );
-      mockPrisma.questInstance.findUnique.mockResolvedValue({
-        id: "q1",
-        childId: "child-1",
-        status: "PENDING",
-        date: new Date("2026-03-12T00:00:00Z"),
-        deadlineBonusEarned: false,
-        photoUrl: null,
-        snapshotCategory: "STUDY",
-        template: { id: "tpl-1", category: "STUDY", photoBonus: false },
-        child: { id: "child-1" },
-      } as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(
+        questWithTemplateAndChild({
+          id: "q1",
+          childId: "child-1",
+          status: "PENDING",
+          date: new Date("2026-03-12T00:00:00Z"),
+        }),
+      );
+      mockPrisma.questInstance.update.mockResolvedValue(questInstance());
     }
 
     it("minTasks 達成時に generateProxyTreasure を呼ぶ（reportedCount / totalCount / skippedCount / minTasks 込み）", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
       // approve 後の集計：今日 1件 APPROVED（自分自身）, 全1件 → minTasks=1 達成
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-      ] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       expect(res.status).toBe(200);
@@ -329,10 +316,10 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       setupApprovedQuest({ minTasksForStreak: 3 });
       // 今日 1件 APPROVED, 全3件 → 3 > 1 で未達
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-        { status: "PENDING" },
-        { status: "PENDING" },
-      ] as any);
+        questInstance({ status: "APPROVED" }),
+        questInstance({ status: "PENDING" }),
+        questInstance({ status: "PENDING" }),
+      ]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       expect(res.status).toBe(200);
@@ -349,9 +336,9 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       mockApprove.mockImplementation(async () => {
         callOrder.push("approve");
       });
-      (mockPrisma.questInstance.findMany as any).mockImplementation(async () => {
+      mockPrisma.questInstance.findMany.mockImplementation(() => {
         callOrder.push("findMany");
-        return [{ status: "APPROVED" }];
+        return asPrismaPromise([questInstance({ status: "APPROVED" })]);
       });
       mockGenerateProxyTreasure.mockImplementation(async () => {
         callOrder.push("generateTreasure");
@@ -365,15 +352,13 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     it("findMany は同じ childId と同じ date で today のクエストを取りに行く", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-      ] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);
 
       await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-      const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
-      expect(findManyCall.where.childId).toBe("child-1");
-      expect(findManyCall.where.date).toEqual(new Date("2026-03-12T00:00:00Z"));
+      const findManyCall = mockPrisma.questInstance.findMany.mock.calls[0][0];
+      expect(findManyCall?.where?.childId).toBe("child-1");
+      expect(findManyCall?.where?.date).toEqual(new Date("2026-03-12T00:00:00Z"));
     });
 
     // 親代理側のクエスト画面にもカットイン演出を出すため、生成された宝箱の id を
@@ -381,9 +366,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     // (/api/quests/[id]/report) が treasureIds を返すのと同じ規約に揃える。
     it("宝箱が生成されたら treasureIds をレスポンスに含める", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-      ] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);
       mockGenerateProxyTreasure.mockResolvedValue(["treasure-log-xyz"]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
@@ -393,9 +376,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     it("全完了で PROXY + ALL_COMPLETE の 2 個が生成された場合、両方 treasureIds に含める", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-      ] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);
       mockGenerateProxyTreasure.mockResolvedValue(["proxy-log", "all-complete-log"]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
@@ -406,10 +387,10 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     it("宝箱条件を満たさない場合は treasureIds=空配列", async () => {
       setupApprovedQuest({ minTasksForStreak: 3 });
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-        { status: "PENDING" },
-        { status: "PENDING" },
-      ] as any);
+        questInstance({ status: "APPROVED" }),
+        questInstance({ status: "PENDING" }),
+        questInstance({ status: "PENDING" }),
+      ]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
       const body = await res.json();
@@ -418,9 +399,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     it("プール未設定や同日 STREAK/PROXY 既存等で生成関数が空配列を返した場合も treasureIds=空配列", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-      ] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);
       mockGenerateProxyTreasure.mockResolvedValue([]);
 
       const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
@@ -431,14 +410,12 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     // 子供画面と揃えるため、宝箱集計側も template.isActive: true, pausedAt: null で絞る
     it("集計クエリは template.isActive: true, pausedAt: null でフィルタする", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "APPROVED" },
-      ] as any);
+      mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);
 
       await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-      const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
-      expect(findManyCall.where.template).toEqual({ isActive: true, pausedAt: null });
+      const findManyCall = mockPrisma.questInstance.findMany.mock.calls[0][0];
+      expect(findManyCall?.where?.template).toEqual({ isActive: true, pausedAt: null });
     });
 
     // 子セルフ report/skip 経路と同様、carryOver 過去日付の親代理承認では集計を今日基準に切り替える
@@ -447,25 +424,20 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
         // JST 2026-03-12 の設定に合わせる (beforeEach で setSystemTime 済み)
         const today = new Date("2026-03-12T00:00:00.000Z");
         const oldDate = new Date("2026-03-03T00:00:00.000Z"); // 9日前
-        mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+        mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
         mockPrisma.user.findFirst.mockResolvedValue(
-          childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+          childUser({ id: "child-1", minTasksForStreak: 1 }),
         );
-        mockPrisma.questInstance.findUnique.mockResolvedValue({
-          id: "q1",
-          childId: "child-1",
-          status: "PENDING",
-          date: oldDate,
-          deadlineBonusEarned: false,
-          photoUrl: null,
-          snapshotCategory: "STUDY",
-          template: { id: "tpl-1", category: "STUDY", photoBonus: false, carryOver: true },
-          child: { id: "child-1", minTasksForStreak: 1 },
-        } as any);
-        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        mockPrisma.questInstance.findUnique.mockResolvedValue(
+          questWithTemplateAndChild(
+            { id: "q1", childId: "child-1", status: "PENDING", date: oldDate },
+            { id: "tpl-1", category: "STUDY", photoBonus: false, carryOver: true },
+          ),
+        );
+        mockPrisma.questInstance.update.mockResolvedValue(questInstance());
         mockPrisma.questInstance.findMany.mockResolvedValue([
-          { status: "PENDING" } as any,
-          { status: "PENDING" } as any,
+          questInstance({ status: "PENDING" }),
+          questInstance({ status: "PENDING" }),
         ]);
 
         await POST(makeReq({ childId: "child-1" }), makeParams("q1"));

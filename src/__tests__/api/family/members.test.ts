@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST, PATCH } from "@/app/api/family/members/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
 import { makeRequest } from "../../helpers/request";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { parentUserWithFamily, childUserWithFamily, childUser } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -20,38 +19,40 @@ describe("POST /api/family/members", () => {
   });
 
   it("CHILDロールの場合、403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(makeRequest("/api/family/members", { monsterName: "test", side: "LIGHT" }));
     expect(res.status).toBe(403);
   });
 
   it("familyIdがない場合、403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await POST(makeRequest("/api/family/members", { monsterName: "test", side: "LIGHT" }));
     expect(res.status).toBe(403);
   });
 
   it("monsterNameがない場合、400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(makeRequest("/api/family/members", { side: "LIGHT" }));
     expect(res.status).toBe(400);
   });
 
   it("sideがない場合、400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(makeRequest("/api/family/members", { monsterName: "テスト" }));
     expect(res.status).toBe(400);
   });
 
   it("子どもアカウントを正常に作成できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
-      id: "child-new",
-      monsterName: "リュウ",
-      side: "DARK",
-      childCode: "5678",
-    } as any);
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({
+        id: "child-new",
+        monsterName: "リュウ",
+        side: "DARK",
+        childCode: "5678",
+      }),
+    );
 
     const res = await POST(makeRequest("/api/family/members", { monsterName: "リュウ", side: "DARK" }));
     const json = await res.json();
@@ -64,17 +65,19 @@ describe("POST /api/family/members", () => {
   });
 
   it("childCodeが重複する場合、リトライすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     // 1回目: 既存あり, 2回目: なし
     mockPrisma.user.findUnique
-      .mockResolvedValueOnce({ id: "existing" } as any)
+      .mockResolvedValueOnce(childUser({ id: "existing" }))
       .mockResolvedValueOnce(null);
-    mockPrisma.user.create.mockResolvedValue({
-      id: "child-x",
-      monsterName: "テスト",
-      side: "LIGHT",
-      childCode: "9999",
-    } as any);
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({
+        id: "child-x",
+        monsterName: "テスト",
+        side: "LIGHT",
+        childCode: "9999",
+      }),
+    );
 
     const res = await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "LIGHT" }));
     expect(res.status).toBe(200);
@@ -82,9 +85,9 @@ describe("POST /api/family/members", () => {
   });
 
   it("10回リトライしてもchildCodeが生成できない場合、500を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     // 全10回とも既存あり
-    mockPrisma.user.findUnique.mockResolvedValue({ id: "existing" } as any);
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ id: "existing" }));
 
     const res = await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "LIGHT" }));
     expect(res.status).toBe(500);
@@ -92,14 +95,16 @@ describe("POST /api/family/members", () => {
   });
 
   it("作成されるユーザーがplaceholder supabaseIdを持つこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findUnique.mockResolvedValue(null);
-    mockPrisma.user.create.mockResolvedValue({
-      id: "child-1",
-      monsterName: "テスト",
-      side: "DARK",
-      childCode: "1234",
-    } as any);
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({
+        id: "child-1",
+        monsterName: "テスト",
+        side: "DARK",
+        childCode: "1234",
+      }),
+    );
 
     await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK" }));
 
@@ -123,22 +128,22 @@ describe("PATCH /api/family/members", () => {
   });
 
   it("minTasksForStreakが0以下なら400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await PATCH(makeRequest("/api/family/members", { childId: "c1", minTasksForStreak: 0 }, "PATCH"));
     expect(res.status).toBe(400);
   });
 
   it("存在しない子供IDで404を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await PATCH(makeRequest("/api/family/members", { childId: "c-none", minTasksForStreak: 3 }, "PATCH"));
     expect(res.status).toBe(404);
   });
 
   it("minTasksForStreakを正常に更新できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser() as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser());
+    mockPrisma.user.update.mockResolvedValue(childUser({ minTasksForStreak: 3 }));
 
     const res = await PATCH(makeRequest("/api/family/members", { childId: "child-1", minTasksForStreak: 3 }, "PATCH"));
     const json = await res.json();

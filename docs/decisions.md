@@ -114,6 +114,7 @@
 - [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
 - [2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外](#2026-08-10-free-プランのタスク上限カウントから幽霊一時タスク-targetdate--today-を除外)
+- [2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く](#2026-08-10-停止中タスクの親バッジ未完了カウントスキップを停止時点で凍結し再開後は停止期間を差し引く)
 
 <!-- TOC:END -->
 
@@ -2591,4 +2592,105 @@
 - `src/app/api/tasks/route.ts` / `src/app/api/tasks/bulk/route.ts` / `src/app/api/tasks/[id]/pause/route.ts` / `src/app/api/tasks/[id]/copy/route.ts` — count 呼び出しを helper に置換
 - `docs/未実装仕様書/monetization-plan.md §2.2` — 有効タスク定義を更新
 - テスト: `src/__tests__/lib/subscriptionService.test.ts` / `src/__tests__/api/tasks/tasks-limit.test.ts`
+
+## 2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く
+
+### 決定内容
+- `TaskTemplate` に `pauseIntervals Json @default("[]")` を追加。停止解除時に、境界日（停止開始当日・再開当日）を除いた `{ start: pausedAt翌日, end: resumedAt前日 }` を push する（現在停止中は `pausedAt` にのみ存在）
+- マイグレーション `20260810000001_add_pause_intervals_to_task_template`
+- `src/lib/taskSummary.ts`:
+  - 新 helper `parsePauseIntervals` / `totalPausedDaysInRange` / `effectiveIntervalsFor` / `closedPauseInterval` / `activeDaysBetween`
+  - `calcCarryOverMissedCount` は `pauseIntervals` を追加引数で受け、範囲内の停止期間中の予定日 (repeatDays マッチ) を除外
+  - `getParentTaskSummaries` は effective intervals（過去区間 + 現在停止中なら `(pausedAt翌日, today]`）を計算し、`carryOverMissedCount` と `lastSkippedActiveDaysAgo`（7日窓）両方に適用
+- `POST /api/tasks/[id]/pause` の paused=false 経路で `closedPauseInterval(pausedAt, now)` の結果を `pauseIntervals` に追記して update
+- `POST /api/tasks/[id]/pause` は `update` ではなく `updateMany` を使い、`where` に読み取り時点の `pausedAt` を条件として含める。並行リクエストで読み取り後に状態が変わっていた場合は `count===0` になるので `409 PAUSE_STATE_CONFLICT` を返す（Codex 指摘、2026-08-13）
+
+### 理由
+- 2026-07-20 で導入した一時停止は「表示だけ止める、DB は触らない」設計だったが、`getParentTaskSummaries` の carryOverMissedCount と recentSkipped 窓が `today` を基準に計算し続けるため、停止中もバッジが日々増加／シフトしていく問題があった
+- 停止は「その期間に発生しなかったことにする」意味合いなので、バッジも凍結し、再開後は停止期間ぶんを差し引くのが自然。子供画面 (`today` route) は既に `pausedAt: null` フィルタ済みで整合的
+- 累計日数 (Int) ではなく `pauseIntervals` (JSON) にしたのは、repeatDays タスクで「停止期間中の予定日を厳密に除外」するためには interval 情報が必須なため（累計日数だけでは approximation にしかならない）
+- 表示側 (`RegularTaskCard.tsx`) が `daysSinceJST` で経過日数を再計算すると停止中もバッジが動いてしまうため、`lastSkippedActiveDaysAgo` を server 側で確定させて渡す
+- `effectiveIntervalsFor` が現在停止中ぶんに足し込む区間は `pausedAt` 当日を含めない (`pausedAt` 翌日始まり)。含めると、停止ボタンを押した瞬間に「その日はまだ active だった」にもかかわらず丸ごと減算され、経過日数・出現回数が凍結前の値から1日巻き戻って見える（Codex 指摘、2026-08-11）
+- 再開時に永続化する区間（`closedPauseInterval`）も同じ理由で両端 exclusive にする。`{start: pausedAt, end: now}` と inclusive で保存すると、再開当日 (now) も一部 active だったにもかかわらず丸ごと減算され、停止中は N 回で凍結されていた値が再開直後に N-1 回へ巻き戻る（Codex 指摘、2026-08-13）。境界日（開始日・再開日）は常に active、間の日だけが完全に停止していた日として扱うのが、進行中の区間・確定済みの区間を通じて一貫した規約
+- `update`（unique where のみ）ではなく `updateMany` を使うのは、読み取った `pausedAt` を `where` の非 unique 条件として渡すことで「読み取り後に状態が変わっていなければ書き込む」という条件付き更新を表現するため。DB トランザクション/行ロックを使わずに、既存の Prisma モックだけでテスト可能な形で楽観的排他を実現できる
+
+### やってはいけないこと
+- 停止時に既存 QuestInstance の `date` を書き換える（履歴改変で他のバッジ・ストリーク集計が壊れる。純粋に表示計算の side で処理する）
+- `effectiveToday`（today をシフトした値）を作ってから同じ `pauseIntervals` で再度日数を引く（二重減算になる。実 `today` を使い続け、`effectiveIntervalsFor` で区間側に現在停止中ぶんを足し込む一本化した経路にする）
+- `pauseIntervals` を子画面 `today` route の filter に使う（`pausedAt: null` フィルタで十分。JSON 走査のコストを子画面に負わせる必要はない）
+- `effectiveIntervalsFor` の現在停止中区間や `closedPauseInterval` の確定済み区間を、境界日 (`pausedAt` 当日 / 再開当日) を含む inclusive にする（上記「理由」参照。進行中・確定済みのどちらの区間も境界日は常に active というのが唯一の規約で、片方だけ inclusive にすると再開の瞬間に値が巻き戻る）
+- `POST /api/tasks/[id]/pause` を `findUnique` → `update`（無条件）の2ステップのまま実装する（並行リクエストで読み取り後に状態が変わっても検知できず、停止/再開の履歴が黙って上書きされる。`updateMany` + `where.pausedAt` 条件 + `count===0` 時 409 を必ずセットで使う）
+
+### 該当箇所
+- `prisma/schema.prisma` — `TaskTemplate.pauseIntervals`
+- `prisma/migrations/20260810000001_add_pause_intervals_to_task_template/migration.sql`
+- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に `closedPauseInterval` の結果を interval 追記。`updateMany` + `where.pausedAt` で条件付き更新、`count===0` は 409
+- `src/lib/taskSummary.ts` — parsePauseIntervals / totalPausedDaysInRange / effectiveIntervalsFor / closedPauseInterval / activeDaysBetween / calcCarryOverMissedCount 拡張
+- `src/components/parent/RegularTaskCard.tsx` — `lastSkippedActiveDaysAgo` を表示に使用
+- テスト: `src/__tests__/lib/taskSummary.test.ts`, `src/__tests__/api/tasks/tasks-pause.test.ts`
+
+## 2026-08-12: fetch-in-effect パターンの `react-hooks/set-state-in-effect` は eslint-disable で受け入れる（Issue #22）
+
+### 決定内容
+- マウント時・依存値変更時に `useEffect` からデータを fetch し、開始時に `setLoading(true)` を同期的に呼ぶ「fetch-in-effect」パターンは、`react-hooks/set-state-in-effect` を理由コメント付き `eslint-disable-next-line` で明示的に許容する
+- `useSyncExternalStore` 化などの根本的な再設計は現時点では行わない（`useApiFetch` は現状どの画面からも import されておらず、再設計のリスクを取る実利が薄いため）
+- disable コメントは「検知をすり抜けているだけ」の飾りにせず、実際にそのルールを発火させて抑制する形にする。`useApiFetch` は当初 `async/await` + `try/catch` で実装しており、これが React Compiler ベースの lint ルール群（`react-hooks/set-state-in-effect` 等）の解析を丸ごとバイパスさせていた（bailout）ため、`fetchData` を `try/catch` から `.then/.catch/.finally` のプロミスチェーンに書き換え、レンダー中の ref 書き込み（`transformRef.current = transform`）も専用 `useEffect` に移し、解析が正しく走った上で `setLoading(true)` の行に disable コメントを付与している
+
+### 理由
+- Issue #19 で禁止した「eslint-disable で黙らせるだけ」（=ルールの検知を回避しただけで実際の挙動は変わらない状態）を再発させないため、disable コメントは必ず「そのルールが実際に発火する箇所」に付ける方針とする
+- `async/await` + `try/catch` は可読性が高い一方、React Compiler 系の lint ルールがこの構文パターンで解析全体を bailout する（今回の調査で判明）。これにより `eslint-disable-next-line` を追加しても `Unused eslint-disable directive` 警告になり、かえって「本当は何も保証していない disable コメント」という同型の問題を生んでしまう
+- fetch-in-effect パターン自体はこのプロジェクト全体で標準的に使われており、個々のフックだけ再設計するより「eslint-disable で受け入れる」という方針を明文化する方が一貫性がある
+
+### やってはいけないこと
+- ルールが実際には発火していない行（＝ eslint が `Unused eslint-disable directive` を出す行）に disable コメントを付けて「対応済み」とする
+- `react-hooks/set-state-in-effect` を止めるためだけに `try/catch` を `.then/.catch` に書き換えるなど、挙動を変えずに解析の bailout を意図的に発生させたり解除したりする改変を、理由の説明なしに行う
+- この方針を「lint が厳しいルールは disable すればよい」という一般則として拡大解釈する。対象はあくまで fetch-in-effect の `set-state-in-effect` のような、このプロジェクトで標準化されたパターンに限る
+
+### 該当箇所
+- `src/hooks/useApiFetch.ts` — `fetchData` を promise チェーンに書き換え、`transformRef` の同期を専用 `useEffect` に分離、`setLoading(true)` に理由コメント付き disable を付与
+- テスト: `src/__tests__/hooks/useApiFetch.test.tsx`（既存の回帰テストのみ、要件追加なし）
+
+## 2026-08-12: テストの `no-explicit-any` 解消（案B）— Prisma モックを `vitest-mock-extended` の `mockDeep` に置き換える（Issue #35, #23 の基盤1）
+
+### 決定内容
+- `src/__tests__/setup.ts` の Prisma モックを、手書きの `{ user: { findUnique: vi.fn(), ... } }` オブジェクトから `vitest-mock-extended` の `mockDeep<PrismaClient>()` に置き換えた
+- 型付きアクセサを 1 箇所に集約する `src/__tests__/helpers/prisma-mock.ts` を新設し、`export const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>` という「プロジェクト内で唯一許容するキャスト」を提供する
+- 旧 setup.ts が持っていたデフォルト値（`$transaction` の配列 `Promise.all` 実装、`user.count` / `taskTemplate.count` / `treasureItem.count` の `0`、`questInstance.groupBy` / `questDeclaration.findMany` / `treasureItem.findMany` / `treasureLog.findMany` / `userCollectionItem.findMany` / `checkinLog.findMany` の `[]`）は関数 `applyPrismaDefaults()` に集約し、初回適用に加えて `vi.resetAllMocks` / `vi.restoreAllMocks` 自体をラップして呼び出し直後に再適用する設計にした（47 箇所が `beforeEach` 等でこれらを呼んでおり、フックの登録順序に依存すると再適用が効かないケースがあるため）
+- `package.json` に `"typecheck": "tsc --noEmit"` を追加。CI ゲート化はしない（本 Issue 完了後も型エラーが約 1500 件残るため）
+- `tsconfig.json` の `compilerOptions.types` に `"vitest/globals"` を追加した。副作用を検証した結果、既存の describe/it/expect 未定義エラー（約 70 件）が消えるのみで新規エラーは 0 件だったため実施した（検証内容は下記「検証結果」）
+- 各テストファイル（80 ファイル、`as any` 1621 件）の移行自体は本 Issue のスコープ外。以降の 14 個の移行 Issue が本基盤の上に乗る形で順次対応する
+
+### 案A・案C を採らなかった理由
+- #23 の推奨は案C（`eslint` の `no-explicit-any` を `src/__tests__` 配下だけ override で緩める設定変更）だったが、ユーザーが「正攻法である案Bを採る」ことを #23 で決定済み。案Cは型検査を諦めて lint 警告を黙らせるだけで、モックの意図と実装コードの乖離を検出する力が一切増えない
+- 案A（Prisma モックを使わず実 DB や sqlite 等でテストする）はここでは採用対象にすら挙げていない。既存の 183 ファイル・2506 件のテストが Prisma モック前提で書かれており、置き換えは本 Issue の規模を大きく超える
+
+### 型検査による乖離検出の効果は限定的（正直な検証結果）
+- 事前スパイクで確認済みの通り、`mockDeep<PrismaClient>()` の `mockResolvedValue()` は Prisma の fluent client 型が複雑なため、明らかに不正な形のオブジェクトを渡してもエラーにならないケースがある（`@ts-expect-error` が "Unused" と判定された）
+- したがって #23 が案Bの利点として挙げていた「モックの意図と実装の乖離を型検査で検出できる」は、期待するほど強力ではない。効果として確実に得られるのは「`as any` が消え、引数の型チェックと補完が効く」ところまでである
+- 実測でも、本 Issue の変更だけでは `npx tsc --noEmit` のエラー件数はほぼ変化しない（後述）。エラーの大半（`TS2339: Property 'mockResolvedValue' does not exist ...`）は各テストファイルが `vi.mocked(prisma)` で実 `PrismaClient` 型を経由してモックしていることに起因し、これを解消するには各テストファイルを `prismaMock`（`@/__tests__/helpers/prisma-mock`）に移行する必要がある。その移行は本 Issue のスコープ外であり、後続の 14 個の移行 Issue で順次対応する
+
+### 最大のリスクと対応
+- `mockDeep` は手書きモックと異なり、未モックのモデル/メソッド呼び出しに対して `TypeError` で落ちる代わりに `undefined` を自動生成して返す。これにより「モック漏れがテストを偽陽性で通してしまう」リスクがあるため、「`npm test` が green」だけを根拠にせず、旧 setup.ts のデフォルト値を 1 件ずつ突き合わせて移植した
+- `vi.clearAllMocks()` / `vi.resetAllMocks()` は `mockDeep` が内部で生成する `vi.fn()` にも到達することを実行時に確認済み（vitest のグローバルなモックレジストリで追跡されるため、オブジェクトグラフの探索に依存しない）
+- `$transaction` は配列形式（`Prisma.PrismaPromise[]`）のみが実装側で使われている（`child-rejoin` / `family/members/[id]`）ことを確認済みで、`(ops) => Promise.all(ops)` のデフォルト実装を維持した。コールバック形式は未使用のため対応していない
+
+### 検証結果（本 Issue 実施環境での実測値。before/after）
+- `npm test`: before 183 ファイル / 2506 件 green → after 183 ファイル / 2506 件 green（完全一致、skip/todo化なし）
+- `npm run test:coverage`: lines 73.19%→73.19%、statements 70.86%→70.86%、functions 59.66%→59.66%、branches 61.78%→61.83%（低下なし）
+- `npx tsc --noEmit`（実施環境に `.next/types/validator.ts` が存在しないため、Issue 起票時の 1507 件とは前提が異なる）: 変更前 1502 件 → 変更後（`vitest/globals` 追加込み）1432 件。差分は describe/it 等のグローバル未定義エラーの解消のみで、新規エラーは 0 件（`comm` で全件突き合わせ済み）
+- `npx eslint src/__tests__` の `no-explicit-any`: 1621 件 / 80 ファイルで変更前後一致（本 Issue ではテストファイルを触っていないため）
+- `npm ci && npx prisma generate && npm run test:coverage`（CI 手順）: green で完走
+- `src/__tests__/lib/push.test.ts` の `vi.unmock("@/lib/push")` パターン、`$transaction` に配列を渡す境界値テスト、count/findMany デフォルトに依存するマネタイズ上限テスト、`vi.resetAllMocks()` を呼ぶ 47 箇所すべて green
+- `npm run test:integration` はローカル検証環境で Docker/Supabase が起動していないため実行できなかった（DB 実接続テストのため、Prisma モックを変更した本 Issue の影響を受けない設計だが、実行確認自体は次のステップ・CI で行う必要がある）
+
+### やってはいけないこと
+- 各テストファイルの `vi.mocked(prisma)` を `prismaMock` に置き換える作業を本 Issue の範囲に含める（移行 Issue の担当）
+- 「型検査でモックの誤りを完全に検出できるようになった」という誤った前提で以降の移行 Issue を進める（効果は限定的。実際に効くのは `as any` の除去と補完）
+- `vi.resetAllMocks()` 後にデフォルトが失われる問題を、個々のテストファイル側の `beforeEach` 修正で対処する（グローバル側の `vi.resetAllMocks` ラップで一元対応済み）
+
+### 該当箇所
+- `package.json` — `vitest-mock-extended` を devDependencies に追加、`typecheck` スクリプト追加
+- `src/__tests__/setup.ts` — `mockDeep<PrismaClient>()` ベースに置き換え、デフォルト値の再適用ロジックを追加
+- `src/__tests__/helpers/prisma-mock.ts` — 新規。型付きアクセサ `prismaMock`
+- `tsconfig.json` — `compilerOptions.types` に `"vitest/globals"` を追加
 

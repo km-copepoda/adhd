@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/parent/child-view/monster-status/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { parentUser, childUser } from "../../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  childUser,
+  streak,
+  questWithTemplate,
+  questInstance,
+} from "../../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -26,26 +32,26 @@ describe("GET /api/parent/child-view/monster-status", () => {
   });
 
   it("CHILD ロールの場合、403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET(makeReq("child-1"));
     expect(res.status).toBe(403);
   });
 
   it("childId 未指定の場合、400 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await GET(makeReq(""));
     expect(res.status).toBe(400);
   });
 
   it("別 family の子を指定された場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await GET(makeReq("child-other"));
     expect(res.status).toBe(404);
   });
 
   it("正常系: モンスター・ストリーク・月間達成を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
       childUser({
         id: "child-1",
@@ -56,18 +62,23 @@ describe("GET /api/parent/child-view/monster-status", () => {
         studyPt: 5,
         staminaPt: 3,
         lifePt: 2,
-      }) as any,
+      }),
     );
-    mockPrisma.questInstance.findMany.mockResolvedValueOnce([] as any); // pending REPORTED
-    mockPrisma.streak.findUnique.mockResolvedValue({
-      currentStreak: 7,
-      bestStreak: 10,
-      lastAchievedDate: new Date("2026-03-11"),
-    } as any);
-    mockPrisma.questInstance.findMany.mockResolvedValueOnce([
-      { date: new Date("2026-03-10") },
-      { date: new Date("2026-03-11") },
-    ] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValueOnce([]); // pending REPORTED
+    mockPrisma.streak.findUnique.mockResolvedValue(
+      streak({
+        currentStreak: 7,
+        bestStreak: 10,
+        lastAchievedDate: new Date("2026-03-11"),
+      }),
+    );
+    // `select: { date: true }` クエリでも mockResolvedValue はベースの QuestInstance 完全型を要求するため、
+    // questInstance フィクスチャで完全な値を用意する（実装は select で絞るので余剰フィールドは無視される）。
+    const monthlyQuests = [
+      questInstance({ date: new Date("2026-03-10") }),
+      questInstance({ date: new Date("2026-03-11") }),
+    ];
+    mockPrisma.questInstance.findMany.mockResolvedValueOnce(monthlyQuests);
 
     const res = await GET(makeReq("child-1"));
     expect(res.status).toBe(200);
@@ -82,26 +93,20 @@ describe("GET /api/parent/child-view/monster-status", () => {
   });
 
   it("REPORTED の pending XP を集計してカテゴリ別 pending* に入れる", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     mockPrisma.questInstance.findMany.mockResolvedValueOnce([
-      {
-        id: "q1",
-        deadlineBonusEarned: false,
-        photoUrl: null,
-        snapshotCategory: "STUDY",
-        template: { category: "STUDY", photoBonus: false },
-      },
-      {
-        id: "q2",
-        deadlineBonusEarned: true,
-        photoUrl: null,
-        snapshotCategory: "STAMINA",
-        template: { category: "STAMINA", photoBonus: false },
-      },
-    ] as any);
+      questWithTemplate(
+        { id: "q1", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: "STUDY" },
+        { category: "STUDY", photoBonus: false },
+      ),
+      questWithTemplate(
+        { id: "q2", deadlineBonusEarned: true, photoUrl: null, snapshotCategory: "STAMINA" },
+        { category: "STAMINA", photoBonus: false },
+      ),
+    ]);
     mockPrisma.streak.findUnique.mockResolvedValue(null);
-    mockPrisma.questInstance.findMany.mockResolvedValueOnce([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValueOnce([]);
 
     const res = await GET(makeReq("child-1"));
     const json = await res.json();

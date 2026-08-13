@@ -3,6 +3,7 @@ import { GET as getToday } from "@/app/api/quests/today/route";
 import { POST as skipQuest } from "@/app/api/quests/[id]/skip/route";
 import { GET as getPending } from "@/app/api/approve/pending/route";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
+import type { Family, TaskTemplate, User } from "@/generated/prisma/client";
 import {
   prisma,
   mockAsUser,
@@ -13,11 +14,14 @@ import {
   makeParams,
 } from "./helpers";
 
+/** GET /api/quests/today, GET /api/approve/pending のレスポンス JSON のうちテストで参照するフィールドのみ */
+type QuestJson = { id: string; status: string; template: { id: string } };
+
 describe("スキップフロー（申請→親承認→SKIPPED）", () => {
-  let family: any;
-  let parent: any;
-  let child: any;
-  let task: any;
+  let family: Family;
+  let parent: User;
+  let child: User;
+  let task: TaskTemplate;
   let questId: string;
 
   beforeAll(async () => {
@@ -26,10 +30,10 @@ describe("スキップフロー（申請→親承認→SKIPPED）", () => {
     task = await seedTask(family.id, { assignedChildId: child.id });
 
     // クエスト生成
-    mockAsUser({ ...child, familyId: family.id });
+    mockAsUser({ ...child, family });
     const res = await getToday();
-    const quests = await res.json();
-    questId = quests.find((q: any) => q.template.id === task.id).id;
+    const quests: QuestJson[] = await res.json();
+    questId = quests.find((q) => q.template.id === task.id)!.id;
   });
 
   afterAll(async () => {
@@ -37,7 +41,7 @@ describe("スキップフロー（申請→親承認→SKIPPED）", () => {
   });
 
   it("子供がスキップ申請するとSKIP_REPORTEDになること", async () => {
-    mockAsUser({ ...child, familyId: family.id });
+    mockAsUser({ ...child, family });
 
     const req = new Request(`http://localhost/api/quests/${questId}/skip`, {
       method: "POST",
@@ -55,18 +59,18 @@ describe("スキップフロー（申請→親承認→SKIPPED）", () => {
   });
 
   it("親の承認待ちリストにスキップ申請が表示されること", async () => {
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
 
     const res = await getPending();
-    const pending = await res.json();
+    const pending: QuestJson[] = await res.json();
 
-    const quest = pending.find((q: any) => q.id === questId);
+    const quest = pending.find((q) => q.id === questId);
     expect(quest).toBeDefined();
-    expect(quest.status).toBe("SKIP_REPORTED");
+    expect(quest!.status).toBe("SKIP_REPORTED");
   });
 
   it("親が承認するとSKIPPEDになりXPは付与されないこと", async () => {
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
 
     const res = await approveQuest(
       makeRequest(`/api/approve/${questId}`, { action: "approve" }),
