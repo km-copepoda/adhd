@@ -3,9 +3,30 @@ import {
   ensureTodayQuests,
   cleanupStaleCarryOverInstances,
 } from "@/lib/quests";
-import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { taskTemplate, questInstance } from "../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
+/**
+ * `mockImplementation` の戻り値は実際の Prisma メソッドと同じ `PrismaPromise<T>` 型が
+ * 要求されるが、`vitest-mock-extended` の DeepMockProxy はジェネリックオーバーロードを
+ * 保持しないためテストコード側では通常の `Promise` しか作れない。
+ * `PrismaPromise` は実行時には通常の thenable として振る舞うため、型だけ合わせる。
+ */
+function asPrismaPromise<T>(value: T): Prisma.PrismaPromise<T> {
+  return Promise.resolve(value) as unknown as Prisma.PrismaPromise<T>;
+}
+
+/**
+ * `findFirst` の実際の戻り値型は `Prisma__QuestInstanceClient`（リレーション用の
+ * フィールドアクセサが付与された Promise 派生型）だが、テストコード側では構築できない
+ * ため `PrismaPromise` ベースの実装を `mockImplementation` が要求する関数型にキャストする。
+ */
+function asFindFirstImpl(
+  fn: (args?: Prisma.QuestInstanceFindFirstArgs) => Prisma.PrismaPromise<Prisma.QuestInstanceGetPayload<object> | null>,
+): Parameters<typeof mockPrisma.questInstance.findFirst.mockImplementation>[0] {
+  return fn as unknown as Parameters<typeof mockPrisma.questInstance.findFirst.mockImplementation>[0];
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -21,10 +42,10 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00")); // 木曜(4)
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [4], isTemporary: false, carryOver: false },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [4], isTemporary: false, carryOver: false }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -52,12 +73,12 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
     // 直近 settled クエリ用のデフォルト
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.findFirst.mockResolvedValue({ id: "q-old", status: "PENDING" } as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.findFirst.mockResolvedValue(questInstance({ id: "q-old", status: "PENDING" }));
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -68,12 +89,12 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
     mockPrisma.questInstance.findFirst.mockResolvedValue(null);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -92,21 +113,21 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
     // DB の where 条件を簡易シミュレート: status: PENDING 単一指定では REPORTED は引っかからない
-    mockPrisma.questInstance.findFirst.mockImplementation((args: any) => {
+    mockPrisma.questInstance.findFirst.mockImplementation(asFindFirstImpl((args) => {
       const status = args?.where?.status;
-      const existing = { id: "q-yesterday", status: "REPORTED" };
+      const existing = questInstance({ id: "q-yesterday", status: "REPORTED" });
       if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("REPORTED")) {
-        return Promise.resolve(existing as any);
+        return asPrismaPromise(existing);
       }
       // status: "PENDING" 単一指定など、REPORTED を含まないクエリでは見つからない
-      return Promise.resolve(null);
-    });
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+      return asPrismaPromise(null);
+    }));
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -117,19 +138,19 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.findFirst.mockImplementation((args: any) => {
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.findFirst.mockImplementation(asFindFirstImpl((args) => {
       const status = args?.where?.status;
-      const existing = { id: "q-yesterday", status: "SKIP_REPORTED" };
+      const existing = questInstance({ id: "q-yesterday", status: "SKIP_REPORTED" });
       if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("SKIP_REPORTED")) {
-        return Promise.resolve(existing as any);
+        return asPrismaPromise(existing);
       }
-      return Promise.resolve(null);
-    });
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+      return asPrismaPromise(null);
+    }));
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -140,12 +161,12 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
     mockPrisma.questInstance.findFirst.mockResolvedValue(null);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -156,10 +177,10 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: false },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: false }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -170,7 +191,7 @@ describe("ensureTodayQuests", () => {
   it("テンプレートが空なら何も書き込まないこと", async () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -181,7 +202,7 @@ describe("ensureTodayQuests", () => {
   it("findMany の where 条件に pausedAt: null が含まれること（一時停止中のテンプレートを対象外）", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00")); // 木曜(4)
 
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -199,16 +220,16 @@ describe("ensureTodayQuests", () => {
     vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 
     const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
     ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
     // 直近 APPROVED が存在する想定（クリーンアップが発火する前提）
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { templateId: "tpl-1", date: new Date("2026-03-06T00:00:00Z") },
-    ] as any);
+      questInstance({ templateId: "tpl-1", date: new Date("2026-03-06T00:00:00Z") }),
+    ]);
     mockPrisma.questInstance.findFirst.mockResolvedValue(null);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 });
 
     await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
 
@@ -238,9 +259,9 @@ describe("cleanupStaleCarryOverInstances", () => {
   it("直近 APPROVED より古い PENDING / REPORTED / SKIP_REPORTED を REJECTED に変換すること", async () => {
     const settledDate = new Date("2026-03-13T00:00:00Z");
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { templateId: "tpl-1", date: settledDate },
-    ] as any);
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 3 } as any);
+      questInstance({ templateId: "tpl-1", date: settledDate }),
+    ]);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 3 });
 
     await cleanupStaleCarryOverInstances({
       childId: "child-1",
@@ -264,7 +285,7 @@ describe("cleanupStaleCarryOverInstances", () => {
   });
 
   it("APPROVED/SKIPPED 履歴がないテンプレートには updateMany を呼ばないこと", async () => {
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     await cleanupStaleCarryOverInstances({
       childId: "child-1",
@@ -276,19 +297,20 @@ describe("cleanupStaleCarryOverInstances", () => {
 
   it("APPROVED 履歴がなくても複数 PENDING があれば最新を残して古いものを REJECTED に縮約すること", async () => {
     // settled は空（APPROVED/SKIPPED なし）
-    mockPrisma.questInstance.findMany.mockImplementation((args: any) => {
+    mockPrisma.questInstance.findMany.mockImplementation((args?: Prisma.QuestInstanceFindManyArgs) => {
       // settled クエリ
-      if (args?.where?.status?.in?.includes("APPROVED")) {
-        return Promise.resolve([] as any);
+      const status = args?.where?.status;
+      if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("APPROVED")) {
+        return asPrismaPromise([]);
       }
       // duplicate collapse 用 active 取得（PENDING/REPORTED/SKIP_REPORTED）
-      return Promise.resolve([
-        { id: "q-old", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" },
-        { id: "q-mid", templateId: "tpl-1", date: new Date("2026-03-11T00:00:00Z"), status: "PENDING" },
-        { id: "q-new", templateId: "tpl-1", date: new Date("2026-03-12T00:00:00Z"), status: "PENDING" },
-      ] as any);
+      return asPrismaPromise([
+        questInstance({ id: "q-old", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" }),
+        questInstance({ id: "q-mid", templateId: "tpl-1", date: new Date("2026-03-11T00:00:00Z"), status: "PENDING" }),
+        questInstance({ id: "q-new", templateId: "tpl-1", date: new Date("2026-03-12T00:00:00Z"), status: "PENDING" }),
+      ]);
     });
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 });
 
     await cleanupStaleCarryOverInstances({
       childId: "child-1",
@@ -310,17 +332,18 @@ describe("cleanupStaleCarryOverInstances", () => {
   });
 
   it("REPORTED と複数 PENDING が混在する場合は REPORTED を残して PENDING を REJECTED にすること", async () => {
-    mockPrisma.questInstance.findMany.mockImplementation((args: any) => {
-      if (args?.where?.status?.in?.includes("APPROVED")) {
-        return Promise.resolve([] as any);
+    mockPrisma.questInstance.findMany.mockImplementation((args?: Prisma.QuestInstanceFindManyArgs) => {
+      const status = args?.where?.status;
+      if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("APPROVED")) {
+        return asPrismaPromise([]);
       }
-      return Promise.resolve([
-        { id: "q-pend-old", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" },
-        { id: "q-reported", templateId: "tpl-1", date: new Date("2026-03-11T00:00:00Z"), status: "REPORTED" },
-        { id: "q-pend-new", templateId: "tpl-1", date: new Date("2026-03-12T00:00:00Z"), status: "PENDING" },
-      ] as any);
+      return asPrismaPromise([
+        questInstance({ id: "q-pend-old", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" }),
+        questInstance({ id: "q-reported", templateId: "tpl-1", date: new Date("2026-03-11T00:00:00Z"), status: "REPORTED" }),
+        questInstance({ id: "q-pend-new", templateId: "tpl-1", date: new Date("2026-03-12T00:00:00Z"), status: "PENDING" }),
+      ]);
     });
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 } as any);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 2 });
 
     await cleanupStaleCarryOverInstances({
       childId: "child-1",
@@ -341,13 +364,14 @@ describe("cleanupStaleCarryOverInstances", () => {
   });
 
   it("アクティブインスタンスが 1 件だけなら縮約は走らないこと", async () => {
-    mockPrisma.questInstance.findMany.mockImplementation((args: any) => {
-      if (args?.where?.status?.in?.includes("APPROVED")) {
-        return Promise.resolve([] as any);
+    mockPrisma.questInstance.findMany.mockImplementation((args?: Prisma.QuestInstanceFindManyArgs) => {
+      const status = args?.where?.status;
+      if (status && typeof status === "object" && Array.isArray(status.in) && status.in.includes("APPROVED")) {
+        return asPrismaPromise([]);
       }
-      return Promise.resolve([
-        { id: "q-only", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" },
-      ] as any);
+      return asPrismaPromise([
+        questInstance({ id: "q-only", templateId: "tpl-1", date: new Date("2026-03-10T00:00:00Z"), status: "PENDING" }),
+      ]);
     });
 
     await cleanupStaleCarryOverInstances({
@@ -362,9 +386,9 @@ describe("cleanupStaleCarryOverInstances", () => {
     const settledDate = new Date("2026-03-13T00:00:00Z");
     // 直近 settled クエリは carryOver=true の templateId だけ問い合わせる想定
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { templateId: "tpl-1", date: settledDate },
-    ] as any);
-    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 } as any);
+      questInstance({ templateId: "tpl-1", date: settledDate }),
+    ]);
+    mockPrisma.questInstance.updateMany.mockResolvedValue({ count: 1 });
 
     await cleanupStaleCarryOverInstances({
       childId: "child-1",
