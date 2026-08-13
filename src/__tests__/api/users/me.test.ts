@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/users/me/route";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser } from "../../helpers/fixtures";
+import { childUserWithFamily } from "../../helpers/fixtures";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
@@ -17,7 +17,7 @@ describe("GET /api/users/me", () => {
   });
 
   it("reportDeadlineTime が null のユーザーは null を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET();
     const data = await res.json();
     expect(res.status).toBe(200);
@@ -26,7 +26,7 @@ describe("GET /api/users/me", () => {
 
   it("reportDeadlineTime が設定されていれば返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ reportDeadlineTime: "20:00" } as any) as any
+      childUserWithFamily({ reportDeadlineTime: "20:00" }),
     );
     const res = await GET();
     const data = await res.json();
