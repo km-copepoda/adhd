@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { checkAndUnlockBadges } from "@/lib/badges";
+import type { Badge, BadgeProgress } from "@/lib/badges";
 import { triggerBadgeLog } from "@/lib/bulletinLog";
 import { GET } from "@/app/api/badges/route";
-import { childUser, parentUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, parentUserWithFamily, userBadge } from "../../helpers/fixtures";
 
 vi.mock("@/lib/badges", async () => {
   const actual = await vi.importActual<typeof import("@/lib/badges")>("@/lib/badges");
@@ -38,10 +39,23 @@ vi.mock("@/lib/bulletinLog", () => ({
   triggerBadgeLog: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockCheckAndUnlockBadges = vi.mocked(checkAndUnlockBadges);
 const mockTriggerBadgeLog = vi.mocked(triggerBadgeLog);
+
+type BadgeResponseItem = Badge & {
+  unlocked: boolean;
+  unlockedAt: Date | null;
+  isNew: boolean;
+  progress: BadgeProgress | null;
+};
+
+type BadgesResponse = {
+  badges: BadgeResponseItem[];
+  unlockedCount: number;
+  totalCount: number;
+  newlyUnlocked: string[];
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -50,7 +64,7 @@ beforeEach(() => {
 
 describe("GET /api/badges", () => {
   it("子供以外（親 or 未認証）は 403", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await GET();
     expect(res.status).toBe(403);
 
@@ -60,7 +74,7 @@ describe("GET /api/badges", () => {
   });
 
   it("新規解除されたバッジを掲示板に流す（triggerBadgeLog 呼び出し）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockCheckAndUnlockBadges.mockResolvedValue([
       { id: "first_step", name: "はじめの一歩", emoji: "🌱", description: "..." },
       { id: "login_14", name: "2週間ログイン", emoji: "🌿", description: "..." },
@@ -76,7 +90,7 @@ describe("GET /api/badges", () => {
   });
 
   it("新規解除がなければ triggerBadgeLog は呼ばれない", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockCheckAndUnlockBadges.mockResolvedValue([]);
 
     const res = await GET();
@@ -87,40 +101,40 @@ describe("GET /api/badges", () => {
   });
 
   it("UserBadge に廃止された旧ID が残っていても unlockedCount は ALL_BADGES の ID のみ数える", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockCheckAndUnlockBadges.mockResolvedValue([]);
     mockPrisma.userBadge.findMany.mockResolvedValue([
-      { badgeId: "first_quest", unlockedAt: new Date("2026-06-01") },
-      { badgeId: "first_approval", unlockedAt: new Date("2026-04-10") }, // 廃止ID
-      { badgeId: "streak_3", unlockedAt: new Date("2026-04-11") },       // 廃止ID
-      { badgeId: "xp_10", unlockedAt: new Date("2026-04-12") },          // 廃止ID
-    ] as any);
+      userBadge({ id: "ub-1", badgeId: "first_quest", unlockedAt: new Date("2026-06-01") }),
+      userBadge({ id: "ub-2", badgeId: "first_approval", unlockedAt: new Date("2026-04-10") }), // 廃止ID
+      userBadge({ id: "ub-3", badgeId: "streak_3", unlockedAt: new Date("2026-04-11") }),       // 廃止ID
+      userBadge({ id: "ub-4", badgeId: "xp_10", unlockedAt: new Date("2026-04-12") }),          // 廃止ID
+    ]);
 
     const res = await GET();
-    const json = await res.json();
+    const json = (await res.json()) as BadgesResponse;
     expect(res.status).toBe(200);
     expect(json.unlockedCount).toBe(1);
     expect(json.totalCount).toBe(100);
     // 旧IDのバッジは badges 配列に含まれない（ALL_BADGES ベース描画）
-    const ids = json.badges.map((b: any) => b.id);
+    const ids = json.badges.map((b) => b.id);
     expect(ids).not.toContain("first_approval");
     expect(ids).not.toContain("streak_3");
     expect(ids).not.toContain("xp_10");
   });
 
   it("レスポンスの各バッジに progress フィールドを含む（数値系は {current,target}、ブール系は null）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET();
-    const json = await res.json();
+    const json = (await res.json()) as BadgesResponse;
     expect(res.status).toBe(200);
     expect(Array.isArray(json.badges)).toBe(true);
 
-    const questBadge = json.badges.find((b: any) => b.id === "quest_10");
+    const questBadge = json.badges.find((b) => b.id === "quest_10");
     expect(questBadge).toBeDefined();
-    expect(questBadge.progress).toEqual({ current: 0, target: 10 });
+    expect(questBadge?.progress).toEqual({ current: 0, target: 10 });
 
-    const collectionAll = json.badges.find((b: any) => b.id === "collection_all");
+    const collectionAll = json.badges.find((b) => b.id === "collection_all");
     expect(collectionAll).toBeDefined();
-    expect(collectionAll.progress).toBeNull();
+    expect(collectionAll?.progress).toBeNull();
   });
 });

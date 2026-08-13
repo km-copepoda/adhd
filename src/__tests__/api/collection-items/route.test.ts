@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET as getChild } from "@/app/api/collection-items/route";
 import { GET as getParentProxy } from "@/app/api/parent/child-view/collection-items/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser, parentUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, parentUserWithFamily, childUser, userCollectionItem } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -14,7 +13,7 @@ beforeEach(() => {
 
 describe("GET /api/collection-items (子供)", () => {
   it("PARENT で 403", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await getChild();
     expect(res.status).toBe(403);
   });
@@ -26,9 +25,9 @@ describe("GET /api/collection-items (子供)", () => {
   });
 
   it("子供 → 全 140 件 (通常 80 + 月限定 60) + 所持アイテムは owned=true + currentMonth を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ id: "c1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "c1" }));
     mockPrisma.userCollectionItem.findMany.mockResolvedValue([
-      {
+      userCollectionItem({
         id: "r1",
         childId: "c1",
         itemId: "summer-01",
@@ -36,8 +35,8 @@ describe("GET /api/collection-items (子供)", () => {
         count: 2,
         firstAcquiredAt: new Date("2026-06-01T00:00:00Z"),
         lastAcquiredAt: new Date("2026-06-05T00:00:00Z"),
-      },
-    ] as any);
+      }),
+    ]);
 
     const res = await getChild();
     const json = await res.json();
@@ -75,28 +74,28 @@ describe("GET /api/parent/child-view/collection-items (親代理)", () => {
   });
 
   it("CHILD で 403 (PARENT のみ許可)", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await getParentProxy(makeReq("childId=c1"));
     expect(res.status).toBe(403);
   });
 
   it("childId 未指定で 400", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await getParentProxy(makeReq(""));
     expect(res.status).toBe(400);
   });
 
   it("別 family の子で 404", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await getParentProxy(makeReq("childId=c-other"));
     expect(res.status).toBe(404);
   });
 
   it("親代理 → 子供と同形式のレスポンス", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "c1" }) as any);
-    mockPrisma.userCollectionItem.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "c1" }));
+    mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
 
     const res = await getParentProxy(makeReq("childId=c1"));
     const json = await res.json();
