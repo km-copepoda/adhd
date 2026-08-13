@@ -70,14 +70,24 @@ export async function POST(
     }
   }
 
-  const task = await prisma.taskTemplate.update({
-    where: { id, familyId: user.familyId },
+  // where に読み取り時点の pausedAt を含め、書き込みを条件付きにする。
+  // 別タブ等からの並行リクエストが同じ古い pausedAt を読んで別々に書き込むと、
+  // 後勝ちで一方の変更（停止/再開の履歴）が黙って消えてしまうため、
+  // 読み取り後に状態が変わっていれば count=0 になり検出できるようにする。
+  const result = await prisma.taskTemplate.updateMany({
+    where: { id, familyId: user.familyId, pausedAt: target.pausedAt },
     data: {
       pausedAt: nextPausedAt,
       ...(appendedIntervals ? { pauseIntervals: appendedIntervals } : {}),
     },
   });
+  if (result.count === 0) {
+    return NextResponse.json(
+      { error: "他の操作と競合しました。もう一度お試しください。", code: "PAUSE_STATE_CONFLICT" },
+      { status: 409 },
+    );
+  }
 
   rlog.info("Task pause state updated", { taskId: id, paused: body.paused, userId: user.id });
-  return NextResponse.json(task);
+  return NextResponse.json({ id, pausedAt: nextPausedAt });
 }
