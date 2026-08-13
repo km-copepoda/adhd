@@ -30,6 +30,7 @@ import type {
   BulletinLog,
   CheckinLog,
   Family,
+  GatheringMember,
   Prisma,
   PushSubscription,
   QuestDeclaration,
@@ -375,6 +376,18 @@ export function userCollectionItem(overrides?: Partial<UserCollectionItem>): Use
     count: 1,
     firstAcquiredAt: FIXTURE_TIMESTAMP,
     lastAcquiredAt: FIXTURE_TIMESTAMP,
+    ...overrides,
+  };
+}
+
+// ─── GatheringMember ──────────────────────────────────
+
+export function gatheringMember(overrides?: Partial<GatheringMember>): GatheringMember {
+  return {
+    id: "member-1",
+    groupId: "group-1",
+    childId: "child-1",
+    joinedAt: FIXTURE_TIMESTAMP,
     ...overrides,
   };
 }
