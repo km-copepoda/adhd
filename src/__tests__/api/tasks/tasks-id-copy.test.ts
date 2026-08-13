@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST } from "@/app/api/tasks/[id]/copy/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest, makeParams } from "../../helpers/request";
-import { parentUser, childUser, taskTemplate } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, taskTemplate } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -26,13 +25,13 @@ describe("POST /api/tasks/[id]/copy", () => {
   });
 
   it("CHILDロールの場合、403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(makeRequest("/api/tasks/t1/copy", {}), makeParams("t1"));
     expect(res.status).toBe(403);
   });
 
   it("タスクが見つからない場合、404を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.taskTemplate.findFirst.mockResolvedValue(null);
 
     const res = await POST(makeRequest("/api/tasks/t1/copy", {}), makeParams("t1"));
@@ -40,17 +39,15 @@ describe("POST /api/tasks/[id]/copy", () => {
   });
 
   it("一時タスクでない場合、400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.taskTemplate.findFirst.mockResolvedValue(
-      taskTemplate({ isTemporary: false }) as any
-    );
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue(taskTemplate({ isTemporary: false }));
 
     const res = await POST(makeRequest("/api/tasks/t1/copy", {}), makeParams("t1"));
     expect(res.status).toBe(400);
   });
 
   it("targetDate未指定の場合、翌日の一時タスクをコピーすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const original = taskTemplate({
       id: "tpl-1",
       title: "英語の宿題",
@@ -61,12 +58,13 @@ describe("POST /api/tasks/[id]/copy", () => {
       repeatDays: [],
       createdBy: "PARENT",
       familyId: "fam-1",
+      assignedChildId: "child-1",
     });
     mockPrisma.taskTemplate.findFirst
-      .mockResolvedValueOnce({ ...original, assignedChildId: "child-1" } as any)
+      .mockResolvedValueOnce(original)
       .mockResolvedValueOnce(null); // 重複なし
-    const newTask = { id: "tpl-2", title: "英語の宿題", isTemporary: true };
-    mockPrisma.taskTemplate.create.mockResolvedValue(newTask as any);
+    const newTask = taskTemplate({ id: "tpl-2", title: "英語の宿題", isTemporary: true });
+    mockPrisma.taskTemplate.create.mockResolvedValue(newTask);
 
     const res = await POST(makeRequest("/api/tasks/tpl-1/copy", {}), makeParams("tpl-1"));
     expect(res.status).toBe(200);
@@ -88,16 +86,17 @@ describe("POST /api/tasks/[id]/copy", () => {
   });
 
   it("targetDate指定の場合、その日の一時タスクをコピーすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const original = taskTemplate({
       isTemporary: true,
       targetDate: new Date("2026-03-19"),
       repeatDays: [],
+      assignedChildId: "child-1",
     });
     mockPrisma.taskTemplate.findFirst
-      .mockResolvedValueOnce({ ...original, assignedChildId: "child-1" } as any)
+      .mockResolvedValueOnce(original)
       .mockResolvedValueOnce(null); // 重複なし
-    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "tpl-new" } as any);
+    mockPrisma.taskTemplate.create.mockResolvedValue(taskTemplate({ id: "tpl-new" }));
 
     const res = await POST(
       makeRequest("/api/tasks/tpl-1/copy", { targetDate: "2026-03-21" }),
@@ -113,7 +112,7 @@ describe("POST /api/tasks/[id]/copy", () => {
   });
 
   it("同じtargetDateに同タイトル・同担当の一時タスクが既に存在する場合、新規作成せず既存タスクを返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const original = taskTemplate({
       id: "tpl-1",
       title: "英語の宿題",
@@ -121,13 +120,19 @@ describe("POST /api/tasks/[id]/copy", () => {
       targetDate: new Date("2026-03-19"),
       repeatDays: [],
       familyId: "fam-1",
+      assignedChildId: "child-1",
     });
-    const existingCopy = { id: "tpl-existing", title: "英語の宿題", isTemporary: true, targetDate: new Date("2026-03-20") };
+    const existingCopy = taskTemplate({
+      id: "tpl-existing",
+      title: "英語の宿題",
+      isTemporary: true,
+      targetDate: new Date("2026-03-20"),
+    });
 
     // 1回目: 元タスク取得、2回目: 重複チェック
     mockPrisma.taskTemplate.findFirst
-      .mockResolvedValueOnce({ ...original, assignedChildId: "child-1" } as any)
-      .mockResolvedValueOnce(existingCopy as any);
+      .mockResolvedValueOnce(original)
+      .mockResolvedValueOnce(existingCopy);
 
     const res = await POST(
       makeRequest("/api/tasks/tpl-1/copy", { targetDate: "2026-03-20" }),
@@ -140,12 +145,17 @@ describe("POST /api/tasks/[id]/copy", () => {
   });
 
   it("コピーされた新タスクを返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.taskTemplate.findFirst
-      .mockResolvedValueOnce(taskTemplate({ isTemporary: true, targetDate: new Date("2026-03-19"), repeatDays: [] }) as any)
+      .mockResolvedValueOnce(taskTemplate({ isTemporary: true, targetDate: new Date("2026-03-19"), repeatDays: [] }))
       .mockResolvedValueOnce(null); // 重複なし
-    const newTask = { id: "tpl-new", title: "宿題", isTemporary: true, targetDate: new Date("2026-03-20") };
-    mockPrisma.taskTemplate.create.mockResolvedValue(newTask as any);
+    const newTask = taskTemplate({
+      id: "tpl-new",
+      title: "宿題",
+      isTemporary: true,
+      targetDate: new Date("2026-03-20"),
+    });
+    mockPrisma.taskTemplate.create.mockResolvedValue(newTask);
 
     const res = await POST(makeRequest("/api/tasks/tpl-1/copy", {}), makeParams("tpl-1"));
     const json = await res.json();
