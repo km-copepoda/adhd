@@ -21,7 +21,7 @@ describe("POST /api/tasks/[id]/pause — 再開時の上限チェック", () => 
     );
     mockPrisma.subscription.findUnique.mockResolvedValue(null); // FREE
     mockPrisma.taskTemplate.count.mockResolvedValue(999); // 意図的に超過
-    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1" }));
+    mockPrisma.taskTemplate.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", { paused: true }),
@@ -29,7 +29,7 @@ describe("POST /api/tasks/[id]/pause — 再開時の上限チェック", () => 
     );
     expect(res.status).toBe(200);
     expect(mockPrisma.taskTemplate.count).not.toHaveBeenCalled();
-    expect(mockPrisma.taskTemplate.update).toHaveBeenCalled();
+    expect(mockPrisma.taskTemplate.updateMany).toHaveBeenCalled();
   });
 
   it("paused=false + FREE + 現在 9 個 active: 再開成功", async () => {
@@ -39,7 +39,7 @@ describe("POST /api/tasks/[id]/pause — 再開時の上限チェック", () => 
     mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(9);
-    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1" }));
+    mockPrisma.taskTemplate.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", { paused: false }),
@@ -64,7 +64,7 @@ describe("POST /api/tasks/[id]/pause — 再開時の上限チェック", () => 
     const json = await res.json();
     expect(json.code).toBe("PLAN_LIMIT_EXCEEDED");
     expect(json.resource).toBe("task");
-    expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
+    expect(mockPrisma.taskTemplate.updateMany).not.toHaveBeenCalled();
   });
 
   it("paused=false + PREMIUM: 無制限に再開成功", async () => {
@@ -76,7 +76,7 @@ describe("POST /api/tasks/[id]/pause — 再開時の上限チェック", () => 
       subscription({ plan: "PREMIUM", currentPeriodEnd: new Date("2099-12-31") }),
     );
     mockPrisma.taskTemplate.count.mockResolvedValue(999);
-    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1" }));
+    mockPrisma.taskTemplate.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", { paused: false }),
@@ -93,6 +93,6 @@ describe("POST /api/tasks/[id]/pause — 再開時の上限チェック", () => 
       makeParams("no-such"),
     );
     expect(res.status).toBe(404);
-    expect(mockPrisma.taskTemplate.update).not.toHaveBeenCalled();
+    expect(mockPrisma.taskTemplate.updateMany).not.toHaveBeenCalled();
   });
 });

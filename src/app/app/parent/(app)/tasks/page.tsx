@@ -35,6 +35,7 @@ type Task = {
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number; lastAchievedDate: string | null }[];
   completedToday: boolean;
   lastSkippedDate: string | null;
+  lastSkippedActiveDaysAgo: number | null;
   carryOverMissedCount: number | null;
 };
 

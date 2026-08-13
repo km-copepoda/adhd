@@ -1,7 +1,7 @@
 "use client";
 
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
-import { isTaskStreakActive, daysSinceJST } from "@/lib/date";
+import { isTaskStreakActive } from "@/lib/date";
 import { xpRangeLabel } from "@/lib/xp";
 import type { Category } from "@/types";
 
@@ -18,6 +18,8 @@ type RegularTask = {
   taskStreaks: { childId: string; currentStreak: number; bestStreak: number; lastAchievedDate: string | null }[];
   completedToday: boolean;
   lastSkippedDate: string | null;
+  /** server 側で active 経過日数（停止期間を除外）を計算済。停止中は増加しない。 */
+  lastSkippedActiveDaysAgo: number | null;
   carryOverMissedCount: number | null;
   targetDate: string | null;
   requestedDate: string | null;
@@ -41,14 +43,13 @@ type Props = {
   onTogglePause: (id: string, paused: boolean) => void;
 };
 
-function formatSkipBadge(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  // JST 基準で経過日数を出す。旧 daysSince は UTC ベースだったため
-  // JST 00:00-09:00 の間（特に auto-approve cron 直後の朝方）に表示が 1 日ずれていた。
-  const diffDays = daysSinceJST(dateStr);
-  if (diffDays <= 0) return "今日スキップ";
-  if (diffDays === 1) return "昨日スキップ";
-  return `${diffDays}日前スキップ`;
+function formatSkipBadge(activeDaysAgo: number | null): string | null {
+  if (activeDaysAgo === null) return null;
+  // server 側で「active 経過日数」（停止期間を除外した JST 日数）を渡してもらう。
+  // client 内で `Date.now()` から再計算すると、停止中もバッジが日々増えてしまう（Codex P1-4）。
+  if (activeDaysAgo <= 0) return "今日スキップ";
+  if (activeDaysAgo === 1) return "昨日スキップ";
+  return `${activeDaysAgo}日前スキップ`;
 }
 
 function formatPendingCarryBadge(missedCount: number | null): string | null {
@@ -100,7 +101,7 @@ export default function RegularTaskCard({ task, childId, childOptions, todayDow,
                 title={`直近のスキップ: ${new Date(task.lastSkippedDate).toLocaleDateString("ja-JP")}`}
                 className="text-[9px] text-orange-300 bg-orange-400/10 border border-orange-400/40 rounded px-1"
               >
-                ⏭ {formatSkipBadge(task.lastSkippedDate)}
+                ⏭ {formatSkipBadge(task.lastSkippedActiveDaysAgo)}
               </span>
             )}
             {carryLabel && (

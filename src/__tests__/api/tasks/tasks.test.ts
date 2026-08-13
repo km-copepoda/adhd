@@ -67,8 +67,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      toSerialized({ ...tasks[0], completedToday: false, lastSkippedDate: null, carryOverMissedCount: null }),
-      toSerialized({ ...tasks[1], completedToday: false, lastSkippedDate: null, carryOverMissedCount: null }),
+      toSerialized({ ...tasks[0], completedToday: false, lastSkippedDate: null, lastSkippedActiveDaysAgo: null, carryOverMissedCount: null }),
+      toSerialized({ ...tasks[1], completedToday: false, lastSkippedDate: null, lastSkippedActiveDaysAgo: null, carryOverMissedCount: null }),
     ]);
     expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith({
       where: { familyId: "fam-1", isActive: true },
@@ -102,8 +102,8 @@ describe("GET /api/tasks", () => {
     const json = await res.json();
 
     expect(json).toEqual([
-      toSerialized({ ...tasks[0], completedToday: true, lastSkippedDate: null, carryOverMissedCount: null }),
-      toSerialized({ ...tasks[1], completedToday: false, lastSkippedDate: null, carryOverMissedCount: null }),
+      toSerialized({ ...tasks[0], completedToday: true, lastSkippedDate: null, lastSkippedActiveDaysAgo: null, carryOverMissedCount: null }),
+      toSerialized({ ...tasks[1], completedToday: false, lastSkippedDate: null, lastSkippedActiveDaysAgo: null, carryOverMissedCount: null }),
     ]);
     const expectedToday = new Date("2026-03-18T00:00:00Z");
     expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({

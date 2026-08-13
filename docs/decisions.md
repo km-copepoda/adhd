@@ -114,6 +114,7 @@
 - [2026-08-07: LP モンスターコレクションにタップで詳細モーダル表示を追加](#2026-08-07-lp-モンスターコレクションにタップで詳細モーダル表示を追加)
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
 - [2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外](#2026-08-10-free-プランのタスク上限カウントから幽霊一時タスク-targetdate--today-を除外)
+- [2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く](#2026-08-10-停止中タスクの親バッジ未完了カウントスキップを停止時点で凍結し再開後は停止期間を差し引く)
 
 <!-- TOC:END -->
 
@@ -2591,6 +2592,42 @@
 - `src/app/api/tasks/route.ts` / `src/app/api/tasks/bulk/route.ts` / `src/app/api/tasks/[id]/pause/route.ts` / `src/app/api/tasks/[id]/copy/route.ts` — count 呼び出しを helper に置換
 - `docs/未実装仕様書/monetization-plan.md §2.2` — 有効タスク定義を更新
 - テスト: `src/__tests__/lib/subscriptionService.test.ts` / `src/__tests__/api/tasks/tasks-limit.test.ts`
+
+## 2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く
+
+### 決定内容
+- `TaskTemplate` に `pauseIntervals Json @default("[]")` を追加。停止解除時に、境界日（停止開始当日・再開当日）を除いた `{ start: pausedAt翌日, end: resumedAt前日 }` を push する（現在停止中は `pausedAt` にのみ存在）
+- マイグレーション `20260810000001_add_pause_intervals_to_task_template`
+- `src/lib/taskSummary.ts`:
+  - 新 helper `parsePauseIntervals` / `totalPausedDaysInRange` / `effectiveIntervalsFor` / `closedPauseInterval` / `activeDaysBetween`
+  - `calcCarryOverMissedCount` は `pauseIntervals` を追加引数で受け、範囲内の停止期間中の予定日 (repeatDays マッチ) を除外
+  - `getParentTaskSummaries` は effective intervals（過去区間 + 現在停止中なら `(pausedAt翌日, today]`）を計算し、`carryOverMissedCount` と `lastSkippedActiveDaysAgo`（7日窓）両方に適用
+- `POST /api/tasks/[id]/pause` の paused=false 経路で `closedPauseInterval(pausedAt, now)` の結果を `pauseIntervals` に追記して update
+- `POST /api/tasks/[id]/pause` は `update` ではなく `updateMany` を使い、`where` に読み取り時点の `pausedAt` を条件として含める。並行リクエストで読み取り後に状態が変わっていた場合は `count===0` になるので `409 PAUSE_STATE_CONFLICT` を返す（Codex 指摘、2026-08-13）
+
+### 理由
+- 2026-07-20 で導入した一時停止は「表示だけ止める、DB は触らない」設計だったが、`getParentTaskSummaries` の carryOverMissedCount と recentSkipped 窓が `today` を基準に計算し続けるため、停止中もバッジが日々増加／シフトしていく問題があった
+- 停止は「その期間に発生しなかったことにする」意味合いなので、バッジも凍結し、再開後は停止期間ぶんを差し引くのが自然。子供画面 (`today` route) は既に `pausedAt: null` フィルタ済みで整合的
+- 累計日数 (Int) ではなく `pauseIntervals` (JSON) にしたのは、repeatDays タスクで「停止期間中の予定日を厳密に除外」するためには interval 情報が必須なため（累計日数だけでは approximation にしかならない）
+- 表示側 (`RegularTaskCard.tsx`) が `daysSinceJST` で経過日数を再計算すると停止中もバッジが動いてしまうため、`lastSkippedActiveDaysAgo` を server 側で確定させて渡す
+- `effectiveIntervalsFor` が現在停止中ぶんに足し込む区間は `pausedAt` 当日を含めない (`pausedAt` 翌日始まり)。含めると、停止ボタンを押した瞬間に「その日はまだ active だった」にもかかわらず丸ごと減算され、経過日数・出現回数が凍結前の値から1日巻き戻って見える（Codex 指摘、2026-08-11）
+- 再開時に永続化する区間（`closedPauseInterval`）も同じ理由で両端 exclusive にする。`{start: pausedAt, end: now}` と inclusive で保存すると、再開当日 (now) も一部 active だったにもかかわらず丸ごと減算され、停止中は N 回で凍結されていた値が再開直後に N-1 回へ巻き戻る（Codex 指摘、2026-08-13）。境界日（開始日・再開日）は常に active、間の日だけが完全に停止していた日として扱うのが、進行中の区間・確定済みの区間を通じて一貫した規約
+- `update`（unique where のみ）ではなく `updateMany` を使うのは、読み取った `pausedAt` を `where` の非 unique 条件として渡すことで「読み取り後に状態が変わっていなければ書き込む」という条件付き更新を表現するため。DB トランザクション/行ロックを使わずに、既存の Prisma モックだけでテスト可能な形で楽観的排他を実現できる
+
+### やってはいけないこと
+- 停止時に既存 QuestInstance の `date` を書き換える（履歴改変で他のバッジ・ストリーク集計が壊れる。純粋に表示計算の side で処理する）
+- `effectiveToday`（today をシフトした値）を作ってから同じ `pauseIntervals` で再度日数を引く（二重減算になる。実 `today` を使い続け、`effectiveIntervalsFor` で区間側に現在停止中ぶんを足し込む一本化した経路にする）
+- `pauseIntervals` を子画面 `today` route の filter に使う（`pausedAt: null` フィルタで十分。JSON 走査のコストを子画面に負わせる必要はない）
+- `effectiveIntervalsFor` の現在停止中区間や `closedPauseInterval` の確定済み区間を、境界日 (`pausedAt` 当日 / 再開当日) を含む inclusive にする（上記「理由」参照。進行中・確定済みのどちらの区間も境界日は常に active というのが唯一の規約で、片方だけ inclusive にすると再開の瞬間に値が巻き戻る）
+- `POST /api/tasks/[id]/pause` を `findUnique` → `update`（無条件）の2ステップのまま実装する（並行リクエストで読み取り後に状態が変わっても検知できず、停止/再開の履歴が黙って上書きされる。`updateMany` + `where.pausedAt` 条件 + `count===0` 時 409 を必ずセットで使う）
+
+### 該当箇所
+- `prisma/schema.prisma` — `TaskTemplate.pauseIntervals`
+- `prisma/migrations/20260810000001_add_pause_intervals_to_task_template/migration.sql`
+- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に `closedPauseInterval` の結果を interval 追記。`updateMany` + `where.pausedAt` で条件付き更新、`count===0` は 409
+- `src/lib/taskSummary.ts` — parsePauseIntervals / totalPausedDaysInRange / effectiveIntervalsFor / closedPauseInterval / activeDaysBetween / calcCarryOverMissedCount 拡張
+- `src/components/parent/RegularTaskCard.tsx` — `lastSkippedActiveDaysAgo` を表示に使用
+- テスト: `src/__tests__/lib/taskSummary.test.ts`, `src/__tests__/api/tasks/tasks-pause.test.ts`
 
 ## 2026-08-12: fetch-in-effect パターンの `react-hooks/set-state-in-effect` は eslint-disable で受け入れる（Issue #22）
 

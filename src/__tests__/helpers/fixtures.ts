@@ -185,6 +185,7 @@ export function taskTemplate(overrides?: Partial<TaskTemplate>): TaskTemplate {
     photoBonus: false,
     carryOver: false,
     pausedAt: null,
+    pauseIntervals: [],
     assignedChildId: "child-1",
     createdAt: FIXTURE_TIMESTAMP,
     ...overrides,

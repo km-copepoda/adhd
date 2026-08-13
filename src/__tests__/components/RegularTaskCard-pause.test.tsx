@@ -17,6 +17,7 @@ function baseTask(overrides: Record<string, unknown> = {}) {
     taskStreaks: [],
     completedToday: false,
     lastSkippedDate: null,
+    lastSkippedActiveDaysAgo: null,
     carryOverMissedCount: null,
     targetDate: null,
     requestedDate: null,
