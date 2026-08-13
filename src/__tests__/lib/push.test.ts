@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.unmock("@/lib/push");
 
 import { sendPushToChild } from "@/lib/push";
-import { prisma } from "@/lib/prisma";
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { pushSubscription } from "../helpers/fixtures";
 
 vi.mock("web-push", () => ({
   default: {
@@ -12,8 +13,6 @@ vi.mock("web-push", () => ({
     sendNotification: vi.fn().mockResolvedValue({}),
   },
 }));
-
-const mockPrisma = vi.mocked(prisma);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -24,9 +23,9 @@ beforeEach(() => {
 describe("sendPushToChild", () => {
   it("子供のsubscriptionが存在する場合、通知を送信すること", async () => {
     const subs = [
-      { id: "sub-1", endpoint: "https://push.example.com/1", p256dh: "key1", auth: "auth1" },
+      pushSubscription({ id: "sub-1", endpoint: "https://push.example.com/1", p256dh: "key1", auth: "auth1" }),
     ];
-    mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as any);
+    mockPrisma.pushSubscription.findMany.mockResolvedValue(subs);
 
     const webpush = (await import("web-push")).default;
 
@@ -53,10 +52,10 @@ describe("sendPushToChild", () => {
 
   it("410 Gone エラーが返ったとき、subscriptionを削除すること", async () => {
     const subs = [
-      { id: "sub-1", endpoint: "https://push.example.com/1", p256dh: "key1", auth: "auth1" },
+      pushSubscription({ id: "sub-1", endpoint: "https://push.example.com/1", p256dh: "key1", auth: "auth1" }),
     ];
-    mockPrisma.pushSubscription.findMany.mockResolvedValue(subs as any);
-    mockPrisma.pushSubscription.delete.mockResolvedValue({} as any);
+    mockPrisma.pushSubscription.findMany.mockResolvedValue(subs);
+    mockPrisma.pushSubscription.delete.mockResolvedValue(pushSubscription({ id: "sub-1" }));
 
     const webpush = (await import("web-push")).default;
     vi.mocked(webpush.sendNotification).mockRejectedValueOnce({ statusCode: 410 });

@@ -9,27 +9,28 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { loadBadgeContext } from "@/lib/badges";
-import { prisma } from "@/lib/prisma";
 import { ALL_COLLECTION_ITEMS } from "@/lib/collectionItems";
-
-const mockPrisma = vi.mocked(prisma);
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { childUser, userCollectionItem } from "../helpers/fixtures";
 
 function mockPrismaBaseline() {
-  mockPrisma.user.findUnique.mockResolvedValue({
-    evolutionStage: 1,
-    collectedPaths: "[]",
-    studyPt: 0,
-    staminaPt: 0,
-    lifePt: 0,
-    usedEggBonuses: "[]",
-  } as any);
+  mockPrisma.user.findUnique.mockResolvedValue(
+    childUser({
+      evolutionStage: 1,
+      collectedPaths: "[]",
+      studyPt: 0,
+      staminaPt: 0,
+      lifePt: 0,
+      usedEggBonuses: "[]",
+    }),
+  );
   mockPrisma.streak.findUnique.mockResolvedValue(null);
-  mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-  // taskStreak.findMany はグローバル setup ではモック定義がないので、その場で追加する
-  (mockPrisma as any).taskStreak.findMany = vi.fn().mockResolvedValue([]);
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
+  // taskStreak.findMany はグローバル setup ではデフォルト値が設定されていないので、その場で追加する
+  mockPrisma.taskStreak.findMany.mockResolvedValue([]);
   mockPrisma.taskTemplate.count.mockResolvedValue(0);
   mockPrisma.userBadge.count.mockResolvedValue(0);
-  mockPrisma.treasureLog.findMany.mockResolvedValue([] as any);
+  mockPrisma.treasureLog.findMany.mockResolvedValue([]);
 }
 
 beforeEach(() => {
@@ -45,7 +46,7 @@ describe("loadBadgeContext: 通常アイテム 80 種で判定する", () => {
     expect(regularSummer).toHaveLength(20);
 
     mockPrisma.userCollectionItem.findMany.mockResolvedValue(
-      regularSummer.map((i) => ({ itemId: i.id, season: "summer" })) as any,
+      regularSummer.map((i) => userCollectionItem({ itemId: i.id, season: "summer" })),
     );
 
     const ctx = await loadBadgeContext("c1");
@@ -61,7 +62,7 @@ describe("loadBadgeContext: 通常アイテム 80 種で判定する", () => {
     const monthly7 = ALL_COLLECTION_ITEMS.filter((i) => i.month === 7);
 
     mockPrisma.userCollectionItem.findMany.mockResolvedValue(
-      [...owned, ...monthly7].map((i) => ({ itemId: i.id, season: i.season })) as any,
+      [...owned, ...monthly7].map((i) => userCollectionItem({ itemId: i.id, season: i.season })),
     );
 
     const ctx = await loadBadgeContext("c1");
@@ -73,7 +74,7 @@ describe("loadBadgeContext: 通常アイテム 80 種で判定する", () => {
     expect(regularAll).toHaveLength(80);
 
     mockPrisma.userCollectionItem.findMany.mockResolvedValue(
-      regularAll.map((i) => ({ itemId: i.id, season: i.season })) as any,
+      regularAll.map((i) => userCollectionItem({ itemId: i.id, season: i.season })),
     );
 
     const ctx = await loadBadgeContext("c1");
@@ -87,7 +88,7 @@ describe("loadBadgeContext: 通常アイテム 80 種で判定する", () => {
     const monthlyAll = ALL_COLLECTION_ITEMS.filter((i) => i.month !== undefined);
 
     mockPrisma.userCollectionItem.findMany.mockResolvedValue(
-      [...owned, ...monthlyAll].map((i) => ({ itemId: i.id, season: i.season })) as any,
+      [...owned, ...monthlyAll].map((i) => userCollectionItem({ itemId: i.id, season: i.season })),
     );
 
     const ctx = await loadBadgeContext("c1");
@@ -100,7 +101,7 @@ describe("loadBadgeContext: 通常アイテム 80 種で判定する", () => {
     const owned = [...regularAll, ...monthlyAll];
 
     mockPrisma.userCollectionItem.findMany.mockResolvedValue(
-      owned.map((i) => ({ itemId: i.id, season: i.season })) as any,
+      owned.map((i) => userCollectionItem({ itemId: i.id, season: i.season })),
     );
 
     const ctx = await loadBadgeContext("c1");
