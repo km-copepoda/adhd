@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { recordDailyAchievement } from "@/lib/streak";
 import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { childUser, streak } from "../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
@@ -10,7 +10,6 @@ vi.mock("@/lib/bulletinLog", () => ({
   triggerStreakTitleLog: vi.fn().mockResolvedValue(undefined),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockTriggerMonsterEvolvedLog = vi.mocked(triggerMonsterEvolvedLog);
 
 beforeEach(() => {
@@ -29,7 +28,7 @@ describe("recordDailyAchievement", () => {
 
   it("必要数に達していなければ何もしない（minTasks=3, achieved=1）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 3 }) as any,
+      childUser({ minTasksForStreak: 3 }),
     );
     mockCounts(1, 5);
 
@@ -40,7 +39,7 @@ describe("recordDailyAchievement", () => {
 
   it("既に超過していれば何もしない（minTasks=1, achieved=2）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 1 }) as any,
+      childUser({ minTasksForStreak: 1 }),
     );
     mockCounts(2, 3);
 
@@ -51,13 +50,13 @@ describe("recordDailyAchievement", () => {
 
   it("初回達成でcurrentStreak=1にする（minTasks=1）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 1 }) as any,
+      childUser({ minTasksForStreak: 1 }),
     );
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 0, bestStreak: 0, lastAchievedDate: null }) as any,
+      streak({ currentStreak: 0, bestStreak: 0, lastAchievedDate: null }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     await recordDailyAchievement("child-1", today);
 
@@ -74,13 +73,13 @@ describe("recordDailyAchievement", () => {
   it("昨日も達成済みなら連続日数を+1する", async () => {
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 1 }) as any,
+      childUser({ minTasksForStreak: 1 }),
     );
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 5, bestStreak: 10, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 5, bestStreak: 10, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     await recordDailyAchievement("child-1", today);
 
@@ -97,13 +96,13 @@ describe("recordDailyAchievement", () => {
   it("途切れた場合はcurrentStreak=1にリセットし、bestStreakは保持", async () => {
     const threeDaysAgo = new Date("2026-03-10");
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 1 }) as any,
+      childUser({ minTasksForStreak: 1 }),
     );
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 5, bestStreak: 10, lastAchievedDate: threeDaysAgo }) as any,
+      streak({ currentStreak: 5, bestStreak: 10, lastAchievedDate: threeDaysAgo }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     await recordDailyAchievement("child-1", today);
 
@@ -119,11 +118,11 @@ describe("recordDailyAchievement", () => {
 
   it("同日2回目の承認では変化なし（lastAchievedDate=今日）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 1 }) as any,
+      childUser({ minTasksForStreak: 1 }),
     );
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 3, bestStreak: 5, lastAchievedDate: today }) as any,
+      streak({ currentStreak: 3, bestStreak: 5, lastAchievedDate: today }),
     );
 
     await recordDailyAchievement("child-1", today);
@@ -134,13 +133,13 @@ describe("recordDailyAchievement", () => {
   it("minTasks=3で3件目の達成（APPROVED+SKIPPED）でストリーク達成", async () => {
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 3 }) as any,
+      childUser({ minTasksForStreak: 3 }),
     );
     mockCounts(3, 5); // ちょうど3件 = 達成
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     await recordDailyAchievement("child-1", today);
 
@@ -157,13 +156,13 @@ describe("recordDailyAchievement", () => {
   it("タスク総数が最低数未満なら全完了で達成（total=2, min=3 → required=2）", async () => {
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ minTasksForStreak: 3 }) as any,
+      childUser({ minTasksForStreak: 3 }),
     );
     mockCounts(2, 2); // total=2 < min=3 → required=2, achieved=2 → 達成
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 1, bestStreak: 5, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 1, bestStreak: 5, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     await recordDailyAchievement("child-1", today);
 
@@ -181,14 +180,14 @@ describe("recordDailyAchievement", () => {
     const yesterday = new Date("2026-03-12");
     // 最初の findUnique は minTasksForStreak 取得用
     mockPrisma.user.findUnique
-      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
-      .mockResolvedValueOnce(childUser({ studyPt: 5, staminaPt: 3, lifePt: 2 }) as any);
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }))
+      .mockResolvedValueOnce(childUser({ studyPt: 5, staminaPt: 3, lifePt: 2 }));
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordDailyAchievement("child-1", today);
 
@@ -198,24 +197,25 @@ describe("recordDailyAchievement", () => {
   it("rebirthPending中はマイルストーンボーナスでXPのみ加算し進化チェックをスキップ", async () => {
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique
-      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }))
       .mockResolvedValueOnce(childUser({
         studyPt: 15, staminaPt: 3, lifePt: 2,
         rebirthPending: true,
         evolutionStage: 3,
         evolutionPath: "STUDY_STAMINA_LIFE",
         collectedPaths: '["STUDY","STUDY_STAMINA","STUDY_STAMINA_LIFE"]',
-      }) as any);
+      }));
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordDailyAchievement("child-1", today);
 
-    // XPのみ加算、進化関連フィールドは更新されないこと
+    // XPのみ加算、進化関連フィールドは更新されないこと（= rebirthPendingチェックが先に行われ
+    // isReborn/rebirthEggBonus を使う進化チェック分岐がスキップされたことの確認）
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -236,24 +236,25 @@ describe("recordDailyAchievement", () => {
     // stage2、9pt蓄積中。ボーナス5ptで total=14 → 30未満なので進化しない
     // stage1、9pt蓄積中。ボーナス5ptで total=14 → 10以上なので進化する
     mockPrisma.user.findUnique
-      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }))
       .mockResolvedValueOnce(childUser({
         studyPt: 4, staminaPt: 3, lifePt: 2,
         evolutionStage: 1,
         evolutionPath: "STUDY",
         collectedPaths: '["STUDY"]',
         monsterLevels: "{}",
-      }) as any);
+      }));
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordDailyAchievement("child-1", today);
 
-    // collectedPaths に新パスが追加されること
+    // collectedPaths に新パスが追加されること（isReborn 判定に使う collectedPaths が
+    // 進化後に更新されていることの確認）
     const updateData = mockPrisma.user.update.mock.calls[0][0].data;
     expect(updateData).toHaveProperty("collectedPaths");
     expect(updateData).toHaveProperty("monsterLevels");
@@ -266,20 +267,20 @@ describe("recordDailyAchievement", () => {
     vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique
-      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }))
       .mockResolvedValueOnce(childUser({
         studyPt: 4, staminaPt: 3, lifePt: 2,
         evolutionStage: 1,
         evolutionPath: "STUDY",
         collectedPaths: '["STUDY"]',
         monsterLevels: "{}",
-      }) as any);
+      }));
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordDailyAchievement("child-1", today);
     await new Promise((r) => setImmediate(r));
@@ -294,19 +295,19 @@ describe("recordDailyAchievement", () => {
   it("マイルストーンボーナスで進化しなかった場合、triggerMonsterEvolvedLog は呼ばれない", async () => {
     const yesterday = new Date("2026-03-12");
     mockPrisma.user.findUnique
-      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }) as any)
+      .mockResolvedValueOnce(childUser({ minTasksForStreak: 1 }))
       .mockResolvedValueOnce(childUser({
         studyPt: 0, staminaPt: 0, lifePt: 0,
         evolutionStage: 2,
         evolutionPath: "STUDY_STAMINA",
         collectedPaths: '["STUDY","STUDY_STAMINA"]',
-      }) as any);
+      }));
     mockCounts(1, 3);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }) as any,
+      streak({ currentStreak: 2, bestStreak: 2, lastAchievedDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue({} as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.user.update.mockResolvedValue(childUser());
 
     await recordDailyAchievement("child-1", today);
     await new Promise((r) => setImmediate(r));
