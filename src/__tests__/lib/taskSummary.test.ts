@@ -6,6 +6,7 @@ import {
   totalPausedDaysInRange,
   effectiveIntervalsFor,
   activeDaysBetween,
+  closedPauseInterval,
 } from "@/lib/taskSummary";
 
 const d = (s: string) => new Date(s);
@@ -190,6 +191,45 @@ describe("effectiveIntervalsFor", () => {
     expect(effectiveIntervalsFor([], pausedAt, today)).toEqual([
       { start: d("2026-05-21"), end: d("2026-05-20") },
     ]);
+  });
+});
+
+describe("closedPauseInterval", () => {
+  it("pausedAt 翌日 〜 resumedAt 前日を区間として返す（両端の当日は active なので除外）", () => {
+    // pausedAt=7/20 10:00Z (JST 7/20), resumedAt=7/25 10:00Z (JST 7/25)
+    // → 完全に停止していたのは 7/21〜7/24 の間の日だけ
+    const pausedAt = new Date("2026-07-20T10:00:00Z");
+    const resumedAt = new Date("2026-07-25T10:00:00Z");
+    expect(closedPauseInterval(pausedAt, resumedAt)).toEqual({
+      start: d("2026-07-21"),
+      end: d("2026-07-24"),
+    });
+  });
+
+  it("翌日に再開した場合は間の日が無いので空区間になる", () => {
+    const pausedAt = d("2026-05-04");
+    const resumedAt = d("2026-05-05");
+    const interval = closedPauseInterval(pausedAt, resumedAt);
+    // start > end の空区間（totalPausedDaysInRange 等では 0 日として扱われる）
+    expect(interval.start.getTime()).toBeGreaterThan(interval.end.getTime());
+  });
+
+  it("再開日と実質パウス日数の一貫性: 5/1持ち越し・5/4停止・5/8再開でも, 停止中に凍結されていた4回から5/8分の1回だけ増えて5回になる", () => {
+    // Codex 指摘の再現ケース: 停止中は effectiveIntervalsFor で 4 回に凍結されるが、
+    // 再開直後に旧実装 (inclusive な [pausedAt, now]) だと 3 回に巻き戻ってしまっていた。
+    const oldest = d("2026-05-01");
+    const pausedAt = d("2026-05-04");
+    const resumedAt = d("2026-05-08");
+
+    // 停止中 (5/4 時点) に凍結されていた値
+    const frozenIntervals = effectiveIntervalsFor([], pausedAt, pausedAt);
+    const frozenCount = calcCarryOverMissedCount(oldest, pausedAt, [], frozenIntervals);
+    expect(frozenCount).toBe(4);
+
+    // 再開後 (5/8) の値: 停止中の凍結値 + 再開日ぶんの 1 回 = 5
+    const closed = closedPauseInterval(pausedAt, resumedAt);
+    const afterResumeCount = calcCarryOverMissedCount(oldest, resumedAt, [], [closed]);
+    expect(afterResumeCount).toBe(5);
   });
 });
 

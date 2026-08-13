@@ -86,6 +86,25 @@ export function effectiveIntervalsFor(
 }
 
 /**
+ * 再開時に `pauseIntervals` へ追記する、確定済みの停止区間を計算する。
+ *
+ * `effectiveIntervalsFor` が「停止開始当日は active」として翌日から除外するのと対称に、
+ * 再開当日 (resumedAt) も「再開ボタンを押した後は active」なので除外する。
+ * 両端を inclusive にすると、境界日ぶん二重に active 日数を失い、再開直後に
+ * カウント／バッジが停止中に凍結されていた値から巻き戻って見える
+ * （Codex 指摘, 2026-08-13: 5/1持ち越し・5/4停止・5/8再開で 4→3 に巻き戻る）。
+ *
+ * pausedAt と resumedAt が同じ JST 日、または隣接する JST 日の場合は
+ * 完全に停止していた日が存在しないため、start > end の空区間を返す
+ * （`totalPausedDaysInRange` 等の呼び出し先は空区間を 0 日として扱う）。
+ */
+export function closedPauseInterval(pausedAt: Date, resumedAt: Date): PauseInterval {
+  const start = new Date(jstDateOf(pausedAt).getTime() + MS_PER_DAY);
+  const end = new Date(jstDateOf(resumedAt).getTime() - MS_PER_DAY);
+  return { start, end };
+}
+
+/**
  * `[from, to]` の JST 日数差から停止期間の overlap ぶんを差し引いた「active な経過日数」。
  * 「N日前スキップ」バッジで停止期間中は日数がカウントアップしないようにするために使う。
  * from == to は 0、from > to は 0 で返す (未来スキップの防御)。

@@ -2596,13 +2596,13 @@
 ## 2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く
 
 ### 決定内容
-- `TaskTemplate` に `pauseIntervals Json @default("[]")` を追加。停止解除時に `{ start: pausedAt, end: now }` を push する（現在停止中は `pausedAt` にのみ存在）
+- `TaskTemplate` に `pauseIntervals Json @default("[]")` を追加。停止解除時に、境界日（停止開始当日・再開当日）を除いた `{ start: pausedAt翌日, end: resumedAt前日 }` を push する（現在停止中は `pausedAt` にのみ存在）
 - マイグレーション `20260810000001_add_pause_intervals_to_task_template`
 - `src/lib/taskSummary.ts`:
-  - 新 helper `parsePauseIntervals` / `totalPausedDaysInRange` / `effectiveIntervalsFor` / `activeDaysBetween`
+  - 新 helper `parsePauseIntervals` / `totalPausedDaysInRange` / `effectiveIntervalsFor` / `closedPauseInterval` / `activeDaysBetween`
   - `calcCarryOverMissedCount` は `pauseIntervals` を追加引数で受け、範囲内の停止期間中の予定日 (repeatDays マッチ) を除外
   - `getParentTaskSummaries` は effective intervals（過去区間 + 現在停止中なら `(pausedAt翌日, today]`）を計算し、`carryOverMissedCount` と `lastSkippedActiveDaysAgo`（7日窓）両方に適用
-- `POST /api/tasks/[id]/pause` の paused=false 経路で `pauseIntervals` に追記して update
+- `POST /api/tasks/[id]/pause` の paused=false 経路で `closedPauseInterval(pausedAt, now)` の結果を `pauseIntervals` に追記して update
 
 ### 理由
 - 2026-07-20 で導入した一時停止は「表示だけ止める、DB は触らない」設計だったが、`getParentTaskSummaries` の carryOverMissedCount と recentSkipped 窓が `today` を基準に計算し続けるため、停止中もバッジが日々増加／シフトしていく問題があった
@@ -2610,18 +2610,19 @@
 - 累計日数 (Int) ではなく `pauseIntervals` (JSON) にしたのは、repeatDays タスクで「停止期間中の予定日を厳密に除外」するためには interval 情報が必須なため（累計日数だけでは approximation にしかならない）
 - 表示側 (`RegularTaskCard.tsx`) が `daysSinceJST` で経過日数を再計算すると停止中もバッジが動いてしまうため、`lastSkippedActiveDaysAgo` を server 側で確定させて渡す
 - `effectiveIntervalsFor` が現在停止中ぶんに足し込む区間は `pausedAt` 当日を含めない (`pausedAt` 翌日始まり)。含めると、停止ボタンを押した瞬間に「その日はまだ active だった」にもかかわらず丸ごと減算され、経過日数・出現回数が凍結前の値から1日巻き戻って見える（Codex 指摘、2026-08-11）
+- 再開時に永続化する区間（`closedPauseInterval`）も同じ理由で両端 exclusive にする。`{start: pausedAt, end: now}` と inclusive で保存すると、再開当日 (now) も一部 active だったにもかかわらず丸ごと減算され、停止中は N 回で凍結されていた値が再開直後に N-1 回へ巻き戻る（Codex 指摘、2026-08-13）。境界日（開始日・再開日）は常に active、間の日だけが完全に停止していた日として扱うのが、進行中の区間・確定済みの区間を通じて一貫した規約
 
 ### やってはいけないこと
 - 停止時に既存 QuestInstance の `date` を書き換える（履歴改変で他のバッジ・ストリーク集計が壊れる。純粋に表示計算の side で処理する）
 - `effectiveToday`（today をシフトした値）を作ってから同じ `pauseIntervals` で再度日数を引く（二重減算になる。実 `today` を使い続け、`effectiveIntervalsFor` で区間側に現在停止中ぶんを足し込む一本化した経路にする）
 - `pauseIntervals` を子画面 `today` route の filter に使う（`pausedAt: null` フィルタで十分。JSON 走査のコストを子画面に負わせる必要はない）
-- `effectiveIntervalsFor` の現在停止中区間を `pausedAt` 当日から inclusive にする（上記「理由」参照。過去の確定済み区間（再開時に追記される `{start: pausedAt, end: resumedAt}`）は従来通り inclusive のままでよい — 差が出るのは「今まさに停止中で today まで毎日伸びていく区間」だけ）
+- `effectiveIntervalsFor` の現在停止中区間や `closedPauseInterval` の確定済み区間を、境界日 (`pausedAt` 当日 / 再開当日) を含む inclusive にする（上記「理由」参照。進行中・確定済みのどちらの区間も境界日は常に active というのが唯一の規約で、片方だけ inclusive にすると再開の瞬間に値が巻き戻る）
 
 ### 該当箇所
 - `prisma/schema.prisma` — `TaskTemplate.pauseIntervals`
 - `prisma/migrations/20260810000001_add_pause_intervals_to_task_template/migration.sql`
-- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に interval 追記
-- `src/lib/taskSummary.ts` — parsePauseIntervals / totalPausedDaysInRange / effectiveIntervalsFor / activeDaysBetween / calcCarryOverMissedCount 拡張
+- `src/app/api/tasks/[id]/pause/route.ts` — 再開時に `closedPauseInterval` の結果を interval 追記
+- `src/lib/taskSummary.ts` — parsePauseIntervals / totalPausedDaysInRange / effectiveIntervalsFor / closedPauseInterval / activeDaysBetween / calcCarryOverMissedCount 拡張
 - `src/components/parent/RegularTaskCard.tsx` — `lastSkippedActiveDaysAgo` を表示に使用
 - テスト: `src/__tests__/lib/taskSummary.test.ts`, `src/__tests__/api/tasks/tasks-pause.test.ts`
 

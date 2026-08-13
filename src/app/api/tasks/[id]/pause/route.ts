@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { getFamilyPlan, countActiveTasksForChild } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
+import { closedPauseInterval } from "@/lib/taskSummary";
 
 export async function POST(
   request: Request,
@@ -61,9 +62,10 @@ export async function POST(
       const prior = Array.isArray(target.pauseIntervals)
         ? (target.pauseIntervals as { start: string; end: string }[])
         : [];
+      const closed = closedPauseInterval(target.pausedAt, new Date());
       appendedIntervals = [
         ...prior,
-        { start: target.pausedAt.toISOString(), end: new Date().toISOString() },
+        { start: closed.start.toISOString(), end: closed.end.toISOString() },
       ];
     }
   }

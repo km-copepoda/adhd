@@ -95,9 +95,11 @@ describe("POST /api/tasks/[id]/pause", () => {
     const called = mockPrisma.taskTemplate.update.mock.calls[0][0];
     expect(called.where).toEqual({ id: "t1", familyId: "fam-1" });
     expect(called.data.pausedAt).toBeNull();
+    // pausedAt 当日・再開当日 (now) はどちらも一部 active だった日なので境界日を除いて保存する
+    // (7/20 停止 → 7/25 再開 の場合、完全に停止していたのは 7/21〜7/24)
     expect(called.data.pauseIntervals).toEqual([
       { start: "2026-06-01T00:00:00Z", end: "2026-06-05T00:00:00Z" },
-      { start: pausedAt.toISOString(), end: now.toISOString() },
+      { start: "2026-07-21T00:00:00.000Z", end: "2026-07-24T00:00:00.000Z" },
     ]);
     vi.useRealTimers();
   });
