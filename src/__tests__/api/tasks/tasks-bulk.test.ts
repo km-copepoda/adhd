@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/tasks/bulk/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest } from "../../helpers/request";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, childUser } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 const validTasks = [
@@ -28,7 +27,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("familyId なしの場合403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await POST(
       makeRequest("/api/tasks/bulk", { assignedChildId: "child-1", tasks: validTasks })
     );
@@ -36,7 +35,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("CHILD ロールの場合403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/bulk", { assignedChildId: "child-1", tasks: validTasks })
     );
@@ -44,7 +43,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("assignedChildId がない場合400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/bulk", { tasks: validTasks })
     );
@@ -54,7 +53,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("tasks が配列でない場合400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/bulk", { assignedChildId: "child-1", tasks: "invalid" })
     );
@@ -64,7 +63,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("tasks が空配列の場合400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/bulk", { assignedChildId: "child-1", tasks: [] })
     );
@@ -74,7 +73,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("tasks が多すぎる場合（30件超）400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const tooMany = Array.from({ length: 31 }, (_, i) => ({
       title: `タスク${i}`,
       category: "STUDY",
@@ -89,7 +88,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("タイトルが空のタスクが含まれる場合400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/bulk", {
         assignedChildId: "child-1",
@@ -102,7 +101,7 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("タイトルが32文字を超えるタスクが含まれる場合400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/bulk", {
         assignedChildId: "child-1",
@@ -115,12 +114,12 @@ describe("POST /api/tasks/bulk", () => {
   });
 
   it("複数タスクを一括作成できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    const created = validTasks.map((t, i) => ({ id: `t-${i}`, ...t }));
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     // 家族スコープ検証で assignedChildId が自分の family の CHILD であることを確認するために findFirst を呼ぶ
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
+    // (getFamilyPlan 内の PARENT 検索でも同じ user.findFirst が呼ばれるが、
+    //  戻り値は id しか使われないため同じ値で問題ない)
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     mockPrisma.taskTemplate.createMany.mockResolvedValue({ count: 3 });
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(created as any);
 
     const res = await POST(
       makeRequest("/api/tasks/bulk", { assignedChildId: "child-1", tasks: validTasks })
@@ -149,7 +148,7 @@ describe("POST /api/tasks/bulk", () => {
 
   // IDOR 対策: 親が他 family の子供 ID を assignedChildId に渡しても 404 で拒否する
   it("他 family の子供 ID を assignedChildId に指定した場合 404 を返す（IDOR 防止）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     // findFirst が「同 family かつ CHILD」で null を返す（別 family の子は見つからない）
     mockPrisma.user.findFirst.mockResolvedValue(null);
 

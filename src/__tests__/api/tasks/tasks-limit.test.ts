@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/tasks/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest } from "../../helpers/request";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  parentUser,
+  taskTemplate,
+  subscription,
+} from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -16,11 +21,11 @@ beforeEach(() => {
 /// 仕様: docs/未実装仕様書/monetization-plan.md §2.2 / §4.4
 describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   it("FREE で 9/10: 10 個目は追加成功", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null); // FREE
     mockPrisma.taskTemplate.count.mockResolvedValue(9);
-    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-new" } as never);
+    mockPrisma.taskTemplate.create.mockResolvedValue(taskTemplate({ id: "t-new" }));
 
     const res = await POST(
       makeRequest("/api/tasks", {
@@ -34,8 +39,8 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   });
 
   it("FREE で 10/10: 11 個目は 403 で拒否", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(10);
 
@@ -56,8 +61,8 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   });
 
   it("FREE で 20/10: 過剰にあっても追加は 403", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(20);
 
@@ -73,14 +78,13 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   });
 
   it("PREMIUM 有効期間中は上限なしで作成可能", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      plan: "PREMIUM",
-      currentPeriodEnd: new Date("2099-12-31"),
-    } as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
+    mockPrisma.subscription.findUnique.mockResolvedValue(
+      subscription({ plan: "PREMIUM", currentPeriodEnd: new Date("2099-12-31") }),
+    );
     mockPrisma.taskTemplate.count.mockResolvedValue(999);
-    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-premium" } as never);
+    mockPrisma.taskTemplate.create.mockResolvedValue(taskTemplate({ id: "t-premium" }));
 
     const res = await POST(
       makeRequest("/api/tasks", {
@@ -94,11 +98,11 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   });
 
   it("カウントは assignedChildId + isActive + pausedAt=null + 幽霊一時タスク除外 に限定", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.taskTemplate.count.mockResolvedValue(0);
-    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-1" } as never);
+    mockPrisma.taskTemplate.create.mockResolvedValue(taskTemplate({ id: "t-1" }));
 
     await POST(
       makeRequest("/api/tasks", {
@@ -124,8 +128,8 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   });
 
   it("CHILD が作成する場合も、familyId の PARENT のプランで判定", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null); // FREE
     mockPrisma.taskTemplate.count.mockResolvedValue(10); // 既に上限
 
@@ -154,11 +158,11 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
     // - DB 上には isActive=true の TaskTemplate が 10 個ある (幽霊 3 個 + 有効 7 個)
     // - Prisma の count は幽霊除外 where で 7 を返す想定
     // - 11 個目 (実質 8 個目) の追加は成功する
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "parent-1" } as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null); // FREE
     mockPrisma.taskTemplate.count.mockResolvedValue(7); // 幽霊除外後
-    mockPrisma.taskTemplate.create.mockResolvedValue({ id: "t-new" } as never);
+    mockPrisma.taskTemplate.create.mockResolvedValue(taskTemplate({ id: "t-new" }));
 
     const res = await POST(
       makeRequest("/api/tasks", {
@@ -177,7 +181,7 @@ describe("POST /api/tasks — FREE プランのタスク数上限", () => {
   });
 
   it("assignedChildId 未指定 (PARENT) は既存の 400 が優先される (制限チェック前)", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as never);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
     const res = await POST(
       makeRequest("/api/tasks", { title: "test", category: "STUDY" }),

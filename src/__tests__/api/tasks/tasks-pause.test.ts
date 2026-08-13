@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/tasks/[id]/pause/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest, makeParams } from "../../helpers/request";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, taskTemplate } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -20,22 +19,22 @@ describe("POST /api/tasks/[id]/pause", () => {
   });
 
   it("CHILDロールは403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(makeRequest("/api/tasks/t1/pause", { paused: true }), makeParams("t1"));
     expect(res.status).toBe(403);
   });
 
   it("familyId=null のPARENTは403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await POST(makeRequest("/api/tasks/t1/pause", { paused: true }), makeParams("t1"));
     expect(res.status).toBe(403);
   });
 
   it("paused=true で pausedAt に現在時刻をセットすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const now = new Date("2026-07-20T10:00:00Z");
     vi.setSystemTime(now);
-    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: now } as any);
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1", pausedAt: now }));
 
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", { paused: true }),
@@ -46,16 +45,18 @@ describe("POST /api/tasks/[id]/pause", () => {
       where: { id: "t1", familyId: "fam-1" },
       data: { pausedAt: expect.any(Date) },
     });
-    const calledData = (mockPrisma.taskTemplate.update as any).mock.calls[0][0].data;
+    const calledData = mockPrisma.taskTemplate.update.mock.calls[0][0].data;
     expect((calledData.pausedAt as Date).getTime()).toBe(now.getTime());
     vi.useRealTimers();
   });
 
   it("paused=false で pausedAt を null にすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     // 再開時はプラン上限チェックのため findUnique + count を通る (デフォルト count=0 で allowed)
-    mockPrisma.taskTemplate.findUnique.mockResolvedValue({ assignedChildId: "child-1" } as any);
-    mockPrisma.taskTemplate.update.mockResolvedValue({ id: "t1", pausedAt: null } as any);
+    mockPrisma.taskTemplate.findUnique.mockResolvedValue(
+      taskTemplate({ assignedChildId: "child-1" }),
+    );
+    mockPrisma.taskTemplate.update.mockResolvedValue(taskTemplate({ id: "t1", pausedAt: null }));
 
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", { paused: false }),
@@ -69,7 +70,7 @@ describe("POST /api/tasks/[id]/pause", () => {
   });
 
   it("paused 未指定は400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", {}),
       makeParams("t1"),
@@ -78,7 +79,7 @@ describe("POST /api/tasks/[id]/pause", () => {
   });
 
   it("paused に boolean 以外の値を渡すと400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(
       makeRequest("/api/tasks/t1/pause", { paused: "yes" }),
       makeParams("t1"),
