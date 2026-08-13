@@ -1,11 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET, POST } from "@/app/api/family/code/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { parentUser, childUser, family } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, family } from "../../helpers/fixtures";
+import type { Prisma } from "@/generated/prisma/client";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+
+/**
+ * `prisma.family.findUnique` は `include: { users: { include: { streak: { select: ... } } } }`
+ * 付きで呼ばれるが、DeepMockProxy の `mockResolvedValue` は関係（リレーション）を含まない
+ * ベースの `Family` 型しか受け付けない（`users` プロパティ自体が型エラーになる）。
+ * `Prisma.FamilyGetPayload<{ include: ... }>` で実際のクエリ形状の値を組み立てたうえで、
+ * モック関数の戻り値型へ `as unknown as` でキャストする。
+ */
+type FamilyWithUsersAndStreak = Prisma.FamilyGetPayload<{
+  include: { users: { include: { streak: { select: { lastLoginDate: true } } } } };
+}>;
+
+function mockFamilyFindUnique(payload: FamilyWithUsersAndStreak | null) {
+  mockPrisma.family.findUnique.mockResolvedValue(
+    payload as unknown as Awaited<ReturnType<typeof mockPrisma.family.findUnique>>,
+  );
+}
+
+/**
+ * `route.ts` の members map は `u.evolutionStage ?? 0` 等、多数の防御的フォールバックを
+ * 持つ。旧テスト（`as any`）は一部フィールドを欠いたメンバー行を渡しており、これらの
+ * フォールバック分岐は「欠落データ」を前提に到達していた。フィクスチャの完全な値だけを
+ * 使うとこの分岐が到達不能になりカバレッジが下がるため、旧データ状態を意図的に再現する
+ * （`src/__tests__/api/rebirth/rebirth.test.ts` 等と同じ「フィールド欠落の再現」パターン）。
+ */
+function legacyMemberRow(
+  fields: Pick<FamilyWithUsersAndStreak["users"][number], "id" | "name" | "role" | "monsterName" | "side" | "childCode"> &
+    Partial<FamilyWithUsersAndStreak["users"][number]>,
+): FamilyWithUsersAndStreak["users"][number] {
+  return fields as unknown as FamilyWithUsersAndStreak["users"][number];
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -20,23 +51,28 @@ describe("GET /api/family/code", () => {
   });
 
   it("familyIdがない場合、code=null, members=[]を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await GET();
     const json = await res.json();
     expect(json).toEqual({ code: null, members: [] });
   });
 
   it("ファミリー情報とメンバー一覧を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.family.findUnique.mockResolvedValue(
-      {
-        ...family({ code: "ABCD12" }),
-        users: [
-          { id: "u1", name: "パパ", role: "PARENT", monsterName: null, side: null, childCode: null },
-          { id: "u2", name: "太郎", role: "CHILD", monsterName: "ドラゴン", side: "DARK", childCode: "1234" },
-        ],
-      } as any,
-    );
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockFamilyFindUnique({
+      ...family({ code: "ABCD12" }),
+      users: [
+        legacyMemberRow({ id: "u1", name: "パパ", role: "PARENT", monsterName: null, side: null, childCode: null }),
+        legacyMemberRow({
+          id: "u2",
+          name: "太郎",
+          role: "CHILD",
+          monsterName: "ドラゴン",
+          side: "DARK",
+          childCode: "1234",
+        }),
+      ],
+    });
 
     const res = await GET();
     const json = await res.json();
@@ -67,16 +103,23 @@ describe("GET /api/family/code", () => {
   });
 
   it("子供メンバーのXPフィールドを返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.family.findUnique.mockResolvedValue(
-      {
-        ...family(),
-        users: [
-          { id: "u2", name: "太郎", role: "CHILD", monsterName: "ドラゴン", side: "DARK", childCode: "1234",
-            studyPt: 5, staminaPt: 3, lifePt: 2 },
-        ],
-      } as any,
-    );
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockFamilyFindUnique({
+      ...family(),
+      users: [
+        legacyMemberRow({
+          id: "u2",
+          name: "太郎",
+          role: "CHILD",
+          monsterName: "ドラゴン",
+          side: "DARK",
+          childCode: "1234",
+          studyPt: 5,
+          staminaPt: 3,
+          lifePt: 2,
+        }),
+      ],
+    });
 
     const res = await GET();
     const json = await res.json();
@@ -87,8 +130,8 @@ describe("GET /api/family/code", () => {
   });
 
   it("usersをcreatedAt昇順で取得すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.family.findUnique.mockResolvedValue({ ...family(), users: [] } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockFamilyFindUnique({ ...family(), users: [] });
 
     await GET();
 
@@ -120,14 +163,14 @@ describe("POST /api/family/code", () => {
   });
 
   it("CHILDロールの場合、403を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST();
     expect(res.status).toBe(403);
   });
 
   it("既存ファミリーのコードを再生成すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.family.update.mockResolvedValue(family({ code: "NEWCOD" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update.mockResolvedValue(family({ code: "NEWCOD" }));
 
     const res = await POST();
     const json = await res.json();
@@ -140,8 +183,8 @@ describe("POST /api/family/code", () => {
   });
 
   it("ファミリーがない場合、新規作成すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
-    mockPrisma.family.create.mockResolvedValue(family({ id: "fam-new", code: "CREAT1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
+    mockPrisma.family.create.mockResolvedValue(family({ id: "fam-new", code: "CREAT1" }));
 
     const res = await POST();
     const json = await res.json();

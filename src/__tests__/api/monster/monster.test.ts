@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/monster/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, questWithTemplate } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -22,9 +21,9 @@ describe("GET /api/monster", () => {
 
   it("モンスター情報を正しく返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ evolutionStage: 1, studyPt: 10, staminaPt: 5, lifePt: 3, evolutionPath: "STUDY" }) as any,
+      childUserWithFamily({ evolutionStage: 1, studyPt: 10, staminaPt: 5, lifePt: 3, evolutionPath: "STUDY" }),
     );
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     const res = await GET();
     const json = await res.json();
@@ -43,9 +42,9 @@ describe("GET /api/monster", () => {
 
   it("usedEggBonusesを正しく返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      { ...childUser(), usedEggBonuses: '["STUDY","STAMINA"]' } as any,
+      childUserWithFamily({ usedEggBonuses: '["STUDY","STAMINA"]' }),
     );
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     const res = await GET();
     const json = await res.json();
@@ -55,15 +54,28 @@ describe("GET /api/monster", () => {
 
   it("承認待ちクエストのpendingXPを正しく集計すること", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ monsterName: "ピカ", studyPt: 5, staminaPt: 3, lifePt: 1 }) as any,
+      childUserWithFamily({ monsterName: "ピカ", studyPt: 5, staminaPt: 3, lifePt: 1 }),
     );
 
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },    // +1
-      { deadlineBonusEarned: true, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },     // +2
-      { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STAMINA" } },  // +1
-      { deadlineBonusEarned: false, photoUrl: "url", template: { photoBonus: true, category: "LIFE" } },     // +2
-    ] as any);
+      // snapshotCategory は未設定（旧データ状態を再現）: template.category へフォールバックさせる
+      questWithTemplate(
+        { id: "q1", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: undefined },
+        { category: "STUDY", photoBonus: false },
+      ), // +1
+      questWithTemplate(
+        { id: "q2", deadlineBonusEarned: true, photoUrl: null, snapshotCategory: undefined },
+        { category: "STUDY", photoBonus: false },
+      ), // +2
+      questWithTemplate(
+        { id: "q3", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: undefined },
+        { category: "STAMINA", photoBonus: false },
+      ), // +1
+      questWithTemplate(
+        { id: "q4", deadlineBonusEarned: false, photoUrl: "url", snapshotCategory: undefined },
+        { category: "LIFE", photoBonus: true },
+      ), // +2
+    ]);
 
     const res = await GET();
     const json = await res.json();
@@ -74,8 +86,8 @@ describe("GET /api/monster", () => {
   });
 
   it("monsterNameがnullの場合、nameにフォールバックすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ monsterName: null }) as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ monsterName: null }));
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     const res = await GET();
     const json = await res.json();
@@ -85,9 +97,9 @@ describe("GET /api/monster", () => {
 
   it("monsterNameもnameもnullの場合、デフォルト名を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ monsterName: null, name: null }) as any,
+      childUserWithFamily({ monsterName: null, name: null }),
     );
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     const res = await GET();
     const json = await res.json();
@@ -98,7 +110,7 @@ describe("GET /api/monster", () => {
 
   it("REPORTEDステータスのクエストのみ集計すること", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ monsterName: "テスト", side: "DARK" }) as any,
+      childUserWithFamily({ monsterName: "テスト", side: "DARK" }),
     );
 
     await GET();

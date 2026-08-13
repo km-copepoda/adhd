@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PATCH } from "@/app/api/family/settings/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, childUser } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 function makeRequest(body: unknown) {
@@ -16,17 +16,13 @@ function makeRequest(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetCurrentUser.mockResolvedValue({
-    id: "parent-1",
-    role: "PARENT",
-    familyId: "fam-1",
-  } as any);
+  mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ id: "parent-1" }));
 });
 
 describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
   it("親が自分のファミリーの子供の通知フラグを true→false に更新できること", async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", questTimeNotifyEnabled: false }));
 
     const res = await PATCH(
       makeRequest({ childId: "child-1", questTimeNotifyEnabled: false }),
@@ -40,8 +36,8 @@ describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
   });
 
   it("true への切り替えも反映されること", async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", questTimeNotifyEnabled: true }));
 
     const res = await PATCH(
       makeRequest({ childId: "child-1", questTimeNotifyEnabled: true }),
@@ -66,11 +62,7 @@ describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
   });
 
   it("親以外のロールは 403 で拒否されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({
-      id: "child-1",
-      role: "CHILD",
-      familyId: "fam-1",
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1" }));
 
     const res = await PATCH(
       makeRequest({ childId: "child-1", questTimeNotifyEnabled: false }),
@@ -81,7 +73,7 @@ describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
   });
 
   it("questTimeNotifyEnabled が boolean でない場合は 400 を返すこと", async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
 
     const res = await PATCH(
       makeRequest({ childId: "child-1", questTimeNotifyEnabled: "true" }),
@@ -94,8 +86,8 @@ describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
 
 describe("PATCH /api/family/settings — checkinDeadlineTime", () => {
   it("HH:mm 形式で更新できること", async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", checkinDeadlineTime: "16:00" }));
 
     const res = await PATCH(
       makeRequest({ childId: "child-1", checkinDeadlineTime: "16:00" }),
@@ -109,8 +101,8 @@ describe("PATCH /api/family/settings — checkinDeadlineTime", () => {
   });
 
   it("null でクリアできること", async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ id: "child-1" } as any);
-    mockPrisma.user.update.mockResolvedValue({} as any);
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", checkinDeadlineTime: null }));
 
     const res = await PATCH(
       makeRequest({ childId: "child-1", checkinDeadlineTime: null }),
