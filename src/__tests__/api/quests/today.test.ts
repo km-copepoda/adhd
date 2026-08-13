@@ -1,11 +1,31 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "@/app/api/quests/today/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, taskTemplate, questInstance, questDeclaration } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+
+/**
+ * `questInstance.findMany` の `include: { template: { select: {...} } }` の戻り値を模した
+ * テスト用オブジェクトを構築する。
+ *
+ * `prismaMock`（DeepMockProxy）の `mockResolvedValue` は常にベースの QuestInstance 完全型を
+ * 要求し、`include`/`select` によるリレーション拡張までは型チェックされない
+ * （`src/__tests__/helpers/prisma-mock.ts` 参照）。そのためリレーション部分
+ * （`template` とその `taskStreaks`）の型安全性はこのヘルパーの責務とし、
+ * 実装（`src/app/api/quests/today/route.ts`）が実際に参照するフィールドを過不足なく埋める。
+ */
+function makeTodayQuest(
+  overrides?: Parameters<typeof questInstance>[0],
+  templateOverrides?: Parameters<typeof taskTemplate>[0],
+  taskStreaks: { currentStreak: number; bestStreak: number }[] = [],
+) {
+  return {
+    ...questInstance({ snapshotTitle: undefined, snapshotEmoji: undefined, snapshotCategory: undefined, ...overrides }),
+    template: { ...taskTemplate(templateOverrides), taskStreaks },
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -24,7 +44,7 @@ describe("GET /api/quests/today", () => {
   });
 
   it("familyIdがない場合、空配列を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ familyId: null }));
     const res = await GET();
     expect(await res.json()).toEqual([]);
   });
@@ -33,24 +53,18 @@ describe("GET /api/quests/today", () => {
     // 2026-03-12 は木曜日 (day=4)
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-    const templates = [
-      { id: "tpl-1", title: "宿題", repeatDays: [4], isTemporary: false },
-    ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([
+      taskTemplate({ id: "tpl-1", title: "宿題", repeatDays: [4], isTemporary: false }),
+    ]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
-    const quests = [
-      {
-        id: "q1",
-        templateId: "tpl-1",
-        childId: "child-1",
-        status: "PENDING",
-        template: { id: "tpl-1", title: "宿題", createdAt: new Date("2026-03-12T00:00:00Z") },
-      },
-    ];
-    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+    const quest = makeTodayQuest(
+      { id: "q1", templateId: "tpl-1", childId: "child-1", status: "PENDING" },
+      { id: "tpl-1", title: "宿題", createdAt: new Date("2026-03-12T00:00:00Z") },
+    );
+    mockPrisma.questInstance.findMany.mockResolvedValue([quest]);
 
     const res = await GET();
     const json = await res.json();
@@ -61,14 +75,13 @@ describe("GET /api/quests/today", () => {
 
   it("upsertのcreateブロックにスナップショットフィールドが含まれること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-    const templates = [
-      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [4], isTemporary: false },
-    ];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([
+      taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [4], isTemporary: false }),
+    ]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     await GET();
 
@@ -85,9 +98,9 @@ describe("GET /api/quests/today", () => {
 
   it("questInstance.findMany の where で date-branch / carryOver-branch 両方に template.pausedAt: null が入っていること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     await GET();
 
@@ -105,20 +118,15 @@ describe("GET /api/quests/today", () => {
 
   it("snapshotTitleがある場合、レスポンスのtemplate.titleにスナップショットを使用すること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
-    const quests = [
-      {
-        id: "q1",
-        snapshotTitle: "宿題（旧名）",
-        snapshotEmoji: "📖",
-        snapshotCategory: "LIFE",
-        template: { id: "tpl-1", title: "宿題（新名）", emoji: "📚", category: "STUDY", createdAt: new Date("2026-03-12T00:00:00Z") },
-      },
-    ];
-    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+    const quest = makeTodayQuest(
+      { id: "q1", snapshotTitle: "宿題（旧名）", snapshotEmoji: "📖", snapshotCategory: "LIFE" },
+      { id: "tpl-1", title: "宿題（新名）", emoji: "📚", category: "STUDY", createdAt: new Date("2026-03-12T00:00:00Z") },
+    );
+    mockPrisma.questInstance.findMany.mockResolvedValue([quest]);
 
     const res = await GET();
     const json = await res.json();
@@ -130,20 +138,20 @@ describe("GET /api/quests/today", () => {
 
   it("スナップショットがnullの場合、template.titleにフォールバックすること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
 
-    const quests = [
-      {
-        id: "q1",
-        snapshotTitle: null,
-        snapshotEmoji: null,
-        snapshotCategory: null,
-        template: { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", createdAt: new Date("2026-03-12T00:00:00Z") },
-      },
-    ];
-    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+    // snapshotTitle/Emoji/Category は DB スキーマ上 NOT NULL だが、実データはこれらの
+    // カラムが追加される前に作成された行を含みうる（approve.test.ts の legacy データ
+    // ケースと同様）。route.ts の `q.snapshotTitle ?? q.template.title` はその防御的
+    // フォールバックであり、`undefined`（= makeTodayQuest の既定値。フィールド省略）で
+    // 同じ分岐を再現する。
+    const quest = makeTodayQuest(
+      { id: "q1" },
+      { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", createdAt: new Date("2026-03-12T00:00:00Z") },
+    );
+    mockPrisma.questInstance.findMany.mockResolvedValue([quest]);
 
     const res = await GET();
     const json = await res.json();
@@ -156,12 +164,14 @@ describe("GET /api/quests/today", () => {
   it("テンプレートごとにupsertで重複クエストを防止すること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-    const templates = [{ id: "tpl-1" }, { id: "tpl-2" }];
-    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
-    mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([
+      taskTemplate({ id: "tpl-1" }),
+      taskTemplate({ id: "tpl-2" }),
+    ]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     await GET();
 
@@ -186,10 +196,10 @@ describe("GET /api/quests/today", () => {
   it("通常タスクと一時タスクの両方をOR条件で取得すること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     await GET();
 
@@ -209,16 +219,15 @@ describe("GET /api/quests/today", () => {
     it("carryOver=true のタスクで前日の PENDING が存在する場合、upsert をスキップすること", async () => {
       vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-      const templates = [
-        { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
-      ];
-      mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([
+        taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
+      ]);
       // 前日の PENDING インスタンスが存在する
-      mockPrisma.questInstance.findFirst.mockResolvedValue({ id: "q-old", status: "PENDING" } as any);
-      mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
-      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.findFirst.mockResolvedValue(questInstance({ id: "q-old", status: "PENDING" }));
+      mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
       await GET();
 
@@ -229,16 +238,15 @@ describe("GET /api/quests/today", () => {
     it("carryOver=true のタスクで PENDING が存在しない場合、通常通り upsert すること", async () => {
       vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
 
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-      const templates = [
-        { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true },
-      ];
-      mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([
+        taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: true }),
+      ]);
       // PENDING インスタンスなし
       mockPrisma.questInstance.findFirst.mockResolvedValue(null);
-      mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
-      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
       await GET();
 
@@ -248,15 +256,14 @@ describe("GET /api/quests/today", () => {
     it("carryOver=false のタスクは PENDING があっても通常通り upsert すること", async () => {
       vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-      const templates = [
-        { id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: false },
-      ];
-      mockPrisma.taskTemplate.findMany.mockResolvedValue(templates as any);
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([
+        taskTemplate({ id: "tpl-1", title: "宿題", emoji: "📚", category: "STUDY", repeatDays: [5], isTemporary: false, carryOver: false }),
+      ]);
       mockPrisma.questInstance.findFirst.mockResolvedValue(null); // carryOver=false なので呼ばれない想定
-      mockPrisma.questInstance.upsert.mockResolvedValue({} as any);
-      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+      mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
       await GET();
 
@@ -267,14 +274,14 @@ describe("GET /api/quests/today", () => {
     it("最終 findMany は today の通常クエストと carryOver PENDING の両方を含む OR 条件を使うこと", async () => {
       vi.setSystemTime(new Date("2026-03-13T09:00:00"));
 
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
-      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-      mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
       await GET();
 
       const call = mockPrisma.questInstance.findMany.mock.calls[0][0];
-      expect(call.where).toEqual(
+      expect(call?.where).toEqual(
         expect.objectContaining({
           childId: "child-1",
           OR: expect.arrayContaining([
@@ -289,19 +296,19 @@ describe("GET /api/quests/today", () => {
   it("一時タスクはtargetDate=今日の条件でのみ取得されること", async () => {
     vi.setSystemTime(new Date("2026-03-12T09:00:00"));
 
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
 
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     await GET();
 
-    
+
     const today = new Date("2026-03-12T00:00:00Z");
 
     // OR条件に targetDate=今日 の一時タスク条件が含まれ、targetDate=null 条件は含まれないこと
     const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0];
-    const orConditions = call.where.OR;
+    const orConditions = call?.where?.OR;
     expect(orConditions).toEqual(
       expect.arrayContaining([{ isTemporary: true, targetDate: today }])
     );
@@ -309,24 +316,26 @@ describe("GET /api/quests/today", () => {
       expect.arrayContaining([{ isTemporary: true, targetDate: null }])
     );
   });
-  
+
   describe("今日やる宣言: idleDays / eligibleForDeclaration / declaredToday", () => {
     const day = (s: string) => new Date(s + "T00:00:00.000Z");
 
     it("週次タスクで先週スキップしたばかりなら eligibleForDeclaration=false（missedExposures=2）", async () => {
       vi.setSystemTime(new Date("2026-05-11T09:00:00")); // JST 5/11 月曜
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
-      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
 
-      const todayQuest = {
-        id: "q1",
-        templateId: "tpl-week",
-        childId: "child-1",
-        status: "PENDING",
-        snapshotTitle: "ピアノ",
-        snapshotEmoji: "🎹",
-        snapshotCategory: "LIFE",
-        template: {
+      const todayQuest = makeTodayQuest(
+        {
+          id: "q1",
+          templateId: "tpl-week",
+          childId: "child-1",
+          status: "PENDING",
+          snapshotTitle: "ピアノ",
+          snapshotEmoji: "🎹",
+          snapshotCategory: "LIFE",
+        },
+        {
           id: "tpl-week",
           title: "ピアノ",
           emoji: "🎹",
@@ -334,15 +343,15 @@ describe("GET /api/quests/today", () => {
           carryOver: false,
           createdAt: day("2026-04-01"),
         },
-      };
+      );
       // メイン findMany と per-template findMany を順に返す
       mockPrisma.questInstance.findMany
-        .mockResolvedValueOnce([todayQuest] as any)
+        .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          { date: day("2026-05-11"), status: "PENDING", approvedAt: null },
-          { date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") },
-          { date: day("2026-04-27"), status: "APPROVED", approvedAt: day("2026-04-27") },
-        ] as any);
+          questInstance({ date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
+          questInstance({ date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") }),
+          questInstance({ date: day("2026-04-27"), status: "APPROVED", approvedAt: day("2026-04-27") }),
+        ]);
 
       const res = await GET();
       const json = await res.json();
@@ -353,15 +362,12 @@ describe("GET /api/quests/today", () => {
 
     it("週次タスクで3週連続非APPROVED なら eligibleForDeclaration=true", async () => {
       vi.setSystemTime(new Date("2026-05-11T09:00:00"));
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
-      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
 
-      const todayQuest = {
-        id: "q1",
-        templateId: "tpl-week",
-        childId: "child-1",
-        status: "PENDING",
-        template: {
+      const todayQuest = makeTodayQuest(
+        { id: "q1", templateId: "tpl-week", childId: "child-1", status: "PENDING" },
+        {
           id: "tpl-week",
           title: "ピアノ",
           emoji: "🎹",
@@ -369,15 +375,15 @@ describe("GET /api/quests/today", () => {
           carryOver: false,
           createdAt: day("2026-04-01"),
         },
-      };
+      );
       mockPrisma.questInstance.findMany
-        .mockResolvedValueOnce([todayQuest] as any)
+        .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          { date: day("2026-05-11"), status: "PENDING", approvedAt: null },
-          { date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") },
-          { date: day("2026-04-27"), status: "SKIPPED", approvedAt: day("2026-04-27") },
-          { date: day("2026-04-20"), status: "APPROVED", approvedAt: day("2026-04-20") },
-        ] as any);
+          questInstance({ date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
+          questInstance({ date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") }),
+          questInstance({ date: day("2026-04-27"), status: "SKIPPED", approvedAt: day("2026-04-27") }),
+          questInstance({ date: day("2026-04-20"), status: "APPROVED", approvedAt: day("2026-04-20") }),
+        ]);
 
       const res = await GET();
       const json = await res.json();
@@ -389,15 +395,12 @@ describe("GET /api/quests/today", () => {
 
     it("毎日タスクで3日連続非APPROVED なら eligibleForDeclaration=true", async () => {
       vi.setSystemTime(new Date("2026-05-09T09:00:00"));
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
-      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
 
-      const todayQuest = {
-        id: "q1",
-        templateId: "tpl-daily",
-        childId: "child-1",
-        status: "PENDING",
-        template: {
+      const todayQuest = makeTodayQuest(
+        { id: "q1", templateId: "tpl-daily", childId: "child-1", status: "PENDING" },
+        {
           id: "tpl-daily",
           title: "宿題",
           emoji: "📚",
@@ -405,15 +408,15 @@ describe("GET /api/quests/today", () => {
           carryOver: false,
           createdAt: day("2026-04-01"),
         },
-      };
+      );
       mockPrisma.questInstance.findMany
-        .mockResolvedValueOnce([todayQuest] as any)
+        .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          { date: day("2026-05-09"), status: "PENDING", approvedAt: null },
-          { date: day("2026-05-08"), status: "PENDING", approvedAt: null },
-          { date: day("2026-05-07"), status: "PENDING", approvedAt: null },
-          { date: day("2026-05-06"), status: "APPROVED", approvedAt: day("2026-05-06") },
-        ] as any);
+          questInstance({ date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
+          questInstance({ date: day("2026-05-08"), status: "PENDING", approvedAt: null }),
+          questInstance({ date: day("2026-05-07"), status: "PENDING", approvedAt: null }),
+          questInstance({ date: day("2026-05-06"), status: "APPROVED", approvedAt: day("2026-05-06") }),
+        ]);
 
       const res = await GET();
       const json = await res.json();
@@ -424,15 +427,12 @@ describe("GET /api/quests/today", () => {
 
     it("当日の宣言レコードがあれば declaredToday=true", async () => {
       vi.setSystemTime(new Date("2026-05-09T09:00:00"));
-      mockGetCurrentUser.mockResolvedValue(childUser() as any);
-      mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
 
-      const todayQuest = {
-        id: "q1",
-        templateId: "tpl-1",
-        childId: "child-1",
-        status: "PENDING",
-        template: {
+      const todayQuest = makeTodayQuest(
+        { id: "q1", templateId: "tpl-1", childId: "child-1", status: "PENDING" },
+        {
           id: "tpl-1",
           title: "練習",
           emoji: "🎹",
@@ -440,13 +440,15 @@ describe("GET /api/quests/today", () => {
           carryOver: false,
           createdAt: day("2026-04-01"),
         },
-      };
+      );
       mockPrisma.questInstance.findMany
-        .mockResolvedValueOnce([todayQuest] as any)
+        .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          { date: day("2026-05-09"), status: "PENDING", approvedAt: null },
-        ] as any);
-      mockPrisma.questDeclaration.findMany.mockResolvedValue([{ templateId: "tpl-1" }] as any);
+          questInstance({ date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
+        ]);
+      mockPrisma.questDeclaration.findMany.mockResolvedValue([
+        questDeclaration({ templateId: "tpl-1" }),
+      ]);
 
       const res = await GET();
       const json = await res.json();
@@ -458,16 +460,16 @@ describe("GET /api/quests/today", () => {
   it("JST深夜（UTCは前日）でもJST基準の日付でリクエストを生成すること", async () => {
     // JST 2026-03-12 01:00 = UTC 2026-03-11 16:00
     vi.setSystemTime(new Date("2026-03-11T16:00:00Z"));
-    
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    
+
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+
     await GET();
-    
+
     // JST 3/12(木曜=4)の日付・曜日で検索されること (UTC 3/11 水曜=3 ではない）
     const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0];
-    const orConditions = call.where.OR;
+    const orConditions = call?.where?.OR;
     expect(orConditions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ repeatDays: { has: 4 } }), // 木曜

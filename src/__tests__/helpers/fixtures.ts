@@ -214,6 +214,17 @@ export function questInstance(overrides?: Partial<QuestInstance>): QuestInstance
   };
 }
 
+/** `include: { template: true }` 付きクエリの戻り値用。 */
+export function questWithTemplate(
+  overrides?: Partial<QuestInstance>,
+  templateOverrides?: Partial<TaskTemplate>,
+): Prisma.QuestInstanceGetPayload<{ include: { template: true } }> {
+  return {
+    ...questInstance(overrides),
+    template: taskTemplate(templateOverrides),
+  };
+}
+
 /** `include: { template: true, child: true }` 付きクエリの戻り値用。 */
 export function questWithTemplateAndChild(
   overrides?: Partial<QuestInstance>,
