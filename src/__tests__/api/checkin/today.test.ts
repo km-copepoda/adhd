@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getCurrentUser } from "@/lib/auth";
 import { recordCheckin } from "@/lib/checkin";
 import { POST } from "@/app/api/checkin/today/route";
-import { childUser, parentUser } from "../../helpers/fixtures";
+import { childUserWithFamily, parentUserWithFamily } from "../../helpers/fixtures";
 
 vi.mock("@/lib/checkin", () => ({
   recordCheckin: vi.fn(),
@@ -23,13 +23,13 @@ describe("POST /api/checkin/today", () => {
   });
 
   it("親ユーザーは 403", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST();
     expect(res.status).toBe(403);
   });
 
   it("子供のチェックインで recordCheckin の結果をそのまま返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockRecordCheckin.mockResolvedValue({
       enabled: true,
       deadline: "16:00",

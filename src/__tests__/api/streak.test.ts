@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { GET } from "@/app/api/streak/route";
-import { childUser, streak } from "../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { childUserWithFamily, streak, questInstance } from "../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -20,7 +19,7 @@ describe("GET /api/streak", () => {
   });
 
   it("ストリーク未作成の場合、デフォルト値を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.streak.findUnique.mockResolvedValue(null);
     mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
@@ -35,19 +34,19 @@ describe("GET /api/streak", () => {
   });
 
   it("ストリーク情報を正しく返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.streak.findUnique.mockResolvedValue(
       streak({
         currentStreak: 7,
         bestStreak: 15,
         lastAchievedDate: new Date("2026-03-13"),
-      }) as any
+      })
     );
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { date: new Date("2026-03-01") },
-      { date: new Date("2026-03-05") },
-      { date: new Date("2026-03-10") },
-    ] as any);
+      questInstance({ id: "q-1", date: new Date("2026-03-01") }),
+      questInstance({ id: "q-2", date: new Date("2026-03-05") }),
+      questInstance({ id: "q-3", date: new Date("2026-03-10") }),
+    ]);
 
     const res = await GET();
     const json = await res.json();
