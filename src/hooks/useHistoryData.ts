@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatDate, type DaySummary } from "@/lib/heatmap";
 import type { Category } from "@/types";
 
@@ -45,7 +45,7 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(true);
-  const firstLoad = useRef(true);
+  const [firstLoad, setFirstLoad] = useState(true);
 
   useEffect(() => {
     fetch("/api/family/code")
@@ -71,6 +71,9 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
     if (!selectedChildId) return;
     const year = viewMonth.getFullYear();
     const month = viewMonth.getMonth() + 1;
+    // viewMonth/selectedChildId変更時にサマリー再取得の直前でローディング表示に切り替える。
+    // fetch自体が外部システムとの同期であり、その開始を示すloading状態の即時反映が必要なため。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingSummary(true);
     setMonthlySummary(null);
     fetch(`/api/quests/monthly-summary?year=${year}&month=${month}&childId=${selectedChildId}`)
@@ -81,12 +84,15 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
 
   useEffect(() => {
     if (!selectedChildId) return;
+    // selectedDate/selectedChildId変更時に履歴再取得の直前でローディング表示に切り替える。
+    // fetch自体が外部システムとの同期であり、その開始を示すloading状態の即時反映が必要なため。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingItems(true);
     fetch(`/api/quests/history?date=${formatDate(selectedDate)}&childId=${selectedChildId}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setItems(data))
       .finally(() => {
-        firstLoad.current = false;
+        setFirstLoad(false);
         setLoadingItems(false);
       });
   }, [selectedDate, selectedChildId]);
@@ -99,6 +105,6 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
     monthlySummary,
     loadingItems,
     loadingSummary,
-    isFirstLoad: firstLoad.current,
+    isFirstLoad: firstLoad,
   };
 }

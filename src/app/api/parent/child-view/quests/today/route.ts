@@ -56,7 +56,7 @@ export async function GET(request: Request) {
   });
 
   // 子供が「今日やる」宣言したテンプレートを取得し、親画面でも +1XP 反映する
-  const templateIds = Array.from(new Set(quests.map((q: any) => q.templateId)));
+  const templateIds = Array.from(new Set(quests.map((q) => q.templateId)));
   const declarationsToday = templateIds.length
     ? await prisma.questDeclaration.findMany({
         where: { childId: child.id, date: today, templateId: { in: templateIds } },
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 
   const hasDeadline = !!child.reportDeadlineTime;
   return NextResponse.json(
-    quests.map((q: any) => ({
+    quests.map((q) => ({
       ...q,
       hasDeadline,
       declaredToday: declaredTemplateIds.has(q.templateId),

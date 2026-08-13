@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/monster-status/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser, streak } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import {
+  childUserWithFamily,
+  streak,
+  questWithTemplate,
+  questInstance,
+  questDeclaration,
+} from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -20,13 +25,13 @@ describe("GET /api/monster-status", () => {
 
   it("モンスター情報とストリーク情報を1レスポンスで返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ evolutionStage: 2, studyPt: 10, staminaPt: 5, lifePt: 3, evolutionPath: "STUDY_STAMINA" }) as any,
+      childUserWithFamily({ evolutionStage: 2, studyPt: 10, staminaPt: 5, lifePt: 3, evolutionPath: "STUDY_STAMINA" }),
     );
     mockPrisma.questInstance.findMany
-      .mockResolvedValueOnce([] as any)       // pendingQuests
-      .mockResolvedValueOnce([] as any);      // monthlyQuests
+      .mockResolvedValueOnce([])       // pendingQuests
+      .mockResolvedValueOnce([]);      // monthlyQuests
     mockPrisma.streak.findUnique.mockResolvedValue(
-      streak({ currentStreak: 7, bestStreak: 15, lastAchievedDate: new Date("2026-03-13") }) as any,
+      streak({ currentStreak: 7, bestStreak: 15, lastAchievedDate: new Date("2026-03-13") }),
     );
 
     const res = await GET();
@@ -53,16 +58,29 @@ describe("GET /api/monster-status", () => {
 
   it("承認待ちクエストのpendingXPをカテゴリ別に集計すること", async () => {
     mockGetCurrentUser.mockResolvedValue(
-      childUser({ monsterName: "ピカ", studyPt: 5, staminaPt: 3, lifePt: 1 }) as any,
+      childUserWithFamily({ monsterName: "ピカ", studyPt: 5, staminaPt: 3, lifePt: 1 }),
     );
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([
-        { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },    // +1
-        { deadlineBonusEarned: true, photoUrl: null, template: { photoBonus: false, category: "STUDY" } },     // +2
-        { deadlineBonusEarned: false, photoUrl: null, template: { photoBonus: false, category: "STAMINA" } },  // +1
-        { deadlineBonusEarned: false, photoUrl: "url", template: { photoBonus: true, category: "LIFE" } },     // +2
-      ] as any)
-      .mockResolvedValueOnce([] as any); // monthlyQuests
+        // snapshotCategory は未設定（旧データ状態を再現）: template.category へフォールバックさせる
+        questWithTemplate(
+          { id: "q1", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: undefined },
+          { category: "STUDY", photoBonus: false },
+        ), // +1
+        questWithTemplate(
+          { id: "q2", deadlineBonusEarned: true, photoUrl: null, snapshotCategory: undefined },
+          { category: "STUDY", photoBonus: false },
+        ), // +2
+        questWithTemplate(
+          { id: "q3", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: undefined },
+          { category: "STAMINA", photoBonus: false },
+        ), // +1
+        questWithTemplate(
+          { id: "q4", deadlineBonusEarned: false, photoUrl: "url", snapshotCategory: undefined },
+          { category: "LIFE", photoBonus: true },
+        ), // +2
+      ])
+      .mockResolvedValueOnce([]); // monthlyQuests
     mockPrisma.streak.findUnique.mockResolvedValue(null);
 
     const res = await GET();
@@ -75,23 +93,29 @@ describe("GET /api/monster-status", () => {
 
   it("「今日やる宣言」つきの REPORTED クエストは pendingXP に宣言ボーナスを含めること", async () => {
     // regression: 育成画面の「+ N (仮)」とクエスト画面のタイル個別 +xpXP が乖離していたバグ
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const reportedAt = new Date("2026-05-24T10:00:00+09:00"); // JST 2026-05-24
     mockPrisma.questInstance.findMany
       .mockResolvedValueOnce([
-        {
-          templateId: "t1",
-          reportedAt,
-          deadlineBonusEarned: true,
-          photoUrl: null,
-          snapshotCategory: null,
-          template: { photoBonus: false, category: "STUDY" },
-        },
-      ] as any)
-      .mockResolvedValueOnce([] as any);
+        questWithTemplate(
+          {
+            templateId: "t1",
+            reportedAt,
+            deadlineBonusEarned: true,
+            photoUrl: null,
+            // snapshotCategory は未設定（旧データ状態を再現）: template.category へフォールバックさせる。
+            // 実スキーマでは snapshotCategory は必須（非 null）だが、旧 `as any` テストが
+            // `null` を渡していたのは「フィールド欠落状態」を意図したもの。フィクスチャの
+            // Partial<QuestInstance> では undefined でこれを表現する。
+            snapshotCategory: undefined,
+          },
+          { photoBonus: false, category: "STUDY" },
+        ),
+      ])
+      .mockResolvedValueOnce([]);
     mockPrisma.questDeclaration.findMany.mockResolvedValue([
-      { templateId: "t1", date: new Date("2026-05-24T00:00:00Z") },
-    ] as any);
+      questDeclaration({ templateId: "t1", date: new Date("2026-05-24T00:00:00Z") }),
+    ]);
     mockPrisma.streak.findUnique.mockResolvedValue(null);
 
     const res = await GET();
@@ -101,14 +125,14 @@ describe("GET /api/monster-status", () => {
   });
 
   it("今月の達成日数を正しく返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.questInstance.findMany
-      .mockResolvedValueOnce([] as any) // pendingQuests
+      .mockResolvedValueOnce([]) // pendingQuests
       .mockResolvedValueOnce([
-        { date: new Date("2026-03-01") },
-        { date: new Date("2026-03-05") },
-        { date: new Date("2026-03-10") },
-      ] as any);
+        questInstance({ date: new Date("2026-03-01") }),
+        questInstance({ date: new Date("2026-03-05") }),
+        questInstance({ date: new Date("2026-03-10") }),
+      ]);
     mockPrisma.streak.findUnique.mockResolvedValue(null);
 
     const res = await GET();
@@ -118,8 +142,8 @@ describe("GET /api/monster-status", () => {
   });
 
   it("ストリーク未作成の場合、デフォルト値を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
     mockPrisma.streak.findUnique.mockResolvedValue(null);
 
     const res = await GET();
@@ -133,8 +157,8 @@ describe("GET /api/monster-status", () => {
   });
 
   it("REPORTEDクエストのみpending集計に使用すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
     mockPrisma.streak.findUnique.mockResolvedValue(null);
 
     await GET();

@@ -38,3 +38,21 @@ jobs:
           && github.event.pull_request.head.repo.full_name == github.repository
           && github.actor != 'dependabot[bot]'
         uses: davelosert/vitest-coverage-report-action@v2
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    # Stage 2: blocking gate. Pre-existing lint debt (see #19-#23) has been
+    # paid down to 0 errors / 0 warnings (see #70), so lint failures now
+    # block the PR (tracked in #24).
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - name: Run ESLint
+        run: npm run lint -- --max-warnings=0

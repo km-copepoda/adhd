@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { MonsterMiniData } from "@/lib/monster-mini";
-import { REBIRTH_THRESHOLD } from "@/lib/evolution";
 
 type Props = {
   data: MonsterMiniData;

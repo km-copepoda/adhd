@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { GET } from "@/app/api/checkin/calendar/route";
-import { childUser, parentUser, streak } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, parentUserWithFamily, streak, checkinLog } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 function makeRequest(url: string): Request {
@@ -30,13 +29,13 @@ describe("GET /api/checkin/calendar", () => {
   });
 
   it("親ユーザーは 403", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await GET(makeRequest("http://localhost/api/checkin/calendar"));
     expect(res.status).toBe(403);
   });
 
   it("days が範囲外は 400", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET(makeRequest("http://localhost/api/checkin/calendar?days=0"));
     expect(res.status).toBe(400);
 
@@ -48,16 +47,16 @@ describe("GET /api/checkin/calendar", () => {
   });
 
   it("直近 7 日のログ + enabledSince + ストリークを返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ checkinDeadlineTime: "16:00" }) as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ checkinDeadlineTime: "16:00" }));
     mockPrisma.checkinLog.findMany.mockResolvedValue([
-      { date: new Date("2026-06-23T00:00:00Z"), success: true },
-      { date: new Date("2026-06-24T00:00:00Z"), success: false },
-    ] as any);
-    mockPrisma.checkinLog.findFirst.mockResolvedValue({
-      date: new Date("2026-06-22T00:00:00Z"),
-    } as any);
+      checkinLog({ date: new Date("2026-06-23T00:00:00Z"), success: true }),
+      checkinLog({ date: new Date("2026-06-24T00:00:00Z"), success: false }),
+    ]);
+    mockPrisma.checkinLog.findFirst.mockResolvedValue(
+      checkinLog({ date: new Date("2026-06-22T00:00:00Z") }),
+    );
     mockPrisma.streak.findUnique.mockResolvedValue(
-      streak({ checkinCurrentStreak: 5, checkinBestStreak: 12 }) as any,
+      streak({ checkinCurrentStreak: 5, checkinBestStreak: 12 }),
     );
 
     const res = await GET(makeRequest("http://localhost/api/checkin/calendar"));
@@ -77,7 +76,7 @@ describe("GET /api/checkin/calendar", () => {
   });
 
   it("checkinDeadlineTime が未設定なら enabled=false で空", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ checkinDeadlineTime: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ checkinDeadlineTime: null }));
 
     const res = await GET(makeRequest("http://localhost/api/checkin/calendar"));
     const json = await res.json();
@@ -89,10 +88,10 @@ describe("GET /api/checkin/calendar", () => {
   });
 
   it("CheckinLog が 1 件もなければ enabledSince=今日（過去全部を空表示に）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ checkinDeadlineTime: "16:00" }) as any);
-    mockPrisma.checkinLog.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ checkinDeadlineTime: "16:00" }));
+    mockPrisma.checkinLog.findMany.mockResolvedValue([]);
     mockPrisma.checkinLog.findFirst.mockResolvedValue(null);
-    mockPrisma.streak.findUnique.mockResolvedValue(streak() as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(streak());
 
     const res = await GET(makeRequest("http://localhost/api/checkin/calendar"));
     const json = await res.json();
@@ -102,10 +101,10 @@ describe("GET /api/checkin/calendar", () => {
   });
 
   it("直近 days 日（既定 7）の範囲のみクエリすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ checkinDeadlineTime: "16:00" }) as any);
-    mockPrisma.checkinLog.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ checkinDeadlineTime: "16:00" }));
+    mockPrisma.checkinLog.findMany.mockResolvedValue([]);
     mockPrisma.checkinLog.findFirst.mockResolvedValue(null);
-    mockPrisma.streak.findUnique.mockResolvedValue(streak() as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(streak());
 
     await GET(makeRequest("http://localhost/api/checkin/calendar"));
 

@@ -1,10 +1,41 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { NextRequest } from "next/server";
 import { GET } from "@/app/api/quests/history/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, questInstance, taskTemplate } from "../../helpers/fixtures";
+import type { Prisma } from "@/generated/prisma/client";
 
-const mockPrisma = vi.mocked(prisma);
+type HistoryInstance = Prisma.QuestInstanceGetPayload<{
+  include: {
+    child: { select: { id: true; name: true; monsterName: true; side: true } };
+    template: { select: { title: true; emoji: true; category: true; isActive: true; photoBonus: true } };
+  };
+}>;
+
+type HistoryTemplate = Prisma.TaskTemplateGetPayload<{
+  include: {
+    assignedChild: { select: { id: true; name: true; monsterName: true; side: true } };
+  };
+}>;
+
+/** questInstance.findMany(include: { child: {select...}, template: {select...} }) 相当 */
+function historyInstance(
+  overrides: Parameters<typeof questInstance>[0],
+  child: HistoryInstance["child"],
+  template: HistoryInstance["template"],
+): HistoryInstance {
+  return { ...questInstance(overrides), child, template };
+}
+
+/** taskTemplate.findMany(include: { assignedChild: {select...} }) 相当 */
+function historyTemplate(
+  overrides: Parameters<typeof taskTemplate>[0],
+  assignedChild: HistoryTemplate["assignedChild"],
+): HistoryTemplate {
+  return { ...taskTemplate(overrides), assignedChild };
+}
+
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 function makeRequest(params?: Record<string, string>) {
@@ -12,7 +43,7 @@ function makeRequest(params?: Record<string, string>) {
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  return new Request(url.toString());
+  return new NextRequest(url.toString());
 }
 
 beforeEach(() => {
@@ -33,26 +64,26 @@ describe("GET /api/quests/history", () => {
   });
 
   it("CHILDロールの場合、空配列を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET(makeRequest());
     expect(await res.json()).toEqual([]);
   });
 
   it("familyIdがない場合、空配列を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }));
     const res = await GET(makeRequest());
     expect(await res.json()).toEqual([]);
   });
 
   it("date未指定の場合、今日の日付でクエリすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     await GET(makeRequest());
 
     const today = new Date("2026-03-12T00:00:00Z");
-    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+    expect(prismaMock.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ date: today }),
       })
@@ -60,14 +91,14 @@ describe("GET /api/quests/history", () => {
   });
 
   it("dateパラメータで指定した日付のデータを返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     await GET(makeRequest({ date: "2026-03-10" }));
 
     const targetDate = new Date("2026-03-10T00:00:00Z");
-    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+    expect(prismaMock.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ date: targetDate }),
       })
@@ -75,26 +106,28 @@ describe("GET /api/quests/history", () => {
   });
 
   it("snapshotTitleがある場合、レスポンスのtemplate.titleにスナップショットを使用すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q1",
-        status: "APPROVED",
-        date: new Date("2026-03-12"),
-        approvedAt: new Date("2026-03-12T10:00:00"),
-        comment: null,
-        deadlineBonusEarned: false,
-        photoUrl: null,
-        snapshotTitle: "宿題（旧名）",
-        snapshotEmoji: "📖",
-        snapshotCategory: "LIFE",
-        templateId: "tpl-1",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題（新名）", emoji: "📚", category: "STUDY", isActive: true, photoBonus: false },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q1",
+          status: "APPROVED",
+          date: new Date("2026-03-12"),
+          approvedAt: new Date("2026-03-12T10:00:00"),
+          comment: null,
+          deadlineBonusEarned: false,
+          photoUrl: null,
+          snapshotTitle: "宿題（旧名）",
+          snapshotEmoji: "📖",
+          snapshotCategory: "LIFE",
+          templateId: "tpl-1",
+          childId: "child-1",
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "宿題（新名）", emoji: "📚", category: "STUDY", isActive: true, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -105,21 +138,28 @@ describe("GET /api/quests/history", () => {
   });
 
   it("APPROVEDクエストをそのまま返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q1",
-        status: "APPROVED",
-        date: new Date("2026-03-12"),
-        approvedAt: new Date("2026-03-12T10:00:00"),
-        comment: null,
-        templateId: "tpl-1",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", isActive: true },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    // snapshotTitle/Emoji/Category は旧データを再現するため undefined にし、
+    // template フォールバック分岐のカバレッジを維持する
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q1",
+          status: "APPROVED",
+          date: new Date("2026-03-12"),
+          approvedAt: new Date("2026-03-12T10:00:00"),
+          comment: null,
+          templateId: "tpl-1",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "宿題", emoji: "📚", category: "STUDY", isActive: true, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -130,21 +170,26 @@ describe("GET /api/quests/history", () => {
   });
 
   it("SKIPPEDクエストをそのまま返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q2",
-        status: "SKIPPED",
-        date: new Date("2026-03-12"),
-        approvedAt: new Date("2026-03-12T11:00:00"),
-        comment: "体調不良",
-        templateId: "tpl-2",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "運動", emoji: "🏃", category: "STAMINA", isActive: true },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q2",
+          status: "SKIPPED",
+          date: new Date("2026-03-12"),
+          approvedAt: new Date("2026-03-12T11:00:00"),
+          comment: "体調不良",
+          templateId: "tpl-2",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "運動", emoji: "🏃", category: "STAMINA", isActive: true, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -155,21 +200,26 @@ describe("GET /api/quests/history", () => {
   });
 
   it("PENDINGクエストはNO_ACTIONとして返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q3",
-        status: "PENDING",
-        date: new Date("2026-03-12"),
-        approvedAt: null,
-        comment: null,
-        templateId: "tpl-3",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "読書", emoji: "📖", category: "STUDY", isActive: true },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q3",
+          status: "PENDING",
+          date: new Date("2026-03-12"),
+          approvedAt: null,
+          comment: null,
+          templateId: "tpl-3",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "読書", emoji: "📖", category: "STUDY", isActive: true, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -180,21 +230,26 @@ describe("GET /api/quests/history", () => {
   });
 
   it("REPORTEDクエストはNO_ACTIONとして返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q4",
-        status: "REPORTED",
-        date: new Date("2026-03-12"),
-        approvedAt: null,
-        comment: null,
-        templateId: "tpl-4",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "片付け", emoji: "🧹", category: "LIFE", isActive: true },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q4",
+          status: "REPORTED",
+          date: new Date("2026-03-12"),
+          approvedAt: null,
+          comment: null,
+          templateId: "tpl-4",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "片付け", emoji: "🧹", category: "LIFE", isActive: true, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -204,18 +259,14 @@ describe("GET /api/quests/history", () => {
   });
 
   it("QuestInstanceのないテンプレートをNO_ACTIONとして返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([
-      {
-        id: "tpl-5",
-        title: "お手伝い",
-        emoji: "🧹",
-        category: "LIFE",
-        assignedChildId: "child-1",
-        assignedChild: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-      },
-    ] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([
+      historyTemplate(
+        { id: "tpl-5", title: "お手伝い", emoji: "🧹", category: "LIFE", assignedChildId: "child-1" },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+      ),
+    ]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -228,31 +279,32 @@ describe("GET /api/quests/history", () => {
   });
 
   it("すでにQuestInstanceがあるテンプレートはNO_ACTIONとして重複しないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q5",
-        status: "PENDING",
-        date: new Date("2026-03-12"),
-        approvedAt: null,
-        comment: null,
-        templateId: "tpl-6",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY", isActive: true },
-      },
-    ] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q5",
+          status: "PENDING",
+          date: new Date("2026-03-12"),
+          approvedAt: null,
+          comment: null,
+          templateId: "tpl-6",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "宿題", emoji: "📚", category: "STUDY", isActive: true, photoBonus: false },
+      ),
+    ]);
     // Same template also returned by taskTemplate query
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([
-      {
-        id: "tpl-6",
-        title: "宿題",
-        emoji: "📚",
-        category: "STUDY",
-        assignedChildId: "child-1",
-        assignedChild: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-      },
-    ] as any);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([
+      historyTemplate(
+        { id: "tpl-6", title: "宿題", emoji: "📚", category: "STUDY", assignedChildId: "child-1" },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+      ),
+    ]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -263,14 +315,14 @@ describe("GET /api/quests/history", () => {
   });
 
   it("正しい曜日でテンプレートをフィルタすること（2026-03-12は木曜=4）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     // 2026-03-12 is Thursday (day 4)
     await GET(makeRequest({ date: "2026-03-12" }));
 
-    expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith(
+    expect(prismaMock.taskTemplate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           familyId: "fam-1",
@@ -283,13 +335,13 @@ describe("GET /api/quests/history", () => {
   });
 
   it("familyIdでQuestInstanceをフィルタすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     await GET(makeRequest({ date: "2026-03-12" }));
 
-    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+    expect(prismaMock.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           template: { familyId: "fam-1" },
@@ -299,10 +351,10 @@ describe("GET /api/quests/history", () => {
   });
 
   it("削除済みテンプレート（isActive:false）でQuestInstanceがない場合はNO_ACTIONに含めないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
     // テンプレートクエリはisActive:trueのみ返すので、削除済みは含まれない
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -311,32 +363,37 @@ describe("GET /api/quests/history", () => {
   });
 
   it("テンプレートクエリでisActive:trueでフィルタすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     await GET(makeRequest({ date: "2026-03-12" }));
 
-    const call = mockPrisma.taskTemplate.findMany.mock.calls[0][0] as any;
-    expect(call.where.isActive).toBe(true);
+    const call = prismaMock.taskTemplate.findMany.mock.calls[0][0];
+    expect(call?.where?.isActive).toBe(true);
   });
 
   it("削除済みテンプレート（isActive:false）のAPPROVEDクエストは表示すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q-approved-deleted",
-        status: "APPROVED",
-        date: new Date("2026-03-12"),
-        approvedAt: new Date("2026-03-12T10:00:00"),
-        comment: null,
-        templateId: "tpl-del",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q-approved-deleted",
+          status: "APPROVED",
+          date: new Date("2026-03-12"),
+          approvedAt: new Date("2026-03-12T10:00:00"),
+          comment: null,
+          templateId: "tpl-del",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -346,21 +403,26 @@ describe("GET /api/quests/history", () => {
   });
 
   it("削除済みテンプレート（isActive:false）のSKIPPEDクエストも表示すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q-skipped-deleted",
-        status: "SKIPPED",
-        date: new Date("2026-03-12"),
-        approvedAt: new Date("2026-03-12T10:00:00"),
-        comment: null,
-        templateId: "tpl-del",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q-skipped-deleted",
+          status: "SKIPPED",
+          date: new Date("2026-03-12"),
+          approvedAt: new Date("2026-03-12T10:00:00"),
+          comment: null,
+          templateId: "tpl-del",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -371,21 +433,26 @@ describe("GET /api/quests/history", () => {
   });
 
   it("削除済みテンプレート（isActive:false）のPENDINGクエストは表示しないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      {
-        id: "q-pending-deleted",
-        status: "PENDING",
-        date: new Date("2026-03-12"),
-        approvedAt: null,
-        comment: null,
-        templateId: "tpl-del",
-        childId: "child-1",
-        child: { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
-        template: { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false },
-      },
-    ] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      historyInstance(
+        {
+          id: "q-pending-deleted",
+          status: "PENDING",
+          date: new Date("2026-03-12"),
+          approvedAt: null,
+          comment: null,
+          templateId: "tpl-del",
+          childId: "child-1",
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        },
+        { id: "child-1", name: "太郎", monsterName: "ドラゴン", side: "LIGHT" },
+        { title: "削除タスク", emoji: "🗑️", category: "LIFE", isActive: false, photoBonus: false },
+      ),
+    ]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest({ date: "2026-03-12" }));
     const json = await res.json();
@@ -394,15 +461,15 @@ describe("GET /api/quests/history", () => {
   });
 
   it("対象日より後に作成されたテンプレートはNO_ACTIONに含まれないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
-    mockPrisma.taskTemplate.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([]);
 
     // 2026-03-10 を対象日とする
     await GET(makeRequest({ date: "2026-03-10" }));
 
     const nextDay = new Date("2026-03-11T00:00:00Z");
-    expect(mockPrisma.taskTemplate.findMany).toHaveBeenCalledWith(
+    expect(prismaMock.taskTemplate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           createdAt: { lt: nextDay },

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
 import { POST as rebirthQuest } from "@/app/api/rebirth/route";
+import type { Family, TaskTemplate, User } from "@/generated/prisma/client";
 import {
   prisma,
   mockAsUser,
@@ -13,10 +14,10 @@ import {
 } from "./helpers";
 
 describe("転生フロー（閾値到達 → 卵選択 → 転生実行）", () => {
-  let family: any;
-  let parent: any;
-  let child: any;
-  let task: any;
+  let family: Family;
+  let parent: User;
+  let child: User;
+  let task: TaskTemplate;
 
   beforeAll(async () => {
     await cleanAll();
@@ -41,7 +42,7 @@ describe("転生フロー（閾値到達 → 卵選択 → 転生実行）", () 
     const day1 = new Date("2026-04-01");
     const quest = await seedQuestForDate(task.id, child.id, day1, "REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     const res = await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),
@@ -60,7 +61,7 @@ describe("転生フロー（閾値到達 → 卵選択 → 転生実行）", () 
     const day2 = new Date("2026-04-02");
     const quest = await seedQuestForDate(task.id, child.id, day2, "REPORTED");
 
-    mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+    mockAsUser({ ...parent, family, role: "PARENT" });
     await approveQuest(
       makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
       makeParams(quest.id),
@@ -73,7 +74,7 @@ describe("転生フロー（閾値到達 → 卵選択 → 転生実行）", () 
   });
 
   it("POST /api/rebirth で卵(STUDY)を選択すると転生が完了しstage/ptsがリセットされること", async () => {
-    mockAsUser({ ...child, familyId: family.id, role: "CHILD" });
+    mockAsUser({ ...child, family, role: "CHILD" });
 
     const res = await rebirthQuest(makeRequest("/api/rebirth", { eggType: "STUDY" }));
     const json = await res.json();
@@ -91,7 +92,7 @@ describe("転生フロー（閾値到達 → 卵選択 → 転生実行）", () 
   });
 
   it("転生完了後（rebirthPending=false）にPOST /api/rebirthを呼ぶと400を返すこと", async () => {
-    mockAsUser({ ...child, familyId: family.id, role: "CHILD" });
+    mockAsUser({ ...child, family, role: "CHILD" });
 
     const res = await rebirthQuest(makeRequest("/api/rebirth", { eggType: "STAMINA" }));
     expect(res.status).toBe(400);

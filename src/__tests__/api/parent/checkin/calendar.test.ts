@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { GET } from "@/app/api/parent/checkin/calendar/route";
-import { childUser, parentUser, streak } from "../../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
+import { childUserWithFamily, parentUserWithFamily, childUser, streak, checkinLog } from "../../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 function makeRequest(qs: string): Request {
@@ -29,35 +28,35 @@ describe("GET /api/parent/checkin/calendar", () => {
   });
 
   it("month 未指定 / 不正は 400", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     expect((await GET(makeRequest("childId=child-1"))).status).toBe(400);
     expect((await GET(makeRequest("childId=child-1&month=2026-13"))).status).toBe(400);
     expect((await GET(makeRequest("childId=child-1&month=abc"))).status).toBe(400);
   });
 
   it("CHILD ロールは 403（resolveTargetChild 経由）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET(makeRequest("childId=child-1&month=2026-06"));
     expect(res.status).toBe(403);
   });
 
   it("childId 未指定は 400", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await GET(makeRequest("month=2026-06"));
     expect(res.status).toBe(400);
   });
 
   it("他 family の子は 404", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await GET(makeRequest("childId=other-family-child&month=2026-06"));
     expect(res.status).toBe(404);
   });
 
   it("checkinDeadlineTime 未設定なら enabled=false", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", checkinDeadlineTime: null }) as any,
+      childUser({ id: "child-1", checkinDeadlineTime: null }),
     );
     const res = await GET(makeRequest("childId=child-1&month=2026-06"));
     const json = await res.json();
@@ -67,19 +66,21 @@ describe("GET /api/parent/checkin/calendar", () => {
   });
 
   it("月内ログ + enabledSince + ストリークを返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", checkinDeadlineTime: "16:00" }) as any,
+      childUser({ id: "child-1", checkinDeadlineTime: "16:00" }),
     );
+    // `select: { date, success }` クエリでも mockResolvedValue はベースの CheckinLog 完全型を
+    // 要求するため、checkinLog フィクスチャで完全な値を用意する。
     mockPrisma.checkinLog.findMany.mockResolvedValue([
-      { date: new Date("2026-06-10T00:00:00Z"), success: true },
-      { date: new Date("2026-06-11T00:00:00Z"), success: false },
-    ] as any);
-    mockPrisma.checkinLog.findFirst.mockResolvedValue({
-      date: new Date("2026-06-05T00:00:00Z"),
-    } as any);
+      checkinLog({ date: new Date("2026-06-10T00:00:00Z"), success: true }),
+      checkinLog({ date: new Date("2026-06-11T00:00:00Z"), success: false }),
+    ]);
+    mockPrisma.checkinLog.findFirst.mockResolvedValue(
+      checkinLog({ date: new Date("2026-06-05T00:00:00Z") }),
+    );
     mockPrisma.streak.findUnique.mockResolvedValue(
-      streak({ checkinCurrentStreak: 3, checkinBestStreak: 7 }) as any,
+      streak({ checkinCurrentStreak: 3, checkinBestStreak: 7 }),
     );
 
     const res = await GET(makeRequest("childId=child-1&month=2026-06"));
@@ -100,13 +101,13 @@ describe("GET /api/parent/checkin/calendar", () => {
   });
 
   it("月内 1〜末日の範囲のみクエリすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", checkinDeadlineTime: "16:00" }) as any,
+      childUser({ id: "child-1", checkinDeadlineTime: "16:00" }),
     );
-    mockPrisma.checkinLog.findMany.mockResolvedValue([] as any);
+    mockPrisma.checkinLog.findMany.mockResolvedValue([]);
     mockPrisma.checkinLog.findFirst.mockResolvedValue(null);
-    mockPrisma.streak.findUnique.mockResolvedValue(streak() as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(streak());
 
     await GET(makeRequest("childId=child-1&month=2026-06"));
 
@@ -124,13 +125,13 @@ describe("GET /api/parent/checkin/calendar", () => {
   });
 
   it("ログが 1 件もない子供は enabledSince=今日 (過去全部を empty にする)", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", checkinDeadlineTime: "16:00" }) as any,
+      childUser({ id: "child-1", checkinDeadlineTime: "16:00" }),
     );
-    mockPrisma.checkinLog.findMany.mockResolvedValue([] as any);
+    mockPrisma.checkinLog.findMany.mockResolvedValue([]);
     mockPrisma.checkinLog.findFirst.mockResolvedValue(null);
-    mockPrisma.streak.findUnique.mockResolvedValue(streak() as any);
+    mockPrisma.streak.findUnique.mockResolvedValue(streak());
 
     const res = await GET(makeRequest("childId=child-1&month=2026-06"));
     const json = await res.json();

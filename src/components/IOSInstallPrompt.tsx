@@ -7,6 +7,8 @@ export default function IOSInstallPrompt() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    // navigator/localStorage依存の判定でSSR時は実行できないため、マウント後にuseEffect内で一度だけ判定する。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShow(shouldShowInstallPrompt());
   }, []);
 

@@ -65,14 +65,14 @@ describe("/app/parent/child-view/[childId]/collection", () => {
     });
 
     await waitFor(() => {
-      const monsterCall = fetchSpy.mock.calls.find((c: any[]) =>
+      const monsterCall = fetchSpy.mock.calls.find((c: unknown[]) =>
         typeof c[0] === "string" && c[0].includes("/parent/child-view/monster?childId=child-1"),
       );
       expect(monsterCall).toBeTruthy();
     });
 
     // 子画面用 API を絶対に呼ばないこと（親モードで子供セッションを混在させない）
-    const childMonsterCall = fetchSpy.mock.calls.find((c: any[]) =>
+    const childMonsterCall = fetchSpy.mock.calls.find((c: unknown[]) =>
       typeof c[0] === "string" && /^\/api\/monster\b/.test(c[0]),
     );
     expect(childMonsterCall).toBeFalsy();
@@ -103,14 +103,14 @@ describe("/app/parent/child-view/[childId]/collection", () => {
     });
 
     await waitFor(() => {
-      const badgesCall = fetchSpy.mock.calls.find((c: any[]) =>
+      const badgesCall = fetchSpy.mock.calls.find((c: unknown[]) =>
         typeof c[0] === "string" && c[0].includes("/parent/child-view/badges?childId=child-1"),
       );
       expect(badgesCall).toBeTruthy();
     });
 
     // 子画面用 API を絶対に呼ばないこと
-    const childBadgesCall = fetchSpy.mock.calls.find((c: any[]) =>
+    const childBadgesCall = fetchSpy.mock.calls.find((c: unknown[]) =>
       typeof c[0] === "string" && /^\/api\/badges(\?|$)/.test(c[0]),
     );
     expect(childBadgesCall).toBeFalsy();

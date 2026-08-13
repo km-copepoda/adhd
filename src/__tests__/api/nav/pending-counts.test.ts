@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/nav/pending-counts/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -19,19 +18,19 @@ describe("GET /api/nav/pending-counts", () => {
   });
 
   it("CHILDロールの場合、両方0を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET();
     expect(await res.json()).toEqual({ approvals: 0, tasks: 0 });
   });
 
   it("familyIdがない場合、両方0を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     const res = await GET();
     expect(await res.json()).toEqual({ approvals: 0, tasks: 0 });
   });
 
   it("承認待ちとタスク申請中の件数を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.questInstance.count.mockResolvedValue(3);
     mockPrisma.taskTemplate.count.mockResolvedValue(2);
 
@@ -56,7 +55,7 @@ describe("GET /api/nav/pending-counts", () => {
   });
 
   it("両方0件の場合、0を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.questInstance.count.mockResolvedValue(0);
     mockPrisma.taskTemplate.count.mockResolvedValue(0);
 

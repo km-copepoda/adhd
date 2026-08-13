@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Prisma } from "@/generated/prisma/client";
 import { GET } from "@/app/api/treasures/status/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { childUser, parentUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, parentUserWithFamily, treasureLog } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
+
+type OpenedTreasureLog = Prisma.TreasureLogGetPayload<{
+  include: { item: { select: { id: true; title: true; rarity: true } } };
+}>;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -13,30 +17,40 @@ beforeEach(() => {
 
 describe("GET /api/treasures/status", () => {
   it("PARENTで403", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await GET();
     expect(res.status).toBe(403);
   });
 
   it("LOCKED/UNLOCKED 件数と OPENED 履歴を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.treasureLog.count
       .mockResolvedValueOnce(2) // LOCKED
       .mockResolvedValueOnce(3); // UNLOCKED
-    mockPrisma.treasureLog.findMany.mockResolvedValue([
+    const opened: OpenedTreasureLog[] = [
       {
-        id: "log-1",
-        openedAt: new Date("2026-03-21"),
-        boosted: false,
+        ...treasureLog({
+          id: "log-1",
+          openedAt: new Date("2026-03-21"),
+          boosted: false,
+          status: "OPENED",
+          itemId: "i1",
+        }),
         item: { id: "i1", title: "おやつ", rarity: "COMMON" },
-      } as any,
+      },
       {
-        id: "log-2",
-        openedAt: new Date("2026-03-20"),
-        boosted: true,
+        ...treasureLog({
+          id: "log-2",
+          openedAt: new Date("2026-03-20"),
+          boosted: true,
+          status: "OPENED",
+          itemId: null,
+        }),
         item: null, // 親ごほうび不当選 (コレクションアイテム獲得)
-      } as any,
-    ]);
+      },
+    ];
+    mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+    mockPrisma.treasureItem.count.mockResolvedValue(0);
 
     const res = await GET();
     const json = await res.json();

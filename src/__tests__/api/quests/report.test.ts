@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { after } from "next/server";
 import { POST } from "@/app/api/quests/[id]/report/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
 import { makeRequest, makeParams } from "../../helpers/request";
-import { childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUserWithFamily, questWithTemplate, questInstance } from "../../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
@@ -16,7 +16,6 @@ vi.mock("@/lib/treasureService", () => ({
   generateTreasuresOnReport: vi.fn().mockResolvedValue([]),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
@@ -30,16 +29,25 @@ beforeEach(() => {
 });
 
 describe("POST /api/quests/[id]/report", () => {
-  const baseUser = childUser({ studyPt: 5, staminaPt: 3, lifePt: 1 });
+  const baseUser = childUserWithFamily({ studyPt: 5, staminaPt: 3, lifePt: 1 });
 
-  const baseQuest = {
-    id: "q1",
-    childId: "child-1",
-    status: "PENDING",
-    date: new Date("2026-03-28T00:00:00.000Z"), // 2026-03-28 JST
-    deadlineBonusEarned: false,
-    template: { category: "STUDY", photoBonus: false },
-  };
+  // snapshotTitle/snapshotEmoji/snapshotCategory は DB スキーマ上 NOT NULL だが、実データは
+  // これらのカラムが追加される前に作成された行を含みうる（approve.test.ts の legacy データ
+  // ケースと同様）。route.ts の `quest.snapshotCategory ?? quest.template.category` はその
+  // 防御的フォールバックであり、`undefined`（フィールド省略）で同じ分岐を再現する。
+  const baseQuest = questWithTemplate(
+    {
+      id: "q1",
+      childId: "child-1",
+      status: "PENDING",
+      date: new Date("2026-03-28T00:00:00.000Z"), // 2026-03-28 JST
+      deadlineBonusEarned: false,
+      snapshotTitle: undefined,
+      snapshotEmoji: undefined,
+      snapshotCategory: undefined,
+    },
+    { category: "STUDY", photoBonus: false },
+  );
 
   it("未認証の場合、401を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
@@ -48,7 +56,7 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("存在しないクエストで404を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
+    mockGetCurrentUser.mockResolvedValue(baseUser);
     mockPrisma.questInstance.findUnique.mockResolvedValue(null);
 
     const res = await POST(
@@ -59,9 +67,9 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("クエスト報告でステータスがREPORTEDに更新されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser } as any); // reportDeadlineTime なし
-    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser }); // reportDeadlineTime なし（childUser() 既定値）
+    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "がんばった" }),
@@ -85,9 +93,9 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限なしの場合、xpAdded=1（基本のみ）を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null });
+    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "" }),
@@ -99,15 +107,15 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限前に報告した場合、xpAdded=2でdeadlineBonusEarned=trueが保存されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" });
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "PENDING",
       date: new Date("2026-03-28T00:00:00.000Z"),
-    } as any);
+    });
     // 現在時刻: 2026-03-28T09:30:00Z = 18:30 JST < 20:00 JST (期限前)
     vi.setSystemTime(new Date("2026-03-28T09:30:00Z"));
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "" }),
@@ -126,15 +134,15 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限後に報告した場合、deadlineBonusEarned=falseが保存されること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" });
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "PENDING",
       date: new Date("2026-03-28T00:00:00.000Z"),
-    } as any);
+    });
     // 現在時刻: 2026-03-28T12:30:00Z = 21:30 JST > 20:00 JST (期限後)
     vi.setSystemTime(new Date("2026-03-28T12:30:00Z"));
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "" }),
@@ -153,15 +161,15 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("差し戻し後の再報告ではdeadlineBonusEarnedを変更しないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" });
     mockPrisma.questInstance.findUnique.mockResolvedValue({
       ...baseQuest,
       status: "REJECTED",
       deadlineBonusEarned: true, // 初回報告時に設定済み
-    } as any);
+    });
     // 現在時刻は期限後
     vi.setSystemTime(new Date("2026-03-28T12:30:00Z"));
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "やり直した" }),
@@ -178,12 +186,10 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("photoBonus=true かつ写真あり、xpAdded=2", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      ...baseQuest,
-      template: { ...baseQuest.template, photoBonus: true },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null });
+    const quest = { ...baseQuest, template: { ...baseQuest.template, photoBonus: true } };
+    mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
     const res = await POST(
@@ -196,15 +202,16 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("期限ボーナス+写真ボーナスで xpAdded=3", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" } as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, familyId: "fam-1", reportDeadlineTime: "20:00" });
+    const quest = {
       ...baseQuest,
-      status: "PENDING",
+      status: "PENDING" as const,
       date: new Date("2026-03-28T00:00:00.000Z"),
       template: { ...baseQuest.template, photoBonus: true },
-    } as any);
+    };
+    mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
     vi.setSystemTime(new Date("2026-03-28T09:30:00Z")); // 18:30 JST (期限前)
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
     const res = await POST(
@@ -218,12 +225,10 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("photoBonus=false の場合、写真があってもボーナスなし", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      ...baseQuest,
-      template: { ...baseQuest.template, photoBonus: false },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null });
+    const quest = { ...baseQuest, template: { ...baseQuest.template, photoBonus: false } };
+    mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "", photoUrl: "https://example.com/photo.jpg" }),
@@ -235,12 +240,10 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("コメントなし（空文字）でも報告できること", async () => {
-    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null } as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      ...baseQuest,
-      template: { ...baseQuest.template, photoBonus: false },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null });
+    const quest = { ...baseQuest, template: { ...baseQuest.template, photoBonus: false } };
+    mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q5/report", { comment: "" }),
@@ -259,13 +262,11 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("写真なしでも報告できること（photoBonus=trueでも必須ではない）", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      ...baseQuest,
-      template: { ...baseQuest.template, photoBonus: true },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(baseUser);
+    const quest = { ...baseQuest, template: { ...baseQuest.template, photoBonus: true } };
+    mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
     mockPrisma.family.findUnique.mockResolvedValue(null);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
       makeRequest("/api/quests/q6/report", { comment: "やった" }),
@@ -278,9 +279,9 @@ describe("POST /api/quests/[id]/report", () => {
   });
 
   it("掲示板ログは next/server の after() 経由でスケジュールされる（fire-and-forget だとサーバレスで取りこぼされる）", async () => {
-    mockGetCurrentUser.mockResolvedValue(baseUser as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(baseUser);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+    mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     await POST(
       makeRequest("/api/quests/q1/report", { comment: "100%達成" }),
@@ -298,14 +299,14 @@ describe("POST /api/quests/[id]/report", () => {
         ...baseUser,
         minTasksForStreak: 1,
         reportDeadlineTime: null,
-      } as any);
-      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      });
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+      mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
       // 当日3個のうち今回の1個だけが REPORTED
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "REPORTED" } as any,
-        { status: "PENDING" } as any,
-        { status: "PENDING" } as any,
+        questInstance({ status: "REPORTED" }),
+        questInstance({ status: "PENDING" }),
+        questInstance({ status: "PENDING" }),
       ]);
       mockGenerateTreasures.mockResolvedValue(["t-streak"]);
 
@@ -332,13 +333,13 @@ describe("POST /api/quests/[id]/report", () => {
         ...baseUser,
         minTasksForStreak: 1,
         reportDeadlineTime: null,
-      } as any);
-      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      });
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+      mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "REPORTED" } as any,
-        { status: "APPROVED" } as any,
-        { status: "SKIPPED" } as any,
+        questInstance({ status: "REPORTED" }),
+        questInstance({ status: "APPROVED" }),
+        questInstance({ status: "SKIPPED" }),
       ]);
       mockGenerateTreasures.mockResolvedValue(["t-streak", "t-all"]);
 
@@ -370,11 +371,11 @@ describe("POST /api/quests/[id]/report", () => {
         ...baseUser,
         minTasksForStreak: 1,
         reportDeadlineTime: null,
-      } as any);
-      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      });
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+      mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "REPORTED" } as any,
+        questInstance({ status: "REPORTED" }),
       ]);
 
       await POST(
@@ -382,8 +383,8 @@ describe("POST /api/quests/[id]/report", () => {
         makeParams("q1"),
       );
 
-      const call = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
-      expect(call.where.template).toEqual({ isActive: true, pausedAt: null });
+      const call = mockPrisma.questInstance.findMany.mock.calls[0][0];
+      expect(call?.where?.template).toEqual({ isActive: true, pausedAt: null });
     });
 
     it("minTasks 未達なら宝箱なしでも 200 を返す", async () => {
@@ -391,13 +392,13 @@ describe("POST /api/quests/[id]/report", () => {
         ...baseUser,
         minTasksForStreak: 3,
         reportDeadlineTime: null,
-      } as any);
-      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      });
+      mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
+      mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "REPORTED" } as any,
-        { status: "PENDING" } as any,
-        { status: "PENDING" } as any,
+        questInstance({ status: "REPORTED" }),
+        questInstance({ status: "PENDING" }),
+        questInstance({ status: "PENDING" }),
       ]);
       mockGenerateTreasures.mockResolvedValue([]);
 
@@ -423,17 +424,18 @@ describe("POST /api/quests/[id]/report", () => {
           ...baseUser,
           minTasksForStreak: 1,
           reportDeadlineTime: null,
-        } as any);
-        mockPrisma.questInstance.findUnique.mockResolvedValue({
+        });
+        const quest = {
           ...baseQuest,
           date: oldDate,
           template: { ...baseQuest.template, carryOver: true },
-        } as any);
-        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        };
+        mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+        mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
         // 今日（2026-03-28）には PENDING タスクが 2件 ある（carryOver 自身は別日付なので含まれない）
         mockPrisma.questInstance.findMany.mockResolvedValue([
-          { status: "PENDING" } as any,
-          { status: "PENDING" } as any,
+          questInstance({ status: "PENDING" }),
+          questInstance({ status: "PENDING" }),
         ]);
         mockGenerateTreasures.mockResolvedValue(["t-streak"]);
 
@@ -475,16 +477,17 @@ describe("POST /api/quests/[id]/report", () => {
           ...baseUser,
           minTasksForStreak: 1,
           reportDeadlineTime: null,
-        } as any);
-        mockPrisma.questInstance.findUnique.mockResolvedValue({
+        });
+        const quest = {
           ...baseQuest,
           date: today,
           template: { ...baseQuest.template, carryOver: true },
-        } as any);
-        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        };
+        mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+        mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
         mockPrisma.questInstance.findMany.mockResolvedValue([
-          { status: "REPORTED" } as any, // 今回の REPORTED は既に findMany に含まれる
-          { status: "PENDING" } as any,
+          questInstance({ status: "REPORTED" }), // 今回の REPORTED は既に findMany に含まれる
+          questInstance({ status: "PENDING" }),
         ]);
 
         await POST(
@@ -512,15 +515,16 @@ describe("POST /api/quests/[id]/report", () => {
           ...baseUser,
           minTasksForStreak: 1,
           reportDeadlineTime: null,
-        } as any);
-        mockPrisma.questInstance.findUnique.mockResolvedValue({
+        });
+        const quest = {
           ...baseQuest,
           date: oldDate,
           template: { ...baseQuest.template, carryOver: false },
-        } as any);
-        mockPrisma.questInstance.update.mockResolvedValue({} as any);
+        };
+        mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+        mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
         mockPrisma.questInstance.findMany.mockResolvedValue([
-          { status: "REPORTED" } as any,
+          questInstance({ status: "REPORTED" }),
         ]);
 
         await POST(

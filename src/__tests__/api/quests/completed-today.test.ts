@@ -1,10 +1,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GET } from "@/app/api/quests/completed-today/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, questInstance } from "../../helpers/fixtures";
+import type { Prisma } from "@/generated/prisma/client";
 
-const mockPrisma = vi.mocked(prisma);
+type CompletedTodayQuest = Prisma.QuestInstanceGetPayload<{
+  include: {
+    child: { select: { name: true; monsterName: true; side: true } };
+    template: {
+      select: {
+        title: true;
+        emoji: true;
+        category: true;
+        isTemporary: true;
+        photoBonus: true;
+      };
+    };
+  };
+}>;
+
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
@@ -25,31 +40,38 @@ describe("GET /api/quests/completed-today", () => {
   });
 
   it("CHILDロールの場合、空配列を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await GET();
     expect(await res.json()).toEqual([]);
   });
 
   it("familyIdがない場合、空配列を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser({ familyId: null }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }));
     const res = await GET();
     expect(await res.json()).toEqual([]);
   });
 
   it("今日報告済みのクエストを返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
-    const quests = [
+    // snapshotTitle/Emoji/Category は旧データ（スキーマ導入前）を再現するため
+    // undefined 指定で欠落させ、template フォールバック分岐のカバレッジを維持する
+    const quests: CompletedTodayQuest[] = [
       {
-        id: "q1",
-        status: "APPROVED",
-        reportedAt: new Date("2026-03-12T10:00:00"),
-        approvedAt: new Date("2026-03-13T08:00:00"), // 翌日承認でも今日報告なら表示
+        ...questInstance({
+          id: "q1",
+          status: "APPROVED",
+          reportedAt: new Date("2026-03-12T10:00:00"),
+          approvedAt: new Date("2026-03-13T08:00:00"), // 翌日承認でも今日報告なら表示
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        }),
         child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
-        template: { title: "宿題", emoji: "📚", category: "STUDY" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY", isTemporary: false, photoBonus: false },
       },
     ];
-    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+    prismaMock.questInstance.findMany.mockResolvedValue(quests);
 
     const res = await GET();
     const json = await res.json();
@@ -59,20 +81,25 @@ describe("GET /api/quests/completed-today", () => {
   });
 
   it("templateにisTemporaryが含まれること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
-    const quests = [
+    const quests: CompletedTodayQuest[] = [
       {
-        id: "q1",
-        templateId: "tpl-1",
-        status: "SKIPPED",
-        reportedAt: new Date("2026-03-12T10:00:00"),
-        approvedAt: new Date("2026-03-12T11:00:00"),
+        ...questInstance({
+          id: "q1",
+          templateId: "tpl-1",
+          status: "SKIPPED",
+          reportedAt: new Date("2026-03-12T10:00:00"),
+          approvedAt: new Date("2026-03-12T11:00:00"),
+          snapshotTitle: undefined,
+          snapshotEmoji: undefined,
+          snapshotCategory: undefined,
+        }),
         child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
-        template: { title: "英語", emoji: "📖", category: "STUDY", isTemporary: true },
+        template: { title: "英語", emoji: "📖", category: "STUDY", isTemporary: true, photoBonus: false },
       },
     ];
-    mockPrisma.questInstance.findMany.mockResolvedValue(quests as any);
+    prismaMock.questInstance.findMany.mockResolvedValue(quests);
 
     const res = await GET();
     const json = await res.json();
@@ -82,15 +109,15 @@ describe("GET /api/quests/completed-today", () => {
   });
 
   it("今日の日付範囲（00:00〜翌日00:00）でreportedAtをフィルタすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
 
     await GET();
 
     const today = new Date("2026-03-12T00:00:00");
     const tomorrow = new Date("2026-03-13T00:00:00");
 
-    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+    expect(prismaMock.questInstance.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           status: { in: ["APPROVED", "SKIPPED"] },

@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { after } from "next/server";
 import { POST } from "@/app/api/quests/[id]/skip/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
 import { makeParams } from "../../helpers/request";
-import { childUser, questInstance } from "../../helpers/fixtures";
+import { prismaMock } from "../../helpers/prisma-mock";
+import { childUserWithFamily, questInstance, taskTemplate } from "../../helpers/fixtures";
+import type { Prisma } from "@/generated/prisma/client";
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerTaskProgressLog: vi.fn().mockResolvedValue(undefined),
@@ -16,7 +17,8 @@ vi.mock("@/lib/treasureService", () => ({
   generateTreasuresOnReport: vi.fn().mockResolvedValue([]),
 }));
 
-const mockPrisma = vi.mocked(prisma);
+type SkipQuest = Prisma.QuestInstanceGetPayload<{ include: { template: true } }>;
+
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 const mockAfter = vi.mocked(after);
@@ -24,7 +26,7 @@ const mockGenerateTreasures = vi.mocked(generateTreasuresOnReport);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockPrisma.questInstance.findMany.mockResolvedValue([]);
+  prismaMock.questInstance.findMany.mockResolvedValue([]);
   mockGenerateTreasures.mockResolvedValue([]);
 });
 
@@ -36,6 +38,14 @@ function makeSkipRequest(body: { comment?: string } = { comment: "体調が悪�
   });
 }
 
+/** findUnique(include: { template: true }) 相当。デフォルトは非 carryOver のテンプレート。 */
+function skipQuest(overrides: Parameters<typeof questInstance>[0], templateOverrides?: Parameters<typeof taskTemplate>[0]): SkipQuest {
+  return {
+    ...questInstance(overrides),
+    template: taskTemplate(templateOverrides),
+  };
+}
+
 describe("POST /api/quests/[id]/skip", () => {
   it("未認証の場合、401を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
@@ -44,39 +54,39 @@ describe("POST /api/quests/[id]/skip", () => {
   });
 
   it("存在しないクエストで404を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(null);
 
     const res = await POST(makeSkipRequest(), makeParams("q-none"));
     expect(res.status).toBe(404);
   });
 
   it("コメントなしの場合、400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(makeSkipRequest({ comment: "" }), makeParams("q1"));
     expect(res.status).toBe(400);
-    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
   });
 
   it("コメントがない（bodyなし）場合、400を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const req = new Request("http://localhost/api/quests/q1/skip", { method: "POST" });
     const res = await POST(req, makeParams("q1"));
     expect(res.status).toBe(400);
   });
 
   it("PENDINGのクエストをSKIP_REPORTEDに更新しコメントを保存すること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q1", status: "PENDING" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q1", status: "PENDING" }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
 
     const res = await POST(makeSkipRequest({ comment: "体調が悪い" }), makeParams("q1"));
     const json = await res.json();
 
     expect(json.ok).toBe(true);
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+    expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
       where: { id: "q1" },
       data: {
         status: "SKIP_REPORTED",
@@ -88,20 +98,20 @@ describe("POST /api/quests/[id]/skip", () => {
   });
 
   it("REPORTED のクエストは400を返すこと（親承認待ち中はスキップ不可）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q2", status: "REPORTED" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q2", status: "REPORTED" }),
     );
 
     const res = await POST(makeSkipRequest(), makeParams("q2"));
     expect(res.status).toBe(400);
-    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
   });
 
   it("APPROVEDのクエストもスキップできないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q3", status: "APPROVED" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q3", status: "APPROVED" }),
     );
 
     const res = await POST(makeSkipRequest(), makeParams("q3"));
@@ -111,22 +121,22 @@ describe("POST /api/quests/[id]/skip", () => {
   // 差し戻し後のスキップ申請: REJECTED → SKIP_REPORTED を許可し、
   // rejectionReason はクリアする（report ルートと同じ挙動）。
   it("REJECTED のクエストは SKIP_REPORTED に更新し rejectionReason をクリアすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({
         id: "q4",
         status: "REJECTED",
         rejectionReason: "写真が不鮮明",
-      }) as any,
+      }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q4", status: "SKIP_REPORTED" }));
 
     const res = await POST(makeSkipRequest({ comment: "やっぱり無理" }), makeParams("q4"));
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+    expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
       where: { id: "q4" },
       data: {
         status: "SKIP_REPORTED",
@@ -138,11 +148,11 @@ describe("POST /api/quests/[id]/skip", () => {
   });
 
   it("スキップ成功時に進捗マイルストーンの掲示板ログをトリガーすること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q1", status: "PENDING" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q1", status: "PENDING" }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
 
     const res = await POST(makeSkipRequest({ comment: "気分が乗らない" }), makeParams("q1"));
     expect(res.status).toBe(200);
@@ -150,9 +160,9 @@ describe("POST /api/quests/[id]/skip", () => {
   });
 
   it("PENDING以外でスキップ拒否した場合は進捗ログをトリガーしないこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q2", status: "REPORTED" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q2", status: "REPORTED" }),
     );
 
     await POST(makeSkipRequest(), makeParams("q2"));
@@ -160,11 +170,11 @@ describe("POST /api/quests/[id]/skip", () => {
   });
 
   it("掲示板ログは next/server の after() 経由でスケジュールされる（fire-and-forget だとサーバレスで取りこぼされる）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q1", status: "PENDING" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q1", status: "PENDING" }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
 
     await POST(makeSkipRequest({ comment: "ねむい" }), makeParams("q1"));
 
@@ -175,17 +185,17 @@ describe("POST /api/quests/[id]/skip", () => {
   // 宝箱生成: スキップも SKIP_REPORTED として「完了扱い」に含まれるため、
   // 全タスクスキップでも STREAK + ALL_COMPLETE 宝箱が出ることを担保する
   it("全タスクスキップ達成で generateTreasuresOnReport を totalCount===reportedCount で呼ぶ", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q1", status: "PENDING", date: new Date("2026-07-15") }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ minTasksForStreak: 1 }));
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q1", status: "PENDING", date: new Date("2026-07-15") }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
     // 当日のクエスト = 3 件すべて SKIP_REPORTED（このスキップ完了で 3 件目）
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "SKIP_REPORTED" },
-      { status: "SKIP_REPORTED" },
-      { status: "SKIP_REPORTED" },
-    ] as any);
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      questInstance({ status: "SKIP_REPORTED" }),
+      questInstance({ status: "SKIP_REPORTED" }),
+      questInstance({ status: "SKIP_REPORTED" }),
+    ]);
 
     await POST(makeSkipRequest({ comment: "全部スキップ" }), makeParams("q1"));
 
@@ -202,33 +212,33 @@ describe("POST /api/quests/[id]/skip", () => {
   });
 
   it("sameDateQuests は template.isActive: true, pausedAt: null でフィルタする（paused/inactive の幽霊タスクを除外）", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q1", status: "PENDING" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ minTasksForStreak: 1 }));
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q1", status: "PENDING" }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "SKIP_REPORTED" } as any,
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      questInstance({ status: "SKIP_REPORTED" }),
     ]);
 
     await POST(makeSkipRequest({ comment: "テスト" }), makeParams("q1"));
 
-    const call = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
-    expect(call.where.template).toEqual({ isActive: true, pausedAt: null });
+    const call = prismaMock.questInstance.findMany.mock.calls[0][0];
+    expect(call?.where?.template).toEqual({ isActive: true, pausedAt: null });
   });
 
   it("一部スキップでも minTasks 達成すれば generateTreasuresOnReport を呼ぶ", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questInstance({ id: "q1", status: "PENDING" }) as any,
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ minTasksForStreak: 1 }));
+    prismaMock.questInstance.findUnique.mockResolvedValue(
+      skipQuest({ id: "q1", status: "PENDING" }),
     );
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
     // 3 件中 1 件 SKIP_REPORTED、残り PENDING
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "SKIP_REPORTED" },
-      { status: "PENDING" },
-      { status: "PENDING" },
-    ] as any);
+    prismaMock.questInstance.findMany.mockResolvedValue([
+      questInstance({ status: "SKIP_REPORTED" }),
+      questInstance({ status: "PENDING" }),
+      questInstance({ status: "PENDING" }),
+    ]);
 
     await POST(makeSkipRequest({ comment: "ひとつだけスキップ" }), makeParams("q1"));
 
@@ -250,26 +260,21 @@ describe("POST /api/quests/[id]/skip", () => {
       const today = new Date("2026-03-28T00:00:00.000Z");
       const oldDate = new Date("2026-03-19T00:00:00.000Z"); // 9日前
 
-      mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
-      mockPrisma.questInstance.findUnique.mockResolvedValue(
-        questInstance({
-          id: "q1",
-          status: "PENDING",
-          date: oldDate,
-          template: { id: "tpl-1", carryOver: true } as any,
-        }) as any,
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ minTasksForStreak: 1 }));
+      prismaMock.questInstance.findUnique.mockResolvedValue(
+        skipQuest({ id: "q1", status: "PENDING", date: oldDate }, { id: "tpl-1", carryOver: true }),
       );
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
       // 今日（2026-03-28）には PENDING タスクが 2件（carryOver 自身は別日付なので含まれない）
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "PENDING" } as any,
-        { status: "PENDING" } as any,
+      prismaMock.questInstance.findMany.mockResolvedValue([
+        questInstance({ status: "PENDING" }),
+        questInstance({ status: "PENDING" }),
       ]);
 
       await POST(makeSkipRequest({ comment: "やっぱり今日できない" }), makeParams("q1"));
 
       // findMany は今日の date で呼ばれること
-      expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith(
+      expect(prismaMock.questInstance.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             childId: "child-1",
@@ -294,18 +299,13 @@ describe("POST /api/quests/[id]/skip", () => {
       vi.setSystemTime(new Date("2026-03-28T03:00:00Z"));
       const oldDate = new Date("2026-03-19T00:00:00.000Z");
 
-      mockGetCurrentUser.mockResolvedValue(childUser({ minTasksForStreak: 1 }) as any);
-      mockPrisma.questInstance.findUnique.mockResolvedValue(
-        questInstance({
-          id: "q1",
-          status: "PENDING",
-          date: oldDate,
-          template: { id: "tpl-1", carryOver: false } as any,
-        }) as any,
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ minTasksForStreak: 1 }));
+      prismaMock.questInstance.findUnique.mockResolvedValue(
+        skipQuest({ id: "q1", status: "PENDING", date: oldDate }, { id: "tpl-1", carryOver: false }),
       );
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
-      mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "SKIP_REPORTED" } as any,
+      prismaMock.questInstance.update.mockResolvedValue(questInstance({ id: "q1", status: "SKIP_REPORTED" }));
+      prismaMock.questInstance.findMany.mockResolvedValue([
+        questInstance({ status: "SKIP_REPORTED" }),
       ]);
 
       await POST(makeSkipRequest({ comment: "skip" }), makeParams("q1"));

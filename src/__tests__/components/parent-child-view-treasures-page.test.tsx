@@ -19,6 +19,9 @@ vi.mock("next/navigation", () => ({
 
 import ParentChildViewTreasuresPage from "@/app/app/parent/child-view/[childId]/treasures/page";
 
+/** global.fetch モックへの呼び出し引数のうちテストで参照する形 */
+type FetchCall = [url: string, init?: RequestInit];
+
 const fetchSpy = vi.fn();
 
 beforeEach(() => {
@@ -104,12 +107,12 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
     });
 
     await waitFor(() => {
-      const openCall = fetchSpy.mock.calls.find((c: any[]) =>
+      const openCall = fetchSpy.mock.calls.find((c: unknown[]) =>
         typeof c[0] === "string" && c[0].includes("/treasures/open"),
-      );
+      ) as FetchCall | undefined;
       expect(openCall).toBeTruthy();
-      expect(openCall![1].method).toBe("POST");
-      const body = JSON.parse(openCall![1].body as string);
+      expect(openCall![1]!.method).toBe("POST");
+      const body = JSON.parse(openCall![1]!.body as string);
       expect(body.childId).toBe("child-1");
     });
   });

@@ -181,7 +181,6 @@ export default function BottomNav() {
     } else if (streakRef.current !== null) {
       computeBadgesCount(streakRef.current, unlockedBadgeCountRef.current);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   if (!shouldShowBottomNav(pathname ?? "")) return null;

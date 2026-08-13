@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/streakMilestones";
+import type { MonsterStatusResponse } from "@/types";
 
 export type MonsterData = {
   name: string;
@@ -37,7 +38,7 @@ type UseMonsterStatusResult = {
   unlockedAchievement: typeof STREAK_MILESTONES[number] | null;
   setUnlockedAchievement: (v: typeof STREAK_MILESTONES[number] | null) => void;
   setData: (d: MonsterData | null) => void;
-  fetchStatus: () => Promise<any>;
+  fetchStatus: () => Promise<MonsterStatusResponse | null>;
 };
 
 export function useMonsterStatus(): UseMonsterStatusResult {
@@ -47,7 +48,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
   const [reborn, setReborn] = useState(false);
   const [unlockedAchievement, setUnlockedAchievement] = useState<typeof STREAK_MILESTONES[number] | null>(null);
 
-  const fetchStatus = () =>
+  const fetchStatus = (): Promise<MonsterStatusResponse | null> =>
     fetch("/api/monster-status").then((r) => (r.ok ? r.json() : null));
 
   const checkAchievementUnlock = (currentStreak: number) => {
@@ -62,7 +63,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
     }
   };
 
-  function applyStatus(d: any) {
+  function applyStatus(d: MonsterStatusResponse) {
     setData({
       name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
       collectedPaths: d.collectedPaths ?? "[]",

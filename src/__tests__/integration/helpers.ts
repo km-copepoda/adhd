@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, type AuthUser } from "@/lib/auth";
+import type { QuestStatus } from "@/generated/prisma/client";
 
 // 実Prismaクライアントを再エクスポート
 export { prisma };
@@ -9,24 +10,13 @@ export { prisma };
 // Auth ヘルパー
 // ──────────────────────────────────────────────
 
-type MockUser = {
-  id: string;
-  supabaseId: string;
-  role: "PARENT" | "CHILD";
-  name: string;
-  familyId: string;
-  side?: string | null;
-  monsterName?: string | null;
-  evolutionStage?: number;
-  studyPt?: number;
-  staminaPt?: number;
-  lifePt?: number;
-  minTasksForStreak?: number;
-  family?: { id: string; code: string };
-};
-
-export function mockAsUser(user: MockUser) {
-  vi.mocked(getCurrentUser).mockResolvedValue(user as any);
+/**
+ * getCurrentUser() のモック返り値を設定する。
+ * `AuthUser`（`User & { family: Family | null }`）を要求するため、呼び出し側は
+ * `seedFamily()` で作った `family` を含めて渡す（`{ ...parent, family, role: "PARENT" }` 等）。
+ */
+export function mockAsUser(user: AuthUser) {
+  vi.mocked(getCurrentUser).mockResolvedValue(user);
 }
 
 // ──────────────────────────────────────────────
@@ -82,7 +72,7 @@ export async function seedQuestForDate(
   templateId: string,
   childId: string,
   date: Date,
-  status: string = "PENDING",
+  status: QuestStatus = "PENDING",
 ) {
   const template = await prisma.taskTemplate.findUniqueOrThrow({ where: { id: templateId } });
   return prisma.questInstance.create({
@@ -90,7 +80,7 @@ export async function seedQuestForDate(
       templateId,
       childId,
       date,
-      status: status as any,
+      status,
       snapshotTitle: template.title,
       snapshotEmoji: template.emoji,
       snapshotCategory: template.category,

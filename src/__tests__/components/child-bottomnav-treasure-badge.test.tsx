@@ -8,12 +8,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 const realtimeHandlers: Record<string, (payload: unknown) => void> = {};
-let realtimeChannelKey = "";
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    channel: (key: string) => {
-      realtimeChannelKey = key;
+    channel: () => {
       return {
         on: function (
           _event: string,
@@ -62,7 +60,6 @@ function buildFetch(treasureStatus: { locked: number; unlocked: number; opened?:
 beforeEach(() => {
   mockPath = "/app/child/quests";
   Object.keys(realtimeHandlers).forEach((k) => delete realtimeHandlers[k]);
-  realtimeChannelKey = "";
   localStorage.clear();
 });
 

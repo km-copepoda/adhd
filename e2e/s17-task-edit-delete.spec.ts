@@ -26,7 +26,7 @@ test.describe("S17: タスクの編集・削除", () => {
         // テスト用の通常タスクを作成
         const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
         const familyData = await familyRes.json();
-        const children = familyData.members?.filter((m: any) => m.role === "CHILD") ?? [];
+        const children = familyData.members?.filter((m: { id: string; role: string }) => m.role === "CHILD") ?? [];
         if (children.length === 0) {
             test.skip(true, "テスト用の子供アカウントが見つかりません");
             return;
@@ -66,7 +66,7 @@ test.describe("S17: タスクの編集・削除", () => {
         // テスト用の通常タスクを作成
         const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
         const familyData = await familyRes.json();
-        const children = familyData.members?.filter((m: any) => m.role === "CHILD") ?? [];
+        const children = familyData.members?.filter((m: { id: string; role: string }) => m.role === "CHILD") ?? [];
         if (children.length === 0) {
             test.skip(true, "テスト用の子供アカウントが見つかりません");
             return;
@@ -105,7 +105,7 @@ test.describe("S17: タスクの編集・削除", () => {
         // 削除用の一時タスクを作成
         const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
         const familyData = await familyRes.json();
-        const children = familyData.members?.filter((m: any) => m.role === "CHILD") ?? [];
+        const children = familyData.members?.filter((m: { id: string; role: string }) => m.role === "CHILD") ?? [];
         if (children.length === 0) {
             test.skip(true, "テスト用の子供アカウントが見つかりません");
             return;
@@ -121,6 +121,7 @@ test.describe("S17: タスクの編集・削除", () => {
             },
             headers: bypassHeaders,
         });
+        expect(taskRes.ok()).toBeTruthy();
 
         // リロードしてタスクを表示
         await page.reload();

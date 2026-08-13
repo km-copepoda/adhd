@@ -59,9 +59,6 @@ test.describe("S5: 子供クエスト完了報告", () => {
       return;
     }
 
-    // クエスト名を記録
-    const questTitle = await pendingQuest.locator("p.text-sm.font-medium").first().textContent();
-
     await pendingQuest.click();
     await expect(page.getByRole("button", { name: /クエスト完了/ })).toBeVisible({ timeout: 5000 });
 

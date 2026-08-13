@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { after } from "next/server";
 import { POST } from "@/app/api/parent/child-view/quests/[id]/skip-approve/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import * as approveModule from "@/lib/approve";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { generateProxyTreasure } from "@/lib/treasureService";
-import { parentUser, childUser } from "../../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  childUser,
+  questWithTemplateAndChild,
+  questInstance,
+} from "../../../helpers/fixtures";
 import { makeParams } from "../../../helpers/request";
 
 vi.mock("@/lib/approve", () => ({
@@ -22,7 +28,6 @@ vi.mock("@/lib/treasureService", () => ({
   generateProxyTreasure: vi.fn().mockResolvedValue([]),
 }));
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApproveSkip = vi.mocked(approveModule.approveSkipQuestInstance);
 const mockAfter = vi.mocked(after);
@@ -38,7 +43,7 @@ function makeReq(body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -56,7 +61,7 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("CHILD ロールの場合、403 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     const res = await POST(
       makeReq({ childId: "child-1", comment: "体調不良" }),
       makeParams("q1"),
@@ -65,14 +70,14 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("childId 未指定の場合、400 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(makeReq({ comment: "理由" }), makeParams("q1"));
     expect(res.status).toBe(400);
   });
 
   it("comment が空文字の場合、400 を返す（スキップ理由必須）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     const res = await POST(
       makeReq({ childId: "child-1", comment: "   " }),
       makeParams("q1"),
@@ -81,7 +86,7 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("別 family の子を指定された場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(null);
     const res = await POST(
       makeReq({ childId: "child-other", comment: "理由" }),
@@ -91,8 +96,8 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("クエストが見つからない場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     mockPrisma.questInstance.findUnique.mockResolvedValue(null);
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
@@ -102,14 +107,11 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("クエストが指定の子供のものでない場合、404 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-OTHER",
-      status: "PENDING",
-      template: { category: "STUDY" },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-OTHER", status: "PENDING" }),
+    );
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
       makeParams("q1"),
@@ -118,14 +120,11 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("APPROVED 済みのクエストは 400 を返す（不正な遷移）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "APPROVED",
-      template: { category: "STUDY" },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "APPROVED" }),
+    );
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
       makeParams("q1"),
@@ -135,14 +134,11 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("既に SKIPPED 済みのクエストは 400 を返す", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "SKIPPED",
-      template: { category: "STUDY" },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "SKIPPED" }),
+    );
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
       makeParams("q1"),
@@ -151,14 +147,11 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("REPORTED 状態は 400 を返す（報告済みはスキップではなく承認/差し戻し）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "REPORTED",
-      template: { category: "STUDY" },
-    } as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "REPORTED" }),
+    );
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
       makeParams("q1"),
@@ -167,17 +160,17 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("PENDING 状態のクエストは SKIP_REPORTED を経由せず一気に SKIPPED まで進める", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      template: { id: "tpl-1", category: "STUDY" },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const res = await POST(
       makeReq({ childId: "child-1", comment: "体調不良で休む" }),
@@ -200,18 +193,18 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("SKIP_REPORTED 状態（子供がスキップ申請済）も親代理で SKIPPED にできる", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "SKIP_REPORTED",
-      date: new Date("2026-03-12T00:00:00Z"),
-      comment: "子供が書いた理由",
-      template: { id: "tpl-1", category: "STUDY" },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "SKIP_REPORTED",
+        date: new Date("2026-03-12T00:00:00Z"),
+        comment: "子供が書いた理由",
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     const res = await POST(
       makeReq({ childId: "child-1", comment: "OK" }),
@@ -222,17 +215,17 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("掲示板の TASK_* 進捗ログを after() 経由で発火する（子供本人のスキップと同等の社会的フィードバックを保つ）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }) as any);
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      template: { id: "tpl-1", category: "STUDY" },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
 
     await POST(
       makeReq({ childId: "child-1", comment: "代理スキップ" }),
@@ -244,23 +237,21 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("minTasks 達成時に PROXY 宝箱を即 UNLOCKED で生成する（report-approve と同じ規約）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+      childUser({ id: "child-1", minTasksForStreak: 1 }),
     );
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      template: { id: "tpl-1", category: "STUDY" },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
     // approveSkipQuestInstance 後の集計: SKIPPED は computeCompletedCount に含まれる
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "SKIPPED" },
-    ] as any);
+    mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "SKIPPED" })]);
     mockGenerateProxyTreasure.mockResolvedValue(["treasure-log-skip"]);
 
     const res = await POST(
@@ -281,24 +272,24 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
   });
 
   it("minTasks 未達なら generateProxyTreasure は呼ばない", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", minTasksForStreak: 3 }) as any,
+      childUser({ id: "child-1", minTasksForStreak: 3 }),
     );
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      template: { id: "tpl-1", category: "STUDY" },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "SKIPPED" },
-      { status: "PENDING" },
-      { status: "PENDING" },
-    ] as any);
+      questInstance({ status: "SKIPPED" }),
+      questInstance({ status: "PENDING" }),
+      questInstance({ status: "PENDING" }),
+    ]);
 
     const res = await POST(
       makeReq({ childId: "child-1", comment: "理由" }),
@@ -312,27 +303,25 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
 
   // 子供画面 (/api/quests/today) と同じ template.isActive / pausedAt フィルタで絞る
   it("集計クエリは template.isActive: true, pausedAt: null でフィルタする", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(
-      childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+      childUser({ id: "child-1", minTasksForStreak: 1 }),
     );
-    mockPrisma.questInstance.findUnique.mockResolvedValue({
-      id: "q1",
-      childId: "child-1",
-      status: "PENDING",
-      date: new Date("2026-03-12T00:00:00Z"),
-      template: { id: "tpl-1", category: "STUDY" },
-      child: { id: "child-1" },
-    } as any);
-    mockPrisma.questInstance.update.mockResolvedValue({} as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "SKIPPED" } as any,
-    ]);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "SKIPPED" })]);
 
     await POST(makeReq({ childId: "child-1", comment: "理由" }), makeParams("q1"));
 
-    const findManyCall = (mockPrisma.questInstance.findMany as any).mock.calls[0][0];
-    expect(findManyCall.where.template).toEqual({ isActive: true, pausedAt: null });
+    const findManyCall = mockPrisma.questInstance.findMany.mock.calls[0][0];
+    expect(findManyCall?.where?.template).toEqual({ isActive: true, pausedAt: null });
   });
 
   // 子セルフ skip 経路と同様、carryOver 過去日付の親代理スキップでは集計を今日基準に切り替える
@@ -348,22 +337,20 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     it("宝箱の date と集計を今日基準に切り替える", async () => {
       const today = new Date("2026-03-12T00:00:00.000Z");
       const oldDate = new Date("2026-03-03T00:00:00.000Z"); // 9日前
-      mockGetCurrentUser.mockResolvedValue(parentUser() as any);
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", minTasksForStreak: 1 }) as any,
+        childUser({ id: "child-1", minTasksForStreak: 1 }),
       );
-      mockPrisma.questInstance.findUnique.mockResolvedValue({
-        id: "q1",
-        childId: "child-1",
-        status: "PENDING",
-        date: oldDate,
-        template: { id: "tpl-1", category: "STUDY", carryOver: true },
-        child: { id: "child-1", minTasksForStreak: 1 },
-      } as any);
-      mockPrisma.questInstance.update.mockResolvedValue({} as any);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(
+        questWithTemplateAndChild(
+          { id: "q1", childId: "child-1", status: "PENDING", date: oldDate },
+          { id: "tpl-1", category: "STUDY", carryOver: true },
+        ),
+      );
+      mockPrisma.questInstance.update.mockResolvedValue(questInstance());
       mockPrisma.questInstance.findMany.mockResolvedValue([
-        { status: "PENDING" } as any,
-        { status: "PENDING" } as any,
+        questInstance({ status: "PENDING" }),
+        questInstance({ status: "PENDING" }),
       ]);
 
       await POST(

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { DELETE as deleteTask } from "@/app/api/tasks/[id]/route";
 import { POST as approveQuest } from "@/app/api/approve/[id]/route";
+import type { Family, User } from "@/generated/prisma/client";
 import {
     prisma,
     mockAsUser,
@@ -13,9 +14,9 @@ import {
 } from "./helpers";
 
 describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () => {
-    let family: any;
-    let parent: any;
-    let child: any;
+    let family: Family;
+    let parent: User;
+    let child: User;
 
     beforeAll(async () => {
         await cleanAll();
@@ -48,7 +49,7 @@ describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () 
         const xpBefore = beforeChild!.studyPt + beforeChild!.staminaPt + beforeChild!.lifePt;
 
         // 親がタスク削除
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         const req = new Request(`http://localhost/api/tasks/${task.id}`, {
             method: "DELETE",
             body: "{}",
@@ -82,7 +83,7 @@ describe("タスク削除時のXP回復（CHILD作成タスクの却下）", () 
         const quest = await seedQuestForDate(task.id, child.id, new Date("2026-04-10"), "REPORTED");
 
         // 承認してXP付与
-        mockAsUser({ ...parent, familyId: family.id, role: "PARENT" });
+        mockAsUser({ ...parent, family, role: "PARENT" });
         await approveQuest(
             makeRequest(`/api/approve/${quest.id}`, { action: "approve" }),
             makeParams(quest.id),

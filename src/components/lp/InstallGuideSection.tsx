@@ -18,6 +18,8 @@ export function InstallGuideSection({ s }: { s: Record<string, string> }) {
       /iPad/.test(ua) ||
       (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
     const android = /Android/.test(ua);
+    // navigator.userAgent依存の判定でSSR時は実行できないため、マウント後にuseEffect内で一度だけ判定する。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsIos(ios);
     setIsAndroid(android);
 

@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resolveTargetChild } from "@/lib/parentChildView";
-import { prisma } from "@/lib/prisma";
-import { parentUser, childUser } from "../helpers/fixtures";
-
-const mockPrisma = vi.mocked(prisma);
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { parentUserWithFamily, childUser, childUserWithFamily } from "../helpers/fixtures";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -11,8 +9,8 @@ beforeEach(() => {
 
 describe("resolveTargetChild", () => {
   it("PARENT ロールでない場合は 403 エラーを返す", async () => {
-    const child = childUser();
-    const result = await resolveTargetChild(child as any, "child-1");
+    const child = childUserWithFamily();
+    const result = await resolveTargetChild(child, "child-1");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(403);
@@ -20,8 +18,8 @@ describe("resolveTargetChild", () => {
   });
 
   it("familyId が無い場合は 403 エラーを返す", async () => {
-    const parent = parentUser({ familyId: null });
-    const result = await resolveTargetChild(parent as any, "child-1");
+    const parent = parentUserWithFamily({ familyId: null }, null);
+    const result = await resolveTargetChild(parent, "child-1");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(403);
@@ -29,8 +27,8 @@ describe("resolveTargetChild", () => {
   });
 
   it("childId が空文字 / undefined の場合は 400 を返す", async () => {
-    const parent = parentUser();
-    const result = await resolveTargetChild(parent as any, "");
+    const parent = parentUserWithFamily();
+    const result = await resolveTargetChild(parent, "");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(400);
@@ -38,9 +36,9 @@ describe("resolveTargetChild", () => {
   });
 
   it("同一 family の CHILD が見つからない場合は 404 を返す", async () => {
-    const parent = parentUser();
+    const parent = parentUserWithFamily();
     mockPrisma.user.findFirst.mockResolvedValue(null);
-    const result = await resolveTargetChild(parent as any, "child-9");
+    const result = await resolveTargetChild(parent, "child-9");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(404);
@@ -51,10 +49,10 @@ describe("resolveTargetChild", () => {
   });
 
   it("正しい子供が見つかった場合は ok:true で child を返す", async () => {
-    const parent = parentUser();
+    const parent = parentUserWithFamily();
     const child = childUser({ id: "child-3" });
-    mockPrisma.user.findFirst.mockResolvedValue(child as any);
-    const result = await resolveTargetChild(parent as any, "child-3");
+    mockPrisma.user.findFirst.mockResolvedValue(child);
+    const result = await resolveTargetChild(parent, "child-3");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.child.id).toBe("child-3");
@@ -62,10 +60,10 @@ describe("resolveTargetChild", () => {
   });
 
   it("別 family の childId を指定された場合は 404 を返す（family クロス検証）", async () => {
-    const parent = parentUser({ familyId: "fam-1" });
+    const parent = parentUserWithFamily({ familyId: "fam-1" });
     // 別ファミリーの子は findFirst の where 条件で除外され null が返る
     mockPrisma.user.findFirst.mockResolvedValue(null);
-    const result = await resolveTargetChild(parent as any, "child-other-family");
+    const result = await resolveTargetChild(parent, "child-other-family");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(404);

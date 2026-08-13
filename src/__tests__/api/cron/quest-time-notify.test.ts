@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/cron/quest-time-notify/route";
-import { prisma } from "@/lib/prisma";
 import { sendPushToChild } from "@/lib/push";
+import type { Prisma } from "@/generated/prisma/client";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { childUser, questInstance } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockSendPush = vi.mocked(sendPushToChild);
+
+/**
+ * `mockImplementation` の戻り値は実際の Prisma メソッドと同じ `PrismaPromise<T>` 型が
+ * 要求されるが、`vitest-mock-extended` の DeepMockProxy はジェネリックオーバーロードを
+ * 保持しないためテストコード側では通常の `Promise` しか作れない。
+ * `PrismaPromise` は実行時には通常の thenable として振る舞うため、型だけ合わせる
+ * （`src/__tests__/lib/quests.test.ts` と同じパターン）。
+ */
+function asPrismaPromise<T>(value: T): Prisma.PrismaPromise<T> {
+  return Promise.resolve(value) as unknown as Prisma.PrismaPromise<T>;
+}
 
 function makeRequest(secret?: string) {
   const headers: Record<string, string> = {};
@@ -55,14 +67,12 @@ describe("GET /api/cron/quest-time-notify", () => {
   });
 
   it("PENDING/REJECTED が残っている子供に Push を送ること", async () => {
-    mockPrisma.user.findMany.mockResolvedValue([
-      { id: "child-1" },
-    ] as any);
+    mockPrisma.user.findMany.mockResolvedValue([childUser({ id: "child-1" })]);
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "PENDING" },
-      { status: "PENDING" },
-      { status: "APPROVED" }, // 進捗 1/3
-    ] as any);
+      questInstance({ status: "PENDING" }),
+      questInstance({ status: "PENDING" }),
+      questInstance({ status: "APPROVED" }), // 進捗 1/3
+    ]);
 
     const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
@@ -82,14 +92,12 @@ describe("GET /api/cron/quest-time-notify", () => {
   });
 
   it("全クエスト完了済み(100%)の子供には Push を送らずスキップ件数を増やすこと", async () => {
-    mockPrisma.user.findMany.mockResolvedValue([
-      { id: "child-1" },
-    ] as any);
+    mockPrisma.user.findMany.mockResolvedValue([childUser({ id: "child-1" })]);
     mockPrisma.questInstance.findMany.mockResolvedValue([
-      { status: "APPROVED" },
-      { status: "APPROVED" },
-      { status: "SKIPPED" },
-    ] as any);
+      questInstance({ status: "APPROVED" }),
+      questInstance({ status: "APPROVED" }),
+      questInstance({ status: "SKIPPED" }),
+    ]);
 
     const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
@@ -101,10 +109,8 @@ describe("GET /api/cron/quest-time-notify", () => {
   });
 
   it("今日のクエストが0件の子供には Push を送らずスキップすること", async () => {
-    mockPrisma.user.findMany.mockResolvedValue([
-      { id: "child-1" },
-    ] as any);
-    mockPrisma.questInstance.findMany.mockResolvedValue([] as any);
+    mockPrisma.user.findMany.mockResolvedValue([childUser({ id: "child-1" })]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
     const res = await GET(makeRequest("test-secret"));
     const body = await res.json();
@@ -116,28 +122,26 @@ describe("GET /api/cron/quest-time-notify", () => {
 
   it("複数の子供がそれぞれ独立して判定されること", async () => {
     mockPrisma.user.findMany.mockResolvedValue([
-      { id: "child-1" },
-      { id: "child-2" },
-      { id: "child-3" },
-    ] as any);
-    mockPrisma.questInstance.findMany.mockImplementation(((args: any) => {
+      childUser({ id: "child-1" }),
+      childUser({ id: "child-2" }),
+      childUser({ id: "child-3" }),
+    ]);
+    mockPrisma.questInstance.findMany.mockImplementation((args?: Prisma.QuestInstanceFindManyArgs) => {
       const childId = args?.where?.childId;
       if (childId === "child-1") {
         // 進捗 0/2 → 送信
-        return Promise.resolve([
-          { status: "PENDING" },
-          { status: "PENDING" },
-        ] as any);
+        return asPrismaPromise([
+          questInstance({ status: "PENDING" }),
+          questInstance({ status: "PENDING" }),
+        ]);
       }
       if (childId === "child-2") {
         // 100% 完了 → スキップ
-        return Promise.resolve([
-          { status: "APPROVED" },
-        ] as any);
+        return asPrismaPromise([questInstance({ status: "APPROVED" })]);
       }
       // child-3: クエスト0件 → スキップ
-      return Promise.resolve([] as any);
-    }) as any);
+      return asPrismaPromise([]);
+    });
 
     const res = await GET(makeRequest("test-secret"));
     const body = await res.json();

@@ -70,10 +70,6 @@ export default function TasksPage() {
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));
 
-  useEffect(() => {
-    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
-  }, []);
-
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
     if (res.ok) setTasks(await res.json());
@@ -88,6 +84,13 @@ export default function TasksPage() {
       setSelectedChildId((prev) => prev ?? (kids[0]?.id ?? null));
     }
   }
+
+  useEffect(() => {
+    // マウント時に一度だけタスク・子供一覧を取得する。fetchTasks/fetchChildren内部でsetState系を呼ぶが、
+    // 外部API（サーバー）との同期が目的でありレンダー時算出はできないためuseEffect内が正しい。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
+  }, []);
 
   function openFormForChild(childId: string) {
     setForm(defaultForm(childId));
@@ -238,7 +241,7 @@ export default function TasksPage() {
       )}
 
       <ChildSelector
-        children={children}
+        childOptions={children}
         selectedChildId={selectedChildId}
         onSelect={(id) => {
           setSelectedChildId(id);
@@ -328,7 +331,7 @@ export default function TasksPage() {
                     <PendingTaskCard
                       key={task.id}
                       task={task}
-                      children={children}
+                      childOptions={children}
                       onEdit={startEdit}
                       onApprove={handleApprove}
                       onDelete={handleDelete}
@@ -348,7 +351,7 @@ export default function TasksPage() {
                       key={task.id}
                       task={task}
                       childId={child.id}
-                      children={children}
+                      childOptions={children}
                       todayDow={todayDow}
                       onEdit={startEdit}
                       onDelete={handleDelete}
@@ -368,7 +371,7 @@ export default function TasksPage() {
                     <TemporaryTaskCard
                       key={task.id}
                       task={task}
-                      children={children}
+                      childOptions={children}
                       onDelete={handleDelete}
                       onTogglePause={handleTogglePause}
                     />

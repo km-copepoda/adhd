@@ -1,14 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { prisma } from "@/lib/prisma";
 import { recordCheckin, type CheckinResult } from "@/lib/checkin";
 import {
   isBeforeCheckinDeadline,
   computeNextCheckinStreak,
   isValidCheckinDeadlineTime,
 } from "@/lib/checkin.logic";
-import { childUser, streak } from "../helpers/fixtures";
-
-const mockPrisma = vi.mocked(prisma);
+import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
+import { checkinLog, childUser, streak } from "../helpers/fixtures";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,7 +91,7 @@ describe("recordCheckin", () => {
 
   it("checkinDeadlineTime が未設定なら enabled=false", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ checkinDeadlineTime: null }) as any,
+      childUser({ checkinDeadlineTime: null }),
     );
 
     const result = await recordCheckin("child-1", new Date("2026-06-23T06:30:00Z"));
@@ -104,17 +102,18 @@ describe("recordCheckin", () => {
 
   it("当日の CheckinLog が既にあれば justNow=false かつ DB 操作なし", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ checkinDeadlineTime: "16:00" }) as any,
+      childUser({ checkinDeadlineTime: "16:00" }),
     );
-    mockPrisma.checkinLog.findUnique.mockResolvedValue({
-      id: "log-1",
-      childId: "child-1",
-      date: today,
-      success: true,
-      checkedInAt: new Date("2026-06-23T06:00:00Z"),
-    } as any);
+    mockPrisma.checkinLog.findUnique.mockResolvedValue(
+      checkinLog({
+        id: "log-1",
+        date: today,
+        success: true,
+        checkedInAt: new Date("2026-06-23T06:00:00Z"),
+      }),
+    );
     mockPrisma.streak.findUnique.mockResolvedValue(
-      streak({ checkinCurrentStreak: 5, checkinBestStreak: 10, lastCheckinDate: today }) as any,
+      streak({ checkinCurrentStreak: 5, checkinBestStreak: 10, lastCheckinDate: today }),
     );
 
     const result = await recordCheckin("child-1", new Date("2026-06-23T06:30:00Z"));
@@ -128,14 +127,14 @@ describe("recordCheckin", () => {
 
   it("締切前の初回チェックインで success=true・streak=1 が記録される", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ checkinDeadlineTime: "16:00" }) as any,
+      childUser({ checkinDeadlineTime: "16:00" }),
     );
     mockPrisma.checkinLog.findUnique.mockResolvedValue(null);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ checkinCurrentStreak: 0, checkinBestStreak: 0, lastCheckinDate: null }) as any,
+      streak({ checkinCurrentStreak: 0, checkinBestStreak: 0, lastCheckinDate: null }),
     );
-    mockPrisma.checkinLog.create.mockResolvedValue({} as any);
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.checkinLog.create.mockResolvedValue(checkinLog());
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordCheckin("child-1", new Date("2026-06-23T06:30:00Z")); // JST 15:30
 
@@ -166,14 +165,14 @@ describe("recordCheckin", () => {
 
   it("締切後のチェックインで success=false・streak がリセット", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ checkinDeadlineTime: "16:00" }) as any,
+      childUser({ checkinDeadlineTime: "16:00" }),
     );
     mockPrisma.checkinLog.findUnique.mockResolvedValue(null);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ checkinCurrentStreak: 5, checkinBestStreak: 10, lastCheckinDate: yesterday }) as any,
+      streak({ checkinCurrentStreak: 5, checkinBestStreak: 10, lastCheckinDate: yesterday }),
     );
-    mockPrisma.checkinLog.create.mockResolvedValue({} as any);
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.checkinLog.create.mockResolvedValue(checkinLog());
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordCheckin("child-1", new Date("2026-06-23T08:00:00Z")); // JST 17:00
 
@@ -202,14 +201,14 @@ describe("recordCheckin", () => {
 
   it("昨日もチェックイン済みなら streak が +1 になる", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ checkinDeadlineTime: "16:00" }) as any,
+      childUser({ checkinDeadlineTime: "16:00" }),
     );
     mockPrisma.checkinLog.findUnique.mockResolvedValue(null);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ checkinCurrentStreak: 5, checkinBestStreak: 5, lastCheckinDate: yesterday }) as any,
+      streak({ checkinCurrentStreak: 5, checkinBestStreak: 5, lastCheckinDate: yesterday }),
     );
-    mockPrisma.checkinLog.create.mockResolvedValue({} as any);
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.checkinLog.create.mockResolvedValue(checkinLog());
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result: CheckinResult = await recordCheckin(
       "child-1",
@@ -223,14 +222,14 @@ describe("recordCheckin", () => {
 
   it("締切ちょうどは失敗扱い（境界値）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
-      childUser({ checkinDeadlineTime: "16:00" }) as any,
+      childUser({ checkinDeadlineTime: "16:00" }),
     );
     mockPrisma.checkinLog.findUnique.mockResolvedValue(null);
     mockPrisma.streak.upsert.mockResolvedValue(
-      streak({ checkinCurrentStreak: 0, checkinBestStreak: 0, lastCheckinDate: null }) as any,
+      streak({ checkinCurrentStreak: 0, checkinBestStreak: 0, lastCheckinDate: null }),
     );
-    mockPrisma.checkinLog.create.mockResolvedValue({} as any);
-    mockPrisma.streak.update.mockResolvedValue({} as any);
+    mockPrisma.checkinLog.create.mockResolvedValue(checkinLog());
+    mockPrisma.streak.update.mockResolvedValue(streak());
 
     const result = await recordCheckin("child-1", new Date("2026-06-23T07:00:00Z")); // JST 16:00 ちょうど
 

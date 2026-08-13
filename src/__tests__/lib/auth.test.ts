@@ -26,10 +26,16 @@ vi.mock("@/lib/categories", () => ({
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { family, parentUserWithFamily } from "../helpers/fixtures";
 
 const mockCreateClient = vi.mocked(createClient);
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockFamilyCreate = vi.mocked(prisma.family.create);
+
+/** `createClient()` の戻り値は Supabase の `SupabaseClient` 型（巨大なジェネリック型）。
+ * テストで使うのは `auth.getSession` だけなので、必要な形だけを持つオブジェクトを
+ * `Awaited<ReturnType<typeof createClient>>` に `as unknown as` でキャストする。 */
+type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
 
 function mockSupabaseUser(user: { id: string; email?: string } | null) {
   mockCreateClient.mockResolvedValue({
@@ -38,7 +44,7 @@ function mockSupabaseUser(user: { id: string; email?: string } | null) {
         data: { session: user ? { user } : null },
       }),
     },
-  } as any);
+  } as unknown as SupabaseClientLike);
 }
 
 beforeEach(() => {
@@ -54,14 +60,11 @@ describe("getCurrentUser", () => {
 
   it("DBユーザーが存在する場合、family付きで返すこと", async () => {
     mockSupabaseUser({ id: "sup-123", email: "test@example.com" });
-    const dbUser = {
-      id: "db-1",
-      supabaseId: "sup-123",
-      role: "PARENT",
-      familyId: "fam-1",
-      family: { id: "fam-1", code: "ABC123" },
-    };
-    mockUserFindUnique.mockResolvedValue(dbUser as any);
+    const dbUser = parentUserWithFamily(
+      { id: "db-1", supabaseId: "sup-123", familyId: "fam-1" },
+      { id: "fam-1", code: "ABC123" },
+    );
+    mockUserFindUnique.mockResolvedValue(dbUser);
 
     const result = await getCurrentUser();
     expect(result).toEqual(dbUser);
@@ -76,10 +79,13 @@ describe("getCurrentUser", () => {
     // 1回目のfindUnique → null
     mockUserFindUnique.mockResolvedValueOnce(null);
     // familyCreate成功
-    mockFamilyCreate.mockResolvedValue({ id: "fam-new", code: "ABC123" } as any);
+    mockFamilyCreate.mockResolvedValue(family({ id: "fam-new", code: "ABC123" }));
     // 2回目のfindUnique → 作成されたユーザー
-    const newUser = { id: "db-new", supabaseId: "sup-new", role: "PARENT" };
-    mockUserFindUnique.mockResolvedValueOnce(newUser as any);
+    const newUser = parentUserWithFamily(
+      { id: "db-new", supabaseId: "sup-new" },
+      { id: "fam-new", code: "ABC123" },
+    );
+    mockUserFindUnique.mockResolvedValueOnce(newUser);
 
     const result = await getCurrentUser();
     expect(result).toEqual(newUser);
@@ -109,8 +115,8 @@ describe("getCurrentUser", () => {
   it("emailからユーザー名を@前で抽出すること", async () => {
     mockSupabaseUser({ id: "sup-x", email: "tanaka.taro@company.co.jp" });
     mockUserFindUnique.mockResolvedValueOnce(null);
-    mockFamilyCreate.mockResolvedValue({} as any);
-    mockUserFindUnique.mockResolvedValueOnce({} as any);
+    mockFamilyCreate.mockResolvedValue(family());
+    mockUserFindUnique.mockResolvedValueOnce(parentUserWithFamily());
 
     await getCurrentUser();
     expect(mockFamilyCreate).toHaveBeenCalledWith(

@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/push/subscribe/route";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest } from "../../helpers/request";
-import { parentUser, childUser } from "../../helpers/fixtures";
+import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { parentUserWithFamily, childUserWithFamily, pushSubscription } from "../../helpers/fixtures";
 
-const mockPrisma = vi.mocked(prisma);
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 const subBody = {
@@ -25,8 +24,8 @@ describe("POST /api/push/subscribe", () => {
   });
 
   it("PARENTが購読登録できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUser() as any);
-    mockPrisma.pushSubscription.upsert.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.pushSubscription.upsert.mockResolvedValue(pushSubscription({ userId: "parent-1" }));
 
     const res = await POST(makeRequest("/api/push/subscribe", subBody));
     const json = await res.json();
@@ -50,8 +49,8 @@ describe("POST /api/push/subscribe", () => {
   });
 
   it("CHILDも購読登録できること", async () => {
-    mockGetCurrentUser.mockResolvedValue(childUser() as any);
-    mockPrisma.pushSubscription.upsert.mockResolvedValue({} as any);
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.pushSubscription.upsert.mockResolvedValue(pushSubscription({ userId: "child-1" }));
 
     const res = await POST(makeRequest("/api/push/subscribe", subBody));
     const json = await res.json();
