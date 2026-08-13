@@ -43,7 +43,7 @@ export function usePendingCounts(): PendingCounts {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [id]);
 
   return counts;
 }
