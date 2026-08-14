@@ -1,6 +1,6 @@
 /**
  * S12: スキップ承認フロー統合テスト
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * 「親がタスク作成 → 子供がスキップ申請 → 親が承認」の全フローを検証する。
  *

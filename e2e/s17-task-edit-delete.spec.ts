@@ -1,7 +1,7 @@
 /**
  * S17: 親 - タスクの編集・削除
  * 
- * 前提: as-parent (parent.json で認証済み)
+ * 前提: as-parent-premium (parent.json で認証済み)
  * 対象: /app/parent/tasks
  * 
  * テスト内容:

@@ -1,6 +1,6 @@
 /**
  * S6: 親クエスト承認フロー
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * - /app/parent/approve が表示される
  * - 承認待ちのクエストカードが表示される

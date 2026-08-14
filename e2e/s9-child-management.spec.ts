@@ -1,6 +1,6 @@
 /**
  * S9: 子供ユーザー管理（作成・ログイン確認・削除）
- * 前提: as-parent プロジェクトで実行（storageState: parent.json）
+ * 前提: as-parent-premium プロジェクトで実行（storageState: parent.json）
  *
  * - ファミリー管理ページが表示される
  * - 境界値: 名前未入力では追加ボタン押下時エラーが表示される

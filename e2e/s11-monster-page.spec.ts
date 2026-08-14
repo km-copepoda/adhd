@@ -43,7 +43,7 @@ test.describe("S11: 育成画面", () => {
   });
 
   test("たまごまたは進化途中のステージである（孵化/進化テキストが表示される）", async ({ page }) => {
-    // s10（as-parent）でXPが付与されて孵化済みの場合は「進化」、まだなら「孵化」
+    // s10（as-parent-premium）でXPが付与されて孵化済みの場合は「進化」、まだなら「孵化」
     await expect(page.getByText(/孵化|進化/)).toBeVisible();
   });
 

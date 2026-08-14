@@ -24,9 +24,16 @@ export default defineConfig({
   },
   projects: [
     // 認証セットアップ（no-auth の後に実行：S3 が child-rejoin で supabaseId を上書きするため）
+    // PREMIUM 化・2人目の子供作成も行う（as-parent-premium / as-child が使うアカウント）
     {
       name: "setup",
       testMatch: /auth\.setup\.ts/,
+      dependencies: ["no-auth"],
+    },
+    // FREE プラン用の認証セットアップ（別アカウント・子供1人のみ・PREMIUM化なし）
+    {
+      name: "setup-free",
+      testMatch: /auth-free\.setup\.ts/,
       dependencies: ["no-auth"],
     },
     // 未認証テスト（ランディング・ログインフォーム検証・アカウント登録フォーム）
@@ -35,9 +42,9 @@ export default defineConfig({
       testMatch: /\/(s1|s2|s3|s14)-.*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
-    // 親アカウントで実行するテスト（全フロー・スキップ承認・期限設定・履歴・完了・宝箱プールを含む）
+    // 親アカウント（PREMIUM）で実行するテスト（全フロー・スキップ承認・期限設定・履歴・完了・宝箱プールを含む）
     {
-      name: "as-parent",
+      name: "as-parent-premium",
       testMatch: /\/(s4|s6|s9|s10|s12|s13|s16|s17|s18|s22|s23)-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
@@ -54,6 +61,16 @@ export default defineConfig({
         storageState: "playwright/.auth/child-light.json",
       },
       dependencies: ["setup"],
+    },
+    // 親アカウント（FREE）で実行するテスト（プラン別制限の検証。フェーズ4で spec を追加予定）
+    {
+      name: "as-parent-free",
+      testMatch: /\/s26-plan-free-limits\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/parent-free.json",
+      },
+      dependencies: ["setup-free"],
     },
   ],
 });

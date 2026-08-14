@@ -1,6 +1,6 @@
 /**
  * S10: 全フロー統合テスト
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * 「親がタスク作成 → 子供がクエスト完了報告 → 親が承認 → リストから消える」
  * の一連の流れを1テストで検証する。

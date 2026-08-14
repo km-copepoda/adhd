@@ -1,7 +1,7 @@
 /**
  * S16: 親 - 過去の記録（履歴ヒートマップ）
  * 
- * 前提: as-parent (parent.json で認証された状態) で実行
+ * 前提: as-parent-premium (parent.json で認証された状態) で実行
  * 対象: /app/parent/history
  * 
  * テスト内容:

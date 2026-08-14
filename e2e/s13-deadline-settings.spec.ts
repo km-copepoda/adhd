@@ -1,6 +1,6 @@
 /**
  * S13: 報告期限設定テスト
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * - ファミリー管理ページで子供ごとに報告期限を設定できる
  * - 期限時刻を保存できる

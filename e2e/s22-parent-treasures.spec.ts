@@ -1,6 +1,6 @@
 /**
  * S22: 親の宝箱プール（ごほうび）設定ページ
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * - /app/parent/treasures が表示される（タブ切替）
  * - 「ごほうび設定」見出しと「もらった履歴」タブが表示される
