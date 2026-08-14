@@ -2694,3 +2694,30 @@
 - `src/__tests__/helpers/prisma-mock.ts` — 新規。型付きアクセサ `prismaMock`
 - `tsconfig.json` — `compilerOptions.types` に `"vitest/globals"` を追加
 
+## 2026-08-14: PRごとのVercelプレビュー環境でPlaywright E2Eを自動実行する。UI関連パス変更時のみ・non-blocking運用で開始（Issue #74）
+
+### 決定内容
+- `.github/workflows/pr-tests.yml` に `e2e` ジョブを追加した。`unit`/`lint` とは独立した並列ジョブで、`patrickedqvist/wait-for-vercel-preview`（コミット SHA ピン留め、`v1.3.3` 相当）で PR プレビューのデプロイ完了を待ち、`environment_url` を `E2E_BASE_URL` として `npx playwright test --reporter=github` に渡す
+- UI 関連パス（`src/app/**` / `src/components/**` / `src/hooks/**` / `e2e/**` / `playwright.config.ts`）の変更時のみ実行する。ただし `on.pull_request.paths` をワークフロー全体のトリガーに追加する素朴な実装は採らず、`dorny/paths-filter`（コミット SHA ピン留め、`v4.0.3` 相当）で判定した結果を `changes` ジョブの output にし、`e2e` ジョブの `if` 条件として使う設計にした
+- フォーク PR・Dependabot PR・Draft PR ではジョブ自体をスキップする（`unit` ジョブの coverage レポートステップと同じ条件パターンに `draft == false` を追加）
+- `concurrency: group: e2e-${{ github.event.pull_request.number }}, cancel-in-progress: true` で同一 PR の古い実行をキャンセルし、`timeout-minutes: 20` でランナー占有を防ぐ
+- `continue-on-error: true` は使わない。Stage 1（本 Issue）では branch protection の required checks に `e2e` を含めないことで non-blocking を実現し、ワークフロー自体は赤/緑がそのまま見える状態にする
+- `playwright-report/` と `test-results/`（trace・video を含む）を `if: always()` で artifact アップロードする（`retention-days: 7`）
+- `playwright.config.ts` の `reporter` を `process.env.CI` で `"github"` / `"html"` に分岐した
+- `.env.test.example` に CI 側（GitHub Actions）で自動注入される環境変数（`E2E_BASE_URL` / `VERCEL_BYPASS_SECRET` / `E2E_SETUP_SECRET`）を追記した。`ALLOW_E2E_SETUP` は Vercel プレビュー環境側に人間が別途設定済みのため GitHub Actions 側では注入しない
+
+### `paths` フィルタをワークフロートリガーではなくジョブ単位にした理由
+- Issue #74 の初期案どおり `on.pull_request.paths` に UI 関連パスを設定すると、`src/lib/**` のみの変更ではワークフロー自体が起動せず check run が作られない。この場合 `unit`/`lint` も含めてワークフロー全体が対象外になってしまい、「UI 以外の変更でもユニットテストは必ず走る」という既存の前提を壊す
+- `e2e` ジョブだけを対象外にしたいので、`dorny/paths-filter` の出力を使い `e2e` ジョブの `if` 条件として評価する形にした。この場合パス不一致時は `e2e` ジョブが "skipped" 扱いになるだけで `unit`/`lint` には影響しない。required check にした場合も "skipped" は "success" 扱いになるため、Issue 本文が指摘していた「required check が永久に pending になる」問題も同時に回避できる
+
+### やってはいけないこと
+- `on.pull_request.paths` をこのワークフローファイル全体のトリガーに追加し、`unit`/`lint` も含めて UI パス変更時のみに限定する
+- サードパーティアクション（`wait-for-vercel-preview` / `paths-filter`）をバージョンタグ（`@v1.3.3` 等）のまま参照する。必ずコミット SHA をピン留めする
+- `continue-on-error: true` で失敗を隠す。non-blocking は required checks 側の設定で実現する
+- `e2e` ジョブを Stage 1 の段階で branch protection の required checks に追加する（flaky 実績を確認してから Stage 2 で昇格する）
+
+### 該当箇所
+- `.github/workflows/pr-tests.yml` — `changes` ジョブ（paths-filter）と `e2e` ジョブを追加
+- `playwright.config.ts` — `reporter` を CI/ローカルで分岐
+- `.env.test.example` — CI 側の自動注入変数を追記
+
