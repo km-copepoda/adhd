@@ -13,7 +13,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: "html",
+  // CI では GitHub Actions のログに直接アノテーションを出す "github" reporter を使い、
+  // ローカルでは従来どおり "html" レポートを生成する。
+  reporter: process.env.CI ? "github" : "html",
   use: {
     baseURL,
     trace: "on-first-retry",
