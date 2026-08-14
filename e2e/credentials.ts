@@ -6,9 +6,8 @@
 import fs from "fs";
 import path from "path";
 import type { Browser, Page } from "@playwright/test";
+import { getE2EBaseUrl, getE2EHostname, getE2ERoutePattern } from "./baseUrl";
 
-export const VERCEL_HOSTNAME = "adhd-git-develop-km-copepodas-projects.vercel.app";
-export const VERCEL_BASE_URL = `https://${VERCEL_HOSTNAME}`;
 export const AUTH_DIR = path.join(process.cwd(), "playwright/.auth");
 
 export type QACredentials = {
@@ -33,9 +32,9 @@ export function getBypassHeaders(): Record<string, string> {
 export async function setupBypassRoute(page: Page): Promise<void> {
   const secret = process.env.VERCEL_BYPASS_SECRET;
   if (!secret) return;
-  // **/${VERCEL_HOSTNAME}/** は https:// の二重スラッシュにマッチしない場合があるため
+  // **/<hostname>/** は https:// の二重スラッシュにマッチしない場合があるため
   // https:// から始まる明示的なパターンを使用する
-  await page.route(`https://${VERCEL_HOSTNAME}/**`, async (route) => {
+  await page.route(getE2ERoutePattern(), async (route) => {
     await route.continue({
       headers: {
         ...route.request().headers(),
@@ -59,7 +58,7 @@ export async function createBrowserContext(
 ) {
   const secret = process.env.VERCEL_BYPASS_SECRET;
   const context = await browser.newContext({
-    baseURL: VERCEL_BASE_URL,
+    baseURL: getE2EBaseUrl(),
     ...(storageStatePath ? { storageState: storageStatePath } : {}),
     ...(secret ? { extraHTTPHeaders: { "x-vercel-protection-bypass": secret } } : {}),
   });
@@ -85,7 +84,7 @@ export async function createBrowserContext(
       };
       const vercelCookies = (parentState.cookies ?? []).filter(
         (c) =>
-          (c.domain.includes(VERCEL_HOSTNAME) ||
+          (c.domain.includes(getE2EHostname()) ||
             c.domain.includes(".vercel.app") ||
             c.domain.includes("vercel.com")) &&
           !c.name.startsWith("sb-"),

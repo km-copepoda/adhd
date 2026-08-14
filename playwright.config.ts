@@ -1,12 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 import { config } from "dotenv";
+import { getE2EBaseUrl } from "./e2e/baseUrl";
 
 // .env.test から E2E 専用の環境変数を読み込む
 config({ path: ".env.test" });
 
-const baseURL =
-  process.env.E2E_BASE_URL ||
-  "https://adhd-git-develop-km-copepodas-projects.vercel.app";
+const baseURL = getE2EBaseUrl();
 
 export default defineConfig({
   testDir: "./e2e",
