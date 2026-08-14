@@ -47,7 +47,7 @@ export default defineConfig({
     // 親アカウント（PREMIUM）で実行するテスト（全フロー・スキップ承認・期限設定・履歴・完了・宝箱プールを含む）
     {
       name: "as-parent-premium",
-      testMatch: /\/(s4|s6|s9|s10|s12|s13|s16|s17|s18|s22|s23)-.*\.spec\.ts/,
+      testMatch: /\/(s4|s6|s9|s10|s12|s13|s16|s17|s18|s22|s23|s25)-.*\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/parent.json",
