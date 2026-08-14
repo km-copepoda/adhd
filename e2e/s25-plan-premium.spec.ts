@@ -177,7 +177,7 @@ test.describe("S25: PREMIUM プラン上限", () => {
     for (let i = 0; i < 11; i++) {
       const res = await page.request.post("/api/tasks", {
         data: {
-          title: `E2E_S25_pausetask_${Date.now()}_${i}`,
+          title: `E2E_S25_ptask_${Date.now()}_${i}`,
           emoji: "📚",
           category: "STUDY",
           repeatDays: [0, 1, 2, 3, 4, 5, 6],
