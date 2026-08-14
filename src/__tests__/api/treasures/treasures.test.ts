@@ -11,6 +11,12 @@ const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // vi.clearAllMocks() は mockResolvedValueOnce 等でキューに積んだ未消費の値を
+  // クリアしない（vitest 仕様）。GET テスト側で mockResolvedValueOnce を2連続で
+  // 積んでいるが実装がまだ2回呼ばないケース（Red フェーズ）があるため、
+  // 未消費分が後続テストに漏れないよう明示的に reset しておく。
+  mockPrisma.user.findFirst.mockReset();
+  mockPrisma.subscription.findUnique.mockReset();
 });
 
 // ─── GET /api/treasures ──────────────────────────────────────────────
@@ -51,6 +57,68 @@ describe("GET /api/treasures", () => {
     expect(res.status).toBe(200);
     expect(json.items).toHaveLength(1);
     expect(json.items[0].id).toBe("i1");
+  });
+
+  // ─── plan フィールド (Issue #76: おすすめセットボタンのFREE非表示化用) ──
+  it("レスポンスに plan フィールドが含まれる", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst
+      .mockResolvedValueOnce(childUser({ id: "child-1" })) // ensureFamilyChild
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" })); // getFamilyPlan
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+
+    const res = await listGET(new Request("http://localhost/api/treasures?childId=child-1"));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.plan).toBeDefined();
+    expect(["FREE", "PREMIUM"]).toContain(json.plan);
+  });
+
+  it("FREEプランの家族の場合 plan: FREE が返る", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
+    mockPrisma.subscription.findUnique.mockResolvedValue(null); // サブスクなし = FREE
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+
+    const res = await listGET(new Request("http://localhost/api/treasures?childId=child-1"));
+    const json = await res.json();
+    expect(json.plan).toBe("FREE");
+  });
+
+  it("PREMIUMプランの家族の場合 plan: PREMIUM が返る", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
+    mockPrisma.subscription.findUnique.mockResolvedValue(
+      subscription({ plan: "PREMIUM", currentPeriodEnd: new Date("2099-12-31") }),
+    );
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+
+    const res = await listGET(new Request("http://localhost/api/treasures?childId=child-1"));
+    const json = await res.json();
+    expect(json.plan).toBe("PREMIUM");
+  });
+
+  it("plan フィールド追加後も items フィールドの挙動に変更がない（リグレッション防止）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst
+      .mockResolvedValueOnce(childUser({ id: "child-1" }))
+      .mockResolvedValueOnce(parentUser({ id: "parent-1" }));
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    mockPrisma.treasureItem.findMany.mockResolvedValue([
+      treasureItem({ id: "i1", title: "おやつ", rarity: "COMMON", sortOrder: 0, isActive: true }),
+    ]);
+
+    const res = await listGET(new Request("http://localhost/api/treasures?childId=child-1"));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.items).toHaveLength(1);
+    expect(json.items[0].id).toBe("i1");
+    expect(json.plan).toBe("FREE");
   });
 });
 
