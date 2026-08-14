@@ -49,7 +49,7 @@ export default defineConfig({
     // 子供アカウント（ライトモード）で実行するテスト（育成画面・宝箱・コレクション・ひろばを含む）
     {
       name: "as-child",
-      testMatch: /\/(s5|s7|s8|s11|s19|s20|s21)-.*\.spec\.ts/,
+      testMatch: /\/(s5|s7|s8|s11|s15|s19|s20|s21)-.*\.spec\.ts/,
       use: {
         ...devices["Pixel 5"],
         storageState: "playwright/.auth/child-light.json",

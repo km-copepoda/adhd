@@ -4,7 +4,7 @@
  *
  * - /app/parent/treasures が表示される（タブ切替）
  * - 「ごほうび設定」見出しと「もらった履歴」タブが表示される
- * - 子供セレクター（QA_child）が表示される
+ * - 子供が1人の場合は子供切替ボタンが表示されない（複数子供時のUIは #76 で扱う）
  * - 新しいごほうび追加フォーム（タイトル入力 + レア度 + 「追加」ボタン）
  * - 境界値: タイトル未入力では「追加」ボタンが無効
  * - 既存ごほうびがあれば一覧、なければ「おすすめセットで始める」ボタン
@@ -25,9 +25,12 @@ test.describe("S22: 親のごほうび設定", () => {
     await expect(page.getByRole("link", { name: /🎁 もらった履歴/ })).toBeVisible();
   });
 
-  test("対象の子供セレクターが表示される", async ({ page }) => {
-    await expect(page.getByText("対象の子供")).toBeVisible();
-    await expect(page.locator("select").first()).toBeVisible();
+  test("子供が1人の場合は子供切替ボタンが表示されずフォームが直接使える", async ({ page }) => {
+    // 子供切替UI（アイコンボタン式）は children.length > 1 のときのみ描画される。
+    // QA アカウントは FREE プラン上限（子1人）のため常に非表示になる。
+    // 複数子供 / PREMIUM での切替UI検証は #76 で扱う
+    await expect(page.getByText("対象の子供")).not.toBeVisible();
+    await expect(page.locator('input[placeholder="例: アイスを買える"]')).toBeVisible();
   });
 
   test("「新しいごほうびを追加」フォームが表示される", async ({ page }) => {
@@ -46,8 +49,9 @@ test.describe("S22: 親のごほうび設定", () => {
   });
 
   test("レア度プルダウンに3種類（よく出る/ときどき/たまに）の選択肢がある", async ({ page }) => {
-    // フォーム内 select の option 文字列で検証
-    const raritySelect = page.locator('select').nth(1);
+    // 子供切替UIは <select> ではなくボタン式に変更済みのため、
+    // ページ内の <select> はこのレア度プルダウン1つだけになる
+    const raritySelect = page.locator("select").first();
     await expect(raritySelect).toBeVisible();
     const optionTexts = await raritySelect.locator("option").allTextContents();
     expect(optionTexts).toContain("よく出る");
