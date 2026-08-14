@@ -1,6 +1,6 @@
 /**
  * S23: 親「もらった履歴」ページ — 親メモ「渡したよチェック」
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * - /app/parent/treasures/pending が表示される
  * - 「もらったごほうび」見出しと、設定タブとの切替リンクが表示される

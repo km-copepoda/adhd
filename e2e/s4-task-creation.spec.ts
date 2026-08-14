@@ -1,6 +1,6 @@
 /**
  * S4: 親タスク作成（通常タスク & 一時タスク）
- * 前提: as-parent プロジェクトで実行（storageState: parent.json）
+ * 前提: as-parent-premium プロジェクトで実行（storageState: parent.json）
  *
  * - タスク管理ページが表示される
  * - 通常タスクを作成できる

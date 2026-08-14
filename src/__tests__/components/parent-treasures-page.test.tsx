@@ -37,7 +37,7 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
       if (url.includes("/api/treasures")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ items: [] }),
+          json: () => Promise.resolve({ items: [], plan: "PREMIUM" }),
         });
       }
       // 想定外URLは404を返す（バグの再現用）
@@ -99,7 +99,7 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
       if (url.includes("/api/treasures")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ items: [] }),
+          json: () => Promise.resolve({ items: [], plan: "PREMIUM" }),
         });
       }
       return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
@@ -131,7 +131,7 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
       if (url.includes("/api/treasures")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ items: [] }),
+          json: () => Promise.resolve({ items: [], plan: "PREMIUM" }),
         });
       }
       return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
@@ -145,5 +145,73 @@ describe("親 ごほうび（宝箱）ページ: 家族メンバーの取得", (
     });
     // 「対象の子供」セレクトは廃止
     expect(screen.queryByText("対象の子供")).toBeNull();
+  });
+});
+
+// ─── プランによる「おすすめセットで始める」ボタンの表示制御 (Issue #76) ──
+// 背景: TREASURE_TEMPLATES は20件だが FREE プランの treasure_item 上限は5件。
+// import API は「全部か0か」判定 (checkBulkLimit) のため FREE では必ず403になる。
+// ボタン自体をクライアント側で隠す/無効化することで403に遭遇させない。
+describe("親 ごほうび（宝箱）ページ: プランによるおすすめセットボタンの表示制御", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  function mockFetchWithPlan(plan: "FREE" | "PREMIUM") {
+    fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/family/code")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              code: "ABC123",
+              members: [{ id: "c1", name: "太郎", role: "CHILD" }],
+            }),
+        });
+      }
+      if (url.includes("/api/treasures")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ items: [], plan }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+  }
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("PREMIUM かつ items が0件の場合、おすすめセットで始めるボタンが表示される", async () => {
+    mockFetchWithPlan("PREMIUM");
+    render(<ParentTreasuresPage />);
+
+    await waitFor(() => {
+      const body = document.body.textContent ?? "";
+      expect(body).toMatch(/まだごほうびが登録されていません/);
+    });
+
+    const button = screen.getByRole("button", { name: /おすすめセットで始める/ });
+    expect(button).toBeDefined();
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("FREE かつ items が0件の場合、おすすめセットで始めるボタンが表示されない、または無効化されている", async () => {
+    mockFetchWithPlan("FREE");
+    render(<ParentTreasuresPage />);
+
+    await waitFor(() => {
+      const body = document.body.textContent ?? "";
+      expect(body).toMatch(/まだごほうびが登録されていません/);
+    });
+
+    const button = screen.queryByRole("button", { name: /おすすめセットで始める/ });
+    if (button === null) {
+      // 非表示（推奨）
+      expect(button).toBeNull();
+    } else {
+      // 無効化されている場合も許容
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    }
   });
 });

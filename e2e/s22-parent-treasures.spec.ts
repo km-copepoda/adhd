@@ -1,15 +1,17 @@
 /**
  * S22: 親の宝箱プール（ごほうび）設定ページ
- * 前提: as-parent プロジェクト（storageState: parent.json）で実行
+ * 前提: as-parent-premium プロジェクト（storageState: parent.json）で実行
  *
  * - /app/parent/treasures が表示される（タブ切替）
  * - 「ごほうび設定」見出しと「もらった履歴」タブが表示される
  * - 子供が1人の場合は子供切替ボタンが表示されない（複数子供時のUIは #76 で扱う）
+ * - 子供が2人以上のとき子供切替ボタンが表示され、切り替えると対象の子のごほうび一覧に切り替わる（#76）
  * - 新しいごほうび追加フォーム（タイトル入力 + レア度 + 「追加」ボタン）
  * - 境界値: タイトル未入力では「追加」ボタンが無効
  * - 既存ごほうびがあれば一覧、なければ「おすすめセットで始める」ボタン
  */
 import { test, expect } from "./fixtures";
+import { getBypassHeaders } from "./credentials";
 
 test.describe("S22: 親のごほうび設定", () => {
   test.beforeEach(async ({ page }) => {
@@ -31,6 +33,44 @@ test.describe("S22: 親のごほうび設定", () => {
     // 複数子供 / PREMIUM での切替UI検証は #76 で扱う
     await expect(page.getByText("対象の子供")).not.toBeVisible();
     await expect(page.locator('input[placeholder="例: アイスを買える"]')).toBeVisible();
+  });
+
+  test("子供が2人以上のとき子供切替ボタンが表示され、切り替えると対象の子のごほうび一覧に切り替わる", async ({
+    page,
+  }) => {
+    // auth.setup.ts が作成する2人目の子供（QA_child2）の id を取得
+    const bypassHeaders = getBypassHeaders();
+    const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
+    const familyData = await familyRes.json();
+    const child2 = familyData.members.find(
+      (m: { role: string; monsterName: string | null }) =>
+        m.role === "CHILD" && m.monsterName === "QA_child2",
+    );
+    expect(child2).toBeTruthy();
+
+    // QA_child2 専用のごほうびを事前に API で作成
+    const title = `E2E_child2限定_${Date.now()}`;
+    const addRes = await page.request.post("/api/treasures", {
+      data: { childId: child2.id, title, rarity: "COMMON" },
+      headers: bypassHeaders,
+    });
+    expect(addRes.ok()).toBeTruthy();
+
+    await page.goto("/app/parent/treasures");
+    await expect(page.getByRole("heading", { name: /ごほうび設定/ })).toBeVisible({
+      timeout: 15000,
+    });
+
+    // 子供が2人以上のため子供切替ボタン（アイコンボタン式）が表示される
+    const child2Button = page.getByRole("button", { name: /QA_child2/ });
+    await expect(child2Button).toBeVisible({ timeout: 10000 });
+
+    // デフォルトでは1人目（QA_child）が選択されているため、QA_child2 専用ごほうびはまだ見えない
+    await expect(page.getByText(title)).not.toBeVisible();
+
+    // 切り替えると対象の子（QA_child2）のごほうび一覧に切り替わる
+    await child2Button.click();
+    await expect(page.getByText(title)).toBeVisible({ timeout: 10000 });
   });
 
   test("「新しいごほうびを追加」フォームが表示される", async ({ page }) => {

@@ -15,10 +15,23 @@ export type QACredentials = {
   password: string;
   familyCode: string;
   childCodeLight: string;
+  /** PREMIUM 用アカウントのみ: 2人目の子供（子供切替UIの検証用）。FREE 用アカウントには存在しない。 */
+  childCodeLight2?: string;
 };
 
 export function readCredentials(): QACredentials {
   const file = path.join(AUTH_DIR, "qa-credentials.json");
+  return JSON.parse(fs.readFileSync(file, "utf-8"));
+}
+
+/**
+ * FREE プラン用 QA アカウントの認証情報を読み込む。
+ * `auth-free.setup.ts` が書き出す qa-credentials-free.json（子供1人のみ）を対象とする。
+ * PREMIUM 用の readCredentials() とはファイルが分離されているため、
+ * 既存の readCredentials() 呼び出し元には影響しない。
+ */
+export function readFreeCredentials(): QACredentials {
+  const file = path.join(AUTH_DIR, "qa-credentials-free.json");
   return JSON.parse(fs.readFileSync(file, "utf-8"));
 }
 

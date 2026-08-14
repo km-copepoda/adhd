@@ -27,6 +27,7 @@ export default function ParentTreasuresPage() {
   const [children, setChildren] = useState<ChildOption[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>("");
   const [items, setItems] = useState<PoolItem[]>([]);
+  const [plan, setPlan] = useState<"FREE" | "PREMIUM">("PREMIUM");
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
   const [newRarity, setNewRarity] = useState<Rarity>("COMMON");
@@ -62,6 +63,7 @@ export default function ParentTreasuresPage() {
       }
       const json = await res.json();
       setItems(json.items ?? []);
+      if (json.plan === "FREE" || json.plan === "PREMIUM") setPlan(json.plan);
     } finally {
       setLoading(false);
     }
@@ -181,13 +183,15 @@ export default function ParentTreasuresPage() {
           <p className="text-sm text-quest-dim mb-3">
             まだごほうびが登録されていません。
           </p>
-          <button
-            type="button"
-            onClick={handleImport}
-            className="bg-quest-gold text-quest-bg py-2.5 px-5 rounded-lg font-bold text-sm"
-          >
-            おすすめセットで始める
-          </button>
+          {plan === "PREMIUM" && (
+            <button
+              type="button"
+              onClick={handleImport}
+              className="bg-quest-gold text-quest-bg py-2.5 px-5 rounded-lg font-bold text-sm"
+            >
+              おすすめセットで始める
+            </button>
+          )}
         </div>
       )}
 

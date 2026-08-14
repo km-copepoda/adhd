@@ -1,6 +1,6 @@
 /**
  * S9: 子供ユーザー管理（作成・ログイン確認・削除）
- * 前提: as-parent プロジェクトで実行（storageState: parent.json）
+ * 前提: as-parent-premium プロジェクトで実行（storageState: parent.json）
  *
  * - ファミリー管理ページが表示される
  * - 境界値: 名前未入力では追加ボタン押下時エラーが表示される
@@ -44,11 +44,10 @@ test.describe("S9: 子供ユーザー管理", () => {
     await expect(page.locator('input[placeholder="例: りゅうくん"]')).not.toBeVisible();
   });
 
-  // QA アカウントは新規登録直後は FREE プラン（子アカウント上限1人）で、
-  // auth.setup.ts が1人目の子供 "QA_child" を既に作成済みのため、
-  // このテストが2人目を追加しようとすると API が 403 PLAN_LIMIT_EXCEEDED を返し必ず失敗する。
-  // PREMIUM QA アカウントを用意してから有効化する（#76 で対応予定）
-  test.skip("子供ユーザーを作成し削除できる", async ({ page }) => {
+  // PREMIUM化前提で有効化済み（#76 フェーズ4）。
+  // as-parent-premium プロジェクトは auth.setup.ts で PREMIUM 化された QA アカウントを使う
+  // （子アカウント上限が撤廃されるため、1人目 "QA_child" / 2人目 "QA_child2" に続けて3人目を追加できる）。
+  test("子供ユーザーを作成し削除できる", async ({ page }) => {
     const childName = `E2E_${Date.now()}`;
 
     // --- 1. 子供ユーザーを作成 ---

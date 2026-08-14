@@ -53,8 +53,10 @@ export async function GET(request: Request) {
     },
   });
 
+  const plan = await getFamilyPlan(user.familyId!);
+
   rlog.info("Treasure pool fetched", { parentId: user.id, childId, count: items.length });
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, plan });
 }
 
 export async function POST(request: Request) {

@@ -53,3 +53,21 @@ export async function countActiveTasksForChild(
     },
   });
 }
+
+/// e2eテストセットアップ専用。Family内のPARENTユーザーにPREMIUMプランを無期限で付与する。
+/// `Subscription.userId` が @unique のため、Family単位ではなくPARENTユーザー単位でupsertする。
+/// PARENTが見つからない場合は呼び出し側で500として扱えるよう null を返す。
+export async function grantPremiumForE2E(familyId: string) {
+  const parent = await prisma.user.findFirst({
+    where: { familyId, role: "PARENT" },
+    select: { id: true },
+  });
+  if (!parent) return null;
+
+  const sub = await prisma.subscription.upsert({
+    where: { userId: parent.id },
+    update: { plan: "PREMIUM", currentPeriodEnd: null },
+    create: { userId: parent.id, plan: "PREMIUM", currentPeriodEnd: null },
+  });
+  return sub;
+}
