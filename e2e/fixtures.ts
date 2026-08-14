@@ -4,8 +4,7 @@
  * - 全 spec ファイルはこのファイルから test / expect をインポートする
  */
 import { test as base, expect } from "@playwright/test";
-
-const VERCEL_HOSTNAME = "adhd-git-develop-km-copepodas-projects.vercel.app";
+import { getE2ERoutePattern } from "./baseUrl";
 
 export const test = base.extend({
   page: async ({ page }, use) => {
@@ -13,7 +12,7 @@ export const test = base.extend({
     if (secret) {
       // Vercel ドメインへのリクエストにのみ bypass ヘッダーを追加
       // Supabase 等の外部 API へのリクエストは変更しない
-      await page.route(`https://${VERCEL_HOSTNAME}/**`, async (route) => {
+      await page.route(getE2ERoutePattern(), async (route) => {
         await route.continue({
           headers: {
             ...route.request().headers(),
