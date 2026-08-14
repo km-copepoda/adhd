@@ -38,6 +38,9 @@ test.describe("S23: 親 もらった履歴（渡したよチェック）", () =>
 
   test("履歴行があれば「渡した」または「取り消し」ボタンが表示される", async ({ page }) => {
     const empty = page.getByText("まだもらったごほうびはありません。");
+    const anyRow = page.locator("li").filter({ hasText: /渡し済み|まだ渡してない/ });
+    await expect(empty.or(anyRow.first())).toBeVisible({ timeout: 10000 });
+
     if (await empty.isVisible()) {
       test.skip(true, "履歴が空のためスキップ");
       return;
