@@ -7,6 +7,7 @@ import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
+import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
 
 const EGG_BONUS_IMAGE: Record<string, string> = {
   STUDY: "/monsters/egg-study.webp",
@@ -23,6 +24,7 @@ type Member = {
   evolutionStage: number;
   evolutionPath: string;
   rebirthEggBonus: string | null;
+  rebirthPending: boolean;
   childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
@@ -32,6 +34,8 @@ type Member = {
   staminaPt: number;
   lifePt: number;
   collectedPaths: string;
+  monsterSetId: string;
+  pendingMonsterSetId: string | null;
 };
 
 type FamilyData = {
@@ -517,6 +521,15 @@ export default function FamilyPage() {
                   {savingNotifyId === member.id ? "保存中..." : member.questTimeNotifyEnabled ? "ON" : "OFF"}
                 </button>
               </div>
+              <MonsterThemeSelector
+                member={{
+                  id: member.id,
+                  evolutionStage: member.evolutionStage,
+                  rebirthPending: member.rebirthPending,
+                  monsterSetId: member.monsterSetId,
+                  pendingMonsterSetId: member.pendingMonsterSetId,
+                }}
+              />
             </div>
             )}
             </div>

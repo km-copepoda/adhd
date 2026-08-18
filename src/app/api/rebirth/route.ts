@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { triggerMonsterRebornLog, triggerBadgeLog } from "@/lib/bulletinLog";
 import { checkAndUnlockBadges } from "@/lib/badges";
+import { activateChildTheme } from "@/lib/monsterThemes";
 
 const VALID_EGG_TYPES = ["NORMAL", "STUDY", "STAMINA", "LIFE"] as const;
 
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
 
   const child = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { rebirthPending: true, usedEggBonuses: true },
+    select: { rebirthPending: true, usedEggBonuses: true, pendingMonsterSetId: true },
   });
 
   if (!child?.rebirthPending) {
@@ -35,6 +36,12 @@ export async function POST(request: Request) {
   const newUsed = eggType !== "NORMAL" && !prevUsed.includes(eggType)
     ? [...prevUsed, eggType]
     : prevUsed;
+
+  // 親画面で予約されたモンスターテーマ（Issue #85）があれば、この転生で反映してクリアする
+  const pendingThemeId = child.pendingMonsterSetId;
+  const themeUpdate = pendingThemeId
+    ? { monsterSetId: pendingThemeId, pendingMonsterSetId: null }
+    : {};
 
   // TOCTOU 回避: rebirthPending=true を WHERE 条件に含めて、別経路（親代理転生・別端末）で
   // 先に転生済みなら count=0 となり 400 を返す。
@@ -49,10 +56,15 @@ export async function POST(request: Request) {
       staminaPt: 0,
       lifePt: 0,
       usedEggBonuses: JSON.stringify(newUsed),
+      ...themeUpdate,
     },
   });
   if (result.count === 0) {
     return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
+  }
+
+  if (pendingThemeId) {
+    after(() => activateChildTheme(user.id, pendingThemeId, "manual").catch(() => {}));
   }
 
   // 転生ログ — after() でレスポンス送信後に実行（サーバレスで取りこぼさないため）

@@ -30,6 +30,7 @@ export async function GET() {
       evolutionStage: u.evolutionStage ?? 0,
       evolutionPath: (u.evolutionPath as string) ?? "",
       rebirthEggBonus: (u.rebirthEggBonus as string | null) ?? null,
+      rebirthPending: (u.rebirthPending as boolean | undefined) ?? false,
       childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
@@ -39,6 +40,8 @@ export async function GET() {
       staminaPt: (u.staminaPt as number) ?? 0,
       lifePt: (u.lifePt as number) ?? 0,
       collectedPaths: (u.collectedPaths as string) ?? "[]",
+      monsterSetId: (u.monsterSetId as string) ?? "dark",
+      pendingMonsterSetId: (u.pendingMonsterSetId as string | null) ?? null,
       lastLoginDate: ((u.streak as { lastLoginDate: Date | null } | null)?.lastLoginDate ?? null)
         ? String((u.streak as { lastLoginDate: Date | null }).lastLoginDate)
         : null,

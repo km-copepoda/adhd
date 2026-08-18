@@ -88,6 +88,7 @@ describe("GET /api/family/code", () => {
       evolutionStage: 0,
       evolutionPath: "",
       rebirthEggBonus: null,
+      rebirthPending: false,
       childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,
@@ -97,6 +98,8 @@ describe("GET /api/family/code", () => {
       staminaPt: 0,
       lifePt: 0,
       collectedPaths: "[]",
+      monsterSetId: "dark",
+      pendingMonsterSetId: null,
       lastLoginDate: null,
     });
     expect(json.members[1].childCode).toBe("1234");
