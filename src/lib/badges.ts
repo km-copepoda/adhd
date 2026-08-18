@@ -105,11 +105,15 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   if (!user) throw new Error(`User ${childId} not found`);
 
   // コレクション解析
+  // collectedPaths は "themeId:path"（新形式）と裸の path（旧形式・dark/light扱い）が
+  // 混在しうる（Issue #73 モンスターテーマ名前空間対応）。カテゴリ判定の前に
+  // "themeId:" プレフィックスを取り除いてから startsWith 判定する。
   const collectedPathsList = JSON.parse(user.collectedPaths || "[]") as string[];
+  const bareCollectedPaths = collectedPathsList.map(p => p.includes(":") ? p.split(":").slice(1).join(":") : p);
   const rebirthCount = Math.max(0, Math.floor((collectedPathsList.length - 1) / 3));
-  const hasStudyCollection = collectedPathsList.some(p => p.startsWith("STUDY"));
-  const hasStaminaCollection = collectedPathsList.some(p => p.startsWith("STAMINA"));
-  const hasLifeCollection = collectedPathsList.some(p => p.startsWith("LIFE"));
+  const hasStudyCollection = bareCollectedPaths.some(p => p.startsWith("STUDY"));
+  const hasStaminaCollection = bareCollectedPaths.some(p => p.startsWith("STAMINA"));
+  const hasLifeCollection = bareCollectedPaths.some(p => p.startsWith("LIFE"));
 
   // ステータス別分類
   const approvedQuests = allQuests.filter(q => q.status === "APPROVED");

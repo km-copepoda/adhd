@@ -44,7 +44,7 @@ export async function GET(request: Request) {
                   monsterName: true,
                   evolutionStage: true,
                   evolutionPath: true,
-                  side: true,
+                  monsterSetId: true,
                 },
               },
             },
@@ -65,12 +65,12 @@ export async function GET(request: Request) {
       monsterName: string | null;
       evolutionStage: number;
       evolutionPath: string;
-      side: string | null;
+      monsterSetId: string;
     };
   };
 
   const members = (member.group.members as MemberRow[]).map((m) => {
-    const monster = getMonsterStage(m.child.evolutionStage, m.child.evolutionPath, m.child.side);
+    const monster = getMonsterStage(m.child.evolutionStage, m.child.evolutionPath, m.child.monsterSetId);
     const monsterName = m.child.monsterName ?? monster.name;
     // 本名 (User.name) はプライバシー保護のため API レスポンスに含めない（decisions.md 2026-04-26 / 2026-05-09）
     return {

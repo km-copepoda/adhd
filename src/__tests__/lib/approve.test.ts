@@ -292,7 +292,7 @@ describe("進化・転生の閾値テスト", () => {
     const call = mockPrisma.user.update.mock.calls[0][0];
     const savedPaths = JSON.parse(call.data.collectedPaths as string) as string[];
     expect(savedPaths).toHaveLength(1);
-    expect(["STUDY", "STAMINA", "LIFE"]).toContain(savedPaths[0]);
+    expect(["light:STUDY", "light:STAMINA", "light:LIFE"]).toContain(savedPaths[0]);
   });
 
   it("転生トリガー後も collectedPaths は保持される（リセットされない）", async () => {

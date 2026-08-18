@@ -1,4 +1,4 @@
-import { getMonsterStage } from "./monsters";
+import { getMonsterStage, themeIdFromSide } from "./monsters";
 import { getXpInfo, REBIRTH_THRESHOLD } from "./evolution";
 
 export type MonsterMiniData = {
@@ -30,7 +30,7 @@ export function getMonsterMiniData(params: {
 }): MonsterMiniData {
   const { evolutionStage, evolutionPath, side, studyPt, staminaPt, lifePt, collectedPaths, rebirthEggBonus } = params;
   const isReborn = (JSON.parse(collectedPaths) as string[]).length > 0;
-  const monster = getMonsterStage(evolutionStage, evolutionPath, side);
+  const monster = getMonsterStage(evolutionStage, evolutionPath, themeIdFromSide(side));
   const xpInfo = getXpInfo(evolutionStage, evolutionPath, studyPt, staminaPt, lifePt, isReborn, rebirthEggBonus);
   
   // 転生後の卵は選択した卵タイプの画像を表示する

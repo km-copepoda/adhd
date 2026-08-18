@@ -138,8 +138,8 @@ describe("POST /api/approve/[id]", () => {
     it("クエストをAPPROVEDに更新しXP（基本1pt）を付与すること", async () => {
       vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
-      // side: null（未選択）でも進化ログ用の getMonsterStage フォールバックが動くことを合わせて確認する
-      const childOverrides = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]", side: null };
+      // monsterSetId未選択(dark)でも進化ログ用の getMonsterStage フォールバックが動くことを合わせて確認する
+      const childOverrides = { id: "child-1", evolutionPath: "", evolutionStage: 0, studyPt: 5, staminaPt: 3, lifePt: 1, collectedPaths: "[]", side: null, monsterSetId: "dark" };
       const quest = questWithTemplateAndChild(
         { id: "q1", status: "REPORTED", date: new Date("2026-03-13"), childId: "child-1", templateId: "tpl-1", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: "STUDY" },
         { category: "STUDY", createdBy: "PARENT", photoBonus: false },
@@ -170,7 +170,7 @@ describe("POST /api/approve/[id]", () => {
           lifePt: 0,
           evolutionStage: 1,
           evolutionPath: "STUDY",
-          collectedPaths: '["STUDY"]',
+          collectedPaths: '["dark:STUDY"]',
           monsterLevels: "{}",
         },
       });

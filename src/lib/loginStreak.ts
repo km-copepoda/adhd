@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
 import { getMonsterStage } from "@/lib/monsters";
+import { addCollectedPath } from "@/lib/monsterThemes/collectedPaths";
 import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
 import { log } from "@/lib/logger";
 
@@ -121,14 +122,13 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
       },
     });
   } else {
+    let newCollectedPaths = collectedPaths;
     if (evolution.evolved) {
-      if (!collectedPaths.includes(evolution.newPath)) {
-        collectedPaths.push(evolution.newPath);
-      }
+      newCollectedPaths = addCollectedPath(collectedPaths, child.monsterSetId, evolution.newPath);
       if (evolution.newStage === 3) {
         monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
       }
-      const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.side ?? null);
+      const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.monsterSetId);
       const evolvedName = evolvedMonster?.name ?? evolution.newPath;
       after(() => triggerMonsterEvolvedLog(childId, evolvedName).catch(() => {}));
     }
@@ -141,7 +141,7 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
         lifePt: evolution.resetLife,
         evolutionStage: evolution.newStage,
         evolutionPath: evolution.newPath,
-        collectedPaths: JSON.stringify(collectedPaths),
+        collectedPaths: JSON.stringify(newCollectedPaths),
         monsterLevels: JSON.stringify(monsterLevels),
       },
     });

@@ -115,6 +115,10 @@
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
 - [2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外](#2026-08-10-free-プランのタスク上限カウントから幽霊一時タスク-targetdate--today-を除外)
 - [2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く](#2026-08-10-停止中タスクの親バッジ未完了カウントスキップを停止時点で凍結し再開後は停止期間を差し引く)
+- [2026-08-12: fetch-in-effect パターンの `react-hooks/set-state-in-effect` は eslint-disable で受け入れる（Issue #22）](#2026-08-12-fetch-in-effect-パターンの-react-hooksset-state-in-effect-は-eslint-disable-で受け入れるissue-22)
+- [2026-08-12: テストの `no-explicit-any` 解消（案B）— Prisma モックを `vitest-mock-extended` の `mockDeep` に置き換える（Issue #35, #23 の基盤1）](#2026-08-12-テストの-no-explicit-any-解消案b-prisma-モックを-vitest-mock-extended-の-mockdeep-に置き換えるissue-35-23-の基盤1)
+- [2026-08-14: PRごとのVercelプレビュー環境でPlaywright E2Eを自動実行する。UI関連パス変更時のみ・non-blocking運用で開始（Issue #74）](#2026-08-14-prごとのvercelプレビュー環境でplaywright-e2eを自動実行するui関連パス変更時のみ・non-blocking運用で開始issue-74)
+- [2026-08-18: モンスターテーマセット機能 Stage 1 — テーマ切り替え方式（解釈B）採用、転生時のみ切替可、図鑑は所持テーマのみ表示（Issue #73）](#2026-08-18-モンスターテーマセット機能-stage-1--テーマ切り替え方式解釈b採用転生時のみ切替可図鑑は所持テーマのみ表示issue-73)
 
 <!-- TOC:END -->
 
@@ -2720,4 +2724,28 @@
 - `.github/workflows/pr-tests.yml` — `changes` ジョブ（paths-filter）と `e2e` ジョブを追加
 - `playwright.config.ts` — `reporter` を CI/ローカルで分岐
 - `.env.test.example` — CI 側の自動注入変数を追記
+
+## 2026-08-18: モンスターテーマセット機能 Stage 1 — テーマ切り替え方式（解釈B）採用、転生時のみ切替可、図鑑は所持テーマのみ表示（Issue #73）
+
+### 決定内容
+- 複数解釈（解釈A: 子供ごとに固定の見た目セットを永続的に割り当てる／解釈B: 子供が所持テーマの中から任意に切り替えて表示できる）のうち、**解釈B（テーマ切り替え）を採用**した。`User.monsterSetId` を「現在表示中のテーマ」を指すカラムとして扱い、`ChildMonsterTheme`（購入・付与済みテーマの所持記録）とは別管理にする
+- テーマの切り替えは常時自由に行えるものではなく、**転生（rebirth）時のみ**選択可能にする。育成途中のステージでテーマを変えると進化パスの見た目の一貫性が崩れるため
+- 図鑑（コレクション画面）は「所持している（= `ChildMonsterTheme` に記録がある）テーマ」のみを表示対象にする。未購入・未付与のテーマの内容は見せない
+- Stage 1（本 Issue #73）ではスキーマ（`monsterSetId` カラム、`ChildMonsterTheme` テーブル）とテーマデータレジストリ（`src/lib/monsterThemes/`）の土台のみ導入する。実際の切り替え UI・購入導線は後続 Issue で対応する
+
+### 理由
+- 転生ごとにテーマを変えられる方が「新しい転生のたびに違う見た目を楽しめる」というモチベーション設計に合致し、`docs/未実装仕様書/monster-theme-sets.md` が想定する買い切りコンテンツ（複数セット所持前提）とも整合する
+- 育成途中の切り替えを許すと、進化パス（STUDY/STAMINA/LIFE）の途中形態と最終形態で異なるテーマ画像が混在し、コレクション（`collectedPaths`）の一貫性が崩れる
+- 未所持テーマの図鑑を見せてしまうと、購入前に全内容が閲覧できてしまい物販としての価値が薄れる
+
+### やってはいけないこと
+- `monsterSetId` を「一度決めたら固定」の解釈A方式で実装する（後続 Issue の切り替え UI 追加時に手戻りが発生する）
+- テーマ切り替えを育成途中（転生以外のタイミング）で許可する
+- 図鑑に未所持テーマの内容を表示する、または `ChildMonsterTheme` の所持チェックを経ずに全テーマを一覧表示する
+
+### 該当箇所
+- `prisma/schema.prisma` — `User.monsterSetId`（`@default("dark")`）、`ChildMonsterTheme` テーブル
+- `src/lib/monsterThemes.ts` — `activateChildTheme()`（所持テーマの記録）
+- `src/lib/monsterThemes/` — テーマデータレジストリ
+- `docs/未実装仕様書/monster-theme-sets.md` — 各テーマセットのモンスターデータ仕様
 

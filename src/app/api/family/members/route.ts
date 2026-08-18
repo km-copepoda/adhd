@@ -5,6 +5,7 @@ import { generateChildCode } from "@/lib/categories";
 import { routeLogger } from "@/lib/logger";
 import { getFamilyPlan } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
+import { themeIdFromSide } from "@/lib/monsters";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/family/members");
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       role: "CHILD",
       monsterName,
       side,
+      monsterSetId: themeIdFromSide(side),
       familyId: user.familyId,
       childCode,
     },
