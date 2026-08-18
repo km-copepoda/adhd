@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
 import { getMonsterStage } from "@/lib/monsters";
+import { addCollectedPath } from "@/lib/monsterThemes/collectedPaths";
 import { getNewMilestoneBonus, distributeBonus, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { log } from "@/lib/logger";
 import { triggerStreakTitleLog, triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
@@ -117,14 +118,13 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
             },
           });
         } else {
+          let newCollectedPaths = collectedPaths;
           if (evolution.evolved) {
-            if (!collectedPaths.includes(evolution.newPath)) {
-              collectedPaths.push(evolution.newPath);
-            }
+            newCollectedPaths = addCollectedPath(collectedPaths, latestChild.monsterSetId, evolution.newPath);
             if (evolution.newStage === 3) {
               monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
             }
-            const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, latestChild.side ?? null);
+            const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, latestChild.monsterSetId);
             const evolvedName = evolvedMonster?.name ?? evolution.newPath;
             after(() => triggerMonsterEvolvedLog(childId, evolvedName).catch(() => {}));
           }
@@ -137,7 +137,7 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
               lifePt: evolution.resetLife,
               evolutionStage: evolution.newStage,
               evolutionPath: evolution.newPath,
-              collectedPaths: JSON.stringify(collectedPaths),
+              collectedPaths: JSON.stringify(newCollectedPaths),
               monsterLevels: JSON.stringify(monsterLevels),
             },
           });

@@ -118,6 +118,52 @@ describe("POST /api/family/members", () => {
       }),
     });
   });
+
+  it("side: DARKで作成した場合、monsterSetIdがdarkになること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({
+        id: "child-dark",
+        monsterName: "テスト",
+        side: "DARK",
+        monsterSetId: "dark",
+        childCode: "1111",
+      }),
+    );
+
+    await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK" }));
+
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        side: "DARK",
+        monsterSetId: "dark",
+      }),
+    });
+  });
+
+  it("side: LIGHTで作成した場合、monsterSetIdがlightになること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({
+        id: "child-light",
+        monsterName: "テスト",
+        side: "LIGHT",
+        monsterSetId: "light",
+        childCode: "2222",
+      }),
+    );
+
+    await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "LIGHT" }));
+
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        side: "LIGHT",
+        monsterSetId: "light",
+      }),
+    });
+  });
 });
 
 describe("PATCH /api/family/members", () => {

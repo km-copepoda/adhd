@@ -52,6 +52,11 @@ model User {
   role                   Role
   name                   String?
   side                   Side?
+  /// 現在有効化しているモンスターテーマセットの id (@/lib/monsterThemes/index の MONSTER_THEMES キー)。
+  /// 未設定ユーザーは "dark" 扱い（バックフィル: side=LIGHT → "light"、それ以外 → "dark"）。
+  monsterSetId           String             @default("dark")
+  /// 進化演出中など、次回反映待ちのテーマ切り替え予約 id。null の間は monsterSetId をそのまま使う。
+  pendingMonsterSetId    String?
   monsterName            String?
   childCode              String?
   evolutionStage         Int                @default(0)
@@ -89,6 +94,7 @@ model User {
   collectionItems        UserCollectionItem[]
   checkinLogs            CheckinLog[]
   subscription           Subscription?
+  monsterThemes          ChildMonsterTheme[]
   createdAt              DateTime           @default(now())
 
   @@unique([familyId, childCode])
@@ -111,6 +117,23 @@ model Subscription {
   canceledAt       DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
+}
+
+/// 子供が有効化した／解禁済みのモンスターテーマセット記録。
+/// 有料テーマ（例: buddha）の購入・付与履歴を管理する（Issue #73 モンスターテーマセット基盤）。
+/// childId + themeId で一意。dark/light は無料のため付与レコードが無くても常に選択可能
+/// （選択可否の判定は @/lib/monsterThemes/index の isFree と組み合わせて行う）。
+model ChildMonsterTheme {
+  id           String   @id @default(cuid())
+  childId      String
+  child        User     @relation(fields: [childId], references: [id], onDelete: Cascade)
+  themeId      String
+  activatedAt  DateTime @default(now())
+  /// 有効化理由（例: "purchase", "default"）。将来の付与経路追加に備えた自由文字列。
+  grantReason  String
+
+  @@unique([childId, themeId])
+  @@index([childId])
 }
 
 model TaskTemplate {

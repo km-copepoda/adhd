@@ -1,4 +1,5 @@
 import { EVOLUTION_THRESHOLDS } from "@/lib/evolution";
+import { MONSTER_TABLE as BUDDHA_TABLE, EGG_STAGE as BUDDHA_EGG_STAGE } from "@/lib/monsterThemes/buddha";
 
 // ─── たまご ───────────────────────────────────────────
 export const EGG_STAGE = { image: "/monsters/dark/egg.webp", name: "たまご", ptToEvolve: 1, description: "これから何が生まれるかな？ワクワクするね！"};
@@ -98,18 +99,40 @@ export const MONSTER_TABLE_LIGHT: typeof MONSTER_TABLE = {
 };
 
 
+// ─── テーマ別テーブル参照（getMonsterStage 用の内部マッピング）──────────
+// NOTE: @/lib/monsterThemes/index（テーマレジストリ）は本ファイルの MONSTER_TABLE 等を
+// 参照するため、そちらを import すると循環参照になる。getMonsterStage が必要とする
+// 「テーブル + 卵」だけをここで直接組み立てる。テーマの追加・削除は
+// @/lib/monsterThemes/index の MONSTER_THEMES と両方に反映すること。
+const THEME_ENTRIES: Record<string, { table: typeof MONSTER_TABLE; egg: typeof EGG_STAGE }> = {
+  dark: { table: MONSTER_TABLE, egg: EGG_STAGE },
+  light: { table: MONSTER_TABLE_LIGHT, egg: EGG_STAGE_LIGHT },
+  buddha: { table: BUDDHA_TABLE, egg: BUDDHA_EGG_STAGE },
+};
+
 // ─── getMonsterStage ──────────────────────────────────
-// evolutionStage=0 → 卵、1+ → MONSTER_TABLE[evolutionPath]
-// side="LIGHT" のときは MONSTER_TABLE_LIGHT を参照
-export function getMonsterStage(evolutionStage: number, evolutionPath: string, side?: string | null) {
-  if (evolutionStage <= 0) return side === "LIGHT" ? EGG_STAGE_LIGHT : EGG_STAGE;
+// evolutionStage=0 → 卵、1+ → テーマの table[evolutionPath]
+// themeId は @/lib/monsterThemes/index の MONSTER_THEMES のキー（"dark" / "light" / "buddha" 等）。
+// 未指定・存在しない themeId は既定の dark にフォールバックする（後方互換）。
+export function getMonsterStage(evolutionStage: number, evolutionPath: string, themeId?: string | null) {
+  const entry = (themeId && THEME_ENTRIES[themeId]) || THEME_ENTRIES.dark;
+
+  if (evolutionStage <= 0) return entry.egg;
 
   const stageIdx = Math.min(evolutionStage, EVOLUTION_THRESHOLDS.length - 1);
   const ptToEvolve = EVOLUTION_THRESHOLDS[stageIdx];
-  const table = side === "LIGHT" ? MONSTER_TABLE_LIGHT : MONSTER_TABLE;
-  const monster = table[evolutionPath] ?? { image: "", name: "???" };
+  const monster = entry.table[evolutionPath] ?? { image: "", name: "???" };
 
   return { ...monster, ptToEvolve };
+}
+
+/**
+ * User.side（"DARK" | "LIGHT" | null、旧仕様）を getMonsterStage 用の themeId に変換する。
+ * monsterSetId をまだ受け取っていない画面・API から呼ぶ暫定の互換ヘルパー。
+ * 新規実装では side ではなく themeId（User.monsterSetId）を直接使うこと。
+ */
+export function themeIdFromSide(side?: string | null): string {
+  return side === "LIGHT" ? "light" : "dark";
 }
 
 // ─── 進化ツリー ───────────────────────────────────────

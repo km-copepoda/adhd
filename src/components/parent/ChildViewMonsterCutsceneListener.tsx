@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getMonsterStage } from "@/lib/monsters";
+import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import CutsceneOverlay from "@/components/child/CutsceneOverlay";
 
 type MonsterStatus = {
@@ -36,7 +36,7 @@ export default function ChildViewMonsterCutsceneListener({ childId }: { childId:
     const storageKey = `lastSeenEvolutionStage:${childId}`;
 
     function buildCutscene(d: MonsterStatus, kind: "hatched" | "evolved"): CutsceneState {
-      const monster = getMonsterStage(d.evolutionStage, d.evolutionPath, d.side);
+      const monster = getMonsterStage(d.evolutionStage, d.evolutionPath, themeIdFromSide(d.side));
       return {
         kind,
         imageSrc: monster.image,

@@ -148,8 +148,8 @@ describe("getMonsterStage", () => {
     expect(stage.ptToEvolve).toBe(1);
   });
 
-  it("stage0でside=LIGHTのときかわいい系卵画像を返すこと", () => {
-    const stage = getMonsterStage(0, "", "LIGHT");
+  it("stage0でthemeId=lightのときかわいい系卵画像を返すこと", () => {
+    const stage = getMonsterStage(0, "", "light");
     expect(stage.image).toBe("/monsters/light/egg.webp");
     expect(stage.ptToEvolve).toBe(1);
   });
@@ -177,21 +177,21 @@ describe("getMonsterStage", () => {
     expect(stage.ptToEvolve).toBeNull();
   });
 
-  it("side=DARKの場合DARKテーブルの画像を返すこと", () => {
-    const stage = getMonsterStage(1, "STUDY", "DARK");
+  it("themeId=darkの場合darkテーブルの画像を返すこと", () => {
+    const stage = getMonsterStage(1, "STUDY", "dark");
     expect(stage.image).toBe(MONSTER_TABLE["STUDY"].image);
   });
 
-  it("side=LIGHTの場合LIGHTテーブルの画像を返すこと", () => {
-    const stage = getMonsterStage(1, "STUDY", "LIGHT");
+  it("themeId=lightの場合lightテーブルの画像を返すこと", () => {
+    const stage = getMonsterStage(1, "STUDY", "light");
     expect(stage.image).toBe(MONSTER_TABLE_LIGHT["STUDY"].image);
   });
 
-  it("side未指定はDARKと同じ結果を返すこと", () => {
-    const withoutSide = getMonsterStage(1, "STUDY");
-    const withDark = getMonsterStage(1, "STUDY", "DARK");
-    expect(withoutSide.image).toBe(withDark.image);
-    expect(withoutSide.name).toBe(withDark.name);
+  it("themeId未指定はdarkと同じ結果を返すこと", () => {
+    const withoutTheme = getMonsterStage(1, "STUDY");
+    const withDark = getMonsterStage(1, "STUDY", "dark");
+    expect(withoutTheme.image).toBe(withDark.image);
+    expect(withoutTheme.name).toBe(withDark.name);
   });
 });
 
