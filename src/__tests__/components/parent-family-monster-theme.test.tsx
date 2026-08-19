@@ -70,6 +70,7 @@ type MockMember = {
   collectedPaths: string;
   monsterSetId: string;
   pendingMonsterSetId: string | null;
+  ownedThemes: string[];
 };
 
 function makeChild(overrides: Partial<MockMember> = {}): MockMember {
@@ -94,6 +95,7 @@ function makeChild(overrides: Partial<MockMember> = {}): MockMember {
     collectedPaths: "[]",
     monsterSetId: "dark",
     pendingMonsterSetId: null,
+    ownedThemes: ["dark", "light"],
     ...overrides,
   };
 }
@@ -339,6 +341,31 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
           c[0].includes("/api/family/members/child-1/monster-theme"),
       );
       expect(patchCall).toBeFalsy();
+    });
+
+    it("Issue #90: /api/family/code のownedThemesにbuddhaが含まれる子は、buddhaボタンが有効になり選択・送信できること", async () => {
+      mockFetchWithMembers([makeChild({ evolutionStage: 0, ownedThemes: ["dark", "light", "buddha"] })]);
+      render(<FamilyPage />);
+
+      const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
+      const buddhaBtn = within(section).getByTestId(
+        "monster-theme-option-child-1-buddha",
+      ) as HTMLButtonElement;
+      expect(buddhaBtn.disabled).toBe(false);
+
+      fireEvent.click(buddhaBtn);
+
+      await waitFor(() => {
+        const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
+        const patchCall = calls.find(
+          (c: unknown[]) =>
+            typeof c[0] === "string" &&
+            c[0].includes("/api/family/members/child-1/monster-theme"),
+        );
+        expect(patchCall).toBeTruthy();
+        const [, options] = patchCall as [string, RequestInit];
+        expect(JSON.parse(options.body as string)).toEqual({ themeId: "buddha" });
+      });
     });
 
     it("境界値: isFree:trueのテーマ(dark/light)は従来通り選択・送信できること（回帰確認）", async () => {
