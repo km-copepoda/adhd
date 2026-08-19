@@ -171,4 +171,19 @@ describe("GET /api/monster-status", () => {
       }),
     );
   });
+
+  // ─── Issue #86: 図鑑（Zukan）のテーマ別タブ対応 ──────────────────────
+  // EggSelectionModal のテーマ卵画像表示に monsterSetId（現在有効なテーマ）が必要になった。
+  it("レスポンスに現在のmonsterSetIdを含めること", async () => {
+    mockGetCurrentUser.mockResolvedValue(
+      childUserWithFamily({ monsterSetId: "buddha" }),
+    );
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.monsterSetId).toBe("buddha");
+  });
 });

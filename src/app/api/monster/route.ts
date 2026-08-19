@@ -9,11 +9,15 @@ export async function GET() {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  // 承認待ち（REPORTED）クエストのXPをカテゴリ別に集計
-  const pendingQuests = await prisma.questInstance.findMany({
-    where: { childId: user.id, status: "REPORTED" },
-    include: { template: true },
-  });
+  // 承認待ち（REPORTED）クエストのXPをカテゴリ別に集計 と 所持テーマ一覧（Issue #86）を並列取得
+  const [pendingQuests, ownedThemeRecords] = await Promise.all([
+    prisma.questInstance.findMany({
+      where: { childId: user.id, status: "REPORTED" },
+      include: { template: true },
+    }),
+    prisma.childMonsterTheme.findMany({ where: { childId: user.id } }),
+  ]);
+  const ownedThemes = (ownedThemeRecords ?? []).map((t: { themeId: string }) => t.themeId);
 
   const templateIds = Array.from(new Set(pendingQuests.map((q: { templateId: string }) => q.templateId)));
   const declarations = templateIds.length
@@ -42,5 +46,7 @@ export async function GET() {
     pendingStaminaPt,
     pendingLifePt,
     usedEggBonuses: user.usedEggBonuses ?? "[]",
+    monsterSetId: user.monsterSetId,
+    ownedThemes,
   });
 }

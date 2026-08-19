@@ -23,10 +23,14 @@ export async function GET(request: Request) {
   }
   const child = resolved.child;
 
-  const pendingQuests = await prisma.questInstance.findMany({
-    where: { childId: child.id, status: "REPORTED" },
-    include: { template: true },
-  });
+  const [pendingQuests, ownedThemeRecords] = await Promise.all([
+    prisma.questInstance.findMany({
+      where: { childId: child.id, status: "REPORTED" },
+      include: { template: true },
+    }),
+    prisma.childMonsterTheme.findMany({ where: { childId: child.id } }),
+  ]);
+  const ownedThemes = (ownedThemeRecords ?? []).map((t) => t.themeId);
 
   const templateIds = Array.from(new Set(pendingQuests.map((q) => q.templateId)));
   const declarations = templateIds.length
@@ -55,5 +59,7 @@ export async function GET(request: Request) {
     pendingStaminaPt,
     pendingLifePt,
     usedEggBonuses: child.usedEggBonuses ?? "[]",
+    monsterSetId: child.monsterSetId,
+    ownedThemes,
   });
 }

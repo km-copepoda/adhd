@@ -52,6 +52,7 @@ export async function GET() {
     // monster fields
     name: user.monsterName || user.name || "ぼうけんしゃ",
     side: user.side,
+    monsterSetId: user.monsterSetId,
     evolutionStage: user.evolutionStage,
     evolutionPath: user.evolutionPath,
     collectedPaths: user.collectedPaths,
