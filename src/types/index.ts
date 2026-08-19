@@ -11,6 +11,8 @@ export type QuestStatus = "PENDING" | "REPORTED" | "APPROVED" | "REJECTED" | "SK
 export type MonsterStatusResponse = {
   name: string;
   side: Side | null;
+  /** 現在有効なモンスターテーマセット id（@/lib/monsterThemes/index の MONSTER_THEMES キー）。 */
+  monsterSetId: string;
   evolutionStage: number;
   evolutionPath: string;
   collectedPaths: string;

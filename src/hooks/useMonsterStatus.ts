@@ -8,6 +8,7 @@ import type { MonsterStatusResponse } from "@/types";
 export type MonsterData = {
   name: string;
   side: string | null;
+  monsterSetId: string;
   evolutionStage: number;
   evolutionPath: string;
   collectedPaths: string;
@@ -65,7 +66,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
 
   function applyStatus(d: MonsterStatusResponse) {
     setData({
-      name: d.name, side: d.side ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+      name: d.name, side: d.side ?? null, monsterSetId: d.monsterSetId ?? "dark", evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
       collectedPaths: d.collectedPaths ?? "[]",
       studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
       pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,

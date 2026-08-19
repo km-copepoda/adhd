@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { pendingXpByCategory } from "@/lib/xp";
 import { resolveTargetChild } from "@/lib/parentChildView";
+import { resolveOwnedThemes } from "@/lib/monsterThemes/ownedThemes";
 
 export async function GET(request: Request) {
   const parent = await getCurrentUser();
@@ -23,10 +24,14 @@ export async function GET(request: Request) {
   }
   const child = resolved.child;
 
-  const pendingQuests = await prisma.questInstance.findMany({
-    where: { childId: child.id, status: "REPORTED" },
-    include: { template: true },
-  });
+  const [pendingQuests, ownedThemeRecords] = await Promise.all([
+    prisma.questInstance.findMany({
+      where: { childId: child.id, status: "REPORTED" },
+      include: { template: true },
+    }),
+    prisma.childMonsterTheme.findMany({ where: { childId: child.id } }),
+  ]);
+  const ownedThemes = resolveOwnedThemes(ownedThemeRecords, child.monsterSetId);
 
   const templateIds = Array.from(new Set(pendingQuests.map((q) => q.templateId)));
   const declarations = templateIds.length
@@ -55,5 +60,7 @@ export async function GET(request: Request) {
     pendingStaminaPt,
     pendingLifePt,
     usedEggBonuses: child.usedEggBonuses ?? "[]",
+    monsterSetId: child.monsterSetId,
+    ownedThemes,
   });
 }
