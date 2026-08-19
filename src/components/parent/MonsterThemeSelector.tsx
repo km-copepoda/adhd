@@ -75,14 +75,16 @@ export default function MonsterThemeSelector({ member }: { member: ThemeSelector
         {THEME_IDS.map((themeId) => {
           const theme = MONSTER_THEMES[themeId];
           const isSelected = themeId === currentThemeId;
+          const isLocked = theme.isFree === false;
           return (
             <button
               key={themeId}
               type="button"
               data-testid={`monster-theme-option-${member.id}-${themeId}`}
               aria-pressed={isSelected}
-              disabled={saving}
+              disabled={saving || isLocked}
               onClick={() => handleSelect(themeId)}
+              title={isLocked ? "準備中（近日対応予定）" : undefined}
               className={`flex-1 text-[10px] px-2 py-1 rounded border transition-colors disabled:opacity-50 ${
                 isSelected
                   ? "bg-quest-gold/20 text-quest-gold border-quest-gold/30"
@@ -90,6 +92,7 @@ export default function MonsterThemeSelector({ member }: { member: ThemeSelector
               }`}
             >
               {theme.label}
+              {isLocked && <span className="ml-1 text-quest-dim/60">(準備中)</span>}
             </button>
           );
         })}

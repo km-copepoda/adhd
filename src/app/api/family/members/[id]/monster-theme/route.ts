@@ -32,6 +32,10 @@ export async function PATCH(
   if (typeof themeId !== "string" || !MONSTER_THEMES[themeId]) {
     return NextResponse.json({ error: "無効なテーマです" }, { status: 400 });
   }
+  if (MONSTER_THEMES[themeId].isFree === false) {
+    // 決済導線が未実装のため、有料テーマは一旦選択不可にする（PR #88 Codexレビュー対応）
+    return NextResponse.json({ error: "このテーマは現在選択できません" }, { status: 400 });
+  }
 
   // 卵（進化前）または転生準備中は演出上の不整合が起きないため即時反映してよい
   const immediate = child.evolutionStage === 0 || child.rebirthPending === true;
