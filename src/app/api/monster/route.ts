@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { pendingXpByCategory } from "@/lib/xp";
+import { resolveOwnedThemes } from "@/lib/monsterThemes/ownedThemes";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -17,7 +18,7 @@ export async function GET() {
     }),
     prisma.childMonsterTheme.findMany({ where: { childId: user.id } }),
   ]);
-  const ownedThemes = (ownedThemeRecords ?? []).map((t: { themeId: string }) => t.themeId);
+  const ownedThemes = resolveOwnedThemes(ownedThemeRecords, user.monsterSetId);
 
   const templateIds = Array.from(new Set(pendingQuests.map((q: { templateId: string }) => q.templateId)));
   const declarations = templateIds.length

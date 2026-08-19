@@ -166,9 +166,11 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
   it("テーマ切替でアクティブタブのパネルがテーマ固有のモンスター表に切り替わること", async () => {
     // STUDY を収集済みとし、dark タブでは「ラーン」、buddha タブでは「文殊丸」が
     // 表示されることを確認する（テーマごとに異なる画像・名前を持つ実データを利用）。
+    // collectedPaths はテーマ名前空間付き（"{themeId}:{path}"）で dark/buddha それぞれの
+    // 記録を持たせる（PR #89 Codexレビュー指摘1対応後の正しい形式）。
     mockFetchOnce({
       side: "DARK",
-      collectedPaths: '["STUDY"]',
+      collectedPaths: '["dark:STUDY","buddha:STUDY"]',
       monsterLevels: "{}",
       usedEggBonuses: "[]",
       monsterSetId: "dark",
@@ -206,5 +208,96 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
     expect(img.getAttribute("src")).toBe(
       "/monsters/shadow/buddha/STUDY_もんじゅまる.webp",
     );
+  });
+
+  // ─── PR #89 Codexレビュー指摘1: collectedPathsのテーマ別変換漏れ ──────
+  // collectedPaths の新形式（"{themeId}:{path}"）は、ZukanContent が生の
+  // collectedPaths をそのまま Set にして ZukanEvolutionBranch に渡すと、
+  // ZukanEvolutionBranch 側は collected.has("STUDY") のように裸のパスで
+  // 検索するため、どのテーマでも「未収集」扱いになってしまう。
+  // @/lib/monsterThemes/collectedPaths の hasCollectedPath() を使い、
+  // アクティブテーマに属するパスへ変換してから渡す必要がある。
+  describe("collectedPathsのテーマ別変換（PR #89 Codexレビュー指摘1）", () => {
+    it("新形式(buddha:STUDY)のcollectedPathsで、アクティブテーマがbuddhaの場合は収集済み表示になること", async () => {
+      mockFetchOnce({
+        side: "DARK",
+        collectedPaths: '["buddha:STUDY"]',
+        monsterLevels: "{}",
+        usedEggBonuses: "[]",
+        monsterSetId: "buddha",
+        ownedThemes: ["buddha"],
+      });
+
+      render(<ZukanContent />);
+      const panel = await waitFor(() => screen.getByTestId("zukan-theme-panel-buddha"));
+
+      // 収集済みなら実名が表示され、画像はシルエットではなく実画像になる
+      // （他のブランチ(STAMINA/LIFE)は未収集のため個別に「？？？」を表示する。
+      //  ここでは STUDY 自身が「？？？」のままではないことのみを確認する）
+      expect(within(panel).getByText("文殊丸")).toBeTruthy();
+      const img = within(panel).getByAltText("文殊丸") as HTMLImageElement;
+      expect(img.getAttribute("src")).toBe("/monsters/buddha/STUDY_もんじゅまる.webp");
+    });
+
+    it("回帰確認: 旧形式（裸のパス）のcollectedPathsで、アクティブテーマがdarkの場合は従来通り収集済み判定されること", async () => {
+      mockFetchOnce({
+        side: "DARK",
+        collectedPaths: '["STUDY"]',
+        monsterLevels: "{}",
+        usedEggBonuses: "[]",
+        monsterSetId: "dark",
+        ownedThemes: ["dark"],
+      });
+
+      render(<ZukanContent />);
+      const panel = await waitFor(() => screen.getByTestId("zukan-theme-panel-dark"));
+
+      expect(within(panel).getByText("ラーン")).toBeTruthy();
+      const img = within(panel).getByAltText("ラーン") as HTMLImageElement;
+      expect(img.getAttribute("src")).toBe("/monsters/dark/STUDY_ラーン.webp");
+    });
+
+    it("回帰確認: 旧形式（裸のパス）のcollectedPathsで、アクティブテーマがlightの場合は従来通り収集済み判定されること", async () => {
+      mockFetchOnce({
+        side: "LIGHT",
+        collectedPaths: '["STUDY"]',
+        monsterLevels: "{}",
+        usedEggBonuses: "[]",
+        monsterSetId: "light",
+        ownedThemes: ["light"],
+      });
+
+      render(<ZukanContent />);
+      const panel = await waitFor(() => screen.getByTestId("zukan-theme-panel-light"));
+
+      expect(within(panel).getByText("ルミナ")).toBeTruthy();
+      const img = within(panel).getByAltText("ルミナ") as HTMLImageElement;
+      expect(img.getAttribute("src")).toBe("/monsters/light/STUDY_ルミナ.webp");
+    });
+
+    it("テーマタブを切り替えると、そのテーマの名前空間付きcollectedPathsのみに基づいて収集済み判定が変わること", async () => {
+      // dark:STUDY のみ記録がある状態。dark タブでは収集済み、buddha タブでは
+      // 同じ STUDY パスでも未収集（シルエット）として表示されるべき。
+      mockFetchOnce({
+        side: "DARK",
+        collectedPaths: '["dark:STUDY"]',
+        monsterLevels: "{}",
+        usedEggBonuses: "[]",
+        monsterSetId: "dark",
+        ownedThemes: ["dark", "buddha"],
+      });
+
+      render(<ZukanContent />);
+      const darkPanel = await waitFor(() => screen.getByTestId("zukan-theme-panel-dark"));
+      expect(within(darkPanel).getByText("ラーン")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("zukan-theme-tab-buddha"));
+
+      const buddhaPanel = await waitFor(() => screen.getByTestId("zukan-theme-panel-buddha"));
+      // buddha:STUDY の記録は無いため、buddha タブでは未収集（シルエット）扱い
+      expect(within(buddhaPanel).queryByText("文殊丸")).toBeNull();
+      const img = within(buddhaPanel).getByAltText("文殊丸") as HTMLImageElement;
+      expect(img.getAttribute("src")).toBe("/monsters/shadow/buddha/STUDY_もんじゅまる.webp");
+    });
   });
 });

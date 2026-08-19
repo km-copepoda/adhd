@@ -108,7 +108,7 @@ describe("GET /api/parent/child-view/monster", () => {
       expect(json.ownedThemes).toHaveLength(3);
     });
 
-    it("ChildMonsterThemeに記録が無いテーマ（一度も有効化されていない）はownedThemesに含まれないこと", async () => {
+    it("isFree:falseのテーマ（buddha）は、ChildMonsterThemeにレコードが無く現在テーマでもない場合はownedThemesに含まれないこと（回帰確認）", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
         childUser({ id: "child-1", monsterSetId: "dark" }),
@@ -121,12 +121,10 @@ describe("GET /api/parent/child-view/monster", () => {
       const res = await GET(makeReq("child-1"));
       const json = await res.json();
 
-      expect(json.ownedThemes).toEqual(["dark"]);
       expect(json.ownedThemes).not.toContain("buddha");
-      expect(json.ownedThemes).not.toContain("light");
     });
 
-    it("境界値: 所持テーマの記録が1件も無い場合、ownedThemesは空配列を返すこと", async () => {
+    it("isFree:trueのテーマ（dark, light）はChildMonsterThemeにレコードが無くてもownedThemesに含まれること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
         childUser({ id: "child-1", monsterSetId: "dark" }),
@@ -137,7 +135,41 @@ describe("GET /api/parent/child-view/monster", () => {
       const res = await GET(makeReq("child-1"));
       const json = await res.json();
 
-      expect(json.ownedThemes).toEqual([]);
+      expect(json.ownedThemes.slice().sort()).toEqual(["dark", "light"]);
+      expect(json.ownedThemes).not.toContain("buddha");
+    });
+
+    it("現在のmonsterSetId（レコードがまだ無いケース）はisFree:falseのテーマでもownedThemesに含まれること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", monsterSetId: "buddha" }),
+      );
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([]);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json.ownedThemes).toContain("buddha");
+      expect(json.ownedThemes.slice().sort()).toEqual(["buddha", "dark", "light"]);
+    });
+
+    it("境界値: dark→light切替済みでChildMonsterThemeにlightのレコードのみある場合でも、dark（無料テーマ）とlightの両方がownedThemesに含まれること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", monsterSetId: "light" }),
+      );
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([
+        { id: "cmt-1", childId: "child-1", themeId: "light", activatedAt: new Date("2026-03-01"), grantReason: "switch" },
+      ]);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json.ownedThemes).toContain("dark");
+      expect(json.ownedThemes).toContain("light");
+      expect(json.ownedThemes.slice().sort()).toEqual(["dark", "light"]);
     });
 
     it("ChildMonsterThemeの検索は対象の子供のchildIdで絞り込むこと", async () => {

@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import { getEvolutionChildren, themeIdFromSide } from "@/lib/monsters";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
+import { hasCollectedPath } from "@/lib/monsterThemes/collectedPaths";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import MonsterImageModal from "@/components/MonsterImageModal";
 import { getZukanStageLabel } from "@/lib/zukanStageLabel";
@@ -94,7 +95,7 @@ export default function ZukanContent({
 
   if (loading || !data || !activeTheme) return <LoadingSpinner />;
 
-  const collected = new Set<string>(JSON.parse(data.collectedPaths) as string[]);
+  const collectedPathsList = JSON.parse(data.collectedPaths) as string[];
   const usedEggs = new Set<string>(JSON.parse(data.usedEggBonuses) as string[]);
   const monsterLevels = JSON.parse(data.monsterLevels) as Record<string, number>;
 
@@ -104,8 +105,17 @@ export default function ZukanContent({
   const activeThemeDef = MONSTER_THEMES[activeTheme];
   const monsterTable = activeThemeDef.table;
   const eggData = { image: activeThemeDef.eggImage };
-  const total = collected.size;
+  const total = collectedPathsList.length;
   const max = Object.keys(monsterTable).length;
+
+  // collectedPaths はテーマ名前空間付き（"{themeId}:{path}"）または旧形式（裸のパス、
+  // 無料テーマのみ）で記録されている。ZukanEvolutionBranch は裸のパスで collected.has()
+  // を検索するため、アクティブテーマに属するパスのみを含む Set に変換して渡す。
+  const collected = new Set<string>(
+    Object.keys(monsterTable).filter((path) =>
+      hasCollectedPath(collectedPathsList, activeTheme, path),
+    ),
+  );
 
   const stage1Keys = getEvolutionChildren("");
 

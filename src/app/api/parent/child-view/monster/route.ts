@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { pendingXpByCategory } from "@/lib/xp";
 import { resolveTargetChild } from "@/lib/parentChildView";
+import { resolveOwnedThemes } from "@/lib/monsterThemes/ownedThemes";
 
 export async function GET(request: Request) {
   const parent = await getCurrentUser();
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     }),
     prisma.childMonsterTheme.findMany({ where: { childId: child.id } }),
   ]);
-  const ownedThemes = (ownedThemeRecords ?? []).map((t) => t.themeId);
+  const ownedThemes = resolveOwnedThemes(ownedThemeRecords, child.monsterSetId);
 
   const templateIds = Array.from(new Set(pendingQuests.map((q) => q.templateId)));
   const declarations = templateIds.length
