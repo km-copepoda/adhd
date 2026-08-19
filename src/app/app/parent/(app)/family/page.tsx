@@ -36,6 +36,7 @@ type Member = {
   collectedPaths: string;
   monsterSetId: string;
   pendingMonsterSetId: string | null;
+  ownedThemes: string[];
 };
 
 type FamilyData = {
@@ -529,6 +530,7 @@ export default function FamilyPage() {
                   monsterSetId: member.monsterSetId,
                   pendingMonsterSetId: member.pendingMonsterSetId,
                 }}
+                ownedThemes={member.ownedThemes ?? []}
               />
             </div>
             )}

@@ -15,7 +15,13 @@ type Message = { type: "success" | "pending" | "error"; text: string };
 
 const THEME_IDS = Object.keys(MONSTER_THEMES);
 
-export default function MonsterThemeSelector({ member }: { member: ThemeSelectorMember }) {
+export default function MonsterThemeSelector({
+  member,
+  ownedThemes,
+}: {
+  member: ThemeSelectorMember;
+  ownedThemes: string[];
+}) {
   const [currentThemeId, setCurrentThemeId] = useState(member.monsterSetId);
   const [pendingThemeId, setPendingThemeId] = useState<string | null>(member.pendingMonsterSetId);
   const [message, setMessage] = useState<Message | null>(null);
@@ -75,7 +81,7 @@ export default function MonsterThemeSelector({ member }: { member: ThemeSelector
         {THEME_IDS.map((themeId) => {
           const theme = MONSTER_THEMES[themeId];
           const isSelected = themeId === currentThemeId;
-          const isLocked = theme.isFree === false;
+          const isLocked = theme.isFree === false && !ownedThemes.includes(themeId);
           return (
             <button
               key={themeId}

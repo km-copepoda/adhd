@@ -1,11 +1,17 @@
-// Issue #85: 親画面からモンスターテーマの付与・切替を行う（モンスターテーマセット Stage2）
-// 対象: src/app/api/family/members/[id]/monster-theme/route.ts の PATCH (未実装。実装は implementer が行う)
+// Issue #85 / #90: 親画面からモンスターテーマの付与・切替を行う（モンスターテーマセット Stage2/3）
+// 対象: src/app/api/family/members/[id]/monster-theme/route.ts の PATCH (所持チェックは未実装。実装は implementer が行う)
 //
 // 仕様:
 //  - PARENT 認証必須。対象 child が自ファミリーであることを確認する（他ファミリーなら403）
 //  - themeId が @/lib/monsterThemes/index の MONSTER_THEMES に存在しない場合400
-//  - themeId が存在していても isFree: false（現状 buddha。決済導線が未実装のため）の場合は400
-//    （PR #88 Codexレビュー対応: 所持確認手段がまだ無いため、有料テーマは一旦選択不可にする）
+//  - themeId が存在していても isFree: false（現状 buddha）の場合:
+//    prisma.childMonsterTheme.findUnique({ where: { childId_themeId: { childId: id, themeId } } })
+//    でレコードの有無を確認する
+//      - レコードが無ければ400（決済導線は未実装だが、開発者による手動DB挿入で
+//        「購入済み」として付与された子は選択できる。Issue #90）
+//      - レコードがあれば、以降は isFree:true のテーマと同じ即時反映/予約ロジックに進む
+//  - isFree: true のテーマは所持レコードの有無に関わらず選択できる
+//    （childMonsterTheme.findUnique は呼ばれない）
 //  - 即時反映条件（evolutionStage === 0 または rebirthPending === true）を満たす場合:
 //    monsterSetId を更新し、activateChildTheme(childId, themeId, "manual") を呼ぶ
 //    （pendingMonsterSetId は変更しない）
@@ -26,6 +32,17 @@ vi.mock("@/lib/monsterThemes", () => ({
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockActivateChildTheme = vi.mocked(activateChildTheme);
+
+/** ChildMonsterTheme の所持レコード（購入済み扱い）を模したフィクスチャ */
+function ownedThemeRecord(overrides?: { childId?: string; themeId?: string }) {
+  return {
+    id: "cmt-1",
+    childId: overrides?.childId ?? "child-1",
+    themeId: overrides?.themeId ?? "buddha",
+    activatedAt: new Date("2026-01-01T00:00:00Z"),
+    grantReason: "purchase",
+  };
+}
 
 function patchRequest(themeId: unknown) {
   return makeRequest("/api/family/members/child-1/monster-theme", { themeId }, "PATCH");
@@ -141,24 +158,31 @@ describe("PATCH /api/family/members/[id]/monster-theme", () => {
     expect(mockActivateChildTheme).not.toHaveBeenCalled();
   });
 
-  describe("有料テーマ（isFree: false）の選択制限（PR #88 Codexレビュー対応）", () => {
-    it("isFree:falseのテーマ(buddha)を指定した場合、400を返すこと（即時反映条件を満たす卵状態でも拒否されること）", async () => {
+  describe("有料テーマ（isFree: false）の所持チェック（Issue #90: 手動DB挿入による付与）", () => {
+    it("ChildMonsterThemeにbuddhaのレコードが無い場合、400を返すこと（即時反映条件を満たす卵状態でも拒否されること）", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
         childUser({ id: "child-1", evolutionStage: 0, rebirthPending: false }),
       );
+      mockPrisma.childMonsterTheme.findUnique.mockResolvedValue(null);
 
       const res = await PATCH(patchRequest("buddha"), makeParams("child-1"));
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body.error).toBeTruthy();
+      expect(body.error).toBe("このテーマはまだ購入されていません");
+
+      expect(mockPrisma.childMonsterTheme.findUnique).toHaveBeenCalledWith({
+        where: { childId_themeId: { childId: "child-1", themeId: "buddha" } },
+      });
     });
 
-    it("isFree:falseのテーマ(buddha)を指定した場合、monsterSetId/pendingMonsterSetIdのいずれも変更されず、activateChildThemeも呼ばれないこと", async () => {
+    it("ChildMonsterThemeにbuddhaのレコードが無い場合、monsterSetId/pendingMonsterSetIdのいずれも変更されず、activateChildThemeも呼ばれないこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
         childUser({ id: "child-1", evolutionStage: 2, rebirthPending: false }),
       );
+      mockPrisma.childMonsterTheme.findUnique.mockResolvedValue(null);
 
       const res = await PATCH(patchRequest("buddha"), makeParams("child-1"));
       expect(res.status).toBe(400);
@@ -166,7 +190,51 @@ describe("PATCH /api/family/members/[id]/monster-theme", () => {
       expect(mockActivateChildTheme).not.toHaveBeenCalled();
     });
 
-    it("境界値: isFree:trueのテーマ(dark/light)は従来通り成功すること（回帰確認）", async () => {
+    it("ChildMonsterThemeにbuddhaのレコードがある場合、即時反映条件（卵）を満たすと切替が成功すること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", evolutionStage: 0, rebirthPending: false }),
+      );
+      mockPrisma.childMonsterTheme.findUnique.mockResolvedValue(ownedThemeRecord());
+      mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", monsterSetId: "buddha" }));
+
+      const res = await PATCH(patchRequest("buddha"), makeParams("child-1"));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({ immediate: true, monsterSetId: "buddha" });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "child-1" },
+          data: expect.objectContaining({ monsterSetId: "buddha" }),
+        }),
+      );
+      expect(mockActivateChildTheme).toHaveBeenCalledWith("child-1", "buddha", "manual");
+    });
+
+    it("ChildMonsterThemeにbuddhaのレコードがある場合、育成途中(予約条件)ではpendingMonsterSetIdに保存されること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", evolutionStage: 2, rebirthPending: false }),
+      );
+      mockPrisma.childMonsterTheme.findUnique.mockResolvedValue(ownedThemeRecord());
+      mockPrisma.user.update.mockResolvedValue(
+        childUser({ id: "child-1", pendingMonsterSetId: "buddha" }),
+      );
+
+      const res = await PATCH(patchRequest("buddha"), makeParams("child-1"));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toEqual({ immediate: false, pendingMonsterSetId: "buddha" });
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "child-1" },
+        data: { pendingMonsterSetId: "buddha" },
+      });
+      expect(mockActivateChildTheme).not.toHaveBeenCalled();
+    });
+
+    it("境界値: isFree:trueのテーマ(dark/light)は所持レコード無しでも従来通り成功すること（回帰確認）", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
         childUser({ id: "child-1", evolutionStage: 0, rebirthPending: false }),
@@ -176,6 +244,8 @@ describe("PATCH /api/family/members/[id]/monster-theme", () => {
       const res = await PATCH(patchRequest("dark"), makeParams("child-1"));
       expect(res.status).toBe(200);
       expect(mockActivateChildTheme).toHaveBeenCalledWith("child-1", "dark", "manual");
+      // isFree:true のテーマでは所持チェックを行わない
+      expect(mockPrisma.childMonsterTheme.findUnique).not.toHaveBeenCalled();
     });
   });
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { generateFamilyCode } from "@/lib/categories";
 import { log, routeLogger } from "@/lib/logger";
+import { resolveOwnedThemes } from "@/lib/monsterThemes/ownedThemes";
 
 export async function GET() {
   try {
@@ -16,7 +17,10 @@ export async function GET() {
       include: {
         users: {
           orderBy: { createdAt: "asc" },
-          include: { streak: { select: { lastLoginDate: true } } },
+          include: {
+            streak: { select: { lastLoginDate: true } },
+            monsterThemes: { select: { themeId: true } },
+          },
         },
       },
     });
@@ -45,6 +49,10 @@ export async function GET() {
       lastLoginDate: ((u.streak as { lastLoginDate: Date | null } | null)?.lastLoginDate ?? null)
         ? String((u.streak as { lastLoginDate: Date | null }).lastLoginDate)
         : null,
+      ownedThemes: resolveOwnedThemes(
+        u.monsterThemes as { themeId: string }[] | undefined,
+        (u.monsterSetId as string | null) ?? null,
+      ),
     }));
 
     return NextResponse.json({

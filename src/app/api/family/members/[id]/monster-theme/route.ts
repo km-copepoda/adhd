@@ -33,8 +33,14 @@ export async function PATCH(
     return NextResponse.json({ error: "無効なテーマです" }, { status: 400 });
   }
   if (MONSTER_THEMES[themeId].isFree === false) {
-    // 決済導線が未実装のため、有料テーマは一旦選択不可にする（PR #88 Codexレビュー対応）
-    return NextResponse.json({ error: "このテーマは現在選択できません" }, { status: 400 });
+    // 決済導線は未実装だが、開発者による手動DB挿入で「購入済み」として付与された
+    // 子は選択できる（Issue #90）。ChildMonsterTheme の所持レコードで判定する。
+    const owned = await prisma.childMonsterTheme.findUnique({
+      where: { childId_themeId: { childId: id, themeId } },
+    });
+    if (!owned) {
+      return NextResponse.json({ error: "このテーマはまだ購入されていません" }, { status: 400 });
+    }
   }
 
   // 卵（進化前）または転生準備中は演出上の不整合が起きないため即時反映してよい
