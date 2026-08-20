@@ -9,6 +9,7 @@ type MonsterStatus = {
   evolutionStage: number;
   evolutionPath: string;
   side: string | null;
+  monsterSetId?: string | null;
 };
 
 type CutsceneState = {
@@ -37,7 +38,7 @@ export default function MonsterCutsceneListener() {
     let cancelled = false;
 
     function buildCutscene(d: MonsterStatus, kind: "hatched" | "evolved"): CutsceneState {
-      const monster = getMonsterStage(d.evolutionStage, d.evolutionPath, themeIdFromSide(d.side));
+      const monster = getMonsterStage(d.evolutionStage, d.evolutionPath, d.monsterSetId ?? themeIdFromSide(d.side));
       return {
         kind,
         imageSrc: monster.image,
