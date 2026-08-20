@@ -223,3 +223,42 @@ describe("ChildViewQuestsPage: 進化カットインのトリガー", () => {
     }
   });
 });
+
+describe("ChildViewQuestsPage: 代理スキップ後の EXP 再取得（Issue #96 回帰防止）", () => {
+  it("代理スキップ成功後に monster-status を再フェッチする", async () => {
+    let monsterStatusCallCount = 0;
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/api/parent/child-view/quests/today")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
+      }
+      if (url.includes("/api/parent/child-view/monster-status")) {
+        monsterStatusCallCount++;
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ name: "たろう" }) });
+      }
+      if (url.includes("/skip-approve") && init?.method === "POST") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureIds: [] }) });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<ChildViewQuestsPage />);
+    });
+    await waitFor(() => expect(screen.getByText("宿題")).toBeTruthy());
+    await waitFor(() => expect(monsterStatusCallCount).toBe(1));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("宿題"));
+    });
+    await waitFor(() => expect(screen.getByTestId("quest-sheet")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-skip"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // 代理スキップ後にも monster-status が再フェッチされ、EXP 表示更新のトリガーとなること
+    await waitFor(() => expect(monsterStatusCallCount).toBeGreaterThanOrEqual(2));
+  });
+});
