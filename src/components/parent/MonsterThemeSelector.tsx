@@ -79,7 +79,7 @@ export default function MonsterThemeSelector({
 
       <select
         data-testid={`monster-theme-select-${member.id}`}
-        value={currentThemeId}
+        value={pendingThemeId ?? currentThemeId}
         disabled={saving}
         onChange={(e) => {
           const themeId = e.target.value;
