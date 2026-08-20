@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 //
 // Issue #85: 親画面からモンスターテーマの付与・切替を行う（モンスターテーマセット Stage2）
-// 対象: src/app/app/parent/(app)/family/page.tsx（未実装。テーマ選択セクションはこれから追加される）
+// 対象: src/app/app/parent/(app)/family/page.tsx
 //
-// 期待するUI契約（implementer 実装時の参照用）:
+// UI契約の変更（プルダウン化）:
 //  - 子ごとに `data-testid={`monster-theme-section-${member.id}`}` のセクションを表示する
-//  - セクション内に @/lib/monsterThemes/index の MONSTER_THEMES（dark/light/buddha）ぶんの
-//    選択ボタンを表示する。各ボタンは `data-testid={`monster-theme-option-${member.id}-${themeId}`}`
-//    を持ち、テーマの label（"ダーク" / "ライト" / "仏様"）を表示する
-//  - ボタン押下で PATCH /api/family/members/${member.id}/monster-theme を
+//  - セクション内に `data-testid={`monster-theme-select-${member.id}`}` の <select> を1つ表示する
+//  - <select> の中に @/lib/monsterThemes/index の MONSTER_THEMES（dark/light/buddha）ぶんの
+//    <option value={themeId}> を表示する。ラベルは theme.label（"ダーク" / "ライト" / "仏様"）。
+//    isLocked（isFree===false && !ownedThemes.includes(themeId)）な場合は
+//    option に disabled 属性を付け、ラベル末尾に「(準備中)」を付与する
+//  - <select> の change イベントで選択された themeId を使い、
+//    PATCH /api/family/members/${member.id}/monster-theme を
 //    body: { themeId } で叩く
 //  - 即時反映（evolutionStage===0 または rebirthPending===true）の場合、
 //    API レスポンス { immediate: true, monsterSetId } を受けて
@@ -16,13 +19,14 @@
 //  - 予約扱い（育成途中）の場合、API レスポンス { immediate: false, pendingMonsterSetId } を受けて
 //    「次の転生からこのテーマになります」等の予約メッセージを表示する
 //  - API がエラー（400/403等、ok:false + { error }）を返した場合はエラーメッセージを表示し、
-//    選択中テーマの表示は変更しない
+//    <select> の値（現在のテーマ）は変更しない
 //  - pendingMonsterSetId が設定されている子については、現在のテーマ
 //    （`data-testid={`monster-theme-current-${member.id}`}`）と
 //    次回適用されるテーマ（`data-testid={`monster-theme-pending-${member.id}`}`）の
 //    両方を表示する
 //
-// 実装がまだ存在しないため、これらのテストはすべて Red（失敗）になる想定。
+// プルダウン化に伴い、これらのテストは Red（失敗）になる想定
+// （現状の実装はボタン横並び形式のため <select> が存在しない）。
 
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -119,32 +123,60 @@ function mockFetchWithMembers(members: MockMember[], patchImpl?: (url: string, o
   }) as unknown as typeof fetch;
 }
 
-describe("親 ファミリーページ: モンスターテーマ選択（Issue #85）", () => {
+function getOption(select: HTMLSelectElement, value: string): HTMLOptionElement {
+  const option = select.querySelector(`option[value="${value}"]`);
+  if (!option) throw new Error(`option[value="${value}"] not found`);
+  return option as HTMLOptionElement;
+}
+
+describe("親 ファミリーページ: モンスターテーマ選択（Issue #85, プルダウン化）", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("子ごとにテーマ選択UIが表示され、dark/light/buddhaの3択が見える", async () => {
+  it("子ごとにテーマ選択用の<select>が表示され、dark/light/buddhaの3択がoptionとして存在する", async () => {
     mockFetchWithMembers([makeChild()]);
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    expect(within(section).getByTestId("monster-theme-option-child-1-dark")).toBeTruthy();
-    expect(within(section).getByTestId("monster-theme-option-child-1-light")).toBeTruthy();
-    expect(within(section).getByTestId("monster-theme-option-child-1-buddha")).toBeTruthy();
-    expect(within(section).getByText("ダーク")).toBeTruthy();
-    expect(within(section).getByText("ライト")).toBeTruthy();
-    expect(within(section).getByText("仏様")).toBeTruthy();
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+
+    expect(getOption(select, "dark").textContent).toMatch(/ダーク/);
+    expect(getOption(select, "light").textContent).toMatch(/ライト/);
+    expect(getOption(select, "buddha").textContent).toMatch(/仏様/);
   });
 
-  it("テーマを選択すると PATCH /api/family/members/[id]/monster-theme が { themeId } で呼ばれること", async () => {
+  it("所持していないbuddha(isFree:false)のoptionはdisabledであること", async () => {
+    mockFetchWithMembers([makeChild({ ownedThemes: ["dark", "light"] })]);
+    render(<FamilyPage />);
+
+    const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    const buddhaOption = getOption(select, "buddha");
+    expect(buddhaOption.disabled).toBe(true);
+    expect(buddhaOption.textContent).toMatch(/準備中/);
+  });
+
+  it("所持済みのbuddhaのoptionはdisabledでないこと", async () => {
+    mockFetchWithMembers([makeChild({ ownedThemes: ["dark", "light", "buddha"] })]);
+    render(<FamilyPage />);
+
+    const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    const buddhaOption = getOption(select, "buddha");
+    expect(buddhaOption.disabled).toBe(false);
+    expect(buddhaOption.textContent).not.toMatch(/準備中/);
+  });
+
+  it("selectの値を変更すると PATCH /api/family/members/[id]/monster-theme が { themeId } で呼ばれること", async () => {
     mockFetchWithMembers([makeChild({ evolutionStage: 0 })]);
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    // NOTE: buddha は isFree:false のため PR #88 対応で選択不可になった。
-    // PATCH 呼び出しの検証自体が目的なので無料テーマ(light)で代替する。
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    // NOTE: buddha は isFree:false のため選択不可。PATCH 呼び出しの検証自体が目的なので無料テーマ(light)で代替する。
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
@@ -161,7 +193,6 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
   });
 
   it("即時反映された場合、成功メッセージが表示されること（卵 evolutionStage===0）", async () => {
-    // NOTE: buddha は isFree:false のため PR #88 対応で選択不可になった。無料テーマ(light)で代替する。
     mockFetchWithMembers([makeChild({ evolutionStage: 0 })], () =>
       Promise.resolve({
         ok: true,
@@ -171,7 +202,8 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       expect(within(section).getByText(/テーマを変更しました/)).toBeTruthy();
@@ -190,7 +222,8 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       expect(within(section).getByText(/テーマを変更しました/)).toBeTruthy();
@@ -198,7 +231,6 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
   });
 
   it("予約扱いになった場合、次の転生から反映される旨のメッセージが表示されること（育成途中）", async () => {
-    // NOTE: buddha は isFree:false のため PR #88 対応で選択不可になった。無料テーマ(light)で代替する。
     mockFetchWithMembers(
       [makeChild({ evolutionStage: 2, rebirthPending: false })],
       () =>
@@ -210,7 +242,8 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       expect(within(section).getByText(/次の転生からこのテーマになります/)).toBeTruthy();
@@ -229,15 +262,15 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       expect(within(section).getByText(/次の転生からこのテーマになります/)).toBeTruthy();
     });
   });
 
-  it("APIがエラー(400)を返した場合、エラーメッセージが表示されテーマは変更されないこと", async () => {
-    // NOTE: buddha は isFree:false のため PR #88 対応で選択不可になった。無料テーマ(light)で代替する。
+  it("APIがエラー(400)を返した場合、エラーメッセージが表示されselectの値は変更されないこと", async () => {
     mockFetchWithMembers(
       [makeChild({ evolutionStage: 0, monsterSetId: "dark" })],
       () =>
@@ -250,7 +283,8 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       expect(within(section).getByText(/無効なテーマです|エラー|失敗/)).toBeTruthy();
@@ -259,9 +293,8 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     // 成功・予約メッセージは表示されない
     expect(within(section).queryByText(/テーマを変更しました/)).toBeNull();
     expect(within(section).queryByText(/次の転生からこのテーマになります/)).toBeNull();
-    // 選択中テーマ（dark）の表示は変わらない = light ボタンは選択済みにならない
-    const lightBtn = within(section).getByTestId("monster-theme-option-child-1-light");
-    expect(lightBtn.getAttribute("aria-pressed")).not.toBe("true");
+    // 選択状態（dark）は変わらない = select.value が light にならない
+    expect(select.value).toBe("dark");
   });
 
   it("APIがエラー(403)を返した場合、エラーメッセージが表示されること", async () => {
@@ -277,7 +310,8 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
     render(<FamilyPage />);
 
     const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-    fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-light"));
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "light" } });
 
     await waitFor(() => {
       expect(within(section).getByText(/権限がありません|エラー|失敗/)).toBeTruthy();
@@ -313,24 +347,23 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
   });
 
   // PR #88 Codexレビュー対応: isFree:false（現状 buddha）は決済導線ができるまで選択不可にする
-  describe("有料テーマ（isFree: false, buddha）の選択制限（PR #88 Codexレビュー対応）", () => {
-    it("buddhaの選択肢はクリックしても不可能である(disabled)こと", async () => {
+  describe("有料テーマ（isFree: false, buddha）の選択制限（PR #88 Codexレビュー対応, プルダウン化後）", () => {
+    it("buddhaのoptionは選択しても不可能である(disabled)こと", async () => {
       mockFetchWithMembers([makeChild({ evolutionStage: 0 })]);
       render(<FamilyPage />);
 
       const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-      const buddhaBtn = within(section).getByTestId(
-        "monster-theme-option-child-1-buddha",
-      ) as HTMLButtonElement;
-      expect(buddhaBtn.disabled).toBe(true);
+      const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+      expect(getOption(select, "buddha").disabled).toBe(true);
     });
 
-    it("buddhaをクリックしてもPATCH /api/family/members/[id]/monster-themeが呼ばれないこと", async () => {
+    it("buddhaを選択してもPATCH /api/family/members/[id]/monster-themeが呼ばれないこと", async () => {
       mockFetchWithMembers([makeChild({ evolutionStage: 0 })]);
       render(<FamilyPage />);
 
       const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-      fireEvent.click(within(section).getByTestId("monster-theme-option-child-1-buddha"));
+      const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: "buddha" } });
 
       // 非同期での呼び出しが発生しないことを確認するため、少し待ってから検証する
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -343,17 +376,15 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
       expect(patchCall).toBeFalsy();
     });
 
-    it("Issue #90: /api/family/code のownedThemesにbuddhaが含まれる子は、buddhaボタンが有効になり選択・送信できること", async () => {
+    it("Issue #90: /api/family/code のownedThemesにbuddhaが含まれる子は、buddhaのoptionが有効になり選択・送信できること", async () => {
       mockFetchWithMembers([makeChild({ evolutionStage: 0, ownedThemes: ["dark", "light", "buddha"] })]);
       render(<FamilyPage />);
 
       const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-      const buddhaBtn = within(section).getByTestId(
-        "monster-theme-option-child-1-buddha",
-      ) as HTMLButtonElement;
-      expect(buddhaBtn.disabled).toBe(false);
+      const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+      expect(getOption(select, "buddha").disabled).toBe(false);
 
-      fireEvent.click(buddhaBtn);
+      fireEvent.change(select, { target: { value: "buddha" } });
 
       await waitFor(() => {
         const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
@@ -373,16 +404,11 @@ describe("親 ファミリーページ: モンスターテーマ選択（Issue #
       render(<FamilyPage />);
 
       const section = await waitFor(() => screen.getByTestId("monster-theme-section-child-1"));
-      const darkBtn = within(section).getByTestId(
-        "monster-theme-option-child-1-dark",
-      ) as HTMLButtonElement;
-      const lightBtn = within(section).getByTestId(
-        "monster-theme-option-child-1-light",
-      ) as HTMLButtonElement;
-      expect(darkBtn.disabled).toBe(false);
-      expect(lightBtn.disabled).toBe(false);
+      const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+      expect(getOption(select, "dark").disabled).toBe(false);
+      expect(getOption(select, "light").disabled).toBe(false);
 
-      fireEvent.click(lightBtn);
+      fireEvent.change(select, { target: { value: "light" } });
 
       await waitFor(() => {
         const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
