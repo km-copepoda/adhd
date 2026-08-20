@@ -27,10 +27,11 @@ export function getMonsterMiniData(params: {
   lifePt: number;
   collectedPaths: string;
   rebirthEggBonus?: string | null;
+  monsterSetId?: string | null;
 }): MonsterMiniData {
-  const { evolutionStage, evolutionPath, side, studyPt, staminaPt, lifePt, collectedPaths, rebirthEggBonus } = params;
+  const { evolutionStage, evolutionPath, side, studyPt, staminaPt, lifePt, collectedPaths, rebirthEggBonus, monsterSetId } = params;
   const isReborn = (JSON.parse(collectedPaths) as string[]).length > 0;
-  const monster = getMonsterStage(evolutionStage, evolutionPath, themeIdFromSide(side));
+  const monster = getMonsterStage(evolutionStage, evolutionPath, monsterSetId ? monsterSetId : themeIdFromSide(side));
   const xpInfo = getXpInfo(evolutionStage, evolutionPath, studyPt, staminaPt, lifePt, isReborn, rebirthEggBonus);
   
   // 転生後の卵は選択した卵タイプの画像を表示する

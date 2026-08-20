@@ -25,6 +25,7 @@ export async function GET() {
       lifePt: true,
       collectedPaths: true,
       rebirthEggBonus: true,
+      monsterSetId: true,
     },
     orderBy: { name: "asc" },
   });
