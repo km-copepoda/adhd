@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getMonsterMiniData } from "@/lib/monster-mini";
 import { REBIRTH_THRESHOLD } from "@/lib/evolution";
+import { getMonsterStage } from "@/lib/monsters";
 
 const base = {
   evolutionStage: 1,
@@ -120,5 +121,34 @@ describe("getMonsterMiniData", () => {
       rebirthEggBonus: "STUDY",
     });
     expect(result.image).toBe("/monsters/dark/STUDY_ラーン.webp");
+  });
+
+  it("monsterSetId='buddha' を渡すと side に関わらず buddha テーマの画像を返す", () => {
+    const expected = getMonsterStage(base.evolutionStage, base.evolutionPath, "buddha");
+    const result = getMonsterMiniData({
+      ...base,
+      side: "LIGHT", // side は無視され monsterSetId が優先されるはず
+      monsterSetId: "buddha",
+    });
+    expect(result.image).toBe(expected.image);
+    expect(result.monsterName).toBe(expected.name);
+    // buddha は dark/light とは異なる画像パスであることの確認（回帰防止）
+    expect(result.image).not.toBe("/monsters/dark/STUDY_ラーン.webp");
+    expect(result.image).not.toBe("/monsters/light/STUDY_ルミナ.webp");
+  });
+
+  it("monsterSetId を渡さない場合は従来通り side によるフォールバック(dark)になる", () => {
+    const result = getMonsterMiniData(base); // monsterSetId 省略, side=null
+    expect(result.image).toBe("/monsters/dark/STUDY_ラーン.webp");
+  });
+
+  it("monsterSetId が null の場合も side によるフォールバックになる（境界値）", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      side: "LIGHT",
+      monsterSetId: null,
+    });
+    expect(result.image).toBe("/monsters/light/STUDY_ルミナ.webp");
+    expect(result.monsterName).toBe("ルミナ");
   });
 });

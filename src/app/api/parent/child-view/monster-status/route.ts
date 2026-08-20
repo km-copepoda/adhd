@@ -70,6 +70,7 @@ export async function GET(request: Request) {
     pendingLifePt,
     rebirthPending: child.rebirthPending,
     rebirthEggBonus: child.rebirthEggBonus,
+    monsterSetId: child.monsterSetId,
     currentStreak: streakRecord?.currentStreak ?? 0,
     bestStreak: streakRecord?.bestStreak ?? 0,
     monthlyDays: monthlyQuests.length,

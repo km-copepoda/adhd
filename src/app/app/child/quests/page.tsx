@@ -95,6 +95,7 @@ export default function QuestsPage() {
         lifePt: d.lifePt,
         collectedPaths: d.collectedPaths ?? "[]",
         rebirthEggBonus: d.rebirthEggBonus ?? null,
+        monsterSetId: d.monsterSetId ?? null,
       }),
     );
   }
