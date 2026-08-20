@@ -2749,3 +2749,21 @@
 - `src/lib/monsterThemes/` — テーマデータレジストリ
 - `docs/未実装仕様書/monster-theme-sets.md` — 各テーマセットのモンスターデータ仕様
 
+## 2026-08-20: monsterLevels のテーマ名前空間対応と既存DB移行（Issue #93）
+
+### 決定内容
+- `collectedPaths` は Stage 1（Issue #73）の時点で `hasCollectedPath`/`addCollectedPath` によりテーマ名前空間（`"{themeId}:{path}"`）対応済みだったが、`monsterLevels`（進化Stage3到達カウント）は対応漏れで裸のパスキーのまま書き込まれ続けていた。これを`getMonsterLevel`/`incrementMonsterLevel`（`src/lib/monsterThemes/monsterLevels.ts`）で`collectedPaths`と同じ設計に揃えた
+- 既存DBの`collectedPaths`・`monsterLevels`双方について、名前空間の付いていない旧形式エントリを**各ユーザーの`side`から導出したテーマ**（`LIGHT`→`"light"`、それ以外→`"dark"`。Stage1の`monsterSetId`バックフィルと同じ導出ロジック）で一括変換するマイグレーションを実行した（`monsterSetId`ではなく`side`を根拠にした。理由は後述）
+
+### 既知のトレードオフ
+- Issue #73マージ〜本マイグレーション実行までの間に、有料テーマ（buddha等）へ切り替えて実際にStage3到達した進行度があった場合、その進行度は`side`ベースの変換により`dark:`/`light:`名前空間に帰属してしまう（`buddha:`ではなく）。買い切りテーマは決済導線が無い間はAPI側で一律拒否されており（PR #88）、DB直接操作による疑似購入（PR #90）を経て初めて選択可能になった経緯があるため、この移行時点でこのケースに該当する実データは存在しない見込みだが、将来同様の移行を行う際は同じ制約に留意すること
+
+### やってはいけないこと
+- `monsterLevels`を新たに書き込む箇所で、`incrementMonsterLevel()`を経由せず生のパスキーへ直書きする
+- 同種の移行マイグレーションを、冪等性を確認せずに実行する
+
+### 該当箇所
+- `src/lib/monsterThemes/monsterLevels.ts` — `getMonsterLevel`/`incrementMonsterLevel`
+- `src/lib/approve.ts` / `src/lib/streak.ts` / `src/lib/loginStreak.ts` — `monsterLevels`更新箇所
+- `prisma/migrations/20260820000001_namespace_legacy_monster_progress/` — 既存DB移行マイグレーション
+

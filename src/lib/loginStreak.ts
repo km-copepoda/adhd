@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
 import { getMonsterStage } from "@/lib/monsters";
 import { addCollectedPath } from "@/lib/monsterThemes/collectedPaths";
+import { incrementMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
 import { triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
 import { log } from "@/lib/logger";
 
@@ -99,7 +100,7 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
 
   const collectedPaths = JSON.parse(child.collectedPaths) as string[];
   const isReborn = collectedPaths.length > 0;
-  const monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
+  let monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
 
   const evolution = checkEvolution(
     child.evolutionStage,
@@ -126,7 +127,7 @@ async function applyLoginBonus(childId: string, bonus: number): Promise<void> {
     if (evolution.evolved) {
       newCollectedPaths = addCollectedPath(collectedPaths, child.monsterSetId, evolution.newPath);
       if (evolution.newStage === 3) {
-        monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
+        monsterLevels = incrementMonsterLevel(monsterLevels, child.monsterSetId, evolution.newPath);
       }
       const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.monsterSetId);
       const evolvedName = evolvedMonster?.name ?? evolution.newPath;

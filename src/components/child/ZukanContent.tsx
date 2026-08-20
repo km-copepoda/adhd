@@ -177,6 +177,7 @@ export default function ZukanContent({
             collected={collected}
             monsterLevels={monsterLevels}
             monsterTable={monsterTable}
+            themeId={activeTheme}
             openModal={openModal}
           />
         ))}
