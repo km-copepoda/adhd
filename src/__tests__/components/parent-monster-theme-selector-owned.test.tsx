@@ -125,3 +125,131 @@ describe("MonsterThemeSelector: ownedThemes による有料テーマの選択制
     expect(getOption(select, "light").disabled).toBe(false);
   });
 });
+
+// バグ修正: <select value={currentThemeId}> のため、予約中(pendingMonsterSetId設定済み)でも
+// プルダウンには常に現在のテーマ(currentThemeId)が表示されてしまい、
+// 予約先と同じ表示になってしまう子は選び直しても onChange が発火しない（値が変わらないため）。
+// 修正方針: <select value={pendingThemeId ?? currentThemeId}> にする。
+describe("MonsterThemeSelector: 予約中のプルダウン表示値バグ（select value が currentThemeId 固定になっている問題）", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("予約中(pendingMonsterSetId設定済み)の場合、<select>の表示値はcurrentThemeIdではなくpendingThemeIdになること", () => {
+    render(
+      <MonsterThemeSelector
+        member={baseMember({
+          evolutionStage: 2,
+          rebirthPending: false,
+          monsterSetId: "dark",
+          pendingMonsterSetId: "light",
+        })}
+        ownedThemes={["dark", "light", "buddha"]}
+      />,
+    );
+
+    const section = screen.getByTestId("monster-theme-section-child-1");
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    // 修正後: pendingThemeId("light")が表示されるべき。現状はcurrentThemeId("dark")のままなので失敗する。
+    expect(select.value).toBe("light");
+  });
+
+  it("予約中の状態から現在のテーマ(currentThemeIdと同じ値)を選び直すと、onChangeが発火しPATCH APIが呼ばれること（予約の取り消し・変更ができることの確認）", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ immediate: true, monsterSetId: "dark" }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <MonsterThemeSelector
+        member={baseMember({
+          evolutionStage: 2,
+          rebirthPending: false,
+          monsterSetId: "dark",
+          pendingMonsterSetId: "light",
+        })}
+        ownedThemes={["dark", "light", "buddha"]}
+      />,
+    );
+
+    const section = screen.getByTestId("monster-theme-section-child-1");
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+
+    // 前提: 修正後はプルダウンに予約先("light")が表示されているはず
+    expect(select.value).toBe("light");
+
+    // ユーザーが「現在のテーマ(dark)」を選び直す = 予約を取り消す操作
+    fireEvent.change(select, { target: { value: "dark" } });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/family/members/child-1/monster-theme",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ themeId: "dark" }),
+        }),
+      );
+    });
+  });
+
+  it("予約中の状態から別の未所持でないテーマを選び直すと、PATCH APIが呼ばれ選択表示(pendingThemeId)が新しい値に更新されること", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ immediate: false, pendingMonsterSetId: "buddha" }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <MonsterThemeSelector
+        member={baseMember({
+          evolutionStage: 2,
+          rebirthPending: false,
+          monsterSetId: "dark",
+          pendingMonsterSetId: "light",
+        })}
+        ownedThemes={["dark", "light", "buddha"]}
+      />,
+    );
+
+    const section = screen.getByTestId("monster-theme-section-child-1");
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+
+    fireEvent.change(select, { target: { value: "buddha" } });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/family/members/child-1/monster-theme",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ themeId: "buddha" }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(within(section).getByTestId("monster-theme-pending-child-1").textContent).toMatch(/仏様/);
+    });
+
+    // 修正後: プルダウンの表示値も新しいpendingThemeId("buddha")に追従するはず。
+    // 現状はcurrentThemeId("dark")に固定されたままなので失敗する。
+    expect(select.value).toBe("buddha");
+  });
+
+  it("回帰確認: 予約中でない(pendingMonsterSetId===null)場合は、従来通り<select>の表示値がcurrentThemeIdであること", () => {
+    render(
+      <MonsterThemeSelector
+        member={baseMember({
+          evolutionStage: 0,
+          rebirthPending: false,
+          monsterSetId: "dark",
+          pendingMonsterSetId: null,
+        })}
+        ownedThemes={["dark", "light"]}
+      />,
+    );
+
+    const section = screen.getByTestId("monster-theme-section-child-1");
+    const select = within(section).getByTestId("monster-theme-select-child-1") as HTMLSelectElement;
+    expect(select.value).toBe("dark");
+  });
+});
