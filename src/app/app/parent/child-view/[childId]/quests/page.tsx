@@ -122,7 +122,8 @@ export default function ChildViewQuestsPage() {
     }
     // 代理操作で進化が走った可能性を ChildViewMonsterCutsceneListener に知らせる（Realtime 不使用のため明示通知）
     window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
-    await refreshQuests();
+    // クエスト一覧に加え、モンスターの EXP 表示（MonsterMiniCard）も再取得する（Issue #96）
+    await Promise.all([refreshQuests(), fetchChildName()]);
   }
 
   async function handleSkip(questId: string, reason: string) {
@@ -144,7 +145,8 @@ export default function ChildViewQuestsPage() {
       // ignore
     }
     window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
-    await refreshQuests();
+    // クエスト一覧に加え、モンスターの EXP 表示（MonsterMiniCard）も再取得する（Issue #96）
+    await Promise.all([refreshQuests(), fetchChildName()]);
   }
 
   const completedCount = computeCompletedCount(quests);
