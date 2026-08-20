@@ -346,7 +346,7 @@ export default function FamilyPage() {
             >
             <div className="flex items-center gap-3 p-3">
               <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg overflow-hidden">
-                {member.role === "PARENT" ? "👑" : (() => { const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? "", themeIdFromSide(member.side)); const img = member.evolutionStage === 0 && member.rebirthEggBonus && EGG_BONUS_IMAGE[member.rebirthEggBonus] ? EGG_BONUS_IMAGE[member.rebirthEggBonus] : m.image; return <Image src={img} alt={m.name} width={40} height={40} className="w-full h-full object-contain" />; })()}
+                {member.role === "PARENT" ? "👑" : (() => { const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? "", member.monsterSetId ?? themeIdFromSide(member.side)); const img = member.evolutionStage === 0 && member.rebirthEggBonus && EGG_BONUS_IMAGE[member.rebirthEggBonus] ? EGG_BONUS_IMAGE[member.rebirthEggBonus] : m.image; return <Image src={img} alt={m.name} width={40} height={40} className="w-full h-full object-contain" />; })()}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">

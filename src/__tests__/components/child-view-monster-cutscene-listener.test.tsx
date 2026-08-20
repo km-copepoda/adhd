@@ -18,6 +18,7 @@ type Status = {
   evolutionStage: number;
   evolutionPath: string;
   side: string | null;
+  monsterSetId?: string;
 };
 
 function setupFetch(initial: Status, ...subsequent: Status[]) {
@@ -142,6 +143,27 @@ describe("ChildViewMonsterCutsceneListener — 親モード代理操作後の進
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText("進化した！")).toBeNull();
     expect(screen.queryByText("うまれた！")).toBeNull();
+  });
+
+  it("Issue #100: monsterSetId が buddha のとき、カットインに buddha テーマの画像が表示される（side は無視される）", async () => {
+    // side は null（未設定）だが monsterSetId が buddha を優先するべき
+    setupFetch(
+      { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha" },
+      { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha" },
+    );
+
+    await act(async () => {
+      render(<ChildViewMonsterCutsceneListener childId="child-1" />);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
+    });
+
+    await waitFor(() => {
+      const img = screen.getByAltText("文殊丸");
+      expect((img as HTMLImageElement).src).toContain("/monsters/buddha/STUDY_");
+    });
   });
 
   it("初回マウント時、localStorage の child 別キーに保存された lastSeen より stage が進んでいればカットインを出す（クロスセッション検知）", async () => {

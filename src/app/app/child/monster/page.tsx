@@ -73,7 +73,7 @@ export default function MonsterPage() {
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
   const isReborn = (JSON.parse(data.collectedPaths) as string[]).length > 0;
   const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt, isReborn, data.rebirthEggBonus);
-  const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, themeIdFromSide(data.side));
+  const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, data.monsterSetId ?? themeIdFromSide(data.side));
   // 転生後の卵は選択した卵タイプの画像を表示する
   const monster = data.evolutionStage === 0 && data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
     ? { ...monsterBase, image: EGG_BONUS_IMAGE[data.rebirthEggBonus] }
@@ -94,7 +94,7 @@ export default function MonsterPage() {
       {reborn && (() => {
         const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
           ? EGG_BONUS_IMAGE[data.rebirthEggBonus]
-          : getMonsterStage(0, "", themeIdFromSide(data.side)).image;
+          : getMonsterStage(0, "", data.monsterSetId ?? themeIdFromSide(data.side)).image;
         return (
           <CutsceneOverlay
             onClose={() => setReborn(false)}
