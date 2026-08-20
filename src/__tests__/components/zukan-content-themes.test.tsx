@@ -21,8 +21,9 @@
 //  - パネル内のモンスター表・卵は @/lib/monsterThemes/index の
 //    MONSTER_THEMES[themeId].table / .eggImage を使う（旧 side ベースの
 //    MONSTER_TABLE / MONSTER_TABLE_LIGHT 直接切り替えは廃止）。
-//  - ヘッダーの "{total} / {max} 体" は total = collectedPaths の件数
-//    （テーマ非依存、全テーマ共通）、max = アクティブテーマの table のキー数（39）。
+//  - ヘッダーの "{total} / {max} 体" は total = アクティブテーマに絞り込んだ収集数
+//    （hasCollectedPath でテーマ名前空間を解決、Issue #102）、
+//    max = アクティブテーマの table のキー数（39）。
 //  - 未収集モンスターのシルエット画像は、アクティブテーマの table の image パスに対して
 //    "/monsters/" → "/monsters/shadow/" 置換したパスになる
 //    （table の image が既に "/monsters/{themeId}/..." を含むため、結果として
@@ -345,6 +346,62 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
       const darkPanel = await waitFor(() => screen.getByTestId("zukan-theme-panel-dark"));
 
       expect(within(darkPanel).getByText("Lv 4")).toBeTruthy();
+    });
+  });
+
+  // ─── Issue #102: 図鑑ヘッダーの分子(total)がテーマ非依存の合算になっているバグ ──
+  // collectedPathsList（全テーマ合算の生配列）をそのまま total として使っているため、
+  // 複数テーマを収集していると「表示中のテーマでの収集数」と食い違う。
+  // 正しくは hasCollectedPath でアクティブテーマ絞り込みした件数を分子にすべき。
+  describe("図鑑ヘッダーの分子(total)がアクティブテーマ別に算出されること（Issue #102）", () => {
+    // dark 分のエントリ5件 + buddha 分のエントリ3件が混在するデータ。
+    const MIXED_COLLECTED_PATHS = JSON.stringify([
+      "dark:STUDY",
+      "dark:STAMINA",
+      "dark:LIFE",
+      "dark:STUDY_STUDY",
+      "dark:STUDY_STAMINA",
+      "buddha:STUDY",
+      "buddha:STAMINA",
+      "buddha:LIFE",
+    ]);
+
+    it("buddhaタブがアクティブなとき、分子はbuddha分のみ(3)になること（合算の8にならないこと）", async () => {
+      mockFetchOnce({
+        side: "DARK",
+        collectedPaths: MIXED_COLLECTED_PATHS,
+        monsterLevels: "{}",
+        usedEggBonuses: "[]",
+        monsterSetId: "buddha",
+        ownedThemes: ["dark", "buddha"],
+      });
+
+      render(<ZukanContent />);
+      await waitFor(() => screen.getByTestId("zukan-theme-panel-buddha"));
+
+      expect(screen.getByText("3 / 39 体")).toBeTruthy();
+      expect(screen.queryByText("8 / 39 体")).toBeNull();
+    });
+
+    it("テーマタブを切り替えると、分子もそれぞれのテーマの収集数(dark:5, buddha:3)に切り替わること", async () => {
+      mockFetchOnce({
+        side: "DARK",
+        collectedPaths: MIXED_COLLECTED_PATHS,
+        monsterLevels: "{}",
+        usedEggBonuses: "[]",
+        monsterSetId: "dark",
+        ownedThemes: ["dark", "buddha"],
+      });
+
+      render(<ZukanContent />);
+      await waitFor(() => screen.getByTestId("zukan-theme-panel-dark"));
+      expect(screen.getByText("5 / 39 体")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("zukan-theme-tab-buddha"));
+
+      await waitFor(() => screen.getByTestId("zukan-theme-panel-buddha"));
+      expect(screen.getByText("3 / 39 体")).toBeTruthy();
+      expect(screen.queryByText("5 / 39 体")).toBeNull();
     });
   });
 });
