@@ -105,9 +105,6 @@ export default function ZukanContent({
   const activeThemeDef = MONSTER_THEMES[activeTheme];
   const monsterTable = activeThemeDef.table;
   const eggData = { image: activeThemeDef.eggImage };
-  const total = collectedPathsList.length;
-  const max = Object.keys(monsterTable).length;
-
   // collectedPaths はテーマ名前空間付き（"{themeId}:{path}"）または旧形式（裸のパス、
   // 無料テーマのみ）で記録されている。ZukanEvolutionBranch は裸のパスで collected.has()
   // を検索するため、アクティブテーマに属するパスのみを含む Set に変換して渡す。
@@ -116,6 +113,8 @@ export default function ZukanContent({
       hasCollectedPath(collectedPathsList, activeTheme, path),
     ),
   );
+  const total = collected.size;
+  const max = Object.keys(monsterTable).length;
 
   const stage1Keys = getEvolutionChildren("");
 
