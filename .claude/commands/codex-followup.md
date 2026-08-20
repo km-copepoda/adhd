@@ -45,7 +45,6 @@ $iterationRequest = @"
 1. 動作不能になるバグ（Fatal Bug）、または明確なセキュリティ脆弱性のみ指摘してください。
 2. コードスタイル、可読性、型定義の厳密化、パフォーマンスの極小な改善などの「些細な指摘」は一切出さないでください。
 3. 指摘事項がある場合は、重要度が高い順に「最大3件まで」に絞って簡潔に教えてください。
-4. 致命的な問題がない場合は、シンプルに「LGTM」とだけ返答してください。
 "@
 $viewer = & "C:\Program Files\GitHub CLI\gh.exe" api user --jq .login
 if ($LASTEXITCODE -ne 0) { throw "gh 認証ユーザー取得失敗 (exit=$LASTEXITCODE)" }
@@ -80,9 +79,10 @@ if ($LASTEXITCODE -ne 0) { throw "review comments 取得失敗 (exit=$LASTEXITCO
 
 **A. 承認判定（review 本文 + issue コメントから）**:
 - `reviews.state == "APPROVED"` のみ → LGTM（最も信頼できるシグナル）
-- または本文全体をトリムした結果が既知の LGTM メッセージに **完全一致** するもの → LGTM
-  - 完全一致リスト: `Didn't find any major issues. You're on a roll.` / `LGTM` / `LGTM!` / `👍` / `Approved` / `問題ありません`
-  - 部分一致は使わない（`Not Approved: ...` のような否定文が誤マッチするため）
+- または本文をトリムした結果が `Codex Review: Didn't find any major issues.` で**前方一致**するもの → LGTM
+  - Codex は依頼文の「LGTM とだけ返答して」という指示には従わず、実際には常にこの固定文言＋末尾に絵文字/一言（`Breezy!` `Another round soon, please!` `Chef's kiss.` 等、内容は毎回変わる）という形式で返す。文言全体は変動するため前方一致で判定する
+  - 上記プレフィックスに一致しない既知の LGTM メッセージ（`LGTM` / `LGTM!` / `👍` / `Approved` / `問題ありません`）に**完全一致**する場合も LGTM 扱いとする（将来 Codex がこの形式に戻す/別プロジェクトで使われる可能性に備え、完全一致リストとして残す）
+  - いずれも部分一致（前方一致の対象文以外）は使わない（`Not Approved: ...` のような否定文が誤マッチするため）
 - 上記のうち承認シグナルが 1 つでもあれば「Codex 承認」
 
 **B. 指摘の収集（issue コメント + インラインコメントから）**:
