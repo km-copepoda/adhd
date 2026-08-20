@@ -5,6 +5,7 @@ import { getEvolutionChildren } from "@/lib/monsters";
 import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import { getS3Aura } from "@/lib/s3Aura";
+import { getMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
 import PathChips from "./PathChips";
 
 function shadowPath(imagePath: string): string {
@@ -24,6 +25,7 @@ interface ZukanEvolutionBranchProps {
   collected: Set<string>;
   monsterLevels: Record<string, number>;
   monsterTable: Record<string, MonsterEntry>;
+  themeId: string;
   openModal: (image: string, name: string, path: string) => void;
 }
 
@@ -32,6 +34,7 @@ export default function ZukanEvolutionBranch({
   collected,
   monsterLevels,
   monsterTable,
+  themeId,
   openModal,
 }: ZukanEvolutionBranchProps) {
   const s1Color = CATEGORY_COLORS[s1] ?? { r: 154, g: 140, b: 110 };
@@ -142,8 +145,10 @@ export default function ZukanEvolutionBranch({
                 {s3Keys.map((s3) => {
                   const m3 = monsterTable[s3];
                   const isS3Collected = collected.has(s3);
-                  // Lv: monsterLevels に記録があればその値、収集済みだが記録なし（旧データ）は 1
-                  const lv = monsterLevels[s3] ?? (isS3Collected ? 1 : 0);
+                  // Lv: monsterLevels に記録があればその値（テーマ名前空間対応）、
+                  // 収集済みだが記録なし（旧データ）は 1
+                  const recordedLv = getMonsterLevel(monsterLevels, themeId, s3);
+                  const lv = recordedLv > 0 ? recordedLv : isS3Collected ? 1 : 0;
                   const aura = isS3Collected ? getS3Aura(lv) : null;
                   return (
                     <div

@@ -300,4 +300,51 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
       expect(img.getAttribute("src")).toBe("/monsters/shadow/buddha/STUDY_もんじゅまる.webp");
     });
   });
+
+  // ─── Issue #93: monsterLevels のテーマ別変換漏れ ──────────────────────
+  // monsterLevels は collectedPaths と違いテーマ名前空間対応していない。
+  // 生の path をキーに直書きしているため、あるテーマ(例: dark)で積んだ
+  // stage3到達回数が、無関係な別テーマ(例: buddha)の図鑑Lv表示に混入してしまう。
+  // ZukanEvolutionBranch (呼び出し元 ZukanContent) が
+  // @/lib/monsterThemes/monsterLevels の getMonsterLevel() を使い、
+  // アクティブテーマの名前空間付きキーで読むよう修正されることを期待する。
+  describe("monsterLevelsのテーマ別変換（Issue #93）", () => {
+    it("旧形式（裸のパス）由来のmonsterLevelsが、無関係な有料テーマ(buddha)のLv表示に混入しないこと", async () => {
+      mockFetchOnce({
+        side: "DARK",
+        // buddha でのみ STUDY_STUDY_STUDY まで収集済み（namespace付き）
+        collectedPaths: '["buddha:STUDY","buddha:STUDY_STUDY","buddha:STUDY_STUDY_STUDY"]',
+        // 旧形式の裸キーに既存値7がある（dark/light 由来、または旧実装のバグで書かれたデータ）。
+        // buddha は有料テーマなのでこの値を自分の記録として読んではならない。
+        monsterLevels: '{"STUDY_STUDY_STUDY":7}',
+        usedEggBonuses: "[]",
+        monsterSetId: "buddha",
+        ownedThemes: ["buddha"],
+      });
+
+      render(<ZukanContent />);
+      const buddhaPanel = await waitFor(() => screen.getByTestId("zukan-theme-panel-buddha"));
+
+      // 汚染された旧形式の値(7)が表示されてはならない
+      expect(within(buddhaPanel).queryByText("Lv 7")).toBeNull();
+      // 収集済みだが buddha 名前空間の記録がまだ無いので、Lv 1（デフォルト）になること
+      expect(within(buddhaPanel).getByText("Lv 1")).toBeTruthy();
+    });
+
+    it("無料テーマ(dark)は新形式のmonsterLevelsを正しくLv表示に反映すること", async () => {
+      mockFetchOnce({
+        side: "DARK",
+        collectedPaths: '["dark:STUDY","dark:STUDY_STUDY","dark:STUDY_STUDY_STUDY"]',
+        monsterLevels: '{"dark:STUDY_STUDY_STUDY":4}',
+        usedEggBonuses: "[]",
+        monsterSetId: "dark",
+        ownedThemes: ["dark"],
+      });
+
+      render(<ZukanContent />);
+      const darkPanel = await waitFor(() => screen.getByTestId("zukan-theme-panel-dark"));
+
+      expect(within(darkPanel).getByText("Lv 4")).toBeTruthy();
+    });
+  });
 });

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { checkEvolution } from "@/lib/evolution";
 import { getMonsterStage } from "@/lib/monsters";
 import { addCollectedPath } from "@/lib/monsterThemes/collectedPaths";
+import { incrementMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
 import { getNewMilestoneBonus, distributeBonus, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { log } from "@/lib/logger";
 import { triggerStreakTitleLog, triggerMonsterEvolvedLog } from "@/lib/bulletinLog";
@@ -95,7 +96,7 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
       } else {
         const collectedPaths = JSON.parse(latestChild.collectedPaths) as string[];
         const isReborn = collectedPaths.length > 0;
-        const monsterLevels = JSON.parse(latestChild.monsterLevels ?? "{}") as Record<string, number>;
+        let monsterLevels = JSON.parse(latestChild.monsterLevels ?? "{}") as Record<string, number>;
 
         const evolution = checkEvolution(
           latestChild.evolutionStage,
@@ -122,7 +123,7 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
           if (evolution.evolved) {
             newCollectedPaths = addCollectedPath(collectedPaths, latestChild.monsterSetId, evolution.newPath);
             if (evolution.newStage === 3) {
-              monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
+              monsterLevels = incrementMonsterLevel(monsterLevels, latestChild.monsterSetId, evolution.newPath);
             }
             const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, latestChild.monsterSetId);
             const evolvedName = evolvedMonster?.name ?? evolution.newPath;
