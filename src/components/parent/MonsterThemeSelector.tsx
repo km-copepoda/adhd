@@ -77,32 +77,29 @@ export default function MonsterThemeSelector({
         </p>
       )}
 
-      <div className="flex gap-2">
+      <select
+        data-testid={`monster-theme-select-${member.id}`}
+        value={currentThemeId}
+        disabled={saving}
+        onChange={(e) => {
+          const themeId = e.target.value;
+          const theme = MONSTER_THEMES[themeId];
+          const isLocked = theme?.isFree === false && !ownedThemes.includes(themeId);
+          if (isLocked) return;
+          handleSelect(themeId);
+        }}
+        className="text-[10px] px-2 py-1 rounded border bg-quest-border text-quest-text border-quest-border disabled:opacity-50"
+      >
         {THEME_IDS.map((themeId) => {
           const theme = MONSTER_THEMES[themeId];
-          const isSelected = themeId === currentThemeId;
           const isLocked = theme.isFree === false && !ownedThemes.includes(themeId);
           return (
-            <button
-              key={themeId}
-              type="button"
-              data-testid={`monster-theme-option-${member.id}-${themeId}`}
-              aria-pressed={isSelected}
-              disabled={saving || isLocked}
-              onClick={() => handleSelect(themeId)}
-              title={isLocked ? "準備中（近日対応予定）" : undefined}
-              className={`flex-1 text-[10px] px-2 py-1 rounded border transition-colors disabled:opacity-50 ${
-                isSelected
-                  ? "bg-quest-gold/20 text-quest-gold border-quest-gold/30"
-                  : "bg-quest-border text-quest-dim border-quest-border hover:text-quest-text"
-              }`}
-            >
-              {theme.label}
-              {isLocked && <span className="ml-1 text-quest-dim/60">(準備中)</span>}
-            </button>
+            <option key={themeId} value={themeId} disabled={isLocked}>
+              {isLocked ? `${theme.label} (準備中)` : theme.label}
+            </option>
           );
         })}
-      </div>
+      </select>
 
       {message && (
         <p
