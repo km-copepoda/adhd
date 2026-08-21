@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { activateChildTheme } from "@/lib/monsterThemes";
+import { activateFamilyTheme } from "@/lib/monsterThemes";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 import { routeLogger } from "@/lib/logger";
 
@@ -34,9 +34,10 @@ export async function PATCH(
   }
   if (MONSTER_THEMES[themeId].isFree === false) {
     // 決済導線は未実装だが、開発者による手動DB挿入で「購入済み」として付与された
-    // 子は選択できる（Issue #90）。ChildMonsterTheme の所持レコードで判定する。
-    const owned = await prisma.childMonsterTheme.findUnique({
-      where: { childId_themeId: { childId: id, themeId } },
+    // 家族は選択できる（Issue #90 / #111）。FamilyMonsterTheme の所持レコードで
+    // 家族単位に判定する（childId ではなく親の familyId。兄弟間で所持を共有する）。
+    const owned = await prisma.familyMonsterTheme.findUnique({
+      where: { familyId_themeId: { familyId: user.familyId, themeId } },
     });
     if (!owned) {
       return NextResponse.json({ error: "このテーマはまだ購入されていません" }, { status: 400 });
@@ -51,7 +52,7 @@ export async function PATCH(
       where: { id },
       data: { monsterSetId: themeId },
     });
-    await activateChildTheme(id, themeId, "manual");
+    await activateFamilyTheme(user.familyId, themeId, "manual");
     rlog.info("Monster theme changed immediately", { childId: id, themeId });
     return NextResponse.json({ immediate: true, monsterSetId: themeId });
   }

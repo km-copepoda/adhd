@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { triggerMonsterRebornLog, triggerBadgeLog } from "@/lib/bulletinLog";
 import { checkAndUnlockBadges } from "@/lib/badges";
-import { activateChildTheme } from "@/lib/monsterThemes";
+import { activateFamilyTheme } from "@/lib/monsterThemes";
 
 const VALID_EGG_TYPES = ["NORMAL", "STUDY", "STAMINA", "LIFE"] as const;
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const child = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { rebirthPending: true, usedEggBonuses: true, pendingMonsterSetId: true },
+    select: { rebirthPending: true, usedEggBonuses: true, pendingMonsterSetId: true, familyId: true },
   });
 
   if (!child?.rebirthPending) {
@@ -63,8 +63,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
   }
 
-  if (pendingThemeId) {
-    after(() => activateChildTheme(user.id, pendingThemeId, "manual").catch(() => {}));
+  if (pendingThemeId && child.familyId) {
+    const familyId = child.familyId;
+    after(() => activateFamilyTheme(familyId, pendingThemeId, "manual").catch(() => {}));
   }
 
   // 転生ログ — after() でレスポンス送信後に実行（サーバレスで取りこぼさないため）
