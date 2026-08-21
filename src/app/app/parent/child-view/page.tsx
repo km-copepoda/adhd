@@ -19,6 +19,7 @@ type Child = {
   lifePt: number;
   collectedPaths: string;
   rebirthEggBonus: string | null;
+  monsterSetId: string;
 };
 
 export default function ChildViewSelectorPage() {
@@ -86,6 +87,7 @@ export default function ChildViewSelectorPage() {
                 lifePt: c.lifePt,
                 collectedPaths: c.collectedPaths,
                 rebirthEggBonus: c.rebirthEggBonus,
+                monsterSetId: c.monsterSetId,
               });
               const xpMax = mini.isRebirth ? mini.rebirthThreshold : mini.ptToEvolve ?? 0;
               const xpPct = xpMax > 0 ? Math.min(100, (mini.ptCurrent / xpMax) * 100) : 0;

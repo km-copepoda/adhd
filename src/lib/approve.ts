@@ -6,6 +6,8 @@ import { checkAndUnlockBadges } from "@/lib/badges";
 import { log } from "@/lib/logger";
 import { calculateQuestXP } from "@/lib/xp";
 import { getMonsterStage } from "@/lib/monsters";
+import { addCollectedPath } from "@/lib/monsterThemes/collectedPaths";
+import { incrementMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
 import { triggerMonsterEvolvedLog, triggerBadgeLog } from "@/lib/bulletinLog";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { todayJST, jstDateOf } from "@/lib/date";
@@ -55,6 +57,7 @@ export type FreshChildData = {
   rebirthPending: boolean;
   rebirthEggBonus: string | null;
   side: string | null;
+  monsterSetId: string;
 };
 
 export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
@@ -91,6 +94,7 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
       rebirthPending: true,
       rebirthEggBonus: true,
       side: true,
+      monsterSetId: true,
     },
   }) as FreshChildData | null;
   if (!child) throw new Error(`Child ${quest.childId} not found`);
@@ -133,7 +137,7 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
     );
 
     let collectedPaths = JSON.parse(child.collectedPaths) as string[];
-    const monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
+    let monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
 
     if (evolution.reborn) {
       // 転生閾値到達: pendingフラグをセット（実際のリセットはユーザー操作後）
@@ -149,18 +153,16 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
     } else {
       // 通常の進化またはポイント加算
       if (evolution.evolved) {
-        if (!collectedPaths.includes(evolution.newPath)) {
-          collectedPaths = [...collectedPaths, evolution.newPath];
-        }
+        collectedPaths = addCollectedPath(collectedPaths, child.monsterSetId, evolution.newPath);
         if (evolution.newStage === 3) {
-          monsterLevels[evolution.newPath] = (monsterLevels[evolution.newPath] ?? 0) + 1;
+          monsterLevels = incrementMonsterLevel(monsterLevels, child.monsterSetId, evolution.newPath);
         }
         log.info("Monster evolved", {
           childId: quest.childId,
           stage: evolution.newStage,
           path: evolution.newPath,
         });
-        const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.side ?? null);
+        const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.monsterSetId);
         const evolvedName = evolvedMonster?.name ?? evolution.newPath;
         after(() => triggerMonsterEvolvedLog(quest.childId, evolvedName).catch(() => {}));
       }

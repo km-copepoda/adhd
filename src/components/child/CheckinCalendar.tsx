@@ -17,13 +17,20 @@ interface Props {
   deadline: string;
   todayStr: string;
   justNow?: boolean;
+  /** "standalone"（既定）: 見出し・締切ラベル・連続日数行を含む従来表示。"embedded": グリッドのみ（呼び出し元がピル等に埋め込む用途）。 */
+  variant?: "standalone" | "embedded";
 }
 
 // 日=0..土=6 (JS Date.getUTCDay() 準拠) で引く
 const DAY_LABELS_SUN_START = ["日", "月", "火", "水", "木", "金", "土"];
 const STRIP_DAYS = 7;
 
-export default function CheckinCalendar({ deadline, todayStr, justNow }: Props) {
+export default function CheckinCalendar({
+  deadline,
+  todayStr,
+  justNow,
+  variant = "standalone",
+}: Props) {
   const [data, setData] = useState<CalendarApiResponse | null>(null);
   const [now] = useState(() => new Date());
 
@@ -45,14 +52,18 @@ export default function CheckinCalendar({ deadline, todayStr, justNow }: Props) 
     enabledSince: data.enabledSince ?? undefined,
   });
 
+  const isEmbedded = variant === "embedded";
+
   return (
-    <div className="bg-quest-card border border-quest-border rounded-xl p-3 mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="font-serif text-quest-gold text-sm tracking-wider">
-          直近7日 チェックイン
-        </h2>
-        <span className="text-[10px] text-quest-dim">締切 {deadline}</span>
-      </div>
+    <div className={isEmbedded ? "" : "bg-quest-card border border-quest-border rounded-xl p-3 mb-4"}>
+      {!isEmbedded && (
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-serif text-quest-gold text-sm tracking-wider">
+            直近7日 チェックイン
+          </h2>
+          <span className="text-[10px] text-quest-dim">締切 {deadline}</span>
+        </div>
+      )}
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell) => (
           <Cell
@@ -63,7 +74,7 @@ export default function CheckinCalendar({ deadline, todayStr, justNow }: Props) 
           />
         ))}
       </div>
-      {data.currentStreak > 0 && (
+      {!isEmbedded && data.currentStreak > 0 && (
         <p
           className="text-center text-xs text-orange-400 font-bold mt-3"
           data-testid="checkin-current-streak"

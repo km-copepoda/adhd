@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { getMonsterStage } from "@/lib/monsters";
+import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
+import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
 
 const EGG_BONUS_IMAGE: Record<string, string> = {
   STUDY: "/monsters/egg-study.webp",
@@ -23,6 +24,7 @@ type Member = {
   evolutionStage: number;
   evolutionPath: string;
   rebirthEggBonus: string | null;
+  rebirthPending: boolean;
   childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
@@ -32,6 +34,9 @@ type Member = {
   staminaPt: number;
   lifePt: number;
   collectedPaths: string;
+  monsterSetId: string;
+  pendingMonsterSetId: string | null;
+  ownedThemes: string[];
 };
 
 type FamilyData = {
@@ -341,7 +346,7 @@ export default function FamilyPage() {
             >
             <div className="flex items-center gap-3 p-3">
               <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg overflow-hidden">
-                {member.role === "PARENT" ? "👑" : (() => { const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? "", member.side); const img = member.evolutionStage === 0 && member.rebirthEggBonus && EGG_BONUS_IMAGE[member.rebirthEggBonus] ? EGG_BONUS_IMAGE[member.rebirthEggBonus] : m.image; return <Image src={img} alt={m.name} width={40} height={40} className="w-full h-full object-contain" />; })()}
+                {member.role === "PARENT" ? "👑" : (() => { const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? "", member.monsterSetId ?? themeIdFromSide(member.side)); const img = member.evolutionStage === 0 && member.rebirthEggBonus && EGG_BONUS_IMAGE[member.rebirthEggBonus] ? EGG_BONUS_IMAGE[member.rebirthEggBonus] : m.image; return <Image src={img} alt={m.name} width={40} height={40} className="w-full h-full object-contain" />; })()}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">
@@ -517,6 +522,16 @@ export default function FamilyPage() {
                   {savingNotifyId === member.id ? "保存中..." : member.questTimeNotifyEnabled ? "ON" : "OFF"}
                 </button>
               </div>
+              <MonsterThemeSelector
+                member={{
+                  id: member.id,
+                  evolutionStage: member.evolutionStage,
+                  rebirthPending: member.rebirthPending,
+                  monsterSetId: member.monsterSetId,
+                  pendingMonsterSetId: member.pendingMonsterSetId,
+                }}
+                ownedThemes={member.ownedThemes ?? []}
+              />
             </div>
             )}
             </div>

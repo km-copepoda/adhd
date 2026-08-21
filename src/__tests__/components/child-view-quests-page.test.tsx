@@ -274,3 +274,60 @@ describe("ChildViewQuestsPage: モンスターミニカード（キャラクタ�
     );
   });
 });
+
+describe("ChildViewQuestsPage: 代理報告後の EXP 再取得（Issue #96 回帰防止）", () => {
+  it("代理報告成功後に monster-status を再フェッチし、MonsterMiniCard の EXP 表示が更新される", async () => {
+    let monsterStatusCallCount = 0;
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/api/parent/child-view/quests/today")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([baseQuest]) });
+      }
+      if (url.includes("/api/parent/child-view/monster-status")) {
+        monsterStatusCallCount++;
+        // 初回: studyPt=1（あと9ptで進化）/ 再取得後: studyPt=4（あと6ptで進化）
+        const studyPt = monsterStatusCallCount === 1 ? 1 : 4;
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              name: "たろう",
+              side: null,
+              evolutionStage: 1,
+              evolutionPath: "",
+              collectedPaths: "[]",
+              studyPt,
+              staminaPt: 0,
+              lifePt: 0,
+              rebirthEggBonus: null,
+            }),
+        });
+      }
+      if (url.includes("/report-approve") && init?.method === "POST") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, treasureIds: [] }) });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+
+    await act(async () => {
+      render(<ChildViewQuestsPage />);
+    });
+    await waitFor(() => expect(screen.getByText("宿題")).toBeTruthy());
+    // 初回ロード時点の EXP 表示
+    await waitFor(() => expect(screen.getByText(/あと 9 pt で進化/)).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("宿題"));
+    });
+    await waitFor(() => expect(screen.getByTestId("quest-sheet")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("trigger-report"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // monster-status が再フェッチされ、表示が更新後の値になっていること
+    await waitFor(() => expect(monsterStatusCallCount).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(screen.getByText(/あと 6 pt で進化/)).toBeTruthy());
+  });
+});

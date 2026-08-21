@@ -8,14 +8,23 @@ import type { Prisma } from "@/generated/prisma/client";
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
 /**
- * `prisma.family.findUnique` は `include: { users: { include: { streak: { select: ... } } } }`
- * 付きで呼ばれるが、DeepMockProxy の `mockResolvedValue` は関係（リレーション）を含まない
- * ベースの `Family` 型しか受け付けない（`users` プロパティ自体が型エラーになる）。
+ * `prisma.family.findUnique` は
+ * `include: { users: { include: { streak: { select: ... }, monsterThemes: { select: { themeId: true } } } } }`
+ * 付きで呼ばれる想定（Issue #90: ownedThemes をレスポンスに含めるため）が、DeepMockProxy の
+ * `mockResolvedValue` は関係（リレーション）を含まないベースの `Family` 型しか受け付けない
+ * （`users` プロパティ自体が型エラーになる）。
  * `Prisma.FamilyGetPayload<{ include: ... }>` で実際のクエリ形状の値を組み立てたうえで、
  * モック関数の戻り値型へ `as unknown as` でキャストする。
  */
 type FamilyWithUsersAndStreak = Prisma.FamilyGetPayload<{
-  include: { users: { include: { streak: { select: { lastLoginDate: true } } } } };
+  include: {
+    users: {
+      include: {
+        streak: { select: { lastLoginDate: true } };
+        monsterThemes: { select: { themeId: true } };
+      };
+    };
+  };
 }>;
 
 function mockFamilyFindUnique(payload: FamilyWithUsersAndStreak | null) {
@@ -88,6 +97,7 @@ describe("GET /api/family/code", () => {
       evolutionStage: 0,
       evolutionPath: "",
       rebirthEggBonus: null,
+      rebirthPending: false,
       childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,
@@ -97,7 +107,10 @@ describe("GET /api/family/code", () => {
       staminaPt: 0,
       lifePt: 0,
       collectedPaths: "[]",
+      monsterSetId: "dark",
+      pendingMonsterSetId: null,
       lastLoginDate: null,
+      ownedThemes: ["dark", "light"],
     });
     expect(json.members[1].childCode).toBe("1234");
   });
@@ -140,9 +153,63 @@ describe("GET /api/family/code", () => {
       include: {
         users: {
           orderBy: { createdAt: "asc" },
-          include: { streak: { select: { lastLoginDate: true } } },
+          include: {
+            streak: { select: { lastLoginDate: true } },
+            monsterThemes: { select: { themeId: true } },
+          },
         },
       },
+    });
+  });
+
+  describe("ownedThemes（Issue #90: ChildMonsterThemeレコードの手動付与を反映）", () => {
+    it("buddhaのChildMonsterThemeレコードがある子はownedThemesにbuddhaが含まれること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockFamilyFindUnique({
+        ...family(),
+        users: [
+          legacyMemberRow({
+            id: "u2",
+            name: "太郎",
+            role: "CHILD",
+            monsterName: "ドラゴン",
+            side: "DARK",
+            childCode: "1234",
+            monsterSetId: "dark",
+            monsterThemes: [{ themeId: "buddha" }],
+          } as unknown as FamilyWithUsersAndStreak["users"][number]),
+        ],
+      });
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.members[0].ownedThemes).toContain("buddha");
+    });
+
+    it("buddhaのChildMonsterThemeレコードが無い子はownedThemesにbuddhaが含まれないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockFamilyFindUnique({
+        ...family(),
+        users: [
+          legacyMemberRow({
+            id: "u3",
+            name: "次郎",
+            role: "CHILD",
+            monsterName: "スライム",
+            side: "LIGHT",
+            childCode: "5678",
+            monsterSetId: "light",
+            monsterThemes: [],
+          } as unknown as FamilyWithUsersAndStreak["users"][number]),
+        ],
+      });
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.members[0].ownedThemes).not.toContain("buddha");
+      expect(json.members[0].ownedThemes).toEqual(["dark", "light"]);
     });
   });
 

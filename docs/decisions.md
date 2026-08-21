@@ -115,6 +115,10 @@
 - [2026-08-08: Claude Code サブエージェントによる開発フロー分業化](#2026-08-08-claude-code-サブエージェントによる開発フロー分業化)
 - [2026-08-10: FREE プランのタスク上限カウントから幽霊一時タスク (targetDate < today) を除外](#2026-08-10-free-プランのタスク上限カウントから幽霊一時タスク-targetdate--today-を除外)
 - [2026-08-10: 停止中タスクの親バッジ（未完了カウント／スキップ）を停止時点で凍結し、再開後は停止期間を差し引く](#2026-08-10-停止中タスクの親バッジ未完了カウントスキップを停止時点で凍結し再開後は停止期間を差し引く)
+- [2026-08-12: fetch-in-effect パターンの `react-hooks/set-state-in-effect` は eslint-disable で受け入れる（Issue #22）](#2026-08-12-fetch-in-effect-パターンの-react-hooksset-state-in-effect-は-eslint-disable-で受け入れるissue-22)
+- [2026-08-12: テストの `no-explicit-any` 解消（案B）— Prisma モックを `vitest-mock-extended` の `mockDeep` に置き換える（Issue #35, #23 の基盤1）](#2026-08-12-テストの-no-explicit-any-解消案b-prisma-モックを-vitest-mock-extended-の-mockdeep-に置き換えるissue-35-23-の基盤1)
+- [2026-08-14: PRごとのVercelプレビュー環境でPlaywright E2Eを自動実行する。UI関連パス変更時のみ・non-blocking運用で開始（Issue #74）](#2026-08-14-prごとのvercelプレビュー環境でplaywright-e2eを自動実行するui関連パス変更時のみ・non-blocking運用で開始issue-74)
+- [2026-08-18: モンスターテーマセット機能 Stage 1 — テーマ切り替え方式（解釈B）採用、転生時のみ切替可、図鑑は所持テーマのみ表示（Issue #73）](#2026-08-18-モンスターテーマセット機能-stage-1--テーマ切り替え方式解釈b採用転生時のみ切替可図鑑は所持テーマのみ表示issue-73)
 
 <!-- TOC:END -->
 
@@ -2720,4 +2724,71 @@
 - `.github/workflows/pr-tests.yml` — `changes` ジョブ（paths-filter）と `e2e` ジョブを追加
 - `playwright.config.ts` — `reporter` を CI/ローカルで分岐
 - `.env.test.example` — CI 側の自動注入変数を追記
+
+## 2026-08-18: モンスターテーマセット機能 Stage 1 — テーマ切り替え方式（解釈B）採用、転生時のみ切替可、図鑑は所持テーマのみ表示（Issue #73）
+
+### 決定内容
+- 複数解釈（解釈A: 子供ごとに固定の見た目セットを永続的に割り当てる／解釈B: 子供が所持テーマの中から任意に切り替えて表示できる）のうち、**解釈B（テーマ切り替え）を採用**した。`User.monsterSetId` を「現在表示中のテーマ」を指すカラムとして扱い、`ChildMonsterTheme`（購入・付与済みテーマの所持記録）とは別管理にする
+- テーマの切り替えは常時自由に行えるものではなく、**転生（rebirth）時のみ**選択可能にする。育成途中のステージでテーマを変えると進化パスの見た目の一貫性が崩れるため
+- 図鑑（コレクション画面）は「所持している（= `ChildMonsterTheme` に記録がある）テーマ」のみを表示対象にする。未購入・未付与のテーマの内容は見せない
+- Stage 1（本 Issue #73）ではスキーマ（`monsterSetId` カラム、`ChildMonsterTheme` テーブル）とテーマデータレジストリ（`src/lib/monsterThemes/`）の土台のみ導入する。実際の切り替え UI・購入導線は後続 Issue で対応する
+
+### 理由
+- 転生ごとにテーマを変えられる方が「新しい転生のたびに違う見た目を楽しめる」というモチベーション設計に合致し、`docs/未実装仕様書/monster-theme-sets.md` が想定する買い切りコンテンツ（複数セット所持前提）とも整合する
+- 育成途中の切り替えを許すと、進化パス（STUDY/STAMINA/LIFE）の途中形態と最終形態で異なるテーマ画像が混在し、コレクション（`collectedPaths`）の一貫性が崩れる
+- 未所持テーマの図鑑を見せてしまうと、購入前に全内容が閲覧できてしまい物販としての価値が薄れる
+
+### やってはいけないこと
+- `monsterSetId` を「一度決めたら固定」の解釈A方式で実装する（後続 Issue の切り替え UI 追加時に手戻りが発生する）
+- テーマ切り替えを育成途中（転生以外のタイミング）で許可する
+- 図鑑に未所持テーマの内容を表示する、または `ChildMonsterTheme` の所持チェックを経ずに全テーマを一覧表示する
+
+### 該当箇所
+- `prisma/schema.prisma` — `User.monsterSetId`（`@default("dark")`）、`ChildMonsterTheme` テーブル
+- `src/lib/monsterThemes.ts` — `activateChildTheme()`（所持テーマの記録）
+- `src/lib/monsterThemes/` — テーマデータレジストリ
+- `docs/未実装仕様書/monster-theme-sets.md` — 各テーマセットのモンスターデータ仕様
+
+## 2026-08-20: monsterLevels のテーマ名前空間対応と既存DB移行（Issue #93）
+
+### 決定内容
+- `collectedPaths` は Stage 1（Issue #73）の時点で `hasCollectedPath`/`addCollectedPath` によりテーマ名前空間（`"{themeId}:{path}"`）対応済みだったが、`monsterLevels`（進化Stage3到達カウント）は対応漏れで裸のパスキーのまま書き込まれ続けていた。これを`getMonsterLevel`/`incrementMonsterLevel`（`src/lib/monsterThemes/monsterLevels.ts`）で`collectedPaths`と同じ設計に揃えた
+- 既存DBの`collectedPaths`・`monsterLevels`双方について、名前空間の付いていない旧形式エントリを**各ユーザーの`side`から導出したテーマ**（`LIGHT`→`"light"`、それ以外→`"dark"`。Stage1の`monsterSetId`バックフィルと同じ導出ロジック）で一括変換するマイグレーションを実行した（`monsterSetId`ではなく`side`を根拠にした。理由は後述）
+
+### 既知のトレードオフ
+- Issue #73マージ〜本マイグレーション実行までの間に、有料テーマ（buddha等）へ切り替えて実際にStage3到達した進行度があった場合、その進行度は`side`ベースの変換により`dark:`/`light:`名前空間に帰属してしまう（`buddha:`ではなく）。買い切りテーマは決済導線が無い間はAPI側で一律拒否されており（PR #88）、DB直接操作による疑似購入（PR #90）を経て初めて選択可能になった経緯があるため、この移行時点でこのケースに該当する実データは存在しない見込みだが、将来同様の移行を行う際は同じ制約に留意すること
+
+### やってはいけないこと
+- `monsterLevels`を新たに書き込む箇所で、`incrementMonsterLevel()`を経由せず生のパスキーへ直書きする
+- 同種の移行マイグレーションを、冪等性を確認せずに実行する
+
+### 該当箇所
+- `src/lib/monsterThemes/monsterLevels.ts` — `getMonsterLevel`/`incrementMonsterLevel`
+- `src/lib/approve.ts` / `src/lib/streak.ts` / `src/lib/loginStreak.ts` — `monsterLevels`更新箇所
+- `prisma/migrations/20260820000001_namespace_legacy_monster_progress/` — 既存DB移行マイグレーション
+
+## 2026-08-21: quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する（2026-06-29決定の部分上書き、Issue #106）
+
+### 決定内容
+- 2026-06-29決定「左上常駐ストリークバッジ（`StreakHeaderBadge`）を撤去」を、`/app/child/quests` 画面1枚に限定した**条件付き再導入**として部分的に上書きする
+- 新規 `CheckinPill`（`src/components/child/CheckinPill.tsx`、画面最上部・常設・折りたたみ式）を導入。折りたたみ時は新規純粋関数 `getCheckinPillLabel()`（`src/lib/checkinPill.ts`）が返す1行文言のみを表示し、タップで展開すると初めて `CheckinCalendar` を `variant="embedded"` でマウントして直近7日グリッドを表示する（`GET /api/checkin/calendar` は初回展開まで遅延実行し、以後は再マウントせず display 切り替えのみで重複フェッチを防ぐ）
+- 併せて quests 画面のヘッダー・進捗バー・pt表示・宝箱カウントダウンを新規 `QuestStatusCard` に統合し、常時表示だった bare な `<CheckinCalendar />` と単体の宝箱カウントダウンバナーは廃止した
+
+### 理由
+- チェックインは画面表示時点で `POST /api/checkin/today` により当日分が冪等に自動確定済みのため、フルカレンダーを常時展開表示しても新たな行動を促すわけではなく、単なる情報過多になっていた
+- 2026-06-29決定時点の「常駐の視覚ノイズが過剰」という判断は、`StreakHeaderBadge`（4状態アイコン + pulseアニメーション + 常時展開グリッド相当の情報量）という実装を前提にしたものだった。今回のピルは1行の折りたたみ表示のみを常設し、詳細グリッドはユーザーの明示的なタップ操作でのみ展開されるため、同じ「🔥N日連続の可視性」というカバー範囲を維持しながら視覚ノイズは旧バッジより抑制されている
+- 撤去対象はあくまで「詳細グリッドの常時展開表示」であり、「ストリーク数字そのものの可視性」ではないと再整理し、後者はピル1行として復活させても2026-06-29の理由（視覚ノイズ過剰）とは矛盾しないと判断した
+
+### やってはいけないこと
+- 他画面（育成ページ等）に同種の常駐ピルを横展開する（本決定は quests画面1枚に限定したスコープ）
+- ピルの展開操作とチェックイン成功カットイン（`CheckinSuccessCutscene`）を同時に自動発火させる（カットインは `justNow` 時の一度きりの演出、ピル展開はユーザー操作起点で独立させる）
+- ピル展開のたびに `GET /api/checkin/calendar` を再フェッチする実装にする（初回展開時のみ取得し、以後はマウント済みインスタンスを display 切り替えで再利用する）
+
+### 該当箇所
+- `src/lib/checkinPill.ts` — 新規。ピル文言を組み立てる純粋関数
+- `src/components/child/CheckinPill.tsx` — 新規。折りたたみ/展開の状態管理
+- `src/components/child/CheckinCalendar.tsx` — `variant?: "standalone" | "embedded"` を追加（既定は現行動作を維持）
+- `src/components/child/QuestStatusCard.tsx` — 新規。完了数・進捗バー・pt・宝箱カウントダウンを統合表示
+- `src/components/child/TreasureStock.tsx` — `variant?: "pill" | "card"` を追加、連打防止の同期ガード（`useRef`）を追加
+- `src/app/app/child/quests/page.tsx` — レイアウト組み替え（`CheckinPill` → ヘッダー → 締切バナー → `QuestStatusCard` → `MonsterMiniCard` → 報告ヒント → クエストリスト）
 

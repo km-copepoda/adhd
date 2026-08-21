@@ -292,7 +292,7 @@ describe("進化・転生の閾値テスト", () => {
     const call = mockPrisma.user.update.mock.calls[0][0];
     const savedPaths = JSON.parse(call.data.collectedPaths as string) as string[];
     expect(savedPaths).toHaveLength(1);
-    expect(["STUDY", "STAMINA", "LIFE"]).toContain(savedPaths[0]);
+    expect(["light:STUDY", "light:STAMINA", "light:LIFE"]).toContain(savedPaths[0]);
   });
 
   it("転生トリガー後も collectedPaths は保持される（リセットされない）", async () => {
@@ -463,6 +463,98 @@ describe("monsterLevels（最終形態レベル）", () => {
     const call = mockPrisma.user.update.mock.calls[0][0];
     // rebirthPending セット時は monsterLevels を触らない
     expect(call.data.monsterLevels).toBeUndefined();
+  });
+});
+
+// ─── Issue #93: monsterLevels のテーマ名前空間対応 ─────────────────────
+// @/lib/monsterThemes/monsterLevels.ts の getMonsterLevel/incrementMonsterLevel を
+// 使い、"{monsterSetId}:{path}" 形式で monsterLevels を更新することを検証する。
+// 現状の approve.ts は `monsterLevels[evolution.newPath] = ... + 1` と生キーで
+// 直書きしているため、これらのテストは Red（失敗）になる想定。
+describe("monsterLevels のテーマ名前空間対応（Issue #93）", () => {
+  beforeEach(() => {
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
+    vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("有料テーマ(buddha)でstage3到達時、monsterLevelsが'buddha:'名前空間付きキーで保存されること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        monsterSetId: "buddha",
+        evolutionStage: 2,
+        evolutionPath: "STUDY_STUDY",
+        studyPt: 29,
+        staminaPt: 0,
+        lifePt: 0,
+        monsterLevels: "{}",
+      }),
+    );
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
+    const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
+    expect(levels).toEqual({ "buddha:STUDY_STUDY_STUDY": 1 });
+  });
+
+  it("有料テーマ(buddha)は無料テーマ由来の旧形式（裸のパス）データを自分の記録として引き継がないこと", async () => {
+    // 旧形式の裸キーに既に値7がある（例: dark/light 時代の記録、または旧実装のバグで書かれたデータ）。
+    // buddha は有料テーマなので、この値を自分のレベルとして引き継いではならない（1から開始する）。
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        monsterSetId: "buddha",
+        evolutionStage: 2,
+        evolutionPath: "STUDY_STUDY",
+        studyPt: 29,
+        staminaPt: 0,
+        lifePt: 0,
+        monsterLevels: '{"STUDY_STUDY_STUDY":7}',
+      }),
+    );
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
+    const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
+    expect(levels["buddha:STUDY_STUDY_STUDY"]).toBe(1);
+  });
+
+  it("無料テーマ(dark)は旧形式（裸のパス）の既存値を引き継いで+1すること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        monsterSetId: "dark",
+        evolutionStage: 2,
+        evolutionPath: "STUDY_STUDY",
+        studyPt: 29,
+        staminaPt: 0,
+        lifePt: 0,
+        monsterLevels: '{"STUDY_STUDY_STUDY":3}',
+      }),
+    );
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
+    const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
+    // 旧形式キーは引き継ぎ元として残ってよいが、新形式キーが 3+1=4 で保存されること
+    expect(levels["dark:STUDY_STUDY_STUDY"]).toBe(4);
+  });
+
+  it("新形式キーが既にある場合は単純に+1すること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        monsterSetId: "buddha",
+        evolutionStage: 2,
+        evolutionPath: "STUDY_STUDY",
+        studyPt: 29,
+        staminaPt: 0,
+        lifePt: 0,
+        monsterLevels: '{"buddha:STUDY_STUDY_STUDY":2}',
+      }),
+    );
+    await approveQuestInstance(baseQuest);
+    const call = mockPrisma.user.update.mock.calls[0][0];
+    const levels = JSON.parse(call.data.monsterLevels as string) as Record<string, number>;
+    expect(levels["buddha:STUDY_STUDY_STUDY"]).toBe(3);
   });
 });
 

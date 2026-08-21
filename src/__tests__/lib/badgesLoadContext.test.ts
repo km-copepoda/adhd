@@ -109,3 +109,69 @@ describe("loadBadgeContext: 通常アイテム 80 種で判定する", () => {
     expect(ctx.collectionItemCount).toBe(140);
   });
 });
+
+// ─── collectedPaths のテーマ名前空間対応（Issue #73） ──────────────────────
+//
+// loadBadgeContext は user.collectedPaths (JSON文字列配列) から
+// hasStudyCollection / hasStaminaCollection / hasLifeCollection を
+// `p.startsWith("STUDY"|"STAMINA"|"LIFE")` で判定している（src/lib/badges.ts）。
+// 名前空間化後は "buddha:STUDY_STAMINA_LIFE" のような形式で保存されるため、
+// 単純な startsWith 判定ではテーマプレフィックスに阻まれて判定漏れが起きる。
+// 実装時は startsWith の前に "themeId:" プレフィックスを除去する必要がある。
+describe("loadBadgeContext: collectedPaths のテーマ名前空間対応", () => {
+  it("旧形式（裸のパス文字列）のみならこれまで通り判定できること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ collectedPaths: JSON.stringify(["STUDY_STAMINA_LIFE"]) }),
+    );
+
+    const ctx = await loadBadgeContext("c1");
+    expect(ctx.hasStudyCollection).toBe(true);
+    expect(ctx.hasStaminaCollection).toBe(false);
+    expect(ctx.hasLifeCollection).toBe(false);
+    expect(ctx.collectionCount).toBe(1);
+  });
+
+  it("新形式（テーマ名前空間付き）でも先頭カテゴリを正しく判定できること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({ collectedPaths: JSON.stringify(["buddha:STAMINA_STUDY_LIFE"]) }),
+    );
+
+    const ctx = await loadBadgeContext("c1");
+    expect(ctx.hasStaminaCollection).toBe(true);
+    expect(ctx.hasStudyCollection).toBe(false);
+    expect(ctx.hasLifeCollection).toBe(false);
+    expect(ctx.collectionCount).toBe(1);
+  });
+
+  it("旧形式・新形式が混在しても両方のエントリを正しく判定できること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        collectedPaths: JSON.stringify(["STUDY_STAMINA_LIFE", "buddha:LIFE_STUDY_STAMINA"]),
+      }),
+    );
+
+    const ctx = await loadBadgeContext("c1");
+    expect(ctx.hasStudyCollection).toBe(true); // 旧形式 STUDY_STAMINA_LIFE
+    expect(ctx.hasLifeCollection).toBe(true); // 新形式 buddha:LIFE_STUDY_STAMINA
+    expect(ctx.collectionCount).toBe(2);
+    // rebirthCount = max(0, floor((count-1)/3)) はフォーマットに関わらず件数ベースのまま
+    expect(ctx.rebirthCount).toBe(0);
+  });
+
+  it("名前空間付きエントリが4件以上でも rebirthCount が件数から正しく計算されること", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        collectedPaths: JSON.stringify([
+          "buddha:STUDY_STUDY_STUDY",
+          "buddha:STAMINA_STAMINA_STAMINA",
+          "buddha:LIFE_LIFE_LIFE",
+          "buddha:STUDY_STAMINA_LIFE",
+        ]),
+      }),
+    );
+
+    const ctx = await loadBadgeContext("c1");
+    expect(ctx.collectionCount).toBe(4);
+    expect(ctx.rebirthCount).toBe(1); // floor((4-1)/3) = 1
+  });
+});

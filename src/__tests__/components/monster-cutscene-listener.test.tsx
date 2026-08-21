@@ -39,6 +39,7 @@ type Status = {
   evolutionStage: number;
   evolutionPath: string;
   side: string | null;
+  monsterSetId?: string;
 };
 
 function setupFetch(initial: Status, ...subsequent: Status[]) {
@@ -168,6 +169,28 @@ describe("MonsterCutsceneListener — 子レイアウト常駐の進化カット
     expect(screen.queryByText("進化した！")).toBeNull();
     // 以降の差分検知のために lastSeen は記録される
     expect(localStorage.getItem("lastSeenEvolutionStage")).toBe("3");
+  });
+
+  it("Issue #100: monsterSetId が buddha のとき、カットインに buddha テーマの画像が表示される（side は無視される）", async () => {
+    // side は null（未設定）だが monsterSetId が buddha を優先するべき
+    setupFetch(
+      { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha" },
+      { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha" },
+    );
+
+    await act(async () => {
+      render(<MonsterCutsceneListener />);
+    });
+    await waitFor(() => expect(userUpdateCallback).not.toBeNull());
+
+    await act(async () => {
+      userUpdateCallback!();
+    });
+
+    await waitFor(() => {
+      const img = screen.getByAltText("文殊丸");
+      expect((img as HTMLImageElement).src).toContain("/monsters/buddha/STUDY_");
+    });
   });
 
   it("カットイン表示後、lastSeenEvolutionStage は新ステージで更新される", async () => {

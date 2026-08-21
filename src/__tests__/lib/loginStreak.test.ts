@@ -298,4 +298,70 @@ describe("recordLoginActivity", () => {
 
     expect(mockTriggerMonsterEvolvedLog).not.toHaveBeenCalled();
   });
+
+  // ─── Issue #93: monsterLevels のテーマ名前空間対応 ───────────────────
+  // ログインストリークボーナスで stage3 に到達した際、monsterLevels が
+  // "{monsterSetId}:{path}" 形式で保存されることを検証する。
+  // 現状の loginStreak.ts は `monsterLevels[evolution.newPath] = ... + 1` と
+  // 生キーで直書きしているため、これらのテストは Red（失敗）になる想定。
+  describe("monsterLevels のテーマ名前空間対応（Issue #93）", () => {
+    it("有料テーマ(buddha)でstage3到達時、monsterLevelsが'buddha:'名前空間付きキーで保存されること", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+      const yesterday = new Date("2026-03-28");
+      mockPrisma.streak.upsert.mockResolvedValue(
+        streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
+      );
+      mockPrisma.streak.update.mockResolvedValue(streak());
+      // stage2、29pt蓄積中。ボーナス1ptで total=30 → 30以上なので進化する
+      mockPrisma.user.findUnique.mockResolvedValue(
+        childUser({
+          monsterSetId: "buddha",
+          evolutionStage: 2,
+          evolutionPath: "STUDY_STUDY",
+          studyPt: 29, staminaPt: 0, lifePt: 0,
+          collectedPaths: '["STUDY","STUDY_STUDY"]',
+          // 旧形式の裸キーに既存値7がある（buddha は有料テーマなので引き継いではならない）
+          monsterLevels: '{"STUDY_STUDY_STUDY":7}',
+        }),
+      );
+      mockPrisma.user.update.mockResolvedValue(childUser());
+
+      await recordLoginActivity("child-1", today);
+
+      const updateData = mockPrisma.user.update.mock.calls[0][0].data;
+      expect(updateData.evolutionStage).toBe(3);
+      const levels = JSON.parse(updateData.monsterLevels as string) as Record<string, number>;
+      expect(levels["buddha:STUDY_STUDY_STUDY"]).toBe(1);
+
+      vi.restoreAllMocks();
+    });
+
+    it("無料テーマ(dark)は旧形式（裸のパス）の既存値を引き継いで+1すること", async () => {
+      vi.spyOn(Math, "random").mockReturnValue(0); // STUDY が選ばれる
+      const yesterday = new Date("2026-03-28");
+      mockPrisma.streak.upsert.mockResolvedValue(
+        streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
+      );
+      mockPrisma.streak.update.mockResolvedValue(streak());
+      mockPrisma.user.findUnique.mockResolvedValue(
+        childUser({
+          monsterSetId: "dark",
+          evolutionStage: 2,
+          evolutionPath: "STUDY_STUDY",
+          studyPt: 29, staminaPt: 0, lifePt: 0,
+          collectedPaths: '["STUDY","STUDY_STUDY"]',
+          monsterLevels: '{"STUDY_STUDY_STUDY":3}',
+        }),
+      );
+      mockPrisma.user.update.mockResolvedValue(childUser());
+
+      await recordLoginActivity("child-1", today);
+
+      const updateData = mockPrisma.user.update.mock.calls[0][0].data;
+      const levels = JSON.parse(updateData.monsterLevels as string) as Record<string, number>;
+      expect(levels["dark:STUDY_STUDY_STUDY"]).toBe(4);
+
+      vi.restoreAllMocks();
+    });
+  });
 });

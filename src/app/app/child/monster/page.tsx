@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { getMonsterStage } from "@/lib/monsters";
+import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo } from "@/lib/evolution";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EggSelectionModal from "@/components/child/EggSelectionModal";
@@ -46,7 +46,7 @@ export default function MonsterPage() {
         const newData = await fetchStatus();
         if (!newData) return;
         setData({
-          name: newData.name, side: newData.side ?? null,
+          name: newData.name, side: newData.side ?? null, monsterSetId: newData.monsterSetId ?? "dark",
           evolutionStage: newData.evolutionStage, evolutionPath: newData.evolutionPath ?? "",
           collectedPaths: newData.collectedPaths ?? "[]",
           studyPt: newData.studyPt, staminaPt: newData.staminaPt, lifePt: newData.lifePt,
@@ -73,7 +73,7 @@ export default function MonsterPage() {
   const pendingTotal = data.pendingStudyPt + data.pendingStaminaPt + data.pendingLifePt;
   const isReborn = (JSON.parse(data.collectedPaths) as string[]).length > 0;
   const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt, isReborn, data.rebirthEggBonus);
-  const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, data.side);
+  const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, data.monsterSetId ?? themeIdFromSide(data.side));
   // 転生後の卵は選択した卵タイプの画像を表示する
   const monster = data.evolutionStage === 0 && data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
     ? { ...monsterBase, image: EGG_BONUS_IMAGE[data.rebirthEggBonus] }
@@ -94,7 +94,7 @@ export default function MonsterPage() {
       {reborn && (() => {
         const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
           ? EGG_BONUS_IMAGE[data.rebirthEggBonus]
-          : getMonsterStage(0, "", data.side).image;
+          : getMonsterStage(0, "", data.monsterSetId ?? themeIdFromSide(data.side)).image;
         return (
           <CutsceneOverlay
             onClose={() => setReborn(false)}
@@ -134,7 +134,7 @@ export default function MonsterPage() {
       {/* Egg selection overlay */}
       {showEggSelection && (
         <EggSelectionModal
-          side={data.side}
+          monsterSetId={data.monsterSetId}
           loading={rebirthLoading}
           onSelect={handleRebirth}
           onCancel={() => setShowEggSelection(false)}

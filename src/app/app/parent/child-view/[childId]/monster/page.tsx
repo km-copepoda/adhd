@@ -24,6 +24,7 @@ type MonsterStatus = {
   pendingLifePt: number;
   rebirthPending: boolean;
   rebirthEggBonus: string | null;
+  monsterSetId: string;
   currentStreak: number;
   bestStreak: number;
   monthlyDays: number;
@@ -85,6 +86,7 @@ export default function ChildViewMonsterPage() {
     lifePt: status.lifePt,
     collectedPaths: status.collectedPaths,
     rebirthEggBonus: status.rebirthEggBonus,
+    monsterSetId: status.monsterSetId,
   });
 
   const progressPct = mini.isRebirth

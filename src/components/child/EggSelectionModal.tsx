@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 
 const EGG_OPTIONS = [
   {
@@ -34,13 +35,16 @@ const EGG_OPTIONS = [
 ] as const;
 
 type Props = {
-  side: string | null;
+  /** 現在有効なモンスターテーマセット id（@/lib/monsterThemes/index の MONSTER_THEMES キー）。
+   *  null、または未知のテーマ id の場合は既定の dark テーマにフォールバックする。 */
+  monsterSetId: string | null;
   loading: boolean;
   onSelect: (eggType: string) => void;
   onCancel: () => void;
 };
 
-export default function EggSelectionModal({ side, loading, onSelect, onCancel }: Props) {
+export default function EggSelectionModal({ monsterSetId, loading, onSelect, onCancel }: Props) {
+  const normalEggImage = (monsterSetId && MONSTER_THEMES[monsterSetId]?.eggImage) ?? MONSTER_THEMES.dark.eggImage;
   return (
     <div
       className="fixed inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center px-4"
@@ -52,7 +56,7 @@ export default function EggSelectionModal({ side, loading, onSelect, onCancel }:
       </p>
       <div className="flex flex-col gap-3 w-full max-w-sm">
         {EGG_OPTIONS.map(({ type, name, img, desc, color }) => {
-          const eggImg = img || (side === "LIGHT" ? "/monsters/light/egg.webp" : "/monsters/dark/egg.webp");
+          const eggImg = img || normalEggImage;
           return (
             <button
               key={type}
