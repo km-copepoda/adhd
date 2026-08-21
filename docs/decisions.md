@@ -123,6 +123,7 @@
 - [2026-08-21: quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する（2026-06-29決定の部分上書き、Issue #106）](#2026-08-21-quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する2026-06-29決定の部分上書きissue-106)
 - [2026-08-21: モンスターテーマ所持記録を子供単位（`ChildMonsterTheme`）から家族単位（`FamilyMonsterTheme`）へ移行する（2026-08-18決定の補足、Issue #111）](#2026-08-21-モンスターテーマ所持記録を子供単位childmonsterthemeから家族単位familymonsterthemeへ移行する2026-08-18決定の補足issue-111)
 - [2026-08-22: 「開かずの宝箱」バグの恒久修正 — 宝箱日付解決を resolveTreasureDate に一本化](#2026-08-22-開かずの宝箱バグの恒久修正--宝箱日付解決を-resolvetreasuredate-に一本化)
+- [2026-08-22: 既存の孤児LOCKED宝箱を救済するワンショット復旧スクリプトを追加（Issue #109）](#2026-08-22-既存の孤児locked宝箱を救済するワンショット復旧スクリプトを追加issue-109)
 
 <!-- TOC:END -->
 
@@ -2852,4 +2853,30 @@
 - `src/__tests__/lib/approve.test.ts` — `carryOver 過去日付タスクの承認 (resolveTreasureDate 経由)` セクション
 - `src/__tests__/api/approve/approve-id.test.ts` — 差し戻し経路の carryOver 過去日付テスト
 - `src/__tests__/api/cron/auto-approve-treasure-date.test.ts` — 新規。cron 経由で実装（モックなし）を通したリグレッションテスト
+
+## 2026-08-22: 既存の孤児LOCKED宝箱を救済するワンショット復旧スクリプトを追加（Issue #109）
+
+### 決定内容
+- Issue #108（`resolveTreasureDate` への一本化）はバグの**恒久修正**であり新規発生を防ぐが、修正前に既にLOCKEDのまま取り残された既存本番データは救済されない。これを検出・救済するワンショット復旧スクリプト `scripts/rescue-orphan-treasures.ts` を追加した
+- 判定ロジックは `src/lib/orphanTreasure.ts` の純粋関数 `classifyOrphanTreasure()` に分離した。対象日 D を実際に「支配」しているクエストを `resolveTreasureDate`（#108）で再計算して特定し、その支配クエストの現在の状態から `UNLOCK` / `CANCEL` / `SKIP` を判定する（REPORTED/SKIP_REPORTED残存や支配クエスト0件など判断がつかないケースは全て `SKIP` にして人間の確認に委ねる）
+- DB操作は `src/lib/orphanTreasureRescue.ts` の `rescueOrphanTreasures()` に分離した。`dryRun` オプションで実際の書き込みを制御し、書き込み時は `UNLOCK`/`CANCEL` それぞれ別の `updateMany` を `where: { status: "LOCKED" }` ガード付きで実行する（TOCTOU対策）
+- `date < today` だけを条件にした単純な一括救済（`treasureLog.updateMany({ where: { status: "LOCKED", date: { lt: today } }, data: { status: "UNLOCKED" } })` のような実装）は不採用とした。理由は後述
+
+### 理由
+- 日次cronの自動承認は `PENDING` を対象にしないため、LOCKEDのまま残る宝箱の中には「支配クエストがREJECTEDで差し戻し確定」「支配クエストが依然REPORTEDで承認待ち」など、単純に開放してよいとは限らないケースが混在する
+- 宝箱の `date` とそれを支配するクエストの実際の日付は、`carryOver` の写像により一致しないことがある（#108のバグの根本原因と同じ構造）。そのため「宝箱のdateが過去だから開放してよい」という短絡判断はできず、必ず `resolveTreasureDate` で支配クエストを特定した上でその状態を確認する必要がある
+- 上記の理由から、判定を伴わない一括UPDATEクエリでは不十分と判断し、既存の判定ロジックを再利用する形にした
+
+### やってはいけないこと
+- `resolveTreasureDate` を再実装せず、必ず `src/lib/treasureDate.ts` からimportして使う
+- 判定ロジックを `scripts/rescue-orphan-treasures.ts` 側に書く（`vitest.config.ts` の `include` が `src/**/*.test.ts` 限定のため `scripts/` 配下はテスト対象外になる。ロジックは必ず `src/lib/` 側に置く）
+- 更新を `status: "LOCKED"` ガード無しの `updateMany` で行う（他プロセスとの競合で二重更新が起きうる）
+- 本番DBに対する `--apply` 実行を自動化する（cron等に組み込む）。本スクリプトは意図的に手動実行専用とし、実行前に出力される対象件数・内訳・監査用JSONを人間が確認するフローを必須とする
+
+### 該当箇所
+- `src/lib/orphanTreasure.ts` — 新規。純粋関数 `classifyOrphanTreasure()`
+- `src/lib/orphanTreasureRescue.ts` — 新規。DB操作 `rescueOrphanTreasures()`
+- `scripts/rescue-orphan-treasures.ts` — 新規。CLIエントリポイント（判定ロジックは持たず呼び出すだけ）
+- `package.json` — `tsx` を devDependency に追加、`npm run rescue:treasures` スクリプトを追加
+- `src/__tests__/lib/orphanTreasure.test.ts` / `src/__tests__/lib/orphanTreasureRescue.test.ts` — 新規。境界値（当日/未来日/冪等性/carryOver写像/JST日付境界）を含む単体テスト
 
