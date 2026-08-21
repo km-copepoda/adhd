@@ -2767,3 +2767,28 @@
 - `src/lib/approve.ts` / `src/lib/streak.ts` / `src/lib/loginStreak.ts` — `monsterLevels`更新箇所
 - `prisma/migrations/20260820000001_namespace_legacy_monster_progress/` — 既存DB移行マイグレーション
 
+## 2026-08-21: quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する（2026-06-29決定の部分上書き、Issue #106）
+
+### 決定内容
+- 2026-06-29決定「左上常駐ストリークバッジ（`StreakHeaderBadge`）を撤去」を、`/app/child/quests` 画面1枚に限定した**条件付き再導入**として部分的に上書きする
+- 新規 `CheckinPill`（`src/components/child/CheckinPill.tsx`、画面最上部・常設・折りたたみ式）を導入。折りたたみ時は新規純粋関数 `getCheckinPillLabel()`（`src/lib/checkinPill.ts`）が返す1行文言のみを表示し、タップで展開すると初めて `CheckinCalendar` を `variant="embedded"` でマウントして直近7日グリッドを表示する（`GET /api/checkin/calendar` は初回展開まで遅延実行し、以後は再マウントせず display 切り替えのみで重複フェッチを防ぐ）
+- 併せて quests 画面のヘッダー・進捗バー・pt表示・宝箱カウントダウンを新規 `QuestStatusCard` に統合し、常時表示だった bare な `<CheckinCalendar />` と単体の宝箱カウントダウンバナーは廃止した
+
+### 理由
+- チェックインは画面表示時点で `POST /api/checkin/today` により当日分が冪等に自動確定済みのため、フルカレンダーを常時展開表示しても新たな行動を促すわけではなく、単なる情報過多になっていた
+- 2026-06-29決定時点の「常駐の視覚ノイズが過剰」という判断は、`StreakHeaderBadge`（4状態アイコン + pulseアニメーション + 常時展開グリッド相当の情報量）という実装を前提にしたものだった。今回のピルは1行の折りたたみ表示のみを常設し、詳細グリッドはユーザーの明示的なタップ操作でのみ展開されるため、同じ「🔥N日連続の可視性」というカバー範囲を維持しながら視覚ノイズは旧バッジより抑制されている
+- 撤去対象はあくまで「詳細グリッドの常時展開表示」であり、「ストリーク数字そのものの可視性」ではないと再整理し、後者はピル1行として復活させても2026-06-29の理由（視覚ノイズ過剰）とは矛盾しないと判断した
+
+### やってはいけないこと
+- 他画面（育成ページ等）に同種の常駐ピルを横展開する（本決定は quests画面1枚に限定したスコープ）
+- ピルの展開操作とチェックイン成功カットイン（`CheckinSuccessCutscene`）を同時に自動発火させる（カットインは `justNow` 時の一度きりの演出、ピル展開はユーザー操作起点で独立させる）
+- ピル展開のたびに `GET /api/checkin/calendar` を再フェッチする実装にする（初回展開時のみ取得し、以後はマウント済みインスタンスを display 切り替えで再利用する）
+
+### 該当箇所
+- `src/lib/checkinPill.ts` — 新規。ピル文言を組み立てる純粋関数
+- `src/components/child/CheckinPill.tsx` — 新規。折りたたみ/展開の状態管理
+- `src/components/child/CheckinCalendar.tsx` — `variant?: "standalone" | "embedded"` を追加（既定は現行動作を維持）
+- `src/components/child/QuestStatusCard.tsx` — 新規。完了数・進捗バー・pt・宝箱カウントダウンを統合表示
+- `src/components/child/TreasureStock.tsx` — `variant?: "pill" | "card"` を追加、連打防止の同期ガード（`useRef`）を追加
+- `src/app/app/child/quests/page.tsx` — レイアウト組み替え（`CheckinPill` → ヘッダー → 締切バナー → `QuestStatusCard` → `MonsterMiniCard` → 報告ヒント → クエストリスト）
+

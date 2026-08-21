@@ -10,8 +10,10 @@ import TreasureGetCutscene from "@/components/child/TreasureGetCutscene";
 import QuestAddForm from "@/components/child/QuestAddForm";
 import QuestListItem from "@/components/child/QuestListItem";
 import StampCelebrationOverlay from "@/components/child/StampCelebrationOverlay";
-import CheckinCalendar from "@/components/child/CheckinCalendar";
+import CheckinPill from "@/components/child/CheckinPill";
 import CheckinSuccessCutscene from "@/components/child/CheckinSuccessCutscene";
+import QuestStatusCard from "@/components/child/QuestStatusCard";
+import type { CheckinTodayStatus } from "@/lib/checkinPill";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, computeSkippedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
 import { getTreasureCountdown, ALL_DONE_MESSAGES } from "@/lib/treasureCountdown";
@@ -37,10 +39,18 @@ export default function QuestsPage() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
-  const [checkinDeadlineTime, setCheckinDeadlineTime] = useState<string | null>(null);
+  const [checkin, setCheckin] = useState<{
+    enabled: boolean;
+    deadline: string | null;
+    todayStatus: CheckinTodayStatus;
+    currentStreak: number;
+  } | null>(null);
   const [checkinJustNow, setCheckinJustNow] = useState<boolean>(false);
   const [checkinCutsceneStreak, setCheckinCutsceneStreak] = useState<number | null>(null);
   const [minTasksForStreak, setMinTasksForStreak] = useState<number>(1);
+  const [treasureStatus, setTreasureStatus] = useState<{ locked: number; unlocked: number } | null>(
+    null,
+  );
   const [allDoneMessageIndex] = useState<number>(() =>
     Math.floor(Math.random() * ALL_DONE_MESSAGES.length),
   );
@@ -53,7 +63,6 @@ export default function QuestsPage() {
       .then((r) => r.json())
       .then((d) => {
         setReportDeadlineTime(d.reportDeadlineTime ?? null);
-        setCheckinDeadlineTime(d.checkinDeadlineTime ?? null);
         if (typeof d.minTasksForStreak === "number") {
           setMinTasksForStreak(d.minTasksForStreak);
         }
@@ -61,17 +70,47 @@ export default function QuestsPage() {
       .catch(() => {});
   }, []);
 
-  // チェックイン記録: マウント時に1回だけ POST し、justNow を取得
+  // チェックイン記録: マウント時に1回だけ POST し、当日の状態（todayStatus/deadline/currentStreak/justNow）を取得。
+  // GET /api/checkin/calendar とは別ソースであり、こちらはピルの数字表示専用のため競合しない。
   useEffect(() => {
     fetch("/api/checkin/today", { method: "POST" })
       .then((r) => r.json())
-      .then((d: { enabled?: boolean; justNow?: boolean; currentStreak?: number }) => {
-        if (d.enabled && d.justNow) {
-          setCheckinJustNow(true);
-          setCheckinCutsceneStreak(d.currentStreak ?? 0);
-        }
-      })
+      .then(
+        (d: {
+          enabled?: boolean;
+          deadline?: string | null;
+          todayStatus?: CheckinTodayStatus;
+          justNow?: boolean;
+          currentStreak?: number;
+        }) => {
+          setCheckin({
+            enabled: !!d.enabled,
+            deadline: d.deadline ?? null,
+            todayStatus: d.todayStatus ?? "pending",
+            currentStreak: d.currentStreak ?? 0,
+          });
+          if (d.enabled && d.justNow) {
+            setCheckinJustNow(true);
+            setCheckinCutsceneStreak(d.currentStreak ?? 0);
+          }
+        },
+      )
       .catch(() => {});
+  }, []);
+
+  // 宝箱ストック件数: QuestStatusCard の表示可否判定に使う（あける操作自体は TreasureStock 側で完結）
+  useEffect(() => {
+    function fetchTreasureStatus() {
+      fetch("/api/treasures/status", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d: { locked?: number; unlocked?: number }) => {
+          setTreasureStatus({ locked: d.locked ?? 0, unlocked: d.unlocked ?? 0 });
+        })
+        .catch(() => {});
+    }
+    fetchTreasureStatus();
+    window.addEventListener("treasure-changed", fetchTreasureStatus);
+    return () => window.removeEventListener("treasure-changed", fetchTreasureStatus);
   }, []);
 
   // 1分ごとに残り時間を更新
@@ -177,34 +216,38 @@ export default function QuestsPage() {
     return <LoadingSpinner />;
   }
 
+  const treasureCountdown = getTreasureCountdown({
+    completedCount,
+    totalCount: quests.length,
+    minTasks: minTasksForStreak,
+    skippedCount,
+    allDoneMessageIndex,
+  });
+  const hasTreasureStock =
+    (treasureStatus?.locked ?? 0) > 0 || (treasureStatus?.unlocked ?? 0) > 0;
+  const showQuestStatusCard = quests.length > 0 || hasTreasureStock;
+
   return (
     <>
       <div className="px-4 pt-6">
+        {/* Checkin pill（常設・折りたたみ） */}
+        {checkin && (
+          <CheckinPill
+            enabled={checkin.enabled}
+            todayStatus={checkin.todayStatus}
+            currentStreak={checkin.currentStreak}
+            deadline={checkin.deadline ?? ""}
+            todayStr={todayStringJST()}
+            justNow={checkinJustNow}
+          />
+        )}
+
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="font-serif text-quest-gold text-lg tracking-wider">
-                ⚔ 今日のクエスト
-              </h1>
-              <p className="text-quest-dim text-xs mt-1">
-                {completedCount} / {quests.length} 完了
-              </p>
-              {(provisionalPt > 0 || confirmedPt > 0) && (
-                <div className="flex gap-3 mt-1">
-                  {provisionalPt > 0 && (
-                    <span className="text-[10px] text-quest-dim">
-                      仮 <span className="text-quest-gold/60 font-bold">{provisionalPt}</span> pt
-                    </span>
-                  )}
-                  {confirmedPt > 0 && (
-                    <span className="text-[10px] text-quest-dim">
-                      本 <span className="text-quest-gold font-bold">{confirmedPt}</span> pt
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+        <div className="mb-4">
+          <div className="flex justify-between items-center">
+            <h1 className="font-serif text-quest-gold text-lg tracking-wider">
+              ⚔ 今日のクエスト
+            </h1>
             <button
               onClick={() => setShowAddForm((v) => !v)}
               className="text-xs border border-quest-border rounded-lg px-3 py-1.5 text-quest-dim hover:border-quest-gold/40 hover:text-quest-gold transition-colors"
@@ -240,63 +283,25 @@ export default function QuestsPage() {
               </div>
             );
           })()}
-          {/* Progress bar */}
-          <div className="mt-2 h-1.5 bg-quest-border rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-quest-gold-dark to-quest-gold rounded-full transition-all"
-              style={{
-                width: quests.length > 0 ? `${(completedCount / quests.length) * 100}%` : "0%",
-              }}
-            />
-          </div>
-          {/* Treasure countdown banner */}
-          {(() => {
-            const countdown = getTreasureCountdown({
-              completedCount,
-              totalCount: quests.length,
-              minTasks: minTasksForStreak,
-              skippedCount,
-              allDoneMessageIndex,
-            });
-            if (countdown.kind === "none") return null;
-            const styles =
-              countdown.kind === "all_done"
-                ? "bg-amber-900/20 border-amber-500/40 text-amber-300"
-                : countdown.kind === "to_streak"
-                  ? "bg-purple-900/20 border-purple-500/30 text-purple-300"
-                  : "bg-yellow-900/20 border-yellow-500/30 text-yellow-300";
-            const icon =
-              countdown.kind === "all_done" ? "🎉" : countdown.kind === "to_streak" ? "🎁" : "✨";
-            return (
-              <div
-                className={`mt-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${styles}`}
-                data-testid="treasure-countdown"
-              >
-                <span>{icon}</span>
-                <span className="flex-1 font-bold">{countdown.text}</span>
-              </div>
-            );
-          })()}
         </div>
 
-        {/* Checkin calendar */}
-        {checkinDeadlineTime && (
-          <CheckinCalendar
-            deadline={checkinDeadlineTime}
-            todayStr={todayStringJST()}
-            justNow={checkinJustNow}
-          />
+        {/* Quest status card（完了数・進捗バー・pt・宝箱カウントダウン・宝箱ストック） */}
+        {showQuestStatusCard && (
+          <QuestStatusCard
+            completedCount={completedCount}
+            totalCount={quests.length}
+            provisionalPt={provisionalPt}
+            confirmedPt={confirmedPt}
+            countdown={treasureCountdown}
+          >
+            <TreasureStock variant="card" />
+          </QuestStatusCard>
         )}
 
         {/* Monster mini card */}
         {monsterMini && (
           <MonsterMiniCard data={monsterMini} childName={childName} />
         )}
-
-        {/* Treasure stock & open */}
-        <div className="flex justify-end mb-3">
-          <TreasureStock />
-        </div>
 
         {/* Add task form */}
         {showAddForm && (

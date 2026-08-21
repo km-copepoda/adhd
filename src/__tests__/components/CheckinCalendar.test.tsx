@@ -109,4 +109,62 @@ describe("CheckinCalendar", () => {
       expect(cells).toHaveLength(7);
     });
   });
+
+  it("variant 未指定（既定）で従来どおり見出し・締切ラベル・連続日数を表示する（回帰）", async () => {
+    await act(async () => {
+      render(<CheckinCalendar deadline="16:00" todayStr="2026-06-25" />);
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/直近7日/)).toBeTruthy();
+      expect(screen.getByText(/締切 16:00/)).toBeTruthy();
+      expect(screen.getByTestId("checkin-current-streak")).toBeTruthy();
+    });
+  });
+
+  it("variant='standalone' を明示しても従来どおり見出し・連続日数を表示する（回帰）", async () => {
+    await act(async () => {
+      render(
+        <CheckinCalendar deadline="16:00" todayStr="2026-06-25" variant="standalone" />,
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/直近7日/)).toBeTruthy();
+      expect(screen.getByTestId("checkin-current-streak")).toBeTruthy();
+    });
+  });
+
+  it("variant='embedded' では見出し・連続日数を描画しない", async () => {
+    await act(async () => {
+      render(
+        <CheckinCalendar deadline="16:00" todayStr="2026-06-25" variant="embedded" />,
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getAllByTestId(/^cell-/)).toHaveLength(7);
+    });
+    expect(screen.queryByText(/直近7日 チェックイン/)).toBeNull();
+    expect(screen.queryByTestId("checkin-current-streak")).toBeNull();
+  });
+
+  it("variant='embedded' でもセルの state（success/fail/empty/today/future）描画は不変", async () => {
+    await act(async () => {
+      render(
+        <CheckinCalendar deadline="16:00" todayStr="2026-06-25" variant="embedded" />,
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("cell-2026-06-23").getAttribute("data-state")).toBe(
+        "success",
+      );
+      expect(screen.getByTestId("cell-2026-06-19").getAttribute("data-state")).toBe(
+        "empty",
+      );
+      expect(screen.getByTestId("cell-2026-06-24").getAttribute("data-state")).toBe(
+        "fail",
+      );
+      expect(screen.getByTestId("cell-2026-06-25").getAttribute("data-state")).toBe(
+        "success",
+      );
+    });
+  });
 });
