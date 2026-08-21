@@ -119,6 +119,10 @@
 - [2026-08-12: テストの `no-explicit-any` 解消（案B）— Prisma モックを `vitest-mock-extended` の `mockDeep` に置き換える（Issue #35, #23 の基盤1）](#2026-08-12-テストの-no-explicit-any-解消案b-prisma-モックを-vitest-mock-extended-の-mockdeep-に置き換えるissue-35-23-の基盤1)
 - [2026-08-14: PRごとのVercelプレビュー環境でPlaywright E2Eを自動実行する。UI関連パス変更時のみ・non-blocking運用で開始（Issue #74）](#2026-08-14-prごとのvercelプレビュー環境でplaywright-e2eを自動実行するui関連パス変更時のみ・non-blocking運用で開始issue-74)
 - [2026-08-18: モンスターテーマセット機能 Stage 1 — テーマ切り替え方式（解釈B）採用、転生時のみ切替可、図鑑は所持テーマのみ表示（Issue #73）](#2026-08-18-モンスターテーマセット機能-stage-1--テーマ切り替え方式解釈b採用転生時のみ切替可図鑑は所持テーマのみ表示issue-73)
+- [2026-08-20: monsterLevels のテーマ名前空間対応と既存DB移行（Issue #93）](#2026-08-20-monsterlevels-のテーマ名前空間対応と既存db移行issue-93)
+- [2026-08-21: quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する（2026-06-29決定の部分上書き、Issue #106）](#2026-08-21-quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する2026-06-29決定の部分上書きissue-106)
+- [2026-08-21: モンスターテーマ所持記録を子供単位（`ChildMonsterTheme`）から家族単位（`FamilyMonsterTheme`）へ移行する（2026-08-18決定の補足、Issue #111）](#2026-08-21-モンスターテーマ所持記録を子供単位childmonsterthemeから家族単位familymonsterthemeへ移行する2026-08-18決定の補足issue-111)
+- [2026-08-22: 「開かずの宝箱」バグの恒久修正 — 宝箱日付解決を resolveTreasureDate に一本化](#2026-08-22-開かずの宝箱バグの恒久修正--宝箱日付解決を-resolvetreasuredate-に一本化)
 
 <!-- TOC:END -->
 
@@ -2816,4 +2820,36 @@
 - `src/lib/monsterThemes.ts` — `activateFamilyTheme()`
 - `src/lib/monsterThemes/ownedThemes.ts` — `resolveOwnedThemes()`（ロジック自体は不変、呼び出し元が渡すレコードの母集団のみ変更）
 - `src/app/api/family/members/[id]/monster-theme/route.ts` / `src/app/api/family/code/route.ts` / `src/app/api/monster/route.ts` / `src/app/api/parent/child-view/monster/route.ts` / `src/app/api/rebirth/route.ts` — 呼び出し元の更新
+
+## 2026-08-22: 「開かずの宝箱」バグの恒久修正 — 宝箱日付解決を resolveTreasureDate に一本化
+
+### 決定内容
+- 2026-06-19 決定（宝箱集計を今日基準に切替）の追補・修正として、宝箱の日付解決ロジックを **`src/lib/treasureDate.ts` の `resolveTreasureDate(questDate, carryOver, at)` という単一の純粋関数** に一本化する
+  - `carryOver === true` かつ `questDate < jstDateOf(at)` の場合のみ `jstDateOf(at)` を返し、それ以外は `questDate` をそのまま返す
+- `src/lib/approve.ts` の private 関数 `effectiveTreasureDate`（`todayJST()` を内部で呼び直していた）を削除し、`resolveTreasureDate` に置き換える。`approveQuestInstance` / `approveSkipQuestInstance` は `at` に **`quest.reportedAt ?? new Date()`** を渡す（承認時刻ではなく報告時刻を基準にする）
+- `approveSkipQuestInstance` の引数型に `reportedAt` を追加。呼び出し元（`/api/approve/[id]`、`/api/parent/child-view/quests/[id]/skip-approve`）は手組みオブジェクトに `reportedAt` を含めるよう修正
+- `/api/quests/[id]/report`・`/api/quests/[id]/skip` は、生成時の集計基準日を `resolveTreasureDate(quest.date, carryOver, now)` から導出する（`now` と `todayJST()` を別々に呼ばない）
+- `/api/approve/[id]` の差し戻し（reject）経路も、`cancelTreasuresOnReject` の対象日付と直前の集計 `findMany` を `resolveTreasureDate(quest.date, carryOver, quest.reportedAt ?? new Date())` で統一する
+- `/api/parent/child-view/quests/[id]/report-approve` は `approveQuestInstance` に渡す `updatedQuest.reportedAt` を、実際に DB へ書き込んだ値（`quest.reportedAt ?? now`）と揃える
+
+### 理由
+- 生成時（report/skip ルート）と承認時（`approve.ts` の旧 `effectiveTreasureDate`）がそれぞれ独立して `todayJST()` を呼んで「今日」を再計算しており、`carryOver=true` のクエストで **報告日と承認日が別の暦日をまたぐ**とズレが生じていた
+- 例: 8/20 23:58 JST に報告（生成側は 8/20 基準で LOCKED 宝箱を作る）→ 8/21 に承認（承認側は `todayJST()`=8/21 で unlock を検索）→ 8/20 の LOCKED が一致せず見つからず、永久に開かずの宝箱として残る
+- 修正後は `reportedAt` という「生成時に確定した1つの事実」を承認・差し戻し時にも再利用することで、生成側・承認側で必ず同じ基準日を共有できる（再計算しない）
+
+### やってはいけないこと
+- `effectiveTreasureDate` のような private な日付再計算関数を復活させる（`resolveTreasureDate` に一本化した意味がなくなる）
+- 承認・差し戻し経路で `quest.reportedAt` を無視して `new Date()`（＝承認操作を行った時刻）だけを基準にする（reportedAt が取得できるにもかかわらずフォールバックだけ使うのは本バグの再発）
+- `approveSkipQuestInstance` へ手組みオブジェクトを渡す箇所で `reportedAt` を省略する（型上は許容されても、生成時の基準日とズレる）
+
+### 該当箇所
+- `src/lib/treasureDate.ts` — 新規。純粋関数 `resolveTreasureDate`
+- `src/lib/approve.ts` — `effectiveTreasureDate` 削除、`resolveTreasureDate` 呼び出しに統一。`approveSkipQuestInstance` の型に `reportedAt` 追加
+- `src/app/api/quests/[id]/report/route.ts` / `src/app/api/quests/[id]/skip/route.ts` — 単一の `now` から `resolveTreasureDate` 経由で集計基準日を導出
+- `src/app/api/approve/[id]/route.ts` — reject 経路（REPORTED / SKIP_REPORTED 両方）の集計・`cancelTreasuresOnReject` 呼び出しを統一
+- `src/app/api/parent/child-view/quests/[id]/report-approve/route.ts` / `src/app/api/parent/child-view/quests/[id]/skip-approve/route.ts` — `reportedAt` を DB 書き込み値と揃えて `approve.ts` に渡す
+- `src/__tests__/lib/treasureDate.test.ts` — 新規。境界値（等号・未来日・JST日付切り替わり前後）を含む単体テスト
+- `src/__tests__/lib/approve.test.ts` — `carryOver 過去日付タスクの承認 (resolveTreasureDate 経由)` セクション
+- `src/__tests__/api/approve/approve-id.test.ts` — 差し戻し経路の carryOver 過去日付テスト
+- `src/__tests__/api/cron/auto-approve-treasure-date.test.ts` — 新規。cron 経由で実装（モックなし）を通したリグレッションテスト
 
