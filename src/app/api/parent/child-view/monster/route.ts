@@ -24,12 +24,17 @@ export async function GET(request: Request) {
   }
   const child = resolved.child;
 
+  // 所持テーマ一覧（Issue #86 → #111: 家族単位所持）。familyId が無い子供は
+  // familyMonsterTheme を問い合わせず空配列にフォールバックする（undefined を where に
+  // 渡すと全家族横断で漏洩するため、必ず早期ガードする）。
   const [pendingQuests, ownedThemeRecords] = await Promise.all([
     prisma.questInstance.findMany({
       where: { childId: child.id, status: "REPORTED" },
       include: { template: true },
     }),
-    prisma.childMonsterTheme.findMany({ where: { childId: child.id } }),
+    child.familyId
+      ? prisma.familyMonsterTheme.findMany({ where: { familyId: child.familyId } })
+      : Promise.resolve([]),
   ]);
   const ownedThemes = resolveOwnedThemes(ownedThemeRecords, child.monsterSetId);
 

@@ -67,19 +67,20 @@ describe("GET /api/parent/child-view/monster", () => {
     expect(json.usedEggBonuses).toBe('["STUDY"]');
   });
 
-  // ─── Issue #86: 図鑑（Zukan）のテーマ別タブ対応 ──────────────────────
+  // ─── Issue #86 → #111: 図鑑（Zukan）のテーマ別タブ対応（家族単位所持へ移行） ──────
   // 親代理ビューの ZukanContent 再利用に monsterSetId / ownedThemes が必要。
-  // /api/monster（子供本人用）に追加済みの5件のテストと同水準のカバレッジを移植する。
-  describe("モンスターテーマ（Issue #86: 図鑑のテーマ別タブ対応）", () => {
+  // /api/monster（子供本人用）に追加済みのカバレッジを移植する。所持判定は対象の子供が
+  // 所属する家族の familyId で行う（兄弟間で共有される）。
+  describe("モンスターテーマ（Issue #111: 家族単位所持への移行）", () => {
     it("現在のmonsterSetIdと所持テーマ一覧(ownedThemes)を返すこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", monsterSetId: "light" }),
+        childUser({ id: "child-1", monsterSetId: "light", familyId: "fam-1" }),
       );
       mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([
-        { id: "cmt-1", childId: "child-1", themeId: "dark", activatedAt: new Date("2026-01-01"), grantReason: "default" },
-        { id: "cmt-2", childId: "child-1", themeId: "light", activatedAt: new Date("2026-02-01"), grantReason: "default" },
+      mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([
+        { id: "fmt-1", familyId: "fam-1", themeId: "dark", activatedAt: new Date("2026-01-01"), grantReason: "default" },
+        { id: "fmt-2", familyId: "fam-1", themeId: "light", activatedAt: new Date("2026-02-01"), grantReason: "default" },
       ]);
 
       const res = await GET(makeReq("child-1"));
@@ -89,16 +90,16 @@ describe("GET /api/parent/child-view/monster", () => {
       expect(json.ownedThemes.slice().sort()).toEqual(["dark", "light"]);
     });
 
-    it("複数テーマを過去に切り替えた履歴がある場合、現在のmonsterSetIdに関わらず全テーマがownedThemesに含まれること", async () => {
+    it("家族が所持している有料テーマ(buddha)がownedThemesに含まれること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", monsterSetId: "light" }),
+        childUser({ id: "child-1", monsterSetId: "light", familyId: "fam-1" }),
       );
       mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([
-        { id: "cmt-1", childId: "child-1", themeId: "dark", activatedAt: new Date("2026-01-01"), grantReason: "default" },
-        { id: "cmt-2", childId: "child-1", themeId: "buddha", activatedAt: new Date("2026-02-01"), grantReason: "purchase" },
-        { id: "cmt-3", childId: "child-1", themeId: "light", activatedAt: new Date("2026-03-01"), grantReason: "switch" },
+      mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([
+        { id: "fmt-1", familyId: "fam-1", themeId: "dark", activatedAt: new Date("2026-01-01"), grantReason: "default" },
+        { id: "fmt-2", familyId: "fam-1", themeId: "buddha", activatedAt: new Date("2026-02-01"), grantReason: "purchase" },
+        { id: "fmt-3", familyId: "fam-1", themeId: "light", activatedAt: new Date("2026-03-01"), grantReason: "switch" },
       ]);
 
       const res = await GET(makeReq("child-1"));
@@ -108,14 +109,14 @@ describe("GET /api/parent/child-view/monster", () => {
       expect(json.ownedThemes).toHaveLength(3);
     });
 
-    it("isFree:falseのテーマ（buddha）は、ChildMonsterThemeにレコードが無く現在テーマでもない場合はownedThemesに含まれないこと（回帰確認）", async () => {
+    it("isFree:falseのテーマ（buddha）は、FamilyMonsterThemeにレコードが無く現在テーマでもない場合はownedThemesに含まれないこと（回帰確認）", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", monsterSetId: "dark" }),
+        childUser({ id: "child-1", monsterSetId: "dark", familyId: "fam-1" }),
       );
       mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([
-        { id: "cmt-1", childId: "child-1", themeId: "dark", activatedAt: new Date("2026-01-01"), grantReason: "default" },
+      mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([
+        { id: "fmt-1", familyId: "fam-1", themeId: "dark", activatedAt: new Date("2026-01-01"), grantReason: "default" },
       ]);
 
       const res = await GET(makeReq("child-1"));
@@ -124,13 +125,13 @@ describe("GET /api/parent/child-view/monster", () => {
       expect(json.ownedThemes).not.toContain("buddha");
     });
 
-    it("isFree:trueのテーマ（dark, light）はChildMonsterThemeにレコードが無くてもownedThemesに含まれること", async () => {
+    it("isFree:trueのテーマ（dark, light）はFamilyMonsterThemeにレコードが無くてもownedThemesに含まれること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", monsterSetId: "dark" }),
+        childUser({ id: "child-1", monsterSetId: "dark", familyId: "fam-1" }),
       );
       mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([]);
+      mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([]);
 
       const res = await GET(makeReq("child-1"));
       const json = await res.json();
@@ -142,10 +143,10 @@ describe("GET /api/parent/child-view/monster", () => {
     it("現在のmonsterSetId（レコードがまだ無いケース）はisFree:falseのテーマでもownedThemesに含まれること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", monsterSetId: "buddha" }),
+        childUser({ id: "child-1", monsterSetId: "buddha", familyId: "fam-1" }),
       );
       mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([]);
+      mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([]);
 
       const res = await GET(makeReq("child-1"));
       const json = await res.json();
@@ -154,39 +155,34 @@ describe("GET /api/parent/child-view/monster", () => {
       expect(json.ownedThemes.slice().sort()).toEqual(["buddha", "dark", "light"]);
     });
 
-    it("境界値: dark→light切替済みでChildMonsterThemeにlightのレコードのみある場合でも、dark（無料テーマ）とlightの両方がownedThemesに含まれること", async () => {
+    it("FamilyMonsterThemeの検索は対象の子供が所属する家族のfamilyIdで絞り込むこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
       mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-1", monsterSetId: "light" }),
+        childUser({ id: "child-99", monsterSetId: "dark", familyId: "fam-99" }),
       );
       mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([
-        { id: "cmt-1", childId: "child-1", themeId: "light", activatedAt: new Date("2026-03-01"), grantReason: "switch" },
-      ]);
+      mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([]);
+
+      await GET(makeReq("child-99"));
+
+      expect(mockPrisma.familyMonsterTheme.findMany).toHaveBeenCalledWith({
+        where: { familyId: "fam-99" },
+      });
+    });
+
+    it("境界値: 対象の子供のfamilyIdがnullの場合、familyMonsterTheme.findManyを呼ばず、ownedThemesは無料テーマ+monsterSetIdのみになること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", monsterSetId: "dark", familyId: null }),
+      );
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
 
       const res = await GET(makeReq("child-1"));
       const json = await res.json();
 
-      expect(json.ownedThemes).toContain("dark");
-      expect(json.ownedThemes).toContain("light");
+      expect(mockPrisma.familyMonsterTheme.findMany).not.toHaveBeenCalled();
       expect(json.ownedThemes.slice().sort()).toEqual(["dark", "light"]);
-    });
-
-    it("ChildMonsterThemeの検索は対象の子供のchildIdで絞り込むこと", async () => {
-      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
-      mockPrisma.user.findFirst.mockResolvedValue(
-        childUser({ id: "child-99", monsterSetId: "dark" }),
-      );
-      mockPrisma.questInstance.findMany.mockResolvedValue([]);
-      mockPrisma.childMonsterTheme.findMany.mockResolvedValue([]);
-
-      await GET(makeReq("child-99"));
-
-      expect(mockPrisma.childMonsterTheme.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ childId: "child-99" }),
-        }),
-      );
+      expect(json.ownedThemes).not.toContain("buddha");
     });
   });
 });
