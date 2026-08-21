@@ -1,13 +1,13 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { todayJST } from "@/lib/date";
 import { approveSkipQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
+import { resolveTreasureDate } from "@/lib/treasureDate";
 
 export async function POST(
   request: Request,
@@ -49,31 +49,35 @@ export async function POST(
     return NextResponse.json({ error: "このクエストはスキップできません" }, { status: 400 });
   }
 
+  const now = new Date();
+  // reportedAt: SKIP_REPORTED から来た場合は既存値を保つ。PENDING からの即時スキップは now。
+  const reportedAt = quest.reportedAt ?? now;
+
   // 報告フィールドを書き込む。子供本人のスキップ申請と同じく comment（理由）と reportedAt を埋める。
-  // SKIP_REPORTED から来た場合は reportedAt 既存値を保つ。
   await prisma.questInstance.update({
     where: { id },
     data: {
       comment: commentText,
-      reportedAt: quest.reportedAt ?? new Date(),
+      reportedAt,
     },
   });
 
   // 親代理「即 SKIPPED」: SKIP_REPORTED を経由せず一気に SKIPPED まで確定（report-approve と同じ思想）
+  // reportedAt も実際に DB へ書き込んだ値と揃える（approveSkipQuestInstance 内の
+  // resolveTreasureDate が quest.reportedAt を基準にするため）。
   await approveSkipQuestInstance({
     id: quest.id,
     childId: child.id,
     date: quest.date,
+    reportedAt,
     template: { carryOver: !!quest.template?.carryOver },
   });
 
   // PROXY / ALL_COMPLETE 宝箱: minTasks 到達 or 全完了で即 UNLOCKED 生成（report-approve と同規約）
   // carryOver 過去日付は集計を今日基準に切り替える（子セルフ skip 経路と同じ扱い）
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
-  const today = todayJST();
-  const isCarryOverPast =
-    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
-  const aggregationDate = isCarryOverPast ? today : quest.date;
+  const aggregationDate = resolveTreasureDate(quest.date, !!quest.template?.carryOver, now);
+  const isCarryOverPast = aggregationDate.getTime() !== quest.date.getTime();
   const sameDateQuests = await prisma.questInstance.findMany({
     where: {
       childId: child.id,

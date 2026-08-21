@@ -5,6 +5,7 @@ import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
 import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { cancelTreasuresOnReject } from "@/lib/treasureService";
+import { resolveTreasureDate } from "@/lib/treasureDate";
 
 export async function POST(
   request: Request,
@@ -40,17 +41,23 @@ export async function POST(
       // - reportedCount が minTasks を割れば LOCKED 全部 CANCELLED
       // - 全完了でなくなれば ALL_COMPLETE のみ CANCELLED
       //   (再報告で生成し直されるので、最新の skippedCount に応じた boost で出る)
+      // carryOver 過去日付は生成側 (report/skip) が使った基準日 (reportedAt) と揃える。
+      const treasureDate = resolveTreasureDate(
+        quest.date,
+        quest.template.carryOver,
+        quest.reportedAt ?? new Date(),
+      );
       const todayQuests = await prisma.questInstance.findMany({
         where: {
           childId: quest.childId,
-          date: quest.date,
+          date: treasureDate,
           template: { isActive: true, pausedAt: null },
         },
         select: { status: true },
       });
       await cancelTreasuresOnReject({
         childId: quest.childId,
-        date: quest.date,
+        date: treasureDate,
         reportedCount: computeCompletedCount(todayQuests),
         totalCount: todayQuests.length,
         skippedCount: computeSkippedCount(todayQuests),
@@ -86,17 +93,23 @@ export async function POST(
     });
 
     // 差し戻し後の当日進捗を集計して、条件を割った LOCKED 宝箱を CANCELLED に
+    // carryOver 過去日付は生成側 (report/skip) が使った基準日 (reportedAt) と揃える。
+    const treasureDate = resolveTreasureDate(
+      quest.date,
+      quest.template.carryOver,
+      quest.reportedAt ?? new Date(),
+    );
     const todayQuests = await prisma.questInstance.findMany({
       where: {
         childId: quest.childId,
-        date: quest.date,
+        date: treasureDate,
         template: { isActive: true, pausedAt: null },
       },
       select: { status: true },
     });
     await cancelTreasuresOnReject({
       childId: quest.childId,
-      date: quest.date,
+      date: treasureDate,
       reportedCount: computeCompletedCount(todayQuests),
       totalCount: todayQuests.length,
       skippedCount: computeSkippedCount(todayQuests),

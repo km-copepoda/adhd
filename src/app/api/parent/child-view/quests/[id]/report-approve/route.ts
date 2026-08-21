@@ -1,13 +1,14 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { isBeforeDeadline, todayJST } from "@/lib/date";
+import { isBeforeDeadline } from "@/lib/date";
 import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
+import { resolveTreasureDate } from "@/lib/treasureDate";
 
 export async function POST(
   request: Request,
@@ -72,11 +73,14 @@ export async function POST(
   });
 
   // 既に書き込み済みの値を反映した quest オブジェクトを approveQuestInstance に渡す
+  // reportedAt も実際に DB へ書き込んだ値（既存値優先、なければ now）と揃える。
+  // approveQuestInstance 内の resolveTreasureDate が quest.reportedAt を基準にするため。
   const updatedQuest = {
     ...quest,
     deadlineBonusEarned:
       deadlineBonusEarned !== undefined ? deadlineBonusEarned : quest.deadlineBonusEarned,
     photoUrl: photoUrl ?? quest.photoUrl,
+    reportedAt: quest.reportedAt ?? now,
   };
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
@@ -87,10 +91,8 @@ export async function POST(
   // carryOver 過去日付は子セルフ report/skip と同じく集計を今日基準に切り替える
   // (quest.date=昨日 のまま集計すると今日のタスクが載らず ALL_COMPLETE 判定が壊れる)
   const minTasks = (child as unknown as { minTasksForStreak?: number }).minTasksForStreak ?? 1;
-  const today = todayJST();
-  const isCarryOverPast =
-    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
-  const aggregationDate = isCarryOverPast ? today : quest.date;
+  const aggregationDate = resolveTreasureDate(quest.date, !!quest.template?.carryOver, now);
+  const isCarryOverPast = aggregationDate.getTime() !== quest.date.getTime();
   const sameDateQuests = await prisma.questInstance.findMany({
     where: {
       childId: child.id,

@@ -1,12 +1,12 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { todayJST } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
+import { resolveTreasureDate } from "@/lib/treasureDate";
 
 export async function POST(
   request: Request,
@@ -42,12 +42,14 @@ export async function POST(
     return NextResponse.json({ error: "PENDINGまたはREJECTEDのクエストのみスキップできます" }, { status: 400 });
   }
 
+  const now = new Date();
+
   await prisma.questInstance.update({
     where: { id },
     data: {
       status: "SKIP_REPORTED",
       comment: commentText,
-      reportedAt: new Date(),
+      reportedAt: now,
       rejectionReason: null,
     },
   });
@@ -70,10 +72,8 @@ export async function POST(
 
   // 宝箱生成: スキップ申請も SKIP_REPORTED として完了扱いに含まれる。
   // carryOver の古日付スキップは今日基準に切替（report と同じ理由。詳細は report ルート参照）。
-  const today = todayJST();
-  const isCarryOverPastSkip =
-    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
-  const aggregationDate = isCarryOverPastSkip ? today : quest.date;
+  const aggregationDate = resolveTreasureDate(quest.date, !!quest.template?.carryOver, now);
+  const isCarryOverPastSkip = aggregationDate.getTime() !== quest.date.getTime();
   // template.isActive / pausedAt でフィルタして子供画面のタスク集合と揃える
   // (詳細は report ルートのコメント参照)
   const sameDateQuests = await prisma.questInstance.findMany({

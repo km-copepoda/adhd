@@ -810,5 +810,88 @@ describe("POST /api/approve/[id]", () => {
       const findManyCall = prismaMock.questInstance.findMany.mock.calls[0][0];
       expect(findManyCall?.where?.template).toEqual({ isActive: true, pausedAt: null });
     });
+
+    // Issue #108: carryOver=true の古い日付タスクを差し戻す場合、宝箱の CANCELLED 判定・
+    // 集計クエリは quest.date (スケジュール上の元日付) ではなく、報告日 (resolveTreasureDate で
+    // 解決した日付) を対象にしないと、報告日に生成された宝箱が誤った日付で検索されてしまう。
+    describe("carryOver 過去日付タスクの差し戻し (resolveTreasureDate 経由)", () => {
+      it("carryOver=true / quest.date が報告日より前 / 差し戻しは数日後 → cancelTreasuresOnReject は報告日で呼ばれること", async () => {
+        vi.useFakeTimers();
+        // 差し戻し時刻: 2026-08-22（報告日から2日後）
+        vi.setSystemTime(new Date("2026-08-22T03:00:00.000Z"));
+
+        const reportedAt = new Date("2026-08-20T05:00:00.000Z"); // JST 8/20 14:00
+        const reportDateJST = new Date("2026-08-20T00:00:00.000Z");
+        const quest = questWithTemplateAndChild(
+          {
+            id: "q-carry-rej",
+            status: "REPORTED",
+            childId: "child-1",
+            templateId: "tpl-1",
+            date: new Date("2026-08-19T00:00:00.000Z"), // スケジュール上の元日付
+            reportedAt,
+          },
+          { category: "STUDY", carryOver: true },
+          { id: "child-1", minTasksForStreak: 1, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        );
+        prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+        prismaMock.questInstance.update.mockResolvedValue(quest);
+        prismaMock.questInstance.findMany.mockResolvedValue([
+          questInstance({ status: "PENDING" }),
+          questInstance({ status: "REPORTED" }),
+        ]);
+
+        await POST(
+          makeRequest("/api/approve/q-carry-rej", { action: "reject", rejectionReason: "がんばろう" }),
+          makeParams("q-carry-rej"),
+        );
+
+        // findMany の集計クエリも報告日で行われること（現行実装は quest.date=8/19 で呼んでしまうため Red）
+        const findManyCall = prismaMock.questInstance.findMany.mock.calls[0][0];
+        expect(findManyCall?.where?.date).toEqual(reportDateJST);
+
+        expect(mockCancelTreasures).toHaveBeenCalledWith(
+          expect.objectContaining({ childId: "child-1", date: reportDateJST }),
+        );
+        vi.useRealTimers();
+      });
+
+      it("carryOver=false は差し戻しが何日後でも cancelTreasuresOnReject は常に quest.date のまま", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-08-28T03:00:00.000Z"));
+
+        const oldDate = new Date("2026-08-19T00:00:00.000Z");
+        const quest = questWithTemplateAndChild(
+          {
+            id: "q-noncarry-rej",
+            status: "REPORTED",
+            childId: "child-1",
+            templateId: "tpl-1",
+            date: oldDate,
+            reportedAt: new Date("2026-08-19T05:00:00.000Z"),
+          },
+          { category: "STUDY", carryOver: false },
+          { id: "child-1", minTasksForStreak: 1, studyPt: 0, staminaPt: 0, lifePt: 0 },
+        );
+        prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+        prismaMock.questInstance.update.mockResolvedValue(quest);
+        prismaMock.questInstance.findMany.mockResolvedValue([
+          questInstance({ status: "PENDING" }),
+          questInstance({ status: "REPORTED" }),
+        ]);
+
+        await POST(
+          makeRequest("/api/approve/q-noncarry-rej", { action: "reject", rejectionReason: "がんばろう" }),
+          makeParams("q-noncarry-rej"),
+        );
+
+        const findManyCall = prismaMock.questInstance.findMany.mock.calls[0][0];
+        expect(findManyCall?.where?.date).toEqual(oldDate);
+        expect(mockCancelTreasures).toHaveBeenCalledWith(
+          expect.objectContaining({ childId: "child-1", date: oldDate }),
+        );
+        vi.useRealTimers();
+      });
+    });
   });
 });

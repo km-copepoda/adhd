@@ -12,6 +12,7 @@ import { triggerMonsterEvolvedLog, triggerBadgeLog } from "@/lib/bulletinLog";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { todayJST, jstDateOf } from "@/lib/date";
 import { unlockTreasuresOnApprove } from "@/lib/treasureService";
+import { resolveTreasureDate } from "@/lib/treasureDate";
 
 export type QuestWithRelations = {
   id: string;
@@ -194,8 +195,12 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
   }
 
   // 同日の LOCKED 宝箱を UNLOCKED に。0個でも安全 (updateMany)
-  // carryOver 過去日付は生成側 (2026-06-19) に合わせて今日基準で検索する。
-  await unlockTreasuresOnApprove(quest.childId, effectiveTreasureDate(quest.date, quest.template.carryOver));
+  // carryOver 過去日付は生成側 (report/skip) が使った基準日 (reportedAt) と揃える。
+  // reportedAt が無い場合（親代理の即承認など）は承認時刻にフォールバックする。
+  await unlockTreasuresOnApprove(
+    quest.childId,
+    resolveTreasureDate(quest.date, quest.template.carryOver, quest.reportedAt ?? new Date()),
+  );
 
   // バッジ解除チェック + 掲示板ログ — レスポンス送信後に after() で実行
   after(() =>
@@ -210,7 +215,7 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
 }
 
 export async function approveSkipQuestInstance(
-  quest: Pick<QuestWithRelations, "id" | "childId" | "date"> & {
+  quest: Pick<QuestWithRelations, "id" | "childId" | "date" | "reportedAt"> & {
     template: Pick<QuestWithRelations["template"], "carryOver">;
   },
 ): Promise<void> {
@@ -221,17 +226,6 @@ export async function approveSkipQuestInstance(
   await recordDailyAchievement(quest.childId, quest.date);
   await unlockTreasuresOnApprove(
     quest.childId,
-    effectiveTreasureDate(quest.date, quest.template.carryOver),
+    resolveTreasureDate(quest.date, quest.template.carryOver, quest.reportedAt ?? new Date()),
   );
-}
-
-/**
- * 承認時の宝箱 unlock 対象日付を返す。
- * carryOver=true かつ quest.date が今日より過去なら「今日」を返す
- * (生成側 2026-06-19 の集計切替と揃える)。それ以外は quest.date そのまま。
- */
-function effectiveTreasureDate(questDate: Date, carryOver: boolean): Date {
-  const today = todayJST();
-  if (carryOver && questDate.getTime() < today.getTime()) return today;
-  return questDate;
 }

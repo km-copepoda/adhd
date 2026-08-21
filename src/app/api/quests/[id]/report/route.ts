@@ -1,12 +1,13 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { isBeforeDeadline, todayJST } from "@/lib/date";
+import { isBeforeDeadline } from "@/lib/date";
 import { sendPushToParent } from "@/lib/push";
 import { routeLogger } from "@/lib/logger";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
+import { resolveTreasureDate } from "@/lib/treasureDate";
 
 export async function POST(
   request: Request,
@@ -86,10 +87,10 @@ export async function POST(
   // ALL_COMPLETE が古日付で生成される」というバグになる。古日付 carryOver 報告は今日の
   // 行動として扱い、宝箱の date と集計も今日基準に切替える。carryOver 自身は別日付に
   // 紐づくため findMany には含まれず、別途 1件として加算する。
-  const today = todayJST();
-  const isCarryOverPastReport =
-    !!quest.template?.carryOver && quest.date.getTime() < today.getTime();
-  const aggregationDate = isCarryOverPastReport ? today : quest.date;
+  // 単一の now から基準日を導出する（JST 深夜0時をまたぐ理論上のズレを防ぐため、
+  // 別途 todayJST() を呼び直さない。承認時 (approve.ts) と同じ resolveTreasureDate を使う）。
+  const aggregationDate = resolveTreasureDate(quest.date, !!quest.template?.carryOver, now);
+  const isCarryOverPastReport = aggregationDate.getTime() !== quest.date.getTime();
   // template.isActive / pausedAt でフィルタして「子供画面 (/api/quests/today) に映る
   // タスク集合」と揃える。親がテンプレを pause / 無効化した後もインスタンスは残るため、
   // フィルタしないと「見えない幽霊タスク」で totalCount が水増しされ ALL_COMPLETE が
