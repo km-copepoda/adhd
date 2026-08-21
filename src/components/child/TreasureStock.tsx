@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TreasureOpenCutscene from "./TreasureOpenCutscene";
 
 interface TreasureOpenResult {
@@ -22,10 +22,17 @@ interface StatusResponse {
   unlocked: number;
 }
 
-export default function TreasureStock() {
+interface Props {
+  /** "pill"（既定）: 従来の丸ピル表示。"card": QuestStatusCard 内スロット用の見た目。 */
+  variant?: "pill" | "card";
+}
+
+export default function TreasureStock({ variant = "pill" }: Props = {}) {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [opening, setOpening] = useState(false);
   const [result, setResult] = useState<TreasureOpenResult | null>(null);
+  // setOpening は非同期に反映されるため、連打時の二重POSTを防ぐには同期的なrefガードが必要
+  const openingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -43,8 +50,9 @@ export default function TreasureStock() {
   }, [refresh]);
 
   const handleOpen = async () => {
-    if (opening) return;
+    if (openingRef.current) return;
     if (!status || status.unlocked <= 0) return;
+    openingRef.current = true;
     setOpening(true);
     try {
       const res = await fetch("/api/treasures/open", { method: "POST" });
@@ -55,6 +63,7 @@ export default function TreasureStock() {
       // BottomNav バッジを即時更新するため通知
       window.dispatchEvent(new CustomEvent("treasure-changed"));
     } finally {
+      openingRef.current = false;
       setOpening(false);
     }
   };
@@ -76,9 +85,14 @@ export default function TreasureStock() {
     );
   }
 
+  const wrapperClassName =
+    variant === "card"
+      ? "flex items-center gap-2 rounded-lg bg-quest-card border border-quest-border px-3 py-1.5 text-sm"
+      : "flex items-center gap-2 rounded-full bg-quest-card px-3 py-1.5 text-sm shadow-md";
+
   return (
     <>
-      <div className="flex items-center gap-2 rounded-full bg-quest-bg-paper/90 px-3 py-1.5 text-sm shadow-md">
+      <div className={wrapperClassName}>
         <span className="flex items-center gap-1">
           <span aria-hidden>🔒</span>
           <span className="font-bold tabular-nums">{status.locked}</span>
