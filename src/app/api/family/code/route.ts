@@ -12,18 +12,20 @@ export async function GET() {
       return NextResponse.json({ code: null, members: [] });
     }
 
-    const family = await prisma.family.findUnique({
-      where: { id: user.familyId },
-      include: {
-        users: {
-          orderBy: { createdAt: "asc" },
-          include: {
-            streak: { select: { lastLoginDate: true } },
-            monsterThemes: { select: { themeId: true } },
+    const [family, ownedThemeRecords] = await Promise.all([
+      prisma.family.findUnique({
+        where: { id: user.familyId },
+        include: {
+          users: {
+            orderBy: { createdAt: "asc" },
+            include: {
+              streak: { select: { lastLoginDate: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.familyMonsterTheme.findMany({ where: { familyId: user.familyId } }),
+    ]);
 
     const members = (family?.users || []).map((u: Record<string, unknown>) => ({
       id: u.id,
@@ -50,7 +52,7 @@ export async function GET() {
         ? String((u.streak as { lastLoginDate: Date | null }).lastLoginDate)
         : null,
       ownedThemes: resolveOwnedThemes(
-        u.monsterThemes as { themeId: string }[] | undefined,
+        ownedThemeRecords,
         (u.monsterSetId as string | null) ?? null,
       ),
     }));

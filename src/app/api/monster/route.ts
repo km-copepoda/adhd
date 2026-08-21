@@ -10,13 +10,17 @@ export async function GET() {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
 
-  // 承認待ち（REPORTED）クエストのXPをカテゴリ別に集計 と 所持テーマ一覧（Issue #86）を並列取得
+  // 承認待ち（REPORTED）クエストのXPをカテゴリ別に集計 と 所持テーマ一覧（Issue #86 → #111:
+  // 家族単位所持）を並列取得。familyId が無いユーザーは familyMonsterTheme を問い合わせず
+  // 空配列にフォールバックする（undefined を where に渡すと全家族横断で漏洩するため）。
   const [pendingQuests, ownedThemeRecords] = await Promise.all([
     prisma.questInstance.findMany({
       where: { childId: user.id, status: "REPORTED" },
       include: { template: true },
     }),
-    prisma.childMonsterTheme.findMany({ where: { childId: user.id } }),
+    user.familyId
+      ? prisma.familyMonsterTheme.findMany({ where: { familyId: user.familyId } })
+      : Promise.resolve([]),
   ]);
   const ownedThemes = resolveOwnedThemes(ownedThemeRecords, user.monsterSetId);
 

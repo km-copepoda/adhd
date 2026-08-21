@@ -3,7 +3,7 @@ import { POST } from "@/app/api/rebirth/route";
 import { getCurrentUser } from "@/lib/auth";
 import { checkAndUnlockBadges } from "@/lib/badges";
 import { triggerBadgeLog } from "@/lib/bulletinLog";
-import { activateChildTheme } from "@/lib/monsterThemes";
+import { activateFamilyTheme } from "@/lib/monsterThemes";
 import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
 import { childUser, childUserWithFamily, parentUserWithFamily } from "../../helpers/fixtures";
 import { makeRequest } from "../../helpers/request";
@@ -25,13 +25,13 @@ vi.mock("@/lib/bulletinLog", async () => {
 });
 
 vi.mock("@/lib/monsterThemes", () => ({
-  activateChildTheme: vi.fn().mockResolvedValue(undefined),
+  activateFamilyTheme: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockCheckAndUnlockBadges = vi.mocked(checkAndUnlockBadges);
 const mockTriggerBadgeLog = vi.mocked(triggerBadgeLog);
-const mockActivateChildTheme = vi.mocked(activateChildTheme);
+const mockActivateFamilyTheme = vi.mocked(activateFamilyTheme);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -246,13 +246,16 @@ describe("POST /api/rebirth", () => {
     expect(mockTriggerBadgeLog).toHaveBeenCalledWith("child-1", "卵えらびマスター");
   });
 
-  // Issue #85: 転生実行時に pendingMonsterSetId を monsterSetId へ反映する
-  describe("pendingMonsterSetId の反映（モンスターテーマセット Stage2）", () => {
+  // Issue #85 / #111: 転生実行時に pendingMonsterSetId を monsterSetId へ反映する。
+  // モンスターテーマの所持記録は家族単位（FamilyMonsterTheme）で行うため、
+  // activateFamilyTheme は childId ではなく子供が所属する家族の familyId で呼ばれる。
+  describe("pendingMonsterSetId の反映（モンスターテーマセット Stage2、家族単位所持へ移行）", () => {
     it("pendingMonsterSetIdが設定されている場合、monsterSetIdに反映されpendingMonsterSetIdがクリアされること", async () => {
       mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1" }));
       mockPrisma.user.findUnique.mockResolvedValue(
         childUser({
           id: "child-1",
+          familyId: "fam-1",
           rebirthPending: true,
           usedEggBonuses: "[]",
           pendingMonsterSetId: "buddha",
@@ -275,11 +278,12 @@ describe("POST /api/rebirth", () => {
       );
     });
 
-    it("pendingMonsterSetIdが設定されている場合、activateChildThemeが呼ばれること", async () => {
+    it("pendingMonsterSetIdが設定されている場合、activateFamilyThemeが子供の所属するfamilyIdで呼ばれること", async () => {
       mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1" }));
       mockPrisma.user.findUnique.mockResolvedValue(
         childUser({
           id: "child-1",
+          familyId: "fam-1",
           rebirthPending: true,
           usedEggBonuses: "[]",
           pendingMonsterSetId: "buddha",
@@ -292,7 +296,8 @@ describe("POST /api/rebirth", () => {
       expect(res.status).toBe(200);
       await new Promise(r => setImmediate(r));
 
-      expect(mockActivateChildTheme).toHaveBeenCalledWith("child-1", "buddha", "manual");
+      // childId ("child-1") ではなく familyId ("fam-1") が渡ること
+      expect(mockActivateFamilyTheme).toHaveBeenCalledWith("fam-1", "buddha", "manual");
     });
 
     it("pendingMonsterSetIdが未設定(null)の場合、monsterSetId/pendingMonsterSetIdを変更しないこと", async () => {
@@ -300,6 +305,7 @@ describe("POST /api/rebirth", () => {
       mockPrisma.user.findUnique.mockResolvedValue(
         childUser({
           id: "child-1",
+          familyId: "fam-1",
           rebirthPending: true,
           usedEggBonuses: "[]",
           pendingMonsterSetId: null,
@@ -316,11 +322,12 @@ describe("POST /api/rebirth", () => {
       expect(updateCall.data).not.toHaveProperty("pendingMonsterSetId");
     });
 
-    it("pendingMonsterSetIdが未設定(null)の場合、activateChildThemeが呼ばれないこと", async () => {
+    it("pendingMonsterSetIdが未設定(null)の場合、activateFamilyThemeが呼ばれないこと", async () => {
       mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1" }));
       mockPrisma.user.findUnique.mockResolvedValue(
         childUser({
           id: "child-1",
+          familyId: "fam-1",
           rebirthPending: true,
           usedEggBonuses: "[]",
           pendingMonsterSetId: null,
@@ -333,7 +340,30 @@ describe("POST /api/rebirth", () => {
       expect(res.status).toBe(200);
       await new Promise(r => setImmediate(r));
 
-      expect(mockActivateChildTheme).not.toHaveBeenCalled();
+      expect(mockActivateFamilyTheme).not.toHaveBeenCalled();
+    });
+
+    it("境界値: familyIdがnullの子供の場合、activateFamilyThemeを呼ばず、転生処理自体は成功すること（after()内で例外を出さない）", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1" }));
+      mockPrisma.user.findUnique.mockResolvedValue(
+        childUser({
+          id: "child-1",
+          familyId: null,
+          rebirthPending: true,
+          usedEggBonuses: "[]",
+          pendingMonsterSetId: "buddha",
+        }),
+      );
+      mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+      const req = makeRequest("/api/rebirth", { eggType: "STUDY" });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json).toEqual({ ok: true });
+      await new Promise(r => setImmediate(r));
+
+      expect(mockActivateFamilyTheme).not.toHaveBeenCalled();
     });
   });
 });

@@ -2792,3 +2792,28 @@
 - `src/components/child/TreasureStock.tsx` — `variant?: "pill" | "card"` を追加、連打防止の同期ガード（`useRef`）を追加
 - `src/app/app/child/quests/page.tsx` — レイアウト組み替え（`CheckinPill` → ヘッダー → 締切バナー → `QuestStatusCard` → `MonsterMiniCard` → 報告ヒント → クエストリスト）
 
+## 2026-08-21: モンスターテーマ所持記録を子供単位（`ChildMonsterTheme`）から家族単位（`FamilyMonsterTheme`）へ移行する（2026-08-18決定の補足、Issue #111）
+
+### 決定内容
+- 2026-08-18決定（モンスターテーマセット機能 Stage 1）で導入した所持記録テーブルを、`ChildMonsterTheme`（`childId` + `themeId` 一意）から `FamilyMonsterTheme`（`familyId` + `themeId` 一意）へ置き換えた
+- `activateChildTheme(childId, ...)` を廃止し `activateFamilyTheme(familyId, ...)` に統一。呼び出し元（`src/app/api/family/members/[id]/monster-theme/route.ts`・`src/app/api/rebirth/route.ts`）は childId ではなく親/子供が所属する家族の `familyId` を渡すように変更した
+- 有料テーマの所持チェック（`familyMonsterTheme.findUnique`）・図鑑の `ownedThemes` 算出（`familyMonsterTheme.findMany`）も同様に家族単位のクエリに置き換えた。`familyId` が null のユーザーは所持クエリ自体を呼ばず空配列にフォールバックする（`familyId: undefined` を where に渡すと条件が無視され全家族横断で漏洩するため、必ず早期ガードする）
+- 表示中テーマ（`monsterSetId`）の仕組み・**転生時のみ切替可能**というルールは変更しない。変わるのは「所持」の母集団が子供単位から家族単位になった点のみ
+- 旧 `ChildMonsterTheme` テーブルは新規マイグレーション（`prisma/migrations/20260821000001_move_monster_theme_ownership_to_family/`）でデータ移送（兄弟重複は `activatedAt` 最古を採用しつつ `ON CONFLICT DO NOTHING` で吸収）後に DROP した
+
+### 理由
+- 親が購入したテーマは家族の子供全員が使えるべきであり、子供を追加するたびに個別付与が必要な現行設計（子供単位所持）はユーザー体験・運用コストの両面で問題があった
+- 本番の `ChildMonsterTheme` は移行時点で0件であることを確認済みのため実データ移行のリスクは無いが、将来同様の移行が発生した場合に備えてデータ移送ロジック自体は正しく実装した
+
+### やってはいけないこと
+- 所持チェック・所持一覧取得を `childId` 基準のクエリに戻す（兄弟間でテーマ所持が共有されなくなる）
+- `familyId` が undefined/null の可能性があるユーザーに対して、null ガードせず `familyMonsterTheme` の where に渡す（全家族横断の漏洩に繋がる）
+- 表示中テーマの切り替えタイミング（転生時のみ）や `monsterSetId`/`pendingMonsterSetId` の仕組み自体を今回の移行のついでに変更する
+
+### 該当箇所
+- `prisma/schema.prisma` — `FamilyMonsterTheme` モデル（`ChildMonsterTheme` は削除済み）
+- `prisma/migrations/20260821000001_move_monster_theme_ownership_to_family/` — テーブル作成・データ移送・旧テーブルDROP
+- `src/lib/monsterThemes.ts` — `activateFamilyTheme()`
+- `src/lib/monsterThemes/ownedThemes.ts` — `resolveOwnedThemes()`（ロジック自体は不変、呼び出し元が渡すレコードの母集団のみ変更）
+- `src/app/api/family/members/[id]/monster-theme/route.ts` / `src/app/api/family/code/route.ts` / `src/app/api/monster/route.ts` / `src/app/api/parent/child-view/monster/route.ts` / `src/app/api/rebirth/route.ts` — 呼び出し元の更新
+
