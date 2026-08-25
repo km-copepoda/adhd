@@ -166,7 +166,7 @@ export default function ZukanContent({
       {/* ── アクティブテーマのパネル（非アクティブなタブの内容はアンマウント） ── */}
       <div key={activeTheme} data-testid={`zukan-theme-panel-${activeTheme}`}>
         {/* ── 卵 ── */}
-        <ZukanEggSection eggData={eggData} usedEggs={usedEggs} />
+        <ZukanEggSection eggData={eggData} usedEggs={usedEggs} monsterSetId={activeTheme} />
 
         {/* ── 3系統ブランチ ── */}
         {stage1Keys.map((s1) => (

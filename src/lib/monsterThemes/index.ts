@@ -17,6 +17,10 @@ export type MonsterThemeDefinition = {
   eggImage: string;
   table: Record<string, { image: string; name: string; description: string }>;
   isFree: boolean;
+  /** 転生卵選択ボーナス（STUDY/STAMINA/LIFE）の画像。
+   *  未定義のテーマは既定の egg-study/egg-stamina/egg-life 画像にフォールバックする
+   *  （@/lib/monsterThemes/eggs の getRebirthEggImage 参照）。 */
+  rebirthEggImages?: Record<"STUDY" | "STAMINA" | "LIFE", string>;
 };
 
 export const MONSTER_THEMES: Record<string, MonsterThemeDefinition> = {
@@ -46,5 +50,10 @@ export const MONSTER_THEMES: Record<string, MonsterThemeDefinition> = {
     eggImage: BUDDHA_EGG_STAGE.image,
     table: BUDDHA_TABLE,
     isFree: false,
+    rebirthEggImages: {
+      STUDY: "/monsters/buddha/egg-stone.webp",
+      STAMINA: "/monsters/buddha/egg-stone.webp",
+      LIFE: "/monsters/buddha/egg-stone.webp",
+    },
   },
 };

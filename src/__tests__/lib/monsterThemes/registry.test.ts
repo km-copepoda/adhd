@@ -53,11 +53,30 @@ describe("MONSTER_THEMES registry", () => {
     expect(Object.keys(MONSTER_THEMES.buddha.table).sort()).toEqual(Object.keys(BUDDHA_TABLE).sort());
   });
 
-  it("buddha の eggImage が /monsters/buddha/egg.webp であること", () => {
-    expect(MONSTER_THEMES.buddha.eggImage).toBe("/monsters/buddha/egg.webp");
+  it("buddha の eggImage が /monsters/buddha/egg-stone.webp であること（Issue #115: いしのたまご化）", () => {
+    expect(MONSTER_THEMES.buddha.eggImage).toBe("/monsters/buddha/egg-stone.webp");
   });
 
   it("存在しないテーマidにアクセスした場合は undefined であること", () => {
     expect(MONSTER_THEMES["nonexistent-theme"]).toBeUndefined();
+  });
+
+  // ─── Issue #115: 転生卵（rebirthEggImages）のテーマ追従 ──────────────────
+  describe("rebirthEggImages（Issue #115）", () => {
+    it("buddha の rebirthEggImages の STUDY/STAMINA/LIFE すべてが /monsters/buddha/egg-stone.webp であること", () => {
+      expect(MONSTER_THEMES.buddha.rebirthEggImages).toEqual({
+        STUDY: "/monsters/buddha/egg-stone.webp",
+        STAMINA: "/monsters/buddha/egg-stone.webp",
+        LIFE: "/monsters/buddha/egg-stone.webp",
+      });
+    });
+
+    it("dark は rebirthEggImages が未定義であること（既定マップへのフォールバック確認用）", () => {
+      expect(MONSTER_THEMES.dark.rebirthEggImages).toBeUndefined();
+    });
+
+    it("light は rebirthEggImages が未定義であること（既定マップへのフォールバック確認用）", () => {
+      expect(MONSTER_THEMES.light.rebirthEggImages).toBeUndefined();
+    });
   });
 });
