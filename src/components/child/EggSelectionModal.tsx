@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
+import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
 
 const EGG_OPTIONS = [
   {
@@ -56,7 +57,7 @@ export default function EggSelectionModal({ monsterSetId, loading, onSelect, onC
       </p>
       <div className="flex flex-col gap-3 w-full max-w-sm">
         {EGG_OPTIONS.map(({ type, name, img, desc, color }) => {
-          const eggImg = img || normalEggImage;
+          const eggImg = getRebirthEggImage(type, monsterSetId) ?? (img || normalEggImage);
           return (
             <button
               key={type}

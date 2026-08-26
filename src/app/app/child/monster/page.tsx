@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo } from "@/lib/evolution";
+import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EggSelectionModal from "@/components/child/EggSelectionModal";
 import CutsceneOverlay from "@/components/child/CutsceneOverlay";
@@ -11,13 +12,6 @@ import EvolutionProgressCard from "@/components/child/EvolutionProgressCard";
 import StreakCard from "@/components/child/StreakCard";
 import ParameterCardList from "@/components/child/ParameterCardList";
 import { useMonsterStatus } from "@/hooks/useMonsterStatus";
-
-/** rebirthEggBonus -> 卵画像のマッピング */
-const EGG_BONUS_IMAGE: Record<string, string> = {
-  STUDY: "/monsters/egg-study.webp",
-  STAMINA: "/monsters/egg-stamina.webp",
-  LIFE: "/monsters/egg-life.webp",
-};
 
 export default function MonsterPage() {
   const {
@@ -74,9 +68,10 @@ export default function MonsterPage() {
   const isReborn = (JSON.parse(data.collectedPaths) as string[]).length > 0;
   const xpInfo = getXpInfo(data.evolutionStage, data.evolutionPath, data.studyPt, data.staminaPt, data.lifePt, isReborn, data.rebirthEggBonus);
   const monsterBase = getMonsterStage(data.evolutionStage, data.evolutionPath, data.monsterSetId ?? themeIdFromSide(data.side));
-  // 転生後の卵は選択した卵タイプの画像を表示する
-  const monster = data.evolutionStage === 0 && data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
-    ? { ...monsterBase, image: EGG_BONUS_IMAGE[data.rebirthEggBonus] }
+  // 転生後の卵は選択した卵タイプの画像を表示する（テーマに応じた画像は getRebirthEggImage が解決する）
+  const rebirthEggImage = data.evolutionStage === 0 ? getRebirthEggImage(data.rebirthEggBonus, data.monsterSetId) : null;
+  const monster = rebirthEggImage
+    ? { ...monsterBase, image: rebirthEggImage }
     : monsterBase;
   const total = data.studyPt + data.staminaPt + data.lifePt;
 
@@ -92,9 +87,8 @@ export default function MonsterPage() {
 
       {/* Rebirth cut-in overlay */}
       {reborn && (() => {
-        const eggImg = data.rebirthEggBonus && EGG_BONUS_IMAGE[data.rebirthEggBonus]
-          ? EGG_BONUS_IMAGE[data.rebirthEggBonus]
-          : getMonsterStage(0, "", data.monsterSetId ?? themeIdFromSide(data.side)).image;
+        const eggImg = getRebirthEggImage(data.rebirthEggBonus, data.monsterSetId)
+          ?? getMonsterStage(0, "", data.monsterSetId ?? themeIdFromSide(data.side)).image;
         return (
           <CutsceneOverlay
             onClose={() => setReborn(false)}

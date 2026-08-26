@@ -98,3 +98,44 @@ describe("EggSelectionModal: 現在のテーマの卵画像を表示すること
     expect(img.getAttribute("src")).toBe(MONSTER_THEMES.dark.eggImage);
   });
 });
+
+// Issue #115: 仏様テーマの転生卵を「いしのたまご」にし、STUDY/STAMINA/LIFE の卵画像も
+// monsterSetId に応じて動的に決まるようにする。
+// 期待するUI契約（implementer 実装時の参照用）:
+//  - 「勉強の卵」「体力の卵」「生活力の卵」の画像も @/lib/monsterThemes/eggs の
+//    getRebirthEggImage(eggType, monsterSetId) から解決する
+//  - buddha テーマでは4つ（NORMAL含む）すべて /monsters/buddha/egg-stone.webp になる
+//  - dark/light テーマでは従来通りの固定パス（/monsters/egg-study.webp 等）のまま
+describe("EggSelectionModal: STUDY/STAMINA/LIFE 卵画像のテーマ追従（Issue #115）", () => {
+  it("monsterSetId='buddha' の場合、NORMAL/STUDY/STAMINA/LIFE すべての卵画像がいしのたまごであること", () => {
+    render(
+      <EggSelectionModal
+        monsterSetId="buddha"
+        loading={false}
+        onSelect={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    const stoneEgg = "/monsters/buddha/egg-stone.webp";
+    expect((screen.getByAltText("ふつうの卵") as HTMLImageElement).getAttribute("src")).toBe(stoneEgg);
+    expect((screen.getByAltText("勉強の卵") as HTMLImageElement).getAttribute("src")).toBe(stoneEgg);
+    expect((screen.getByAltText("体力の卵") as HTMLImageElement).getAttribute("src")).toBe(stoneEgg);
+    expect((screen.getByAltText("生活力の卵") as HTMLImageElement).getAttribute("src")).toBe(stoneEgg);
+  });
+
+  it("回帰確認: monsterSetId='dark' の場合、STUDY/STAMINA/LIFE の卵画像は従来通りの固定パスのままであること", () => {
+    render(
+      <EggSelectionModal
+        monsterSetId="dark"
+        loading={false}
+        onSelect={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect((screen.getByAltText("勉強の卵") as HTMLImageElement).getAttribute("src")).toBe("/monsters/egg-study.webp");
+    expect((screen.getByAltText("体力の卵") as HTMLImageElement).getAttribute("src")).toBe("/monsters/egg-stamina.webp");
+    expect((screen.getByAltText("生活力の卵") as HTMLImageElement).getAttribute("src")).toBe("/monsters/egg-life.webp");
+  });
+});

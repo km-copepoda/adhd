@@ -3,7 +3,7 @@
 // 画像は public/monsters/buddha/ 配下の実ファイル名と完全一致させること。
 
 export const EGG_STAGE = {
-  image: "/monsters/buddha/egg.webp",
+  image: "/monsters/buddha/egg-stone.webp",
   name: "たまご",
   ptToEvolve: 1,
   description: "ほのかに金色の光をまとった、とくべつなたまご。中から何が生まれるのかな？",
