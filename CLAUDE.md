@@ -255,10 +255,11 @@ const parent = await requireUser("PARENT");
 |---|--------------|------|----------------|
 | 0 | `issue-planner` | ユーザーの雑な指示を目的・背景・実装方針・影響範囲・テスト要件・エッジケースまで深掘りし `gh issue create`（Issue自動着手パイプライン用。通常の対話フローでは不要） | Issue化されていない指示を Issue 自動着手パイプラインに乗せたい場合のみ |
 | 1 | `policy-checker` | `docs/decisions.md` / `CLAUDE.md` 参照、方針衝突・非標準アプローチ検出 | タスク着手時（必ず最初） |
-| 2 | `test-writer` | TDD Red: `src/__tests__/` に失敗テストを書く | `policy-checker` が OK / ユーザー確認後 |
-| 3 | `implementer` | TDD Green + Refactor: 最小実装 → 規約準拠に整理 | `test-writer` の失敗テスト取得後 |
-| 4 | `code-reviewer` | プロジェクト規約に照らして最終レビュー | `implementer` 完了後、PR 前 |
-| 5 | `pr-submitter` | ブランチ作成・コミット・push・PR 作成 | `code-reviewer` が APPROVED を出した後のみ |
+| 2 | `codex-design-review` | `.claude/commands/codex-design-review.md` のコマンド（専用サブエージェントは作らない）。設計ドキュメントをローカル `codex` CLI に渡し、既存コードとの整合性・実現可能性をレビューさせる。結果は対象 Issue にコメントで記録 | `policy-checker` が OK を返した後、`src/` のロジック/スキーマ変更を含むタスクで設計を凍結する前 |
+| 3 | `test-writer` | TDD Red: `src/__tests__/` に失敗テストを書く | `policy-checker` が OK / ユーザー確認後 |
+| 4 | `implementer` | TDD Green + Refactor: 最小実装 → 規約準拠に整理 | `test-writer` の失敗テスト取得後 |
+| 5 | `code-reviewer` | プロジェクト規約に照らして最終レビュー | `implementer` 完了後、PR 前 |
+| 6 | `pr-submitter` | ブランチ作成・コミット・push・PR 作成 | `code-reviewer` が APPROVED を出した後のみ |
 
 ### 基本フロー
 
@@ -266,12 +267,22 @@ const parent = await requireUser("PARENT");
 指示受領
   → policy-checker
   → (NEEDS_CONFIRMATION ならユーザーに確認、OK なら次へ)
+  → codex-design-review（設計レビュー。要再設計なら設計ステップへ戻る、最大5反復）
   → test-writer (Red)
   → implementer (Green + Refactor)
   → code-reviewer (APPROVED か CHANGES_REQUESTED)
   → (CHANGES_REQUESTED なら implementer に戻る)
   → pr-submitter
 ```
+
+### 設計レビュー工程（codex-design-review）
+
+`codex-design-review`（#2）は実装後の `code-reviewer` とは別物で、**設計を凍結する前**にローカル `codex` CLI（別系統モデル）へ設計ドキュメントを渡し、既存コードとの整合性・実現可能性を検証する工程。詳細は `.claude/commands/codex-design-review.md` を参照。
+
+- **対象**: `src/` のロジック変更・スキーマ（Prisma schema）変更を含むタスク
+- **スキップ可**: 1行バグ修正、ドキュメント/設定ファイルのみの変更、`.claude/` 配下のみの変更
+- **「要再設計」判定時**（設計の前提が破綻、既存アーキテクチャと衝突）は Claude の設計ステップへ戻す。反復上限は **5回**。5回で「実現可能」に収束しない場合は中断し、人間の判断を仰ぐ（`auto:blocked` 相当）
+- `codex` CLI が未インストールの環境ではこの工程をスキップし、その旨を Issue にコメントして先へ進む
 
 ### スキップしてよい場合
 
@@ -285,6 +296,8 @@ const parent = await requireUser("PARENT");
 `code-reviewer` を通した後、`pr-submitter` に進む前に `docs/decisions.md` に決定理由を1エントリ追記する。追記フォーマットは同ファイルの既存エントリに準拠。
 
 ### Codex レビューの自動反復
+
+これは **実装後（PR 作成後）のレビュー** の自動反復であり、設計前レビューの `codex-design-review`（#2）とは別物。`codex-design-review` は設計凍結前に設計ドキュメントを検証する工程、こちらは PR に付いた Codex の指摘を実コードへ反映する工程。
 
 `pr-submitter` が `@codex review Please review in Japanese.` を投稿した後、`/loop /codex-followup` を実行すると Codex のレビュー取得 → 対応 → 再依頼を最大 20 反復まで自動で回せる。詳細は `.claude/commands/codex-followup.md` を参照。指摘は UI / ロジック・パフォーマンス / QA の3カテゴリに判定した上で `implementer` に重点確認事項を注入する（専用エージェントには分けない）。
 
