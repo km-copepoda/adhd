@@ -152,8 +152,8 @@ describe("getMonsterMiniData", () => {
     expect(result.monsterName).toBe("ルミナ");
   });
 
-  // ─── Issue #115: buddha テーマの転生卵（いしのたまご）画像 ──────────────
-  it("rebirthEggBonus=STAMINA + monsterSetId='buddha' の場合、stage0 でいしのたまご画像を返す", () => {
+  // ─── Issue #115 → #119: buddha テーマの転生卵（カテゴリ卵は色卵に戻す） ──
+  it("rebirthEggBonus=STAMINA + monsterSetId='buddha' の場合、stage0 で既定の体力の卵画像を返す（Issue #119: 色卵に戻す）", () => {
     const result = getMonsterMiniData({
       ...base,
       evolutionStage: 0,
@@ -161,7 +161,7 @@ describe("getMonsterMiniData", () => {
       rebirthEggBonus: "STAMINA",
       monsterSetId: "buddha",
     });
-    expect(result.image).toBe("/monsters/buddha/egg-stone.webp");
+    expect(result.image).toBe("/monsters/egg-stamina.webp");
   });
 
   it("rebirthEggBonus=null + monsterSetId='buddha'（通常卵）の場合も、stage0 でいしのたまご画像を返す", () => {

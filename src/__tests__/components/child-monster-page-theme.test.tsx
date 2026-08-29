@@ -139,9 +139,15 @@ describe("子 育成ページ: モンスターテーマ解決（Issue #100）", 
   });
 });
 
-describe("子 育成ページ: 転生卵ボーナスのテーマ解決（Issue #115）", () => {
+describe("子 育成ページ: 転生卵ボーナスのテーマ解決（Issue #115 → #119で色卵に戻す）", () => {
+  const DEFAULT_EGG_IMAGE: Record<"STUDY" | "STAMINA" | "LIFE", string> = {
+    STUDY: "/monsters/egg-study.webp",
+    STAMINA: "/monsters/egg-stamina.webp",
+    LIFE: "/monsters/egg-life.webp",
+  };
+
   it.each(["STUDY", "STAMINA", "LIFE"] as const)(
-    "rebirthEggBonus=%s かつ monsterSetId が buddha のとき、メインヒーロー画像が buddha のいしのたまごになる",
+    "rebirthEggBonus=%s かつ monsterSetId が buddha のとき、メインヒーロー画像が既定の色卵になる（Issue #119: 視認性改善）",
     async (eggType) => {
       setupHook(
         makeData({
@@ -158,12 +164,12 @@ describe("子 育成ページ: 転生卵ボーナスのテーマ解決（Issue #
 
       await waitFor(() => {
         const img = screen.getByAltText("たまご");
-        expect((img as HTMLImageElement).src).toContain("/monsters/buddha/egg-stone.webp");
+        expect((img as HTMLImageElement).src).toContain(DEFAULT_EGG_IMAGE[eggType]);
       });
     }
   );
 
-  it("rebirthEggBonus=STUDY かつ monsterSetId が buddha のとき、転生カットインの卵画像も buddha のいしのたまごになる", async () => {
+  it("rebirthEggBonus=STUDY かつ monsterSetId が buddha のとき、転生カットインの卵画像も既定の勉強の卵になる（Issue #119: 視認性改善）", async () => {
     setupHook(
       makeData({
         side: "DARK",
@@ -182,7 +188,7 @@ describe("子 育成ページ: 転生卵ボーナスのテーマ解決（Issue #
       const imgs = screen.getAllByAltText("たまご");
       expect(imgs.length).toBeGreaterThan(0);
       for (const img of imgs) {
-        expect((img as HTMLImageElement).src).toContain("/monsters/buddha/egg-stone.webp");
+        expect((img as HTMLImageElement).src).toContain("/monsters/egg-study.webp");
       }
     });
   });

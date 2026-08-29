@@ -145,9 +145,15 @@ describe("親 ファミリーページ: メンバー一覧のモンスターア�
   });
 });
 
-describe("親 ファミリーページ: メンバー一覧の転生卵ボーナス アイコン テーマ解決（Issue #115）", () => {
+describe("親 ファミリーページ: メンバー一覧の転生卵ボーナス アイコン テーマ解決（Issue #115 → #119で色卵に戻す）", () => {
+  const DEFAULT_EGG_IMAGE: Record<"STUDY" | "STAMINA" | "LIFE", string> = {
+    STUDY: "/monsters/egg-study.webp",
+    STAMINA: "/monsters/egg-stamina.webp",
+    LIFE: "/monsters/egg-life.webp",
+  };
+
   it.each(["STUDY", "STAMINA", "LIFE"] as const)(
-    "rebirthEggBonus=%s かつ monsterSetId が buddha のメンバーは、buddha のいしのたまごアイコンが表示される",
+    "rebirthEggBonus=%s かつ monsterSetId が buddha のメンバーは、既定の色卵アイコンが表示される（Issue #119: 視認性改善）",
     async (eggType) => {
       mockFetchWithMembers([
         makeChild({
@@ -164,7 +170,7 @@ describe("親 ファミリーページ: メンバー一覧の転生卵ボーナ�
 
       await waitFor(() => {
         const img = screen.getByAltText("たまご");
-        expect((img as HTMLImageElement).src).toContain("/monsters/buddha/egg-stone.webp");
+        expect((img as HTMLImageElement).src).toContain(DEFAULT_EGG_IMAGE[eggType]);
       });
     }
   );
