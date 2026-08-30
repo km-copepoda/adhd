@@ -1,6 +1,11 @@
 // 転生卵選択ボーナス（STUDY/STAMINA/LIFE）の画像解決ロジック（データ定義+純粋関数）。
-// Issue #115: buddha テーマでは「いしのたまご」に、rebirthEggImages を持たないテーマ
-// （dark/light）は既定の固定パスにフォールバックする。
+// Issue #115 で buddha テーマに「いしのたまご」を割り当てる案を実装したが、
+// 石卵4種（STUDY/STAMINA/LIFE/通常）が並ぶと視認性が悪いため Issue #119 で撤回し、
+// カテゴリ卵は dark/light と同じ既定の色卵に戻した（通常卵＝いしのたまごは維持）。
+// 現状 rebirthEggImages を定義しているテーマは無く、monsterSetId 引数を使った
+// テーマ別分岐（下記 theme?.rebirthEggImages?.[eggType]）は実質発火しないが、
+// 将来テーマ別のカテゴリ卵アセットを追加する場合の拡張点として意図的に残している
+// （デッドコードではない。@/lib/monsterThemes/index の rebirthEggImages 型定義も参照）。
 //
 // NOTE: MONSTER_THEMES は @/lib/monsterThemes/index からのみインポートする
 // （buddha.ts からの循環インポートを避けるため、この方向の依存のみを許可する）。
