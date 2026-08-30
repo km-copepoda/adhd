@@ -2880,3 +2880,25 @@
 - `package.json` — `tsx` を devDependency に追加、`npm run rescue:treasures` スクリプトを追加
 - `src/__tests__/lib/orphanTreasure.test.ts` / `src/__tests__/lib/orphanTreasureRescue.test.ts` — 新規。境界値（当日/未来日/冪等性/carryOver写像/JST日付境界）を含む単体テスト
 
+## 2026-08-30: 設計凍結前に Codex 実現可能性レビュー工程を追加（Issue #120）
+
+### 背景
+- これまでのサブエージェント運用フローでは、独立レビュー（別系統モデル = Codex）が**実装後**（PR 作成後の `/codex-followup`）にしか入っておらず、設計ミスが実装完了後に高コストで発覚していた
+- 設計凍結前に Codex による実現可能性レビューを1段追加し、既存コードとの整合性・規約との齟齬・見落とされた影響範囲・より単純な代替案を早期に検出する
+
+### 決定内容
+- サブエージェント運用フローに `codex-design-review`（#2、`policy-checker` の後・`test-writer` の前）を追加する。専用サブエージェントは作らず `.claude/commands/codex-design-review.md` のコマンドとして実装する
+- **起動方法**: 設計ドキュメント（目的 / 背景 / 変更対象ファイル / 実装方針 / 影響範囲 / 代替案検討）をローカルの `codex` CLI に渡して非対話実行し、実現可能性レビューを日本語で得る。`codex` CLI が未導入の環境ではこの工程をスキップし、その旨を Issue にコメントして先へ進む（パイプライン全体は止めない）
+- **対象**: `src/` のロジック変更・スキーマ（Prisma schema）変更を含むタスクのみ。1行バグ修正、ドキュメント/設定ファイルのみの変更、`.claude/` 配下のみの変更はスキップ可
+- **要再設計時の扱い**: 設計の前提が破綻・既存アーキテクチャと衝突する指摘が出た場合は Claude の設計ステップへ戻す。設計提示→レビュー→再設計の反復上限は **5回**。5回で実現可能な設計に収束しない場合は中断し、人間の判断を仰ぐ（`auto:blocked` 相当）
+- **Issue 上でのやり取り**: `issue-planner` / `issue-picker` 経由の Issue の場合も、設計ドキュメントの提示・Codex のレビュー結果・再設計のやり取りはすべて対象 Issue のコメントとして記録する
+- 実装後レビューの `/codex-followup`（`code-reviewer` 後の PR レビュー反復、上限20回）とは別物。こちらは設計前レビューであることを CLAUDE.md 上で明記する
+
+### 不採用とした案
+- `implementer` を Codex に置き換える案は不採用とした。既存パイプライン（TDD サイクル・サブエージェント連携）とプロジェクト規約知識（CLAUDE.md / decisions.md）を捨てることになり、得られる独立性のメリットより失うものが大きい。独立レビューは設計前レビュー工程の追加で担保する
+
+### 該当箇所
+- `CLAUDE.md` — 「## サブエージェント運用フロー」節: エージェント一覧表に `codex-design-review`（#2）を追加し番号を振り直し、基本フロー図に1段挿入、「### 設計レビュー工程（codex-design-review）」小見出しを追加、「### Codex レビューの自動反復」節に設計前レビューとの違いを明記
+- `.claude/commands/codex-design-review.md` — 新規。設計ドキュメントをローカル `codex exec` に渡し実現可能性をレビューさせ、要再設計なら設計に戻す（最大5反復）コマンド定義
+- `.claude/commands/issue-picker.md` — Step 4（policy-checker）と Step 5（TDD実装ループ）の間に「Step 4.5. codex-design-review（設計レビュー）」を新設。`src/` のロジック/スキーマ変更を含む場合のみ実行、5反復未収束で `auto:blocked`、`codex` 未導入時はスキップ。「やってはいけないこと」と「出力フォーマット」も追従
+

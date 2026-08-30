@@ -163,7 +163,26 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
   - ラベルを `auto:in-progress` → `auto:blocked` に変更
   - `PushNotification("Issue #<N> は方針衝突のため自動着手不可 — 確認してください")`
   - worktreeを破棄（`ExitWorktree`）し、**`git branch -D issue-<N>-<slug>` でローカルブランチも削除する**（この時点でpushはまだ行われていないので安全に削除できる。削除しないと、人間が内容を確認して `auto:blocked` を解除し同じIssueを再試行した際、Step 3の `-b` によるブランチ作成が `already exists` で失敗する）。終了
-- `OK` の場合 → Step 5へ
+- `OK` の場合 → Step 4.5へ
+
+### Step 4.5. `codex-design-review`（設計レビュー）
+
+設計を凍結する前に、別系統モデル（ローカル `codex` CLI）で設計の実現可能性を検証する工程。詳細な手順は `.claude/commands/codex-design-review.md` を参照。CLAUDE.md / decisions.md が「issue-picker 経由でも設計レビューを Issue 上でやり取りする」と定めているため、Issue 起点でもこのステップを実行する。
+
+0. **対象判定（Step 5.0 と同じ判定を先に行う）**: `$approvedIssueBody` の影響範囲が `src/` のロジック変更・Prisma スキーマ（`prisma/schema.prisma`）変更を含むか判定する。含まない場合（ドキュメント/設定ファイルのみ、`.claude/` 配下のみ、1行バグ修正）は**このステップ全体をスキップして Step 5 へ**。判定に迷う場合は「含む」側に倒す
+1. **`codex` CLI が使えない環境**（`codex` コマンドが見つからない）→ このステップをスキップし、`gh issue comment <N>` で「`codex` CLI 未導入のため設計レビューをスキップして実装へ進む」と記録して **Step 5 へ**（パイプライン全体は止めない）
+2. **設計ドキュメントを用意**する（目的 / 背景 / 変更対象ファイル / 実装方針 / 影響範囲 / 代替案検討）。`gh issue comment <N> --body-file <設計ドキュメント>` で対象 Issue に投稿して記録を残す
+3. `.claude/commands/codex-design-review.md` の手順2に従い、ローカルの `codex exec --cd <repo> "<設計ドキュメント本文＋レビュー観点>"` を実行してレビュー結果を得る
+4. レビュー結果を `gh issue comment <N> --body-file <レビュー結果>` で Issue に記録する
+5. 指摘を分類する:
+   - **実現可能・軽微な調整のみ** → 設計を確定し **Step 5 へ**
+   - **要再設計**（設計の前提が破綻・既存アーキテクチャと衝突）→ 設計を修正して手順2〜5を再実行する。**反復上限は5回**
+6. 5回反復しても「実現可能」に収束しない場合は、Step 2.5 のセーフティネットに準じて後片付けする:
+   - worktree を破棄（`ExitWorktree`）し、**`git branch -D issue-<N>-<slug>` でローカルブランチも削除**（push 前なので安全）
+   - ラベルを `auto:in-progress` → `auto:blocked` に変更
+   - `gh issue comment <N>` で「設計レビューを5回反復しても実現可能な設計に収束しなかった」旨を日本語で報告
+   - `PushNotification("Issue #<N> 設計レビューが5反復で収束せず自動着手を中断 — 確認してください")`
+   - 終了
 
 ### Step 5. TDD実装ループ
 
@@ -210,6 +229,9 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 ### 判定
 [方針OK→実装続行 | NEEDS_CONFIRMATION→blocked | 対象なし→終了]
 
+### 設計レビュー（Step 4.5）
+- [実施: <N>反復で実現可能 | スキップ（src変更なし）| スキップ（codex CLI 未導入）| blocked（5反復で未収束）]
+
 ### 実装結果（Step 5まで進んだ場合）
 - TDDループ反復回数: <N>/3
 - 結果: [APPROVED→PR作成 | 上限到達→blocked]
@@ -224,6 +246,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 ## やってはいけないこと
 
 - `auto-pickup` ラベルが無いIssueに着手しない
+- `src/` のロジック/スキーマ変更を含むのに Step 4.5 の設計レビューを省略しない（`codex` CLI 未導入の環境でのスキップは可、ただし Issue にその旨を明記する）
 - 同一起動で2件以上のIssueを並行処理しない
 - Step 1冒頭の `auto:in-progress` 全体チェックを省略しない（対象Issue個別の再確認だけでは、別Issueが既に処理中のケースを検知できない）
 - PRの紐付けを `--search` の結果だけで確定しない（無関係なPRが偶然ヒットしうる）。必ず取得した本文を正規表現 `(?i)\bcloses\s+#<N>\b` で照合する。`closingIssuesReferences` は `develop` 向けPRでは常に空なので使わない
