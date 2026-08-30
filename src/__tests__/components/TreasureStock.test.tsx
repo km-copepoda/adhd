@@ -128,10 +128,10 @@ describe("TreasureStock variant", () => {
     await waitFor(() => {
       const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
       const openCalls = fetchMock.mock.calls.filter(
-        ([url, init]: [string, RequestInit?]) =>
-          typeof url === "string" &&
-          url.includes("/api/treasures/open") &&
-          init?.method === "POST",
+        (c: unknown[]) =>
+          typeof c[0] === "string" &&
+          c[0].includes("/api/treasures/open") &&
+          (c[1] as RequestInit | undefined)?.method === "POST",
       );
       expect(openCalls.length).toBe(1);
     });
