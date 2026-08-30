@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { rescueOrphanTreasures } from "@/lib/orphanTreasureRescue";
+import type { Prisma } from "@/generated/prisma/client";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { treasureLog, questWithTemplate } from "../helpers/fixtures";
 
@@ -11,6 +12,17 @@ import { treasureLog, questWithTemplate } from "../helpers/fixtures";
  *
  * 実際の「今日」に依存させないため、全テストで `before` オプションを明示的に渡す。
  */
+
+/**
+ * `mockImplementation` の戻り値は実際の Prisma メソッドと同じ `PrismaPromise<T>` 型が
+ * 要求されるが、`vitest-mock-extended` の DeepMockProxy はジェネリックオーバーロードを
+ * 保持しないためテストコード側では通常の `Promise` しか作れない。
+ * `PrismaPromise` は実行時には通常の thenable として振る舞うため、型だけ合わせる
+ * （`src/__tests__/lib/quests.test.ts` と同じパターン）。
+ */
+function asPrismaPromise<T>(value: T): Prisma.PrismaPromise<T> {
+  return Promise.resolve(value) as unknown as Prisma.PrismaPromise<T>;
+}
 
 function d(year: number, month: number, day: number): Date {
   return new Date(Date.UTC(year, month - 1, day));
@@ -93,17 +105,17 @@ describe("rescueOrphanTreasures", () => {
       treasureLog({ id: "t-unlock", childId: "child-1", date: D, status: "LOCKED" }),
       treasureLog({ id: "t-cancel", childId: "child-2", date: D, status: "LOCKED" }),
     ]);
-    mockPrisma.questInstance.findMany.mockImplementation((args?: unknown) => {
-      const where = (args as { where?: { childId?: string } } | undefined)?.where;
+    mockPrisma.questInstance.findMany.mockImplementation((args?: Prisma.QuestInstanceFindManyArgs) => {
+      const where = args?.where;
       if (where?.childId === "child-1") {
-        return Promise.resolve([
+        return asPrismaPromise([
           questWithTemplate(
             { id: "q-u", childId: "child-1", date: D, status: "APPROVED", reportedAt: D },
             { carryOver: false },
           ),
         ]);
       }
-      return Promise.resolve([
+      return asPrismaPromise([
         questWithTemplate(
           { id: "q-c", childId: "child-2", date: D, status: "REJECTED", reportedAt: D },
           { carryOver: false },

@@ -2902,3 +2902,31 @@
 - `.claude/commands/codex-design-review.md` — 新規。設計ドキュメントをローカル `codex exec` に渡し実現可能性をレビューさせ、要再設計なら設計に戻す（最大5反復）コマンド定義
 - `.claude/commands/issue-picker.md` — Step 4（policy-checker）と Step 5（TDD実装ループ）の間に「Step 4.5. codex-design-review（設計レビュー）」を新設。`src/` のロジック/スキーマ変更を含む場合のみ実行、5反復未収束で `auto:blocked`、`codex` 未導入時はスキップ。「やってはいけないこと」と「出力フォーマット」も追従
 
+## 2026-08-30: `typecheck` を CI のブロッキングゲートにする（2026-08-12 決定を上書き、Issue #117）
+
+### 背景
+- 2026-08-12 決定（Issue #35, #23 基盤1）で `"typecheck": "tsc --noEmit"` を追加した際、「CI ゲート化はしない（本Issue完了後も型エラーが約1500件残るため）」と明記していた
+- 品質向上の仕組みを棚卸しした結果、`.github/workflows/pr-tests.yml` には `changes`/`unit`/`lint`/`e2e` の4ジョブがあるが `typecheck` を実行するジョブが存在せず、`strict: true` の型チェックが一度も CI で実行されていない状態が継続していることが判明した
+- 改めて `npx prisma generate` 実行後・`.next` 削除後の状態で `npm run typecheck` を実行したところ、実エラーは 2026-08-12 時点の「約1500件」から大幅に減少しており、実装時点で修正が必要だったのは以下3件のみだった（うち2件は事前調査時点で判明、1件は実装中に追加で発見）
+  - `src/__tests__/components/CheckinPill.test.tsx` / `TreasureStock.test.tsx` — `mock.calls.filter()` のコールバック引数を固定タプル型で分割代入しておりオーバーロード解決に失敗（`TS2769`）
+  - `src/__tests__/lib/orphanTreasureRescue.test.ts` — `mockPrisma.questInstance.findMany.mockImplementation` の引数型が `unknown` になっており Prisma の型と不整合（`TS2345`）
+- 2026-08-12 決定の「CIゲート化しない」という判断は、当時の型エラー件数という**前提**に紐づいたものであり、その前提が解消された以上ゲート化を妨げる理由はないと判断し、ユーザーに確認の上で決定を更新した
+
+### 決定内容
+- `.github/workflows/pr-tests.yml` に `typecheck` ジョブを新規追加する。既存 `unit` ジョブと同じ構成（`checkout` → `setup-node` → `npm ci` → `npx prisma generate` → 実行コマンド）を踏襲し、`if`/`paths` 条件を付けず `unit`/`lint` と同様に**無条件・最初からブロッキング**で導入する（`lint` が辿った Stage1非ブロッキング→Stage2ブロッキングの2段階移行は今回は採らない。理由: 導入前に型エラーを0件にしてからマージするため、最初からグリーンで運用開始できる）
+- 上記3件の型エラーを本Issue内で解消し、`npm run typecheck` エラー0件の状態でジョブを有効化した。いずれも型注釈・型宣言のみの修正であり、テストの判定条件・期待値（アサーションの意味）は一切変更していない
+- `orphanTreasureRescue.test.ts` の修正は、同一のPrismaモック（`questInstance.findMany`）に対して既に確立されていた型注釈パターン（`quest-time-notify.test.ts` / `quests.test.ts` の `(args?: Prisma.QuestInstanceFindManyArgs) => ...`）に統一する形で行った
+
+### 検討したが採用しない案
+- `npx next typegen`（Next.js 16のルート型生成）を typecheck 前に挟む案は不採用。`.next` 削除状態（CIのクリーンチェックアウトと同条件）で実エラーが3件のみであることを検証済みなのに対し、`next typegen` を挟んだ場合に新規エラーが出るかは未検証であり、ジョブ導入という主目的に未検証のリスクを持ち込むため。ルート型までCIで見たい場合は別Issueのfollow-upとする
+
+### やってはいけないこと
+- 型注釈の修正にとどめず、ついでにテストのアサーション内容（判定条件・期待値）を変更する
+- `orphanTreasureRescue.test.ts` のような Prisma モックの型不整合を、都度その場しのぎの `as unknown as X` で潰す（既に確立された `Prisma.XxxFindManyArgs` パターンがあるならそれに統一する）
+- `typecheck` ジョブに `paths` フィルタや `if` 条件を付けて一部のPRだけ対象にする（型エラーはどのファイルの変更でも起こりうるため `unit`/`lint` と同じく無条件で実行する）
+
+### 該当箇所
+- `.github/workflows/pr-tests.yml` — `typecheck` ジョブ新規追加
+- `src/__tests__/components/CheckinPill.test.tsx` / `TreasureStock.test.tsx` — 型注釈修正（`unknown[]` + インデックスアクセスへ統一）
+- `src/__tests__/lib/orphanTreasureRescue.test.ts` — `Prisma.QuestInstanceFindManyArgs` への型注釈統一
+

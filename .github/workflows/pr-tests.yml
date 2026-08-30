@@ -69,6 +69,23 @@ jobs:
           && github.actor != 'dependabot[bot]'
         uses: davelosert/vitest-coverage-report-action@v2
 
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Run tsc
+        run: npm run typecheck
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

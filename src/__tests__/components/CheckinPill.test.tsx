@@ -28,7 +28,7 @@ function mockCalendarFetch() {
 function calendarCallCount(): number {
   const mock = global.fetch as unknown as ReturnType<typeof vi.fn>;
   return mock.mock.calls.filter(
-    ([url]: [string]) => typeof url === "string" && url.includes("/api/checkin/calendar"),
+    (c: unknown[]) => typeof c[0] === "string" && c[0].includes("/api/checkin/calendar"),
   ).length;
 }
 
