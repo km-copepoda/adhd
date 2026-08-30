@@ -50,9 +50,13 @@
     "eslint-config-next": "16.1.6",
     "husky": "^9.1.7",
     "jsdom": "^29.0.2",
+    "lint-staged": "^17.4.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "5.9.3",
     "vitest-mock-extended": "^5.1.1"
+  },
+  "lint-staged": {
+    "*.{js,jsx,mjs,cjs,ts,tsx}": "eslint --max-warnings=0 --no-warn-ignored"
   }
 }
