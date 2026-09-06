@@ -1,11 +1,12 @@
 /**
  * 宝箱の開封履歴に関する純粋関数。
  * - 子画面 `/app/child/badges` の「ごほうび」タブと、親画面 `/app/parent/treasures/pending` で共用する。
- * - 7日（1週間）より古い開封履歴は子画面に出さない方針（DB 上は残るが UI は隠す）。
- *   親画面は履歴用途なのでこの制限を掛けない。
+ * - 30日（1か月固定）より古い開封履歴は子画面に出さない方針（DB 上は残るが UI は隠す）。
+ *   親画面は履歴用途なのでこの制限を掛けない（各行に visibleToChild の計算値を付与する）。
+ * - #72: 子が子画面から `fulfilled` をトグルできるようになったため、保持期間を 7日 → 30日 に拡大。
  */
 
-export const TREASURE_HISTORY_RETENTION_DAYS = 7;
+export const TREASURE_HISTORY_RETENTION_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -15,7 +16,7 @@ export function getTreasureHistoryCutoff(now: Date): Date {
   return new Date(now.getTime() - TREASURE_HISTORY_RETENTION_DAYS * DAY_MS);
 }
 
-/** openedAt が直近 7日以内（cutoff 以上）なら true。境界は inclusive。 */
+/** openedAt が直近 TREASURE_HISTORY_RETENTION_DAYS 日以内（cutoff 以上）なら true。境界は inclusive。 */
 export function isWithinTreasureHistoryWindow(
   openedAt: Date | null | undefined,
   now: Date,

@@ -53,9 +53,10 @@ test.describe("S23: 親 もらった履歴（渡したよチェック）", () =>
     await expect(toggle).toBeVisible();
   });
 
-  test("子画面側には fulfilled が露出しない（親メモ専用の確認）", async ({ page }) => {
-    // この URL はそもそも親専用。子供アカウントは middleware で弾かれる。
-    // ここでは親ページに「渡したよチェックは子供には見えません」案内文の有無を確認。
-    await expect(page.getByText(/このチェックは子供には見えません/)).toBeVisible();
+  test("チェックが子供と共有される旨の説明が表示される（#72/#127）", async ({ page }) => {
+    // #72/#127: fulfilled は親子で共有され、子も子画面から切り替えられる。
+    // 旧「このチェックは子供には見えません」という誤った案内文は撤去済み。
+    await expect(page.getByText(/このチェックは子供の画面と共有され/)).toBeVisible();
+    await expect(page.getByText(/このチェックは子供には見えません/)).toHaveCount(0);
   });
 });

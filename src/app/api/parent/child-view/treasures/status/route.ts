@@ -58,6 +58,8 @@ export async function GET(request: Request) {
         openedAt: o.openedAt,
         boosted: o.boosted,
         item: o.item,
+        // #72: 親モード並走レスポンスにも使用状態を露出（child-view は表示のみ・ボタンは出さない）。
+        fulfilled: o.item != null ? o.fulfilled : false,
         collectionItem: ci
           ? {
               id: ci.id,

@@ -17,6 +17,12 @@ export type MonsterThemeDefinition = {
   eggImage: string;
   table: Record<string, { image: string; name: string; description: string }>;
   isFree: boolean;
+  /** 転生卵選択ボーナス（STUDY/STAMINA/LIFE）の画像。
+   *  現状これを定義しているテーマは無く、全テーマが既定の egg-study/egg-stamina/egg-life
+   *  画像にフォールバックする（@/lib/monsterThemes/eggs の getRebirthEggImage 参照）。
+   *  将来テーマ別のカテゴリ卵アセットを追加する場合の拡張点として型を残している
+   *  （Issue #119: buddha 専用の石卵は視認性問題により廃止し、色卵に統一した）。 */
+  rebirthEggImages?: Record<"STUDY" | "STAMINA" | "LIFE", string>;
 };
 
 export const MONSTER_THEMES: Record<string, MonsterThemeDefinition> = {

@@ -8,9 +8,18 @@ type Props = {
   stageLabel: string;
   onClose: () => void;
   description?: string;
+  /** 未解放 stage3 で description の代わりに表示する解放条件ヒント。 */
+  lockedHint?: string;
 };
 
-export default function MonsterImageModal({ image, monsterName, stageLabel, onClose, description }: Props) {
+export default function MonsterImageModal({
+  image,
+  monsterName,
+  stageLabel,
+  onClose,
+  description,
+  lockedHint,
+}: Props) {
   return (
     <div
       data-testid="monster-modal-overlay"
@@ -47,14 +56,21 @@ export default function MonsterImageModal({ image, monsterName, stageLabel, onCl
           <p className="text-white/60 text-sm mt-1">{stageLabel}</p>
         </div>
 
-        {description && (
+        {description ? (
           <p
             data-testid="monster-modal-description"
             className="max-w-xs text-white/80 text-sm leading-relaxed text-center"
           >
             {description}
           </p>
-        )}
+        ) : lockedHint ? (
+          <p
+            data-testid="monster-modal-locked-hint"
+            className="max-w-xs text-white/60 text-sm leading-relaxed text-center"
+          >
+            {lockedHint}
+          </p>
+        ) : null}
       </div>
     </div>
   );

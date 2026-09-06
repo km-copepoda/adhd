@@ -11,11 +11,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { isWithinTreasureHistoryWindow } from "@/lib/treasureHistory";
 
 const HISTORY_LIMIT = 100;
 
 export async function GET() {
   const rlog = routeLogger("GET", "/api/treasures/pending");
+  const now = new Date();
   const user = await getCurrentUser();
   if (!user || user.role !== "PARENT") {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -47,6 +49,8 @@ export async function GET() {
       item: i.item,
       child: i.child,
       fulfilled: i.fulfilled,
+      // #72: フィルタではなく計算値。子画面（保持期間30日）で見えるかを親に示しグレーアウト表示する。
+      visibleToChild: isWithinTreasureHistoryWindow(i.openedAt, now),
     })),
   });
 }

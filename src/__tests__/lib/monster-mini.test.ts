@@ -151,4 +151,49 @@ describe("getMonsterMiniData", () => {
     expect(result.image).toBe("/monsters/light/STUDY_ルミナ.webp");
     expect(result.monsterName).toBe("ルミナ");
   });
+
+  // ─── Issue #115 → #119: buddha テーマの転生卵（カテゴリ卵は色卵に戻す） ──
+  it("rebirthEggBonus=STAMINA + monsterSetId='buddha' の場合、stage0 で既定の体力の卵画像を返す（Issue #119: 色卵に戻す）", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      rebirthEggBonus: "STAMINA",
+      monsterSetId: "buddha",
+    });
+    expect(result.image).toBe("/monsters/egg-stamina.webp");
+  });
+
+  it("rebirthEggBonus=null + monsterSetId='buddha'（通常卵）の場合も、stage0 でいしのたまご画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      rebirthEggBonus: null,
+      monsterSetId: "buddha",
+    });
+    expect(result.image).toBe("/monsters/buddha/egg-stone.webp");
+  });
+
+  it("回帰確認: rebirthEggBonus=STUDY + monsterSetId='dark' の場合は従来通り既定の勉強の卵画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 0,
+      evolutionPath: "",
+      rebirthEggBonus: "STUDY",
+      monsterSetId: "dark",
+    });
+    expect(result.image).toBe("/monsters/egg-study.webp");
+  });
+
+  it("境界値: evolutionStage が 1 以上の場合は monsterSetId='buddha' でも卵画像ではなくモンスター画像を返す", () => {
+    const result = getMonsterMiniData({
+      ...base,
+      evolutionStage: 1,
+      rebirthEggBonus: "STUDY",
+      monsterSetId: "buddha",
+    });
+    expect(result.image).not.toBe("/monsters/buddha/egg-stone.webp");
+    expect(result.image).toBe(getMonsterStage(1, base.evolutionPath, "buddha").image);
+  });
 });

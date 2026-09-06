@@ -140,7 +140,58 @@ describe("親 ファミリーページ: メンバー一覧のモンスターア�
 
     await waitFor(() => {
       const img = screen.getByAltText("たまご");
-      expect((img as HTMLImageElement).src).toContain("/monsters/buddha/egg.webp");
+      expect((img as HTMLImageElement).src).toContain("/monsters/buddha/egg-stone.webp");
+    });
+  });
+});
+
+describe("親 ファミリーページ: メンバー一覧の転生卵ボーナス アイコン テーマ解決（Issue #115 → #119で色卵に戻す）", () => {
+  const DEFAULT_EGG_IMAGE: Record<"STUDY" | "STAMINA" | "LIFE", string> = {
+    STUDY: "/monsters/egg-study.webp",
+    STAMINA: "/monsters/egg-stamina.webp",
+    LIFE: "/monsters/egg-life.webp",
+  };
+
+  it.each(["STUDY", "STAMINA", "LIFE"] as const)(
+    "rebirthEggBonus=%s かつ monsterSetId が buddha のメンバーは、既定の色卵アイコンが表示される（Issue #119: 視認性改善）",
+    async (eggType) => {
+      mockFetchWithMembers([
+        makeChild({
+          side: "DARK",
+          monsterSetId: "buddha",
+          evolutionStage: 0,
+          evolutionPath: "",
+          rebirthEggBonus: eggType,
+          collectedPaths: JSON.stringify(["STUDY"]),
+        }),
+      ]);
+
+      render(<FamilyPage />);
+
+      await waitFor(() => {
+        const img = screen.getByAltText("たまご");
+        expect((img as HTMLImageElement).src).toContain(DEFAULT_EGG_IMAGE[eggType]);
+      });
+    }
+  );
+
+  it("回帰確認: rebirthEggBonus=STUDY かつ monsterSetId が dark のメンバーは、従来通り色卵（egg-study.webp）が表示される", async () => {
+    mockFetchWithMembers([
+      makeChild({
+        side: "DARK",
+        monsterSetId: "dark",
+        evolutionStage: 0,
+        evolutionPath: "",
+        rebirthEggBonus: "STUDY",
+        collectedPaths: JSON.stringify(["STUDY"]),
+      }),
+    ]);
+
+    render(<FamilyPage />);
+
+    await waitFor(() => {
+      const img = screen.getByAltText("たまご");
+      expect((img as HTMLImageElement).src).toContain("/monsters/egg-study.webp");
     });
   });
 });

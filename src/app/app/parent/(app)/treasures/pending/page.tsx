@@ -16,6 +16,8 @@ interface HistoryItem {
   item: { id: string; title: string; rarity: TreasureRarity } | null;
   child: { id: string; name: string | null; monsterName: string | null };
   fulfilled: boolean;
+  // #72: 子画面（保持期間30日）で見えるかの計算値。false の行はグレーアウト表示する。
+  visibleToChild?: boolean;
 }
 
 interface ChildOption {
@@ -68,8 +70,8 @@ export default function ParentTreasureHistoryPage() {
     return items.filter((it) => it.child.id === selectedChildId);
   }, [items, children.length, selectedChildId]);
 
-  // 渡したよチェックをトグルする。子画面には露出しない (親メモ専用)。
-  // MVP の水掛け論対策 — 2026-05-31 復活 (decisions.md)
+  // 渡したよチェックをトグルする。MVP の水掛け論対策 — 2026-05-31 復活 (decisions.md)。
+  // #72/#127: fulfilled は単一カラムを親子で共有し、子も子画面から切り替えられる（親メモ専用ではない）。
   async function toggleFulfilled(id: string, next: boolean) {
     setPendingId(id);
     // optimistic update
@@ -97,7 +99,7 @@ export default function ParentTreasureHistoryPage() {
 
       <h1 className="text-2xl font-bold mb-1">🎁 もらったごほうび</h1>
       <p className="text-sm text-quest-dim mb-4">
-        子供が宝箱から引き当てたごほうびの履歴です。実際に渡したら「渡した」をチェックしておくと、後で「もらってない」と言われたとき確認できます（このチェックは子供には見えません）。
+        子供が宝箱から引き当てたごほうびの履歴です。実際に渡したら「渡した」をチェックしておくと、後で「もらってない」と言われたとき確認できます。このチェックは子供の画面と共有され、子供が自分で「つかった」に切り替えることもあります。
       </p>
 
       {children.length > 1 && (
@@ -131,15 +133,20 @@ export default function ParentTreasureHistoryPage() {
           {filteredItems.map((it) => (
             <li
               key={it.id}
-              className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
+              className={`bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3${
+                it.visibleToChild === false ? " opacity-50" : ""
+              }`}
             >
               <div className="flex-1">
-                <div className="text-xs text-quest-dim flex items-center gap-2">
+                <div className="text-xs text-quest-dim flex items-center gap-2 flex-wrap">
                   <span>{it.child.monsterName ?? it.child.name ?? "子供"}</span>
                   {it.openedAt && <span>{formatTreasureOpenedAt(it.openedAt)}</span>}
                   <span className={it.fulfilled ? "text-quest-mint" : "text-amber-400"}>
                     {it.fulfilled ? "✅ 渡し済み" : "⏳ まだ渡してない"}
                   </span>
+                  {it.visibleToChild === false && (
+                    <span className="text-quest-dim">🚫 子画面では非表示</span>
+                  )}
                 </div>
                 <div className="font-bold">{it.item?.title ?? "—"}</div>
               </div>

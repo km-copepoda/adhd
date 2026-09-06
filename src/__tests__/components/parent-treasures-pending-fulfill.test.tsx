@@ -17,6 +17,7 @@ function setupFetch(opts: {
     item: { id: string; title: string; rarity: "COMMON" | "UNCOMMON" | "RARE" } | null;
     child: { id: string; name: string | null; monsterName: string | null };
     fulfilled: boolean;
+    visibleToChild?: boolean;
   }>;
   members?: Array<{ id: string; role: "CHILD" | "PARENT"; name: string | null; monsterName: string | null }>;
   onFulfill?: (id: string, fulfilled: boolean) => void;
@@ -115,6 +116,68 @@ describe("親 pending ページ — 渡したチェック", () => {
     await waitFor(() => {
       expect(onFulfill).toHaveBeenCalledWith("t1", false);
     });
+  });
+});
+
+describe("親 pending ページ — visibleToChild グレーアウト (#72)", () => {
+  it("visibleToChild:false の行はグレーアウトされ「子画面では非表示」ラベルが付く", async () => {
+    setupFetch({ items: [{ ...sampleItem, visibleToChild: false }] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+
+    const li = screen.getByText("おやつ").closest("li");
+    expect(li?.className ?? "").toMatch(/opacity-50/);
+    expect(screen.getByText(/子画面では非表示/)).toBeTruthy();
+  });
+
+  it("visibleToChild:true の行は通常表示（グレーアウト・ラベルなし）", async () => {
+    setupFetch({ items: [{ ...sampleItem, visibleToChild: true }] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+
+    const li = screen.getByText("おやつ").closest("li");
+    expect(li?.className ?? "").not.toMatch(/opacity-50/);
+    expect(screen.queryByText(/子画面では非表示/)).toBeNull();
+  });
+
+  it("グレーアウト行でも「渡した」トグルは動作する（回帰）", async () => {
+    const onFulfill = vi.fn();
+    setupFetch({ items: [{ ...sampleItem, visibleToChild: false }], onFulfill });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /渡した/ }));
+    });
+
+    await waitFor(() => expect(onFulfill).toHaveBeenCalledWith("t1", true));
+  });
+});
+
+describe("親 pending ページ — 説明文 (#127)", () => {
+  it("「子供には見えません」という誤った記述を出さない", async () => {
+    setupFetch({ items: [sampleItem] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.queryByText(/子供には見えません/)).toBeNull();
+    expect(screen.queryByText(/子供には表示されません/)).toBeNull();
+  });
+
+  it("チェックが子供の画面と共有される旨の説明を出す", async () => {
+    setupFetch({ items: [sampleItem] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.getByText(/このチェックは子供の画面と共有され/)).toBeTruthy();
   });
 });
 

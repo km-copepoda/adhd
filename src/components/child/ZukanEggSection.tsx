@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
 
 function shadowPath(imagePath: string): string {
   return imagePath.replace("/monsters/", "/monsters/shadow/");
@@ -9,9 +10,12 @@ function shadowPath(imagePath: string): string {
 interface ZukanEggSectionProps {
   eggData: { image: string };
   usedEggs: Set<string>;
+  /** 現在有効なモンスターテーマセット id。未指定・null・未知のIDは
+   *  既定（dark/light相当）の卵画像にフォールバックする。 */
+  monsterSetId?: string | null;
 }
 
-export default function ZukanEggSection({ eggData, usedEggs }: ZukanEggSectionProps) {
+export default function ZukanEggSection({ eggData, usedEggs, monsterSetId = null }: ZukanEggSectionProps) {
   return (
     <div className="flex flex-col items-center mb-4">
       <div className="flex gap-2 justify-center flex-wrap">
@@ -31,6 +35,7 @@ export default function ZukanEggSection({ eggData, usedEggs }: ZukanEggSectionPr
           { img: "/monsters/egg-life.webp", label: "🌿 生活力の卵", color: "rgba(74,222,128,0.3)", key: "LIFE" },
         ].map((egg) => {
           const obtained = usedEggs.has(egg.key);
+          const eggImg = getRebirthEggImage(egg.key, monsterSetId) ?? egg.img;
           return (
             <div
               key={egg.label}
@@ -38,7 +43,7 @@ export default function ZukanEggSection({ eggData, usedEggs }: ZukanEggSectionPr
               style={{ borderColor: obtained ? egg.color : "transparent" }}
             >
               <Image
-                src={obtained ? egg.img : shadowPath(egg.img)}
+                src={obtained ? eggImg : shadowPath(eggImg)}
                 alt={egg.label}
                 width={56}
                 height={56}

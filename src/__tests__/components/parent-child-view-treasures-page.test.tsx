@@ -77,6 +77,76 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
     });
   });
 
+  it("開封履歴に「つかう」ボタンを出さない（親モード child-view は表示のみ・#72）", async () => {
+    fetchSpy.mockResolvedValue({ ok: true, json: () => Promise.resolve(statusResponse) });
+
+    await act(async () => {
+      render(<ParentChildViewTreasuresPage />);
+    });
+
+    await waitFor(() => expect(screen.getByText("シール")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /つかう/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /つかったよ/ })).toBeNull();
+  });
+
+  it("fulfilled:true のごほうび行に「つかったよ」表示を出す（表示のみ・#127）", async () => {
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          locked: 0,
+          unlocked: 0,
+          hasPool: true,
+          opened: [
+            {
+              id: "log-1",
+              openedAt: "2026-05-29T00:00:00Z",
+              boosted: false,
+              item: { id: "i1", title: "シール", rarity: "COMMON" },
+              fulfilled: true,
+            },
+          ],
+        }),
+    });
+
+    await act(async () => {
+      render(<ParentChildViewTreasuresPage />);
+    });
+
+    await waitFor(() => expect(screen.getByText("シール")).toBeTruthy());
+    expect(screen.getByText(/つかったよ/)).toBeTruthy();
+    // child-view は表示のみ — トグルボタンは出さない
+    expect(screen.queryByRole("button", { name: /つかう|とりけす/ })).toBeNull();
+  });
+
+  it("fulfilled:false のごほうび行には「つかったよ」表示を出さない（#127）", async () => {
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          locked: 0,
+          unlocked: 0,
+          hasPool: true,
+          opened: [
+            {
+              id: "log-1",
+              openedAt: "2026-05-29T00:00:00Z",
+              boosted: false,
+              item: { id: "i1", title: "シール", rarity: "COMMON" },
+              fulfilled: false,
+            },
+          ],
+        }),
+    });
+
+    await act(async () => {
+      render(<ParentChildViewTreasuresPage />);
+    });
+
+    await waitFor(() => expect(screen.getByText("シール")).toBeTruthy());
+    expect(screen.queryByText(/つかったよ/)).toBeNull();
+  });
+
   it("「あける」ボタンを押すと /api/parent/child-view/treasures/open に childId つきで POST する", async () => {
     fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (typeof url === "string" && url.includes("/treasures/status")) {

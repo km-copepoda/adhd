@@ -53,11 +53,29 @@ describe("MONSTER_THEMES registry", () => {
     expect(Object.keys(MONSTER_THEMES.buddha.table).sort()).toEqual(Object.keys(BUDDHA_TABLE).sort());
   });
 
-  it("buddha の eggImage が /monsters/buddha/egg.webp であること", () => {
-    expect(MONSTER_THEMES.buddha.eggImage).toBe("/monsters/buddha/egg.webp");
+  it("buddha の eggImage が /monsters/buddha/egg-stone.webp であること（Issue #115: いしのたまご化）", () => {
+    expect(MONSTER_THEMES.buddha.eggImage).toBe("/monsters/buddha/egg-stone.webp");
   });
 
   it("存在しないテーマidにアクセスした場合は undefined であること", () => {
     expect(MONSTER_THEMES["nonexistent-theme"]).toBeUndefined();
+  });
+
+  // ─── Issue #115 → #119: 転生卵（rebirthEggImages）のテーマ追従 ──────────
+  // Issue #119: buddha のカテゴリ卵(STUDY/STAMINA/LIFE)は石卵4種並びの視認性問題により
+  // dark/light と同じ既定の色卵に戻す。rebirthEggImages 自体を持たないことで
+  // getRebirthEggImage が DEFAULT_REBIRTH_EGG_IMAGES にフォールバックする。
+  describe("rebirthEggImages（Issue #115 → #119で色卵に戻す）", () => {
+    it("buddha の rebirthEggImages は未定義であること（Issue #119: 既定マップへのフォールバック確認用）", () => {
+      expect(MONSTER_THEMES.buddha.rebirthEggImages).toBeUndefined();
+    });
+
+    it("dark は rebirthEggImages が未定義であること（既定マップへのフォールバック確認用）", () => {
+      expect(MONSTER_THEMES.dark.rebirthEggImages).toBeUndefined();
+    });
+
+    it("light は rebirthEggImages が未定義であること（既定マップへのフォールバック確認用）", () => {
+      expect(MONSTER_THEMES.light.rebirthEggImages).toBeUndefined();
+    });
   });
 });
