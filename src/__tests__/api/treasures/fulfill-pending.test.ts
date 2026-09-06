@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Prisma } from "@/generated/prisma/client";
 import { GET as pendingGET } from "@/app/api/treasures/pending/route";
 import { getCurrentUser } from "@/lib/auth";
@@ -77,5 +77,69 @@ describe("GET /api/treasures/pending (もらったごほうび履歴)", () => {
     await pendingGET();
     const arg = mockPrisma.treasureLog.findMany.mock.calls[0][0];
     expect(arg?.take).toBe(100);
+  });
+});
+
+// #72: 親画面には保持期間制限を入れない（decisions.md 2026-05-29）。
+// フィルタではなく、各返却行に「子画面で見えるか」の計算値 visibleToChild を付与する。
+describe("GET /api/treasures/pending — visibleToChild (#72)", () => {
+  const FIXED_NOW = new Date("2026-05-29T10:00:00Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function openedLog(id: string, openedAt: Date): PendingTreasureLog {
+    return {
+      ...treasureLog({ id, openedAt, status: "OPENED", itemId: "i1", fulfilled: false }),
+      item: { id: "i1", title: "おやつ", rarity: "COMMON" },
+      child: { id: "child-1", name: "太郎", monsterName: "ドラゴン" },
+    };
+  }
+
+  it("開封30日ちょうどの行は visibleToChild: true（境界値・inclusive）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      openedLog("log-30d", new Date("2026-04-29T10:00:00Z")),
+    ]);
+    const res = await pendingGET();
+    const json = await res.json();
+    expect(json.items[0].visibleToChild).toBe(true);
+  });
+
+  it("開封30日+1msの行は visibleToChild: false（境界値）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      openedLog("log-old", new Date("2026-04-29T09:59:59.999Z")),
+    ]);
+    const res = await pendingGET();
+    const json = await res.json();
+    expect(json.items[0].visibleToChild).toBe(false);
+  });
+
+  it("where に openedAt フィルタを足さず take:100 / 新しい順を維持（回帰）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    await pendingGET();
+    const arg = mockPrisma.treasureLog.findMany.mock.calls[0][0];
+    expect(arg?.where).not.toHaveProperty("openedAt");
+    expect(arg?.take).toBe(100);
+    expect(arg?.orderBy).toMatchObject({ openedAt: "desc" });
+  });
+
+  it("fulfilled の値はそのまま返しつつ visibleToChild も付く（回帰）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      { ...openedLog("log-a", new Date("2026-05-28T10:00:00Z")), fulfilled: true },
+    ]);
+    const res = await pendingGET();
+    const json = await res.json();
+    expect(json.items[0].fulfilled).toBe(true);
+    expect(json.items[0].visibleToChild).toBe(true);
   });
 });

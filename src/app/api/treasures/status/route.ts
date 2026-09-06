@@ -3,7 +3,7 @@
 // GET /api/treasures/status
 // 戻り値:
 //   { locked: number, unlocked: number, hasPool: boolean, opened: TreasureLogSummary[] }
-// opened は「開封から TREASURE_HISTORY_RETENTION_DAYS（1週間）以内」のみを返す。
+// opened は「開封から TREASURE_HISTORY_RETENTION_DAYS（30日 / 1か月）以内」のみを返す。
 // 古い宝箱の達成感を毎日眺めるよりも直近の体験を見せる方が UX が良いとの判断。
 // hasPool は親がごほうびを設定しているかの情報用フィールド（将来の親向け案内に利用）。
 
@@ -56,6 +56,8 @@ export async function GET() {
         openedAt: o.openedAt,
         boosted: o.boosted,
         item: o.item, // null = 親ごほうび不当選
+        // #72: 子向けにも使用状態を露出。コレクション当選行（item=null）は概念が無いので false 固定。
+        fulfilled: o.item != null ? o.fulfilled : false,
         collectionItem: ci
           ? {
               id: ci.id,

@@ -124,6 +124,7 @@
 - [2026-08-21: モンスターテーマ所持記録を子供単位（`ChildMonsterTheme`）から家族単位（`FamilyMonsterTheme`）へ移行する（2026-08-18決定の補足、Issue #111）](#2026-08-21-モンスターテーマ所持記録を子供単位childmonsterthemeから家族単位familymonsterthemeへ移行する2026-08-18決定の補足issue-111)
 - [2026-08-22: 「開かずの宝箱」バグの恒久修正 — 宝箱日付解決を resolveTreasureDate に一本化](#2026-08-22-開かずの宝箱バグの恒久修正--宝箱日付解決を-resolvetreasuredate-に一本化)
 - [2026-08-22: 既存の孤児LOCKED宝箱を救済するワンショット復旧スクリプトを追加（Issue #109）](#2026-08-22-既存の孤児locked宝箱を救済するワンショット復旧スクリプトを追加issue-109)
+- [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
 
 <!-- TOC:END -->
 
@@ -1182,6 +1183,10 @@
 
 ## 2026-05-29: 宝箱履歴の子画面表示は直近1週間に制限 / 開封時刻も併記
 
+> **⚠ PARTIALLY SUPERSEDED** — [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
+>
+> 保持期間 `TREASURE_HISTORY_RETENTION_DAYS` は 2026-09-06（#72）で 7日 → 30日（1か月固定・可変UIなし）に拡大。API 層でフィルタする方式・純粋関数の集約先・親画面に制限を掛けない方針は現行（親画面は各行に `visibleToChild` 計算値を付与してグレーアウト表示する）。
+
 ### 決定内容
 - 子画面のごほうび履歴（`/app/child/badges` → 「ごほうび」タブ）は **直近 7日（`TREASURE_HISTORY_RETENTION_DAYS`）以内に開封した宝箱のみ** を表示する
 - フィルタは API 層 (`/api/treasures/status`) で `where.openedAt: { gte: cutoff }` で行う（クライアントに古いレコードを送らない）
@@ -1275,8 +1280,9 @@
 > **⚠ PARTIALLY SUPERSEDED** —
 > - [2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）](#2026-05-31-treasuretriggerauto-を-proxy-にリネーム2026-05-30-のproxy-禁止を打ち消し)
 > - [2026-05-31: 宝箱ハズレ枠を「コレクションアイテム」に置き換え（季節制 80種）](#2026-05-31-宝箱ハズレ枠をコレクションアイテムに置き換え季節制-80種)
+> - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
 >
-> 「trigger=PROXY を新設しない」ルールは 2026-05-31 で撤回。child-view のコレクションタブも同日中に「図鑑+実績」の 2 タブ→アイテム含む 3 タブに拡張。機能本体は現行。
+> 「trigger=PROXY を新設しない」ルールは 2026-05-31 で撤回。child-view のコレクションタブも同日中に「図鑑+実績」の 2 タブ→アイテム含む 3 タブに拡張。child-view 宝箱履歴の 7日制限は 2026-09-06（#72）で 30日 に拡大（並走 API `/api/parent/child-view/treasures/status` も `fulfilled` を露出するが、child-view 画面には操作ボタンを出さず表示のみ）。機能本体は現行。
 
 ### 決定内容
 - `ChildViewBottomNav` を 3タブ（クエスト/育成/ひろば）から 5タブ（**+宝箱 +コレクション**）に拡張
@@ -1637,6 +1643,10 @@
 - `src/__tests__/lib/treasureService.test.ts` — STREAK→PROXY 抑制 / PROXY→STREAK 抑制 / PROXY+ALL_COMPLETE 共存 の 3 ケース追加
 
 ## 2026-05-31: 「渡したよチェック」を親メモとして復活（2026-05-28 撤回）
+
+> **⚠ PARTIALLY SUPERSEDED** — [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
+>
+> 「子画面・子向け API には fulfilled を露出させない」という制約は 2026-09-06（#72）で撤回。`fulfilled` は単一カラムを親子で共有し、子も自分の行を子画面からトグルできる。親 only の `POST /api/treasures/fulfill/[id]` と親メモ表示自体は現行。
 
 ### 決定内容
 - `TreasureLog.fulfilled: Boolean @default(false)` カラムを復活（2026-05-28 で `20260528000001_drop_treasure_log_fulfilled` で削除したものを再追加）
@@ -2930,3 +2940,35 @@
 - `src/__tests__/components/CheckinPill.test.tsx` / `TreasureStock.test.tsx` — 型注釈修正（`unknown[]` + インデックスアクセスへ統一）
 - `src/__tests__/lib/orphanTreasureRescue.test.ts` — `Prisma.QuestInstanceFindManyArgs` への型注釈統一
 
+## 2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）
+
+### 決定内容
+- **`TreasureLog.fulfilled` は単一カラムを親子で共有する（案A）**。スキーマ変更・新カラム追加はしない。「渡した/もらった」の由来（親が押したか子が押したか）は追跡せず、表示は「✅ つかったよ / ⏳ みつかってない」の二値のみ
+- **子専用ルート `POST /api/child/treasures/fulfill/[id]` を新設**（既存の PARENT 専用 `POST /api/treasures/fulfill/[id]` は一切変更しない）。`getCurrentUser()` で `role !== "CHILD"` を 403 / 未認証 401。スコープは `treasureLog.findFirst({ where: { id, childId: user.id } })` で自分の行のみ（他人・他家庭は 404）。ガード: `itemId===null`（コレクション当選）/ `status!=="OPENED"` / 保持期間外（`isWithinTreasureHistoryWindow`）/ `fulfilled` 非 boolean はすべて 400。同値2回でも冪等
+- **子向け API に使用状態を露出**: `/api/treasures/status` と並走経路 `/api/parent/child-view/treasures/status` の `opened[]` 各行に `fulfilled: boolean` を追加（`item===null` の行は概念が無いので `false` 固定）
+- **親 `/api/treasures/pending` の各返却行に `visibleToChild` 計算値を追加**（`isWithinTreasureHistoryWindow(openedAt, now)`）。`where` / `orderBy` / `take:100` は変更せず、フィルタではなく計算値として付与する（2026-05-29「親画面に7日制限を入れない」を維持）
+- **保持期間 `TREASURE_HISTORY_RETENTION_DAYS` を 7 → 30（1か月固定・可変UIなし）に変更**。`getTreasureHistoryCutoff` / `isWithinTreasureHistoryWindow` のロジックは不変で、この定数を参照する全経路（子 status・child-view 並走・親 pending のグレーアウト判定・子ルートのガード）に自動反映される
+- **子モードに新サブタブ「🎁 ごほうび一覧」を追加**（`/app/app/child/treasures`。ボトムナビは触らない）。`GET /api/treasures/status` の `opened[]` から `item !== null`（実ごほうび当選）だけを新しい順で並べる在庫UI。各行に「つかう / ✅つかったよ + とりけす」トグル（楽観更新・失敗ロールバック・二重送信ガード）。既存「これまでの宝箱」の全開封ログ表示（コレクション当選含む）は別タブとしてそのまま残す
+- **親画面グレーアウト**: `/app/app/parent/(app)/treasures/pending` で `visibleToChild === false` の行に `opacity-50` と「🚫 子画面では非表示」ラベルを付ける。既存の「渡した/取り消し」トグルはグレーアウト行でも動作する
+- **親モード child-view (`/app/app/parent/child-view/[childId]/treasures`) には操作ボタンを出さない**（表示のみ）
+
+### 理由
+- 実物ごほうびの受け渡しに関する「子は『もらってない』親は『あげた』」という認識ズレ（水掛け論）は、2026-05-31 で復活した親 only の親メモだけでは解消しない。当事者である子が自分で「もらった / つかった」を記録できることに価値があり、その価値が下記リスクを上回るとユーザーが判断した（#72 コメント「その2」）
+- 2026-05-28 で懸念された「親が確定ボタンを押すだけの事務作業になりごほうびが事務化する」「子から見えると催促圧力になる」というリスクは今回も認識した上で許容する。子が能動的に触る在庫UIであり、親が子に押させるための催促項目ではないという位置づけで運用する
+- 保持期間 7日は「直近の達成感を見せる」ための値だったが、子が使用状態を管理する在庫UIになったことで「先週もらったごほうびをまだ使っていない」ケースを扱う必要が生じ、1か月あれば実運用上の受け渡し忘れをカバーできると判断して 30日に固定した（家庭ごとに変える UI は複雑さに見合わないため入れない）
+
+### やってはいけないこと
+- 既存 PARENT 専用 `POST /api/treasures/fulfill/[id]` の挙動（family スコープ・ガード・レスポンス形式）を変更する。子ルートとロジックが似ているが共有ヘルパーは今回抽出せず、別ファイルとして独立実装した
+- 親 `/api/treasures/pending` の `where` に `openedAt` フィルタを足す（`visibleToChild` はあくまで計算値。親は履歴用途で全件見る）
+- 子モードの新サブタブに `item === null`（コレクション当選）の行を出す（在庫UIは実ごほうびのみ）。既存「これまでの宝箱」ログと混同しない
+- child-view（親モード）の宝箱履歴に「つかう / つかったよ」ボタンを露出する（表示のみ）
+- `TreasureLog` に「誰がトグルしたか」の由来カラムを足す（単一カラム共有＝案A の前提を崩す）
+
+### 該当箇所
+- `src/lib/treasureHistory.ts` — `TREASURE_HISTORY_RETENTION_DAYS` を 7 → 30
+- `src/app/api/child/treasures/fulfill/[id]/route.ts` — 新規。子専用 fulfill トグルルート
+- `src/app/api/treasures/status/route.ts` / `src/app/api/parent/child-view/treasures/status/route.ts` — `opened[]` に `fulfilled` を追加
+- `src/app/api/treasures/pending/route.ts` — 返却行に `visibleToChild` 計算値を追加
+- `src/app/app/child/treasures/page.tsx` — 「📦 たからばこ / 🎁 ごほうび一覧」サブタブ、使用状態トグル
+- `src/app/app/parent/(app)/treasures/pending/page.tsx` — `visibleToChild === false` 行のグレーアウト表示
+- `src/__tests__/lib/treasureHistory.test.ts` / `src/__tests__/api/child/treasures/fulfill.test.ts`（新規）/ `src/__tests__/api/treasures/status.test.ts` / `src/__tests__/api/treasures/treasure-status.test.ts` / `src/__tests__/api/parent/child-view/treasures-status.test.ts` / `src/__tests__/api/treasures/fulfill-pending.test.ts` / `src/__tests__/components/child-treasures-rewards-tab.test.tsx`（新規）/ `src/__tests__/components/parent-treasures-pending-fulfill.test.tsx` / `src/__tests__/components/parent-child-view-treasures-page.test.tsx`
