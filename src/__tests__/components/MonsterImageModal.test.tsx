@@ -81,4 +81,36 @@ describe("MonsterImageModal", () => {
     render(<MonsterImageModal {...defaultProps} />);
     expect(screen.queryByTestId("monster-modal-description")).toBeNull();
   });
+
+  // ─── Issue #94: 未解放 stage3 の説明文プレースホルダ（lockedHint prop）──────
+  it("lockedHint が渡されたときに解放条件ヒントが表示される", () => {
+    render(
+      <MonsterImageModal
+        {...(defaultProps as typeof defaultProps & { lockedHint?: string })}
+        lockedHint="あと3回進化させると せつめいが 読めるよ"
+      />,
+    );
+    const hint = screen.getByTestId("monster-modal-locked-hint");
+    expect(hint).toBeTruthy();
+    expect(hint.textContent).toContain("あと3回進化させると せつめいが 読めるよ");
+  });
+
+  it("lockedHint も description も無ければヒント・本文どちらの DOM も現れない（既存互換）", () => {
+    render(<MonsterImageModal {...defaultProps} />);
+    expect(screen.queryByTestId("monster-modal-locked-hint")).toBeNull();
+    expect(screen.queryByTestId("monster-modal-description")).toBeNull();
+  });
+
+  it("description が渡されているときは description を表示し、lockedHint の DOM は出さない", () => {
+    render(
+      <MonsterImageModal
+        {...defaultProps}
+        description="大きな眼鏡をかけ、常に分厚い本を抱えた小さな浮遊霊。"
+      />,
+    );
+    expect(
+      screen.getByText("大きな眼鏡をかけ、常に分厚い本を抱えた小さな浮遊霊。"),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("monster-modal-locked-hint")).toBeNull();
+  });
 });
