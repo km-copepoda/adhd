@@ -39,7 +39,13 @@ type ZukanData = {
   ownedThemes: string[];
 };
 
-type SelectedMonster = { image: string; name: string; stageLabel: string };
+type SelectedMonster = {
+  image: string;
+  name: string;
+  stageLabel: string;
+  description?: string;
+  lockedHint?: string;
+};
 
 interface ZukanContentProps {
   /** 取得元 API。親モードでは /api/parent/child-view/monster?childId=X を渡す。 */
@@ -99,8 +105,20 @@ export default function ZukanContent({
   const usedEggs = new Set<string>(JSON.parse(data.usedEggBonuses) as string[]);
   const monsterLevels = JSON.parse(data.monsterLevels) as Record<string, number>;
 
-  const openModal = (image: string, name: string, path: string) =>
-    setSelected({ image, name, stageLabel: getZukanStageLabel(path) });
+  const openModal = (
+    image: string,
+    name: string,
+    path: string,
+    description?: string,
+    lockedHint?: string,
+  ) =>
+    setSelected({
+      image,
+      name,
+      stageLabel: getZukanStageLabel(path),
+      description,
+      lockedHint,
+    });
 
   const activeThemeDef = MONSTER_THEMES[activeTheme];
   const monsterTable = activeThemeDef.table;
@@ -166,7 +184,7 @@ export default function ZukanContent({
       {/* ── アクティブテーマのパネル（非アクティブなタブの内容はアンマウント） ── */}
       <div key={activeTheme} data-testid={`zukan-theme-panel-${activeTheme}`}>
         {/* ── 卵 ── */}
-        <ZukanEggSection eggData={eggData} usedEggs={usedEggs} />
+        <ZukanEggSection eggData={eggData} usedEggs={usedEggs} monsterSetId={activeTheme} />
 
         {/* ── 3系統ブランチ ── */}
         {stage1Keys.map((s1) => (
@@ -187,6 +205,8 @@ export default function ZukanContent({
           image={selected.image}
           monsterName={selected.name}
           stageLabel={selected.stageLabel}
+          description={selected.description}
+          lockedHint={selected.lockedHint}
           onClose={() => setSelected(null)}
         />
       )}

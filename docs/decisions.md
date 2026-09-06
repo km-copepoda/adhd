@@ -123,6 +123,7 @@
 - [2026-08-21: quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する（2026-06-29決定の部分上書き、Issue #106）](#2026-08-21-quests画面1枚に限定してストリークを1行ピルとして条件付き再導入する2026-06-29決定の部分上書きissue-106)
 - [2026-08-21: モンスターテーマ所持記録を子供単位（`ChildMonsterTheme`）から家族単位（`FamilyMonsterTheme`）へ移行する（2026-08-18決定の補足、Issue #111）](#2026-08-21-モンスターテーマ所持記録を子供単位childmonsterthemeから家族単位familymonsterthemeへ移行する2026-08-18決定の補足issue-111)
 - [2026-08-22: 「開かずの宝箱」バグの恒久修正 — 宝箱日付解決を resolveTreasureDate に一本化](#2026-08-22-開かずの宝箱バグの恒久修正--宝箱日付解決を-resolvetreasuredate-に一本化)
+- [2026-08-22: 既存の孤児LOCKED宝箱を救済するワンショット復旧スクリプトを追加（Issue #109）](#2026-08-22-既存の孤児locked宝箱を救済するワンショット復旧スクリプトを追加issue-109)
 - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
 
 <!-- TOC:END -->
@@ -2862,6 +2863,82 @@
 - `src/__tests__/lib/approve.test.ts` — `carryOver 過去日付タスクの承認 (resolveTreasureDate 経由)` セクション
 - `src/__tests__/api/approve/approve-id.test.ts` — 差し戻し経路の carryOver 過去日付テスト
 - `src/__tests__/api/cron/auto-approve-treasure-date.test.ts` — 新規。cron 経由で実装（モックなし）を通したリグレッションテスト
+
+## 2026-08-22: 既存の孤児LOCKED宝箱を救済するワンショット復旧スクリプトを追加（Issue #109）
+
+### 決定内容
+- Issue #108（`resolveTreasureDate` への一本化）はバグの**恒久修正**であり新規発生を防ぐが、修正前に既にLOCKEDのまま取り残された既存本番データは救済されない。これを検出・救済するワンショット復旧スクリプト `scripts/rescue-orphan-treasures.ts` を追加した
+- 判定ロジックは `src/lib/orphanTreasure.ts` の純粋関数 `classifyOrphanTreasure()` に分離した。対象日 D を実際に「支配」しているクエストを `resolveTreasureDate`（#108）で再計算して特定し、その支配クエストの現在の状態から `UNLOCK` / `CANCEL` / `SKIP` を判定する（REPORTED/SKIP_REPORTED残存や支配クエスト0件など判断がつかないケースは全て `SKIP` にして人間の確認に委ねる）
+- DB操作は `src/lib/orphanTreasureRescue.ts` の `rescueOrphanTreasures()` に分離した。`dryRun` オプションで実際の書き込みを制御し、書き込み時は `UNLOCK`/`CANCEL` それぞれ別の `updateMany` を `where: { status: "LOCKED" }` ガード付きで実行する（TOCTOU対策）
+- `date < today` だけを条件にした単純な一括救済（`treasureLog.updateMany({ where: { status: "LOCKED", date: { lt: today } }, data: { status: "UNLOCKED" } })` のような実装）は不採用とした。理由は後述
+
+### 理由
+- 日次cronの自動承認は `PENDING` を対象にしないため、LOCKEDのまま残る宝箱の中には「支配クエストがREJECTEDで差し戻し確定」「支配クエストが依然REPORTEDで承認待ち」など、単純に開放してよいとは限らないケースが混在する
+- 宝箱の `date` とそれを支配するクエストの実際の日付は、`carryOver` の写像により一致しないことがある（#108のバグの根本原因と同じ構造）。そのため「宝箱のdateが過去だから開放してよい」という短絡判断はできず、必ず `resolveTreasureDate` で支配クエストを特定した上でその状態を確認する必要がある
+- 上記の理由から、判定を伴わない一括UPDATEクエリでは不十分と判断し、既存の判定ロジックを再利用する形にした
+
+### やってはいけないこと
+- `resolveTreasureDate` を再実装せず、必ず `src/lib/treasureDate.ts` からimportして使う
+- 判定ロジックを `scripts/rescue-orphan-treasures.ts` 側に書く（`vitest.config.ts` の `include` が `src/**/*.test.ts` 限定のため `scripts/` 配下はテスト対象外になる。ロジックは必ず `src/lib/` 側に置く）
+- 更新を `status: "LOCKED"` ガード無しの `updateMany` で行う（他プロセスとの競合で二重更新が起きうる）
+- 本番DBに対する `--apply` 実行を自動化する（cron等に組み込む）。本スクリプトは意図的に手動実行専用とし、実行前に出力される対象件数・内訳・監査用JSONを人間が確認するフローを必須とする
+
+### 該当箇所
+- `src/lib/orphanTreasure.ts` — 新規。純粋関数 `classifyOrphanTreasure()`
+- `src/lib/orphanTreasureRescue.ts` — 新規。DB操作 `rescueOrphanTreasures()`
+- `scripts/rescue-orphan-treasures.ts` — 新規。CLIエントリポイント（判定ロジックは持たず呼び出すだけ）
+- `package.json` — `tsx` を devDependency に追加、`npm run rescue:treasures` スクリプトを追加
+- `src/__tests__/lib/orphanTreasure.test.ts` / `src/__tests__/lib/orphanTreasureRescue.test.ts` — 新規。境界値（当日/未来日/冪等性/carryOver写像/JST日付境界）を含む単体テスト
+
+## 2026-08-30: 設計凍結前に Codex 実現可能性レビュー工程を追加（Issue #120）
+
+### 背景
+- これまでのサブエージェント運用フローでは、独立レビュー（別系統モデル = Codex）が**実装後**（PR 作成後の `/codex-followup`）にしか入っておらず、設計ミスが実装完了後に高コストで発覚していた
+- 設計凍結前に Codex による実現可能性レビューを1段追加し、既存コードとの整合性・規約との齟齬・見落とされた影響範囲・より単純な代替案を早期に検出する
+
+### 決定内容
+- サブエージェント運用フローに `codex-design-review`（#2、`policy-checker` の後・`test-writer` の前）を追加する。専用サブエージェントは作らず `.claude/commands/codex-design-review.md` のコマンドとして実装する
+- **起動方法**: 設計ドキュメント（目的 / 背景 / 変更対象ファイル / 実装方針 / 影響範囲 / 代替案検討）をローカルの `codex` CLI に渡して非対話実行し、実現可能性レビューを日本語で得る。`codex` CLI が未導入の環境ではこの工程をスキップし、その旨を Issue にコメントして先へ進む（パイプライン全体は止めない）
+- **対象**: `src/` のロジック変更・スキーマ（Prisma schema）変更を含むタスクのみ。1行バグ修正、ドキュメント/設定ファイルのみの変更、`.claude/` 配下のみの変更はスキップ可
+- **要再設計時の扱い**: 設計の前提が破綻・既存アーキテクチャと衝突する指摘が出た場合は Claude の設計ステップへ戻す。設計提示→レビュー→再設計の反復上限は **5回**。5回で実現可能な設計に収束しない場合は中断し、人間の判断を仰ぐ（`auto:blocked` 相当）
+- **Issue 上でのやり取り**: `issue-planner` / `issue-picker` 経由の Issue の場合も、設計ドキュメントの提示・Codex のレビュー結果・再設計のやり取りはすべて対象 Issue のコメントとして記録する
+- 実装後レビューの `/codex-followup`（`code-reviewer` 後の PR レビュー反復、上限20回）とは別物。こちらは設計前レビューであることを CLAUDE.md 上で明記する
+
+### 不採用とした案
+- `implementer` を Codex に置き換える案は不採用とした。既存パイプライン（TDD サイクル・サブエージェント連携）とプロジェクト規約知識（CLAUDE.md / decisions.md）を捨てることになり、得られる独立性のメリットより失うものが大きい。独立レビューは設計前レビュー工程の追加で担保する
+
+### 該当箇所
+- `CLAUDE.md` — 「## サブエージェント運用フロー」節: エージェント一覧表に `codex-design-review`（#2）を追加し番号を振り直し、基本フロー図に1段挿入、「### 設計レビュー工程（codex-design-review）」小見出しを追加、「### Codex レビューの自動反復」節に設計前レビューとの違いを明記
+- `.claude/commands/codex-design-review.md` — 新規。設計ドキュメントをローカル `codex exec` に渡し実現可能性をレビューさせ、要再設計なら設計に戻す（最大5反復）コマンド定義
+- `.claude/commands/issue-picker.md` — Step 4（policy-checker）と Step 5（TDD実装ループ）の間に「Step 4.5. codex-design-review（設計レビュー）」を新設。`src/` のロジック/スキーマ変更を含む場合のみ実行、5反復未収束で `auto:blocked`、`codex` 未導入時はスキップ。「やってはいけないこと」と「出力フォーマット」も追従
+
+## 2026-08-30: `typecheck` を CI のブロッキングゲートにする（2026-08-12 決定を上書き、Issue #117）
+
+### 背景
+- 2026-08-12 決定（Issue #35, #23 基盤1）で `"typecheck": "tsc --noEmit"` を追加した際、「CI ゲート化はしない（本Issue完了後も型エラーが約1500件残るため）」と明記していた
+- 品質向上の仕組みを棚卸しした結果、`.github/workflows/pr-tests.yml` には `changes`/`unit`/`lint`/`e2e` の4ジョブがあるが `typecheck` を実行するジョブが存在せず、`strict: true` の型チェックが一度も CI で実行されていない状態が継続していることが判明した
+- 改めて `npx prisma generate` 実行後・`.next` 削除後の状態で `npm run typecheck` を実行したところ、実エラーは 2026-08-12 時点の「約1500件」から大幅に減少しており、実装時点で修正が必要だったのは以下3件のみだった（うち2件は事前調査時点で判明、1件は実装中に追加で発見）
+  - `src/__tests__/components/CheckinPill.test.tsx` / `TreasureStock.test.tsx` — `mock.calls.filter()` のコールバック引数を固定タプル型で分割代入しておりオーバーロード解決に失敗（`TS2769`）
+  - `src/__tests__/lib/orphanTreasureRescue.test.ts` — `mockPrisma.questInstance.findMany.mockImplementation` の引数型が `unknown` になっており Prisma の型と不整合（`TS2345`）
+- 2026-08-12 決定の「CIゲート化しない」という判断は、当時の型エラー件数という**前提**に紐づいたものであり、その前提が解消された以上ゲート化を妨げる理由はないと判断し、ユーザーに確認の上で決定を更新した
+
+### 決定内容
+- `.github/workflows/pr-tests.yml` に `typecheck` ジョブを新規追加する。既存 `unit` ジョブと同じ構成（`checkout` → `setup-node` → `npm ci` → `npx prisma generate` → 実行コマンド）を踏襲し、`if`/`paths` 条件を付けず `unit`/`lint` と同様に**無条件・最初からブロッキング**で導入する（`lint` が辿った Stage1非ブロッキング→Stage2ブロッキングの2段階移行は今回は採らない。理由: 導入前に型エラーを0件にしてからマージするため、最初からグリーンで運用開始できる）
+- 上記3件の型エラーを本Issue内で解消し、`npm run typecheck` エラー0件の状態でジョブを有効化した。いずれも型注釈・型宣言のみの修正であり、テストの判定条件・期待値（アサーションの意味）は一切変更していない
+- `orphanTreasureRescue.test.ts` の修正は、同一のPrismaモック（`questInstance.findMany`）に対して既に確立されていた型注釈パターン（`quest-time-notify.test.ts` / `quests.test.ts` の `(args?: Prisma.QuestInstanceFindManyArgs) => ...`）に統一する形で行った
+
+### 検討したが採用しない案
+- `npx next typegen`（Next.js 16のルート型生成）を typecheck 前に挟む案は不採用。`.next` 削除状態（CIのクリーンチェックアウトと同条件）で実エラーが3件のみであることを検証済みなのに対し、`next typegen` を挟んだ場合に新規エラーが出るかは未検証であり、ジョブ導入という主目的に未検証のリスクを持ち込むため。ルート型までCIで見たい場合は別Issueのfollow-upとする
+
+### やってはいけないこと
+- 型注釈の修正にとどめず、ついでにテストのアサーション内容（判定条件・期待値）を変更する
+- `orphanTreasureRescue.test.ts` のような Prisma モックの型不整合を、都度その場しのぎの `as unknown as X` で潰す（既に確立された `Prisma.XxxFindManyArgs` パターンがあるならそれに統一する）
+- `typecheck` ジョブに `paths` フィルタや `if` 条件を付けて一部のPRだけ対象にする（型エラーはどのファイルの変更でも起こりうるため `unit`/`lint` と同じく無条件で実行する）
+
+### 該当箇所
+- `.github/workflows/pr-tests.yml` — `typecheck` ジョブ新規追加
+- `src/__tests__/components/CheckinPill.test.tsx` / `TreasureStock.test.tsx` — 型注釈修正（`unknown[]` + インデックスアクセスへ統一）
+- `src/__tests__/lib/orphanTreasureRescue.test.ts` — `Prisma.QuestInstanceFindManyArgs` への型注釈統一
 
 ## 2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）
 

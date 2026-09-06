@@ -62,7 +62,7 @@ describe("getMonsterStage (themeId 対応)", () => {
 
   it("stage=0（卵）で themeId='buddha' なら buddha 固有の卵画像を返すこと", () => {
     const stage = getMonsterStage(0, "", "buddha");
-    expect(stage.image).toBe("/monsters/buddha/egg.webp");
+    expect(stage.image).toBe("/monsters/buddha/egg-stone.webp");
   });
 
   it("stage=0（卵）で themeId='light' なら light 固有の卵画像を返すこと", () => {

@@ -5,8 +5,15 @@
 // image が /monsters/buddha/ 配下を指すことを検証する。
 
 import { describe, it, expect } from "vitest";
-import { MONSTER_TABLE as BUDDHA_TABLE } from "@/lib/monsterThemes/buddha";
+import { MONSTER_TABLE as BUDDHA_TABLE, EGG_STAGE as BUDDHA_EGG_STAGE } from "@/lib/monsterThemes/buddha";
 import { MONSTER_TABLE } from "@/lib/monsters";
+
+// Issue #115: 仏様テーマの通常卵も「いしのたまご」に統一する。
+describe("BUDDHA_EGG_STAGE (@/lib/monsterThemes/buddha)", () => {
+  it("image が /monsters/buddha/egg-stone.webp であること", () => {
+    expect(BUDDHA_EGG_STAGE.image).toBe("/monsters/buddha/egg-stone.webp");
+  });
+});
 
 describe("BUDDHA_TABLE (@/lib/monsterThemes/buddha)", () => {
   it("39体（3+9+27）が定義されていること", () => {
