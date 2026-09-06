@@ -23,6 +23,7 @@ interface FulfillCall {
 
 function setupFetch(opts?: {
   opened?: unknown[];
+  rewards?: unknown[];
   fulfillOk?: boolean;
   onFulfill?: (c: FulfillCall) => void;
 }) {
@@ -54,9 +55,11 @@ function setupFetch(opts?: {
 
   const fetchSpy = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (url.includes("/api/treasures/status")) {
+      const body: Record<string, unknown> = { locked: 0, unlocked: 0, opened };
+      if (opts?.rewards) body.rewards = opts.rewards;
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ locked: 0, unlocked: 0, opened }),
+        json: () => Promise.resolve(body),
       });
     }
     const m = url.match(/\/api\/child\/treasures\/fulfill\/([^/?]+)/);
@@ -136,6 +139,64 @@ describe("/app/child/treasures — 🎁 ごほうび一覧 サブタブ (#72)", 
       expect(screen.getByRole("button", { name: /つかう/ })).toBeTruthy(),
     );
     expect(screen.queryByText(/つかったよ/)).toBeNull();
+  });
+
+  // #127 follow-up — ごほうび一覧は開封履歴の50件上限と独立した rewards フィールドから描画する。
+  it("rewards フィールドがあれば opened に無いごほうびも一覧に出る", async () => {
+    setupFetch({
+      opened: [
+        {
+          id: "c-1",
+          openedAt: "2026-05-20T00:00:00Z",
+          boosted: false,
+          item: null,
+          collectionItem: {
+            id: "s1",
+            name: "カブトムシ",
+            season: "summer",
+            rarity: "COMMON",
+            image: "/collection-items/summer/kabuto.png",
+          },
+          fulfilled: false,
+        },
+      ],
+      rewards: [
+        {
+          id: "rw-far",
+          openedAt: "2026-05-01T00:00:00Z",
+          boosted: false,
+          item: { id: "i9", title: "とおいごほうび", rarity: "COMMON" },
+          collectionItem: null,
+          fulfilled: false,
+        },
+      ],
+    });
+    await renderAndOpenRewardsTab();
+    await waitFor(() => expect(screen.getByText("とおいごほうび")).toBeTruthy());
+  });
+
+  it("rewards 由来の行でも「つかう」トグルが楽観更新される", async () => {
+    setupFetch({
+      opened: [],
+      rewards: [
+        {
+          id: "rw-1",
+          openedAt: "2026-05-01T00:00:00Z",
+          boosted: false,
+          item: { id: "i1", title: "シール", rarity: "COMMON" },
+          collectionItem: null,
+          fulfilled: false,
+        },
+      ],
+    });
+    await renderAndOpenRewardsTab();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /つかう/ }));
+    });
+
+    await waitFor(() => expect(screen.getByText(/つかったよ/)).toBeTruthy());
+    expect(screen.getByRole("button", { name: /とりけす/ })).toBeTruthy();
   });
 
   it("二重クリックしても fulfill リクエストは1回だけ（多重送信ガード）", async () => {

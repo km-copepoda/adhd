@@ -2,7 +2,8 @@
 //
 // POST /api/treasures/fulfill/[id]  body: { fulfilled: boolean }
 //
-// 親 only の「渡したよチェック」。子画面には露出させない（水掛け論防衛用の親メモ）。
+// このルートは PARENT only（子は POST /api/child/treasures/fulfill/[id] を使う）。
+// #72/#127 で fulfilled は親子で共有する単一カラムになり、子も子画面から切り替えられる。
 // 親ごほうび当選 (itemId not null) の TreasureLog のみ対象。
 // コレクション獲得行 (itemId=null) は実物受け渡しが無いので 400。
 //
