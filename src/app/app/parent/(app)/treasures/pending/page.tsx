@@ -16,6 +16,8 @@ interface HistoryItem {
   item: { id: string; title: string; rarity: TreasureRarity } | null;
   child: { id: string; name: string | null; monsterName: string | null };
   fulfilled: boolean;
+  // #72: 子画面（保持期間30日）で見えるかの計算値。false の行はグレーアウト表示する。
+  visibleToChild?: boolean;
 }
 
 interface ChildOption {
@@ -131,15 +133,20 @@ export default function ParentTreasureHistoryPage() {
           {filteredItems.map((it) => (
             <li
               key={it.id}
-              className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
+              className={`bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3${
+                it.visibleToChild === false ? " opacity-50" : ""
+              }`}
             >
               <div className="flex-1">
-                <div className="text-xs text-quest-dim flex items-center gap-2">
+                <div className="text-xs text-quest-dim flex items-center gap-2 flex-wrap">
                   <span>{it.child.monsterName ?? it.child.name ?? "子供"}</span>
                   {it.openedAt && <span>{formatTreasureOpenedAt(it.openedAt)}</span>}
                   <span className={it.fulfilled ? "text-quest-mint" : "text-amber-400"}>
                     {it.fulfilled ? "✅ 渡し済み" : "⏳ まだ渡してない"}
                   </span>
+                  {it.visibleToChild === false && (
+                    <span className="text-quest-dim">🚫 子画面では非表示</span>
+                  )}
                 </div>
                 <div className="font-bold">{it.item?.title ?? "—"}</div>
               </div>

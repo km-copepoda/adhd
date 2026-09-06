@@ -56,7 +56,7 @@ describe("GET /api/parent/child-view/treasures/status", () => {
     expect(res.status).toBe(404);
   });
 
-  it("opened 履歴は openedAt が直近7日以内のみを問い合わせる", async () => {
+  it("opened 履歴は openedAt が直近30日以内のみを問い合わせる（#72 で 7日 から拡大）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     mockPrisma.treasureLog.count
@@ -73,7 +73,7 @@ describe("GET /api/parent/child-view/treasures/status", () => {
     expect(where.status).toBe("OPENED");
     expect(where.openedAt?.gte).toBeInstanceOf(Date);
     const cutoff = where.openedAt?.gte as Date;
-    expect(cutoff.getTime()).toBe(new Date("2026-05-22T10:00:00Z").getTime());
+    expect(cutoff.getTime()).toBe(new Date("2026-04-29T10:00:00Z").getTime());
     expect(where.childId).toBe("child-1");
   });
 
@@ -91,6 +91,7 @@ describe("GET /api/parent/child-view/treasures/status", () => {
           boosted: false,
           status: "OPENED",
           itemId: "i1",
+          fulfilled: true,
         }),
         item: { id: "i1", title: "おやつ", rarity: "COMMON" },
       },
@@ -106,6 +107,9 @@ describe("GET /api/parent/child-view/treasures/status", () => {
     expect(json.opened).toHaveLength(1);
     expect(json.opened[0].id).toBe("log1");
     expect(json.hasPool).toBe(true);
+    // #72: 親モード並走レスポンスにも使用状態を露出する
+    const usedFlag = json.opened[0].fulfilled ?? json.opened[0].used;
+    expect(usedFlag).toBe(true);
 
     // 全ての count / findMany 呼び出しが childId="child-1" で行われていることを確認
     const countCalls = mockPrisma.treasureLog.count.mock.calls;

@@ -77,6 +77,18 @@ describe("/app/parent/child-view/[childId]/treasures", () => {
     });
   });
 
+  it("開封履歴に「つかう」ボタンを出さない（親モード child-view は表示のみ・#72）", async () => {
+    fetchSpy.mockResolvedValue({ ok: true, json: () => Promise.resolve(statusResponse) });
+
+    await act(async () => {
+      render(<ParentChildViewTreasuresPage />);
+    });
+
+    await waitFor(() => expect(screen.getByText("シール")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /つかう/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /つかったよ/ })).toBeNull();
+  });
+
   it("「あける」ボタンを押すと /api/parent/child-view/treasures/open に childId つきで POST する", async () => {
     fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
       if (typeof url === "string" && url.includes("/treasures/status")) {

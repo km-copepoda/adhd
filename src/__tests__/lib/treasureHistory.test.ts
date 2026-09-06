@@ -7,22 +7,22 @@ import {
 } from "@/lib/treasureHistory";
 
 describe("TREASURE_HISTORY_RETENTION_DAYS", () => {
-  it("7日（1週間）", () => {
-    expect(TREASURE_HISTORY_RETENTION_DAYS).toBe(7);
+  it("30日（1か月固定・#72 で 7日 から変更）", () => {
+    expect(TREASURE_HISTORY_RETENTION_DAYS).toBe(30);
   });
 });
 
 describe("getTreasureHistoryCutoff", () => {
-  it("now から 7日前 の Date を返す", () => {
+  it("now から 30日前 の Date を返す", () => {
     const now = new Date("2026-05-29T10:00:00Z");
     const cutoff = getTreasureHistoryCutoff(now);
-    expect(cutoff.getTime()).toBe(new Date("2026-05-22T10:00:00Z").getTime());
+    expect(cutoff.getTime()).toBe(new Date("2026-04-29T10:00:00Z").getTime());
   });
 
-  it("月またぎでも 7日前 を返す", () => {
+  it("月またぎでも 30日前 を返す", () => {
     const now = new Date("2026-06-03T00:00:00Z");
     const cutoff = getTreasureHistoryCutoff(now);
-    expect(cutoff.toISOString()).toBe("2026-05-27T00:00:00.000Z");
+    expect(cutoff.toISOString()).toBe("2026-05-04T00:00:00.000Z");
   });
 });
 
@@ -38,23 +38,32 @@ describe("isWithinTreasureHistoryWindow", () => {
     expect(isWithinTreasureHistoryWindow(openedAt, now)).toBe(true);
   });
 
-  it("ちょうど 7日前 は含む（境界値）", () => {
-    const openedAt = new Date("2026-05-22T10:00:00Z");
+  it("ちょうど 30日前 は含む（境界値・inclusive）", () => {
+    const openedAt = new Date("2026-04-29T10:00:00Z");
     expect(isWithinTreasureHistoryWindow(openedAt, now)).toBe(true);
   });
 
-  it("7日前より 1ミリ秒古いものは含まない（境界値）", () => {
-    const openedAt = new Date("2026-05-22T09:59:59.999Z");
+  it("30日前より 1ミリ秒古いものは含まない（境界値）", () => {
+    const openedAt = new Date("2026-04-29T09:59:59.999Z");
     expect(isWithinTreasureHistoryWindow(openedAt, now)).toBe(false);
   });
 
-  it("8日前は含まない", () => {
-    const openedAt = new Date("2026-05-21T10:00:00Z");
+  it("31日前は含まない", () => {
+    const openedAt = new Date("2026-04-28T10:00:00Z");
     expect(isWithinTreasureHistoryWindow(openedAt, now)).toBe(false);
   });
 
   it("openedAt が null なら false", () => {
     expect(isWithinTreasureHistoryWindow(null, now)).toBe(false);
+  });
+
+  it("openedAt が undefined なら false", () => {
+    expect(isWithinTreasureHistoryWindow(undefined, now)).toBe(false);
+  });
+
+  it("未来日時（サーバ/端末の時計ズレ）は含む", () => {
+    const openedAt = new Date("2026-05-30T10:00:00Z");
+    expect(isWithinTreasureHistoryWindow(openedAt, now)).toBe(true);
   });
 });
 

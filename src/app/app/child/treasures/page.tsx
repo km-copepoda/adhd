@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import TreasureOpenCutscene from "@/components/child/TreasureOpenCutscene";
 import {
@@ -10,6 +10,7 @@ import {
   type TreasureRarity,
 } from "@/lib/treasureRarity";
 import { SEASON_LABEL, type CollectionRarity } from "@/lib/collectionItems";
+import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
 
 type Rarity = TreasureRarity;
 
@@ -31,7 +32,10 @@ interface OpenedLog {
     rarity: Rarity;
     image: string;
   } | null;
+  fulfilled?: boolean;
 }
+
+type TreasureTab = "boxes" | "rewards";
 
 interface StatusResponse {
   locked: number;
@@ -63,6 +67,9 @@ export default function ChildTreasuresPage() {
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [result, setResult] = useState<TreasureOpenResult | null>(null);
+  const [tab, setTab] = useState<TreasureTab>("boxes");
+  const [pendingFulfillId, setPendingFulfillId] = useState<string | null>(null);
+  const fulfillLock = useRef(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -92,6 +99,41 @@ export default function ChildTreasuresPage() {
       window.dispatchEvent(new CustomEvent("treasure-changed"));
     } finally {
       setOpening(false);
+    }
+  };
+
+  // #72: ごほうび一覧タブでの「つかった / つかってない」トグル（楽観更新 + 失敗ロールバック）
+  const toggleFulfilled = async (id: string, next: boolean) => {
+    if (fulfillLock.current) return;
+    fulfillLock.current = true;
+    setPendingFulfillId(id);
+    setData((d) =>
+      d
+        ? { ...d, opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: next } : o)) }
+        : d,
+    );
+    try {
+      const res = await fetch(`/api/child/treasures/fulfill/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fulfilled: next }),
+      });
+      if (!res.ok) {
+        setData((d) =>
+          d
+            ? { ...d, opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: !next } : o)) }
+            : d,
+        );
+      }
+    } catch {
+      setData((d) =>
+        d
+          ? { ...d, opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: !next } : o)) }
+          : d,
+      );
+    } finally {
+      fulfillLock.current = false;
+      setPendingFulfillId(null);
     }
   };
 
@@ -144,6 +186,79 @@ export default function ChildTreasuresPage() {
         </button>
       </div>
 
+      <div className="flex gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setTab("boxes")}
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-colors ${
+            tab === "boxes"
+              ? "bg-quest-gold text-quest-bg"
+              : "bg-quest-card border border-quest-border text-quest-dim"
+          }`}
+        >
+          📦 たからばこ
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("rewards")}
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-colors ${
+            tab === "rewards"
+              ? "bg-quest-gold text-quest-bg"
+              : "bg-quest-card border border-quest-border text-quest-dim"
+          }`}
+        >
+          🎁 ごほうび一覧
+        </button>
+      </div>
+
+      {tab === "rewards" && (
+        <>
+          <h2 className="text-sm font-bold text-quest-dim mb-2">🎁 ごほうび一覧</h2>
+          {hits.length === 0 ? (
+            <p className="text-center text-quest-dim text-xs py-6">
+              まだもらったごほうびはありません。
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {hits.map((o) => (
+                <li
+                  key={o.id}
+                  className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"
+                >
+                  <span className="text-3xl" aria-hidden>🎁</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm truncate">{o.item!.title}</div>
+                    <div className="text-[11px] text-quest-dim">
+                      {formatTreasureOpenedAt(o.openedAt)}
+                      {o.fulfilled && <span className="ml-2 text-quest-mint">✅ つかったよ</span>}
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded ${RARITY_BADGE_CLASS[o.item!.rarity]}`}
+                  >
+                    {formatChildRarity(o.item!.rarity)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleFulfilled(o.id, !o.fulfilled)}
+                    disabled={pendingFulfillId === o.id}
+                    className={`text-xs px-3 py-1.5 rounded font-bold transition-colors disabled:opacity-50 ${
+                      o.fulfilled
+                        ? "bg-quest-card border border-quest-border text-quest-dim"
+                        : "bg-quest-gold text-quest-bg"
+                    }`}
+                  >
+                    {o.fulfilled ? "とりけす" : "つかう"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      {tab === "boxes" && (
+      <>
       <h2 className="text-sm font-bold text-quest-dim mb-2">これまでの宝箱</h2>
       {data.opened.length === 0 ? (
         <p className="text-center text-quest-dim text-xs py-6">
@@ -199,6 +314,8 @@ export default function ChildTreasuresPage() {
             ))}
           </ul>
         </>
+      )}
+      </>
       )}
 
       {result && (
