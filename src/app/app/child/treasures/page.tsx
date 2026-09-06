@@ -41,6 +41,9 @@ interface StatusResponse {
   locked: number;
   unlocked: number;
   opened: OpenedLog[];
+  // #127: ごほうび一覧は開封履歴（opened, 50件上限）と独立した在庫リスト。
+  // 実ごほうび当選のみ・保持期間内。古い API 応答互換のため optional。
+  rewards?: OpenedLog[];
 }
 
 interface TreasureOpenResult {
@@ -103,15 +106,21 @@ export default function ChildTreasuresPage() {
   };
 
   // #72: ごほうび一覧タブでの「つかった / つかってない」トグル（楽観更新 + 失敗ロールバック）
+  // #127: 一覧の描画元は rewards なので opened と rewards の両方に反映する。
+  const applyFulfilled = (d: StatusResponse | null, id: string, value: boolean) =>
+    d
+      ? {
+          ...d,
+          opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: value } : o)),
+          rewards: d.rewards?.map((o) => (o.id === id ? { ...o, fulfilled: value } : o)),
+        }
+      : d;
+
   const toggleFulfilled = async (id: string, next: boolean) => {
     if (fulfillLock.current) return;
     fulfillLock.current = true;
     setPendingFulfillId(id);
-    setData((d) =>
-      d
-        ? { ...d, opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: next } : o)) }
-        : d,
-    );
+    setData((d) => applyFulfilled(d, id, next));
     try {
       const res = await fetch(`/api/child/treasures/fulfill/${id}`, {
         method: "POST",
@@ -119,18 +128,10 @@ export default function ChildTreasuresPage() {
         body: JSON.stringify({ fulfilled: next }),
       });
       if (!res.ok) {
-        setData((d) =>
-          d
-            ? { ...d, opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: !next } : o)) }
-            : d,
-        );
+        setData((d) => applyFulfilled(d, id, !next));
       }
     } catch {
-      setData((d) =>
-        d
-          ? { ...d, opened: d.opened.map((o) => (o.id === id ? { ...o, fulfilled: !next } : o)) }
-          : d,
-      );
+      setData((d) => applyFulfilled(d, id, !next));
     } finally {
       fulfillLock.current = false;
       setPendingFulfillId(null);
@@ -148,6 +149,8 @@ export default function ChildTreasuresPage() {
 
   const hits = data.opened.filter((o) => o.item !== null);
   const collectionWins = data.opened.length - hits.length;
+  // #127: ごほうび一覧は履歴上限に縛られない rewards を使う（無ければ opened から算出）
+  const rewardList = data.rewards ?? hits;
   const canOpen = data.unlocked > 0 && !opening;
 
   return (
@@ -214,13 +217,13 @@ export default function ChildTreasuresPage() {
       {tab === "rewards" && (
         <>
           <h2 className="text-sm font-bold text-quest-dim mb-2">🎁 ごほうび一覧</h2>
-          {hits.length === 0 ? (
+          {rewardList.length === 0 ? (
             <p className="text-center text-quest-dim text-xs py-6">
               まだもらったごほうびはありません。
             </p>
           ) : (
             <ul className="space-y-2">
-              {hits.map((o) => (
+              {rewardList.map((o) => (
                 <li
                   key={o.id}
                   className="bg-quest-card border border-quest-border rounded-lg p-3 flex items-center gap-3"

@@ -38,6 +38,8 @@ interface OpenedLog {
     rarity: Rarity;
     image: string;
   } | null;
+  // #127: 子が使用済みにしたごほうびの状態。child-view は表示のみ（トグルは出さない）。
+  fulfilled?: boolean;
 }
 
 interface StatusResponse {
@@ -208,6 +210,9 @@ export default function ParentChildViewTreasuresPage() {
                   <div className="text-[11px] text-quest-dim">
                     {formatDate(o.openedAt)}
                     {o.boosted && <span className="ml-2 text-quest-gold">★ ボーナス</span>}
+                    {o.item && o.fulfilled && (
+                      <span className="ml-2 text-quest-mint">✅ つかったよ</span>
+                    )}
                   </div>
                 </div>
                 {o.item && (

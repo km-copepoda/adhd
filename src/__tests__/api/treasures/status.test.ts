@@ -100,4 +100,55 @@ describe("GET /api/treasures/status", () => {
     const colFlag = json.opened[1].fulfilled ?? json.opened[1].used ?? false;
     expect(colFlag).toBe(false);
   });
+
+  // #127 follow-up: ごほうび在庫（rewards）は開封履歴の 50 件上限とは独立に取得する。
+  // 30日ウィンドウ内に 50 件超の開封があると、履歴上限に相乗りしていた旧実装では
+  // 未使用ごほうびが一覧から欠落しトグル不能になっていた。
+  it("rewards をコレクション当選除外・履歴上限に縛られず返す", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+
+    const history: OpenedTreasureLog[] = [
+      {
+        ...treasureLog({
+          id: "col-1",
+          openedAt: new Date("2026-03-21"),
+          status: "OPENED",
+          itemId: null,
+        }),
+        item: null,
+      },
+    ];
+    const rewardInventory: OpenedTreasureLog[] = [
+      {
+        ...treasureLog({
+          id: "rw-1",
+          openedAt: new Date("2026-03-10"),
+          status: "OPENED",
+          itemId: "i1",
+          fulfilled: false,
+        }),
+        item: { id: "i1", title: "おかし", rarity: "COMMON" },
+      },
+    ];
+    mockPrisma.treasureLog.findMany
+      .mockResolvedValueOnce(history)
+      .mockResolvedValueOnce(rewardInventory);
+    mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+    const res = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.rewards).toHaveLength(1);
+    expect(json.rewards[0].id).toBe("rw-1");
+    expect(json.rewards[0].fulfilled).toBe(false);
+    expect(json.rewards[0].item.title).toBe("おかし");
+
+    const rewardQuery = mockPrisma.treasureLog.findMany.mock.calls[1]?.[0] as {
+      where: { itemId?: unknown };
+      take?: number;
+    };
+    expect(rewardQuery.where.itemId).toEqual({ not: null });
+    expect(rewardQuery.take ?? 0).toBeGreaterThan(50);
+  });
 });

@@ -70,8 +70,8 @@ export default function ParentTreasureHistoryPage() {
     return items.filter((it) => it.child.id === selectedChildId);
   }, [items, children.length, selectedChildId]);
 
-  // 渡したよチェックをトグルする。子画面には露出しない (親メモ専用)。
-  // MVP の水掛け論対策 — 2026-05-31 復活 (decisions.md)
+  // 渡したよチェックをトグルする。MVP の水掛け論対策 — 2026-05-31 復活 (decisions.md)。
+  // #72/#127: fulfilled は単一カラムを親子で共有し、子も子画面から切り替えられる（親メモ専用ではない）。
   async function toggleFulfilled(id: string, next: boolean) {
     setPendingId(id);
     // optimistic update
@@ -99,7 +99,7 @@ export default function ParentTreasureHistoryPage() {
 
       <h1 className="text-2xl font-bold mb-1">🎁 もらったごほうび</h1>
       <p className="text-sm text-quest-dim mb-4">
-        子供が宝箱から引き当てたごほうびの履歴です。実際に渡したら「渡した」をチェックしておくと、後で「もらってない」と言われたとき確認できます（このチェックは子供には見えません）。
+        子供が宝箱から引き当てたごほうびの履歴です。実際に渡したら「渡した」をチェックしておくと、後で「もらってない」と言われたとき確認できます。このチェックは子供の画面と共有され、子供が自分で「つかった」に切り替えることもあります。
       </p>
 
       {children.length > 1 && (

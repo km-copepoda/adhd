@@ -160,6 +160,27 @@ describe("親 pending ページ — visibleToChild グレーアウト (#72)", ()
   });
 });
 
+describe("親 pending ページ — 説明文 (#127)", () => {
+  it("「子供には見えません」という誤った記述を出さない", async () => {
+    setupFetch({ items: [sampleItem] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.queryByText(/子供には見えません/)).toBeNull();
+    expect(screen.queryByText(/子供には表示されません/)).toBeNull();
+  });
+
+  it("チェックが子供の画面と共有される旨の説明を出す", async () => {
+    setupFetch({ items: [sampleItem] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.getByText(/このチェックは子供の画面と共有され/)).toBeTruthy();
+  });
+});
+
 describe("親 pending ページ — 子供フィルタ", () => {
   const itemTaro = {
     id: "t1",
