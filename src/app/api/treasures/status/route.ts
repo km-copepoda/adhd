@@ -7,8 +7,8 @@
 // opened は「開封から TREASURE_HISTORY_RETENTION_DAYS（30日 / 1か月）以内」のみを返す。
 // 古い宝箱の達成感を毎日眺めるよりも直近の体験を見せる方が UX が良いとの判断。
 // rewards は同ウィンドウ内の「実ごほうび当選（itemId != null）」だけを、opened の
-// 表示上限とは独立に取得したもの。ごほうび一覧（在庫UI）はこちらを使う — 30日間で
-// 50件超の開封があっても未使用ごほうびが一覧から欠落しないようにするため（#127）。
+// 表示上限とは独立に、保持期間内は全件取得したもの。ごほうび一覧（在庫UI）は
+// こちらを使う — 開封数に関わらず期間内の未使用ごほうびが一覧から欠落しない（#127）。
 // hasPool は親がごほうびを設定しているかの情報用フィールド（将来の親向け案内に利用）。
 
 import { NextResponse } from "next/server";
@@ -19,9 +19,6 @@ import { getTreasureHistoryCutoff } from "@/lib/treasureHistory";
 import { getCollectionItemById } from "@/lib/collectionItems";
 
 const HISTORY_LIMIT = 50;
-// ごほうび在庫は履歴上限に相乗りさせず独立取得する。1日最大2個 × 30日 + 開封の溜め込み
-// を考慮しても実運用では数十件で収まるため、暴走防止の上限として 200 を置く（#127）。
-const REWARD_INVENTORY_LIMIT = 200;
 
 export async function GET() {
   const rlog = routeLogger("GET", "/api/treasures/status");
@@ -48,7 +45,10 @@ export async function GET() {
       },
     }),
     prisma.treasureItem.count({ where: { childId: user.id, isActive: true } }),
-    // #127: ごほうび在庫は履歴上限と独立に取得（コレクション当選 itemId=null は除外）
+    // #127: ごほうび在庫は履歴上限（HISTORY_LIMIT）と独立に、保持期間（30日）内の
+    // 実ごほうび当選（itemId != null）を全件取得する。件数は 30日ウィンドウで
+    // 自然に頭打ちになるため take は掛けない（上限を掛けると溜め込み開封で
+    // 期間内の未使用ごほうびが一覧から欠落し、この修正の意味が無くなる）。
     prisma.treasureLog.findMany({
       where: {
         childId: user.id,
@@ -57,7 +57,6 @@ export async function GET() {
         itemId: { not: null },
       },
       orderBy: { openedAt: "desc" },
-      take: REWARD_INVENTORY_LIMIT,
       include: {
         item: { select: { id: true, title: true, rarity: true } },
       },

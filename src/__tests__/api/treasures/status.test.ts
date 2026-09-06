@@ -101,10 +101,10 @@ describe("GET /api/treasures/status", () => {
     expect(colFlag).toBe(false);
   });
 
-  // #127 follow-up: ごほうび在庫（rewards）は開封履歴の 50 件上限とは独立に取得する。
-  // 30日ウィンドウ内に 50 件超の開封があると、履歴上限に相乗りしていた旧実装では
-  // 未使用ごほうびが一覧から欠落しトグル不能になっていた。
-  it("rewards をコレクション当選除外・履歴上限に縛られず返す", async () => {
+  // #127 follow-up: ごほうび在庫（rewards）は開封履歴の 50 件上限とは独立に、
+  // 保持期間内は全件取得する（take を掛けない）。上限に相乗り／別上限を掛けると
+  // 溜め込み開封で期間内の未使用ごほうびが一覧から欠落しトグル不能になる。
+  it("rewards をコレクション当選除外・上限なし（保持期間で頭打ち）で返す", async () => {
     mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 
@@ -145,10 +145,12 @@ describe("GET /api/treasures/status", () => {
     expect(json.rewards[0].item.title).toBe("おかし");
 
     const rewardQuery = mockPrisma.treasureLog.findMany.mock.calls[1]?.[0] as {
-      where: { itemId?: unknown };
+      where: { itemId?: unknown; openedAt?: unknown };
       take?: number;
     };
     expect(rewardQuery.where.itemId).toEqual({ not: null });
-    expect(rewardQuery.take ?? 0).toBeGreaterThan(50);
+    // 保持期間フィルタで頭打ちにするため take は掛けない
+    expect(rewardQuery.take).toBeUndefined();
+    expect(rewardQuery.where.openedAt).toBeDefined();
   });
 });
