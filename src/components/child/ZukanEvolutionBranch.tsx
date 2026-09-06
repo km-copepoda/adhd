@@ -6,6 +6,7 @@ import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import { getS3Aura } from "@/lib/s3Aura";
 import { getMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
+import { isDescriptionUnlocked, s3DescriptionLockedHint } from "@/lib/zukanDescription";
 import PathChips from "./PathChips";
 
 function shadowPath(imagePath: string): string {
@@ -18,7 +19,7 @@ const CATEGORY_COLORS: Record<string, { r: number; g: number; b: number }> = {
   LIFE:    { r: 74,  g: 222, b: 128 },
 };
 
-type MonsterEntry = { image: string; name: string };
+type MonsterEntry = { image: string; name: string; description: string };
 
 interface ZukanEvolutionBranchProps {
   s1: string;
@@ -26,7 +27,13 @@ interface ZukanEvolutionBranchProps {
   monsterLevels: Record<string, number>;
   monsterTable: Record<string, MonsterEntry>;
   themeId: string;
-  openModal: (image: string, name: string, path: string) => void;
+  openModal: (
+    image: string,
+    name: string,
+    path: string,
+    description?: string,
+    lockedHint?: string,
+  ) => void;
 }
 
 export default function ZukanEvolutionBranch({
@@ -73,7 +80,7 @@ export default function ZukanEvolutionBranch({
       >
         <div
           className={`flex flex-col items-center gap-1 flex-shrink-0${isS1Collected ? " cursor-pointer active:opacity-80" : ""}`}
-          onClick={isS1Collected ? () => openModal(m1.image, m1.name, s1) : undefined}
+          onClick={isS1Collected ? () => openModal(m1.image, m1.name, s1, m1.description) : undefined}
         >
           <Image
             src={isS1Collected ? m1.image : shadowPath(m1.image)}
@@ -122,7 +129,7 @@ export default function ZukanEvolutionBranch({
                   background: "#1a1829",
                   border: `1px solid ${isS2Collected ? "rgba(251,191,36,0.28)" : "#2e2a42"}`,
                 }}
-                onClick={isS2Collected ? () => openModal(m2.image, m2.name, s2) : undefined}
+                onClick={isS2Collected ? () => openModal(m2.image, m2.name, s2, m2.description) : undefined}
               >
                 <PathChips path={s2} />
                 <Image
@@ -150,6 +157,7 @@ export default function ZukanEvolutionBranch({
                   const recordedLv = getMonsterLevel(monsterLevels, themeId, s3);
                   const lv = recordedLv > 0 ? recordedLv : isS3Collected ? 1 : 0;
                   const aura = isS3Collected ? getS3Aura(lv) : null;
+                  const descUnlocked = isDescriptionUnlocked(s3, lv);
                   return (
                     <div
                       key={s3}
@@ -165,7 +173,18 @@ export default function ZukanEvolutionBranch({
                           ? `0 0 8px rgba(${aura.r},${aura.g},${aura.b},0.4)`
                           : undefined,
                       }}
-                      onClick={isS3Collected ? () => openModal(m3.image, m3.name, s3) : undefined}
+                      onClick={
+                        isS3Collected
+                          ? () =>
+                              openModal(
+                                m3.image,
+                                m3.name,
+                                s3,
+                                descUnlocked ? m3.description : undefined,
+                                descUnlocked ? undefined : s3DescriptionLockedHint(),
+                              )
+                          : undefined
+                      }
                     >
                       {/* ::before 相当：レベルオーラ背景 */}
                       {aura && (
