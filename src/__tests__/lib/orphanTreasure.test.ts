@@ -145,37 +145,67 @@ describe("classifyOrphanTreasure", () => {
     },
   );
 
-  it("carryOver写像: quest.date=8/19 / carryOver=true / reportedAt=8/20 は8/20の宝箱を支配し、8/19の宝箱は支配しない", () => {
-    const carryQuest = quest({
+  // --- carryOver 写像と #129 P1: 生成時 carryOver 値の非復元性 ---
+  //
+  // 生成時の carryOver 値は QuestInstance に保存されておらず、親が PUT /api/tasks/[id] で
+  // 後から変更しうる。よって「報告日が quest.date より後の JST 暦日にずれている」
+  // クエスト（carryOver の値で支配日が変わりうるもの）がその treasureDate に絡む場合は、
+  // true/false どちらの仮定でも結論が同じにならない限り SKIP（CARRYOVER_AMBIGUOUS）する。
+
+  it("同日報告の carryOver=true クエストは carryOver に非依存なので通常通り UNLOCK", () => {
+    const sameDayCarry = quest({
+      date: d(2026, 8, 20),
+      carryOver: true,
+      reportedAt: d(2026, 8, 20),
+      status: "APPROVED",
+    });
+    const result = classifyOrphanTreasure({
+      treasureDate: d(2026, 8, 20),
+      treasureStatus: "LOCKED",
+      today: TODAY,
+      quests: [sameDayCarry],
+    });
+    expect(result.action).toBe("UNLOCK");
+  });
+
+  it("reportedAt=null のクエストは quest.date で写像され、carryOver 非依存として扱う（クラッシュしない）", () => {
+    const q = quest({
+      date: d(2026, 8, 19),
+      carryOver: true,
+      reportedAt: null,
+      status: "APPROVED",
+    });
+    const result = classifyOrphanTreasure({
+      treasureDate: d(2026, 8, 19),
+      treasureStatus: "LOCKED",
+      today: TODAY,
+      quests: [q],
+    });
+    expect(result.action).toBe("UNLOCK");
+  });
+
+  it("#129 P1: 報告日が quest.date を跨ぐ APPROVED クエストは SKIP かつ reason に CARRYOVER_AMBIGUOUS", () => {
+    const lateReport = quest({
       date: d(2026, 8, 19),
       carryOver: true,
       reportedAt: d(2026, 8, 20),
       status: "APPROVED",
     });
-
-    const dominates20 = classifyOrphanTreasure({
+    const result = classifyOrphanTreasure({
       treasureDate: d(2026, 8, 20),
       treasureStatus: "LOCKED",
       today: TODAY,
-      quests: [carryQuest],
+      quests: [lateReport],
     });
-    expect(dominates20.action).toBe("UNLOCK");
-
-    const notDominates19 = classifyOrphanTreasure({
-      treasureDate: d(2026, 8, 19),
-      treasureStatus: "LOCKED",
-      today: TODAY,
-      quests: [carryQuest],
-    });
-    expect(notDominates19.action).toBe("SKIP");
-    expect(notDominates19.reason).toContain("UNRESOLVED");
+    expect(result.action).toBe("SKIP");
+    expect(result.reason).toContain("CARRYOVER_AMBIGUOUS");
   });
 
-  it("carryOver=falseのquest.date=8/19は常に8/19の宝箱を支配する（reportedAtが何日でも）", () => {
+  it("#129 P1: carryOver=false でも報告日が跨いでいれば生成時の値が不明なため SKIP（CARRYOVER_AMBIGUOUS）", () => {
     const quest19 = quest({
       date: d(2026, 8, 19),
       carryOver: false,
-      reportedAt: d(2026, 8, 25), // 差し戻し→再報告等で承認日が大きくずれても写像は変わらない
+      reportedAt: d(2026, 8, 25), // 差し戻し→再報告等で報告日が大きくずれた
       status: "APPROVED",
     });
     const result = classifyOrphanTreasure({
@@ -184,12 +214,13 @@ describe("classifyOrphanTreasure", () => {
       today: TODAY,
       quests: [quest19],
     });
-    expect(result.action).toBe("UNLOCK");
+    expect(result.action).toBe("SKIP");
+    expect(result.reason).toContain("CARRYOVER_AMBIGUOUS");
   });
 
-  it("JST境界値: reportedAt=2026-08-20T14:59:59.999Z（JST 8/20 23:59）→ 支配日は8/20", () => {
+  it("#129 P1: JST境界 reportedAt=2026-08-20T14:59:59.999Z（quest.date=8/20 と同JST日）→ 非依存で UNLOCK", () => {
     const q = quest({
-      date: d(2026, 8, 19),
+      date: d(2026, 8, 20),
       carryOver: true,
       reportedAt: new Date("2026-08-20T14:59:59.999Z"),
       status: "APPROVED",
@@ -203,9 +234,9 @@ describe("classifyOrphanTreasure", () => {
     expect(result.action).toBe("UNLOCK");
   });
 
-  it("JST境界値: reportedAt=2026-08-20T15:00:00.000Z（JST 8/21 00:00）→ 支配日は8/21", () => {
+  it("#129 P1: JST境界 reportedAt=2026-08-20T15:00:00.000Z（quest.date=8/20 の翌JST日）→ 跨ぎのため SKIP", () => {
     const q = quest({
-      date: d(2026, 8, 19),
+      date: d(2026, 8, 20),
       carryOver: true,
       reportedAt: new Date("2026-08-20T15:00:00.000Z"),
       status: "APPROVED",
@@ -216,30 +247,28 @@ describe("classifyOrphanTreasure", () => {
       today: TODAY,
       quests: [q],
     });
-    expect(result.action).toBe("UNLOCK");
+    expect(result.action).toBe("SKIP");
+    expect(result.reason).toContain("CARRYOVER_AMBIGUOUS");
   });
 
-  it("reportedAt=nullのクエストはquest.dateで写像される（クラッシュしない）", () => {
-    const q = quest({
-      date: d(2026, 8, 19),
+  it("#129 P1: 跨ぎクエストでも当該 treasureDate に一致しなければ guard は発動しない", () => {
+    const unrelatedLate = quest({
+      date: d(2026, 8, 18),
       carryOver: true,
-      reportedAt: null,
+      reportedAt: d(2026, 8, 19), // 跨いでいるが asTrue=8/19 / asFalse=8/18 のどちらも D(8/20) ではない
       status: "APPROVED",
     });
-    expect(() =>
-      classifyOrphanTreasure({
-        treasureDate: d(2026, 8, 19),
-        treasureStatus: "LOCKED",
-        today: TODAY,
-        quests: [q],
-      }),
-    ).not.toThrow();
-
+    const dominatingD = quest({
+      date: D,
+      carryOver: false,
+      reportedAt: D,
+      status: "APPROVED",
+    });
     const result = classifyOrphanTreasure({
-      treasureDate: d(2026, 8, 19),
+      treasureDate: D,
       treasureStatus: "LOCKED",
       today: TODAY,
-      quests: [q],
+      quests: [unrelatedLate, dominatingD],
     });
     expect(result.action).toBe("UNLOCK");
   });

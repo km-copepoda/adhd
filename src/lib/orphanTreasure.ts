@@ -47,6 +47,8 @@ export interface OrphanTreasureClassification {
  *
  * 分類ルールの優先順位:
  *   0. treasureStatus !== "LOCKED" または treasureDate >= today → 無条件 SKIP（対象外・冪等）
+ *   0.5. carryOver の値によって支配判定が変わりうるクエスト（報告日が quest.date を跨ぐもの）が
+ *        この treasureDate に絡む → SKIP（CARRYOVER_AMBIGUOUS。生成時の値が復元不能なため #129 P1）
  *   1. resolveTreasureDate(quest.date, quest.carryOver, quest.reportedAt ?? quest.date) が
  *      treasureDate に一致するクエストを「支配クエスト」とする
  *   2. 支配クエストに REPORTED / SKIP_REPORTED が1件でも残る → SKIP
@@ -65,6 +67,35 @@ export function classifyOrphanTreasure(
     return {
       action: "SKIP",
       reason: "対象外（LOCKEDでない、または過去日ではない。冪等スキップ）",
+    };
+  }
+
+  // #129 P1: 生成時の carryOver 値は復元できない（QuestInstance にスナップショットが無く、
+  // 親が PUT /api/tasks/[id] で後から変更しうる）。carryOver を true/false のどちらと
+  // 仮定するかで「支配クエスト」への出入りが変わるクエスト（＝報告日が quest.date より
+  // 後の JST 暦日にずれているもの）が、この treasureDate に絡んでいる場合は、
+  // どちらの仮定でも結論が同じにならない限り自動処理せず SKIP して人間に委ねる。
+  const treasureTime = treasureDate.getTime();
+  const carryOverAmbiguous = quests.some((q) => {
+    const at = q.reportedAt ?? q.date;
+    const asTrue = resolveTreasureDate(q.date, true, at).getTime();
+    const asFalse = resolveTreasureDate(q.date, false, at).getTime();
+    if (asTrue === asFalse) return false; // carryOver の値に依存しないクエスト
+    const touchesThisTreasure = asTrue === treasureTime || asFalse === treasureTime;
+    const affectsClassification =
+      q.status === "REPORTED" ||
+      q.status === "SKIP_REPORTED" ||
+      q.status === "APPROVED" ||
+      q.status === "SKIPPED" ||
+      q.status === "REJECTED";
+    return touchesThisTreasure && affectsClassification;
+  });
+  if (carryOverAmbiguous) {
+    return {
+      action: "SKIP",
+      reason:
+        "CARRYOVER_AMBIGUOUS: 報告日が quest.date を跨いでおり、生成時の carryOver 値を特定できない。" +
+        "テンプレートが後から編集された可能性があるため人間による確認が必要",
     };
   }
 
