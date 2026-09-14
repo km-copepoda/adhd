@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 開発パイプライン</title>
+<meta name="description" content="雑な指示から Issue 化・Codex 議論・テストファースト実装・レビュー反復・マージまでを一本化した開発フローの解説資料">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme:light dark;
+    --ground:#eef1f4;
+    --paper:#ffffff;
+    --panel:#f6f8fa;
+    --ink:#1a1f26;
+    --ink-soft:#48535f;
+    --ink-faint:#7b8794;
+    --line:#d9dfe5;
+    --line-soft:#e7ebef;
+    --claude:#0f766e;
+    --claude-bg:#e2f1ef;
+    --codex:#6d28d9;
+    --codex-bg:#eee7fb;
+    --human:#a8560a;
+    --human-bg:#f6ecdd;
+    --danger:#b4232a;
+    --shadow:0 1px 2px rgba(20,30,40,.05), 0 12px 30px -16px rgba(20,30,40,.18);
+    --radius:12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0f1317;
+      --paper:#181d23;
+      --panel:#1e242b;
+      --ink:#e8ecef;
+      --ink-soft:#aab4bf;
+      --ink-faint:#7c8792;
+      --line:#2b333c;
+      --line-soft:#232a32;
+      --claude:#5bc8bd;
+      --claude-bg:#123330;
+      --codex:#bd9ff2;
+      --codex-bg:#251b3c;
+      --human:#e2a869;
+      --human-bg:#3a2a18;
+      --danger:#e8676d;
+      --shadow:0 1px 2px rgba(0,0,0,.35), 0 14px 34px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0f1317;
+    --paper:#181d23;
+    --panel:#1e242b;
+    --ink:#e8ecef;
+    --ink-soft:#aab4bf;
+    --ink-faint:#7c8792;
+    --line:#2b333c;
+    --line-soft:#232a32;
+    --claude:#5bc8bd;
+    --claude-bg:#123330;
+    --codex:#bd9ff2;
+    --codex-bg:#251b3c;
+    --human:#e2a869;
+    --human-bg:#3a2a18;
+    --danger:#e8676d;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 14px 34px -16px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  img{max-width:100%}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:"IBM Plex Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:900px;margin:0 auto;padding:clamp(28px,6vw,72px) clamp(18px,5vw,40px) 96px}
+
+  a{color:var(--claude);text-underline-offset:2px}
+
+  .mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+  code{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.86em;
+    background:var(--panel);
+    border:1px solid var(--line-soft);
+    border-radius:5px;
+    padding:.08em .38em;
+    white-space:nowrap;
+  }
+
+  /* ---------- header ---------- */
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:12px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    margin:0 0 18px;
+  }
+  h1{
+    font-family:"Archivo","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+    font-weight:700;
+    font-size:clamp(30px,6vw,52px);
+    line-height:1.08;
+    letter-spacing:-.02em;
+    text-wrap:balance;
+    margin:0 0 18px;
+  }
+  .lede{
+    font-size:clamp(16px,2.4vw,19px);
+    color:var(--ink-soft);
+    max-width:60ch;
+    margin:0 0 28px;
+  }
+  .meta{
+    display:flex;flex-wrap:wrap;gap:10px 26px;
+    font-family:"IBM Plex Mono",monospace;font-size:12.5px;
+    color:var(--ink-faint);
+    padding-top:20px;border-top:1px solid var(--line);
+  }
+  .meta b{color:var(--ink-soft);font-weight:600}
+
+  /* ---------- one-line flow strip ---------- */
+  .flowstrip{
+    display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;
+    margin:30px 0 8px;padding:0;
+  }
+  .flowstrip li{
+    list-style:none;
+    display:flex;align-items:center;gap:8px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:7px 15px;
+    font-size:13.5px;font-weight:500;
+    box-shadow:var(--shadow);
+  }
+  .flowstrip li::before{
+    content:"";width:8px;height:8px;border-radius:50%;flex:none;
+    background:var(--dot,var(--ink-faint));
+  }
+  .flowstrip li[data-a="human"]{--dot:var(--human)}
+  .flowstrip li[data-a="claude"]{--dot:var(--claude)}
+  .flowstrip li[data-a="codex"]{--dot:var(--codex)}
+  .flowstrip .arrow{
+    align-self:center;color:var(--ink-faint);border:0;background:0;box-shadow:none;padding:0 2px;
+    font-family:"IBM Plex Mono",monospace;
+  }
+  .flowstrip .arrow::before{display:none}
+
+  /* ---------- section ---------- */
+  section{margin-top:56px}
+  .sec-head{
+    font-family:"Archivo",sans-serif;
+    font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-faint);
+    display:flex;align-items:center;gap:12px;
+    margin:0 0 24px;
+  }
+  .sec-head::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* ---------- actors legend ---------- */
+  .actors{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;
+  }
+  .actor{
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;box-shadow:var(--shadow);
+  }
+  .actor h3{
+    margin:0 0 4px;font-family:"Archivo",sans-serif;font-size:15px;font-weight:700;
+    display:flex;align-items:center;gap:9px;
+  }
+  .actor h3::before{content:"";width:11px;height:11px;border-radius:3px;flex:none;background:var(--c)}
+  .actor[data-a="human"]{--c:var(--human)}
+  .actor[data-a="claude"]{--c:var(--claude)}
+  .actor[data-a="codex"]{--c:var(--codex)}
+  .actor p{margin:0;font-size:13.5px;color:var(--ink-soft)}
+
+  /* ---------- pipeline ---------- */
+  .pipe{position:relative}
+  .phase{
+    position:relative;
+    display:grid;
+    grid-template-columns:132px 1fr;
+    gap:26px;
+    padding-bottom:34px;
+  }
+  .phase:not(:last-child) .phase__rail::after{
+    content:"";position:absolute;left:15px;top:38px;bottom:-34px;width:2px;
+    background:linear-gradient(var(--line),var(--line));
+  }
+  .phase__rail{position:relative;padding-top:2px}
+  .phase__num{
+    display:flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:50%;
+    font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:13px;
+    color:var(--paper);background:var(--c);
+    position:relative;z-index:1;
+  }
+  .phase__actor{
+    display:block;margin-top:9px;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--c);font-weight:600;
+  }
+  .phase[data-actor="human"]{--c:var(--human)}
+  .phase[data-actor="claude"]{--c:var(--claude)}
+  .phase[data-actor="codex"]{--c:var(--codex)}
+  .phase[data-actor="codex-claude"]{--c:var(--codex)}
+
+  .phase__body{
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 22px;box-shadow:var(--shadow);
+    min-width:0;
+  }
+  .phase__body h3{
+    margin:0 0 8px;font-family:"Archivo",sans-serif;font-weight:700;
+    font-size:clamp(18px,3vw,21px);letter-spacing:-.01em;
+  }
+  .phase__lead{margin:0 0 16px;color:var(--ink-soft);font-size:14.5px}
+
+  .kv{margin:0;display:grid;grid-template-columns:auto 1fr;gap:7px 16px;font-size:13.5px}
+  .kv dt{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--ink-faint);padding-top:2px;white-space:nowrap;
+  }
+  .kv dd{margin:0;color:var(--ink)}
+  .kv dd + dd{margin-top:0}
+
+  .callout{
+    margin:16px 0 0;padding:12px 14px;border-radius:9px;font-size:13px;
+    border:1px solid var(--line);background:var(--panel);
+  }
+  .callout b{font-weight:600}
+  .callout--gate{
+    border-color:color-mix(in srgb,var(--human) 40%,var(--line));
+    background:var(--human-bg);
+  }
+  .callout--gate b{color:var(--human)}
+  .callout--note{border-style:dashed}
+
+  ul.tight{margin:8px 0 0;padding-left:1.15em;font-size:13.5px;color:var(--ink)}
+  ul.tight li{margin:3px 0}
+  ul.tight li::marker{color:var(--ink-faint)}
+
+  /* ---------- label state machine ---------- */
+  .labels{
+    display:flex;flex-direction:column;gap:0;
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;box-shadow:var(--shadow);
+  }
+  .lbl-row{
+    display:grid;grid-template-columns:170px 1fr auto;gap:14px 18px;align-items:center;
+    padding:13px 18px;
+  }
+  .lbl-row + .lbl-row{border-top:1px solid var(--line-soft)}
+  .tag{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;
+    padding:3px 9px;border-radius:6px;white-space:nowrap;justify-self:start;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  }
+  .tag[data-k="go"]{background:var(--human-bg);border-color:color-mix(in srgb,var(--human) 45%,var(--line));color:var(--human)}
+  .tag[data-k="auto"]{background:var(--claude-bg);border-color:color-mix(in srgb,var(--claude) 40%,var(--line));color:var(--claude)}
+  .tag[data-k="wait"]{background:var(--human-bg);border-color:color-mix(in srgb,var(--human) 45%,var(--line));color:var(--human)}
+  .tag[data-k="stop"]{background:color-mix(in srgb,var(--danger) 14%,var(--paper));border-color:color-mix(in srgb,var(--danger) 40%,var(--line));color:var(--danger)}
+  .tag[data-k="done"]{opacity:.75}
+  .tag[data-k="opus"]{background:var(--codex-bg);border-color:color-mix(in srgb,var(--codex) 40%,var(--line));color:var(--codex)}
+  .tag[data-k="sonnet"]{background:var(--claude-bg);border-color:color-mix(in srgb,var(--claude) 40%,var(--line));color:var(--claude)}
+  .lbl-row p{margin:0;font-size:13.5px;color:var(--ink-soft)}
+  .lbl-row .who{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--ink-faint);white-space:nowrap;
+  }
+
+  /* ---------- gates ---------- */
+  .gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;counter-reset:g}
+  .gate{
+    background:var(--human-bg);
+    border:1px solid color-mix(in srgb,var(--human) 35%,var(--line));
+    border-radius:var(--radius);padding:16px 18px;
+  }
+  .gate::before{
+    counter-increment:g;content:"GATE " counter(g);
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;
+    color:var(--human);font-weight:600;
+  }
+  .gate h3{margin:6px 0 5px;font-family:"Archivo",sans-serif;font-size:15px;font-weight:700}
+  .gate p{margin:0;font-size:13px;color:var(--ink-soft)}
+
+  /* ---------- status ---------- */
+  .status-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  .status-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .status-tbl th,.status-tbl td{text-align:left;padding:12px 16px;vertical-align:top}
+  .status-tbl thead th{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--ink-faint);background:var(--panel);border-bottom:1px solid var(--line);
+  }
+  .status-tbl tbody tr + tr td{border-top:1px solid var(--line-soft)}
+  .status-tbl td:first-child{white-space:nowrap}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;
+    font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;
+  }
+  .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .pill[data-s="done"]{color:var(--claude);background:var(--claude-bg)}
+  .pill[data-s="manual"]{color:var(--human);background:var(--human-bg)}
+  .pill[data-s="todo"]{color:var(--ink-faint);background:var(--panel)}
+
+  .guardrails{margin:0;padding-left:1.2em;font-size:14px;columns:2;column-gap:34px}
+  .guardrails li{margin:6px 0;break-inside:avoid}
+  .guardrails li::marker{color:var(--human)}
+
+  footer{
+    margin-top:64px;padding-top:20px;border-top:1px solid var(--line);
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-faint);
+  }
+
+  @media (max-width:620px){
+    .phase{grid-template-columns:1fr;gap:12px}
+    .phase__rail{display:flex;align-items:center;gap:12px;padding-top:0}
+    .phase:not(:last-child) .phase__rail::after{display:none}
+    .phase__actor{margin-top:0}
+    .kv{grid-template-columns:1fr}
+    .kv dt{padding-top:8px}
+    .lbl-row{grid-template-columns:1fr;gap:6px}
+    .guardrails{columns:1}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">社内発表資料 · 開発フロー</p>
+    <h1>投げれば回る AI 開発パイプライン</h1>
+    <p class="lede">
+      「これを作りたい / 直したい」と雑に投げるだけで、Issue 化 → Codex と Issue レビュー → テストファースト実装 → Codex の PR レビュー反復 → マージまでが一本の線でつながる。
+      人間が判断するのは <b>着手を許可するか</b> と <b>最終的にマージするか</b> の 2 点だけ。
+    </p>
+
+    <ol class="flowstrip" aria-label="全体フローの一行要約">
+      <li data-a="human">やりたいことを投げる</li>
+      <li class="arrow">→</li>
+      <li data-a="claude">Claude が Issue 起票</li>
+      <li class="arrow">→</li>
+      <li data-a="codex">Codex と Issue レビュー</li>
+      <li class="arrow">→</li>
+      <li data-a="human">人間が着手許可</li>
+      <li class="arrow">→</li>
+      <li data-a="claude">テストファーストで実装</li>
+      <li class="arrow">→</li>
+      <li data-a="codex">Codex が PR レビュー</li>
+      <li class="arrow">→</li>
+      <li data-a="human">問題なければマージ</li>
+    </ol>
+
+    <div class="meta">
+      <span><b>対象</b> adhd リポジトリ</span>
+      <span><b>基盤</b> Claude Code サブエージェント + Codex GitHub App</span>
+      <span><b>ベースブランチ</b> develop</span>
+      <span><b>発表日</b> 2026-09-01</span>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="sec-head">登場人物</h2>
+    <div class="actors">
+      <div class="actor" data-a="human">
+        <h3>あなた（人間）</h3>
+        <p>やりたいことを投げる。Issue の中身を見て着手を許可する。最後にマージする。判断だけを担当し、実装作業はしない。</p>
+      </div>
+      <div class="actor" data-a="claude">
+        <h3>Claude Code</h3>
+        <p>役割ごとのサブエージェント群（<span class="mono">issue-planner / policy-checker / test-writer / implementer / code-reviewer / pr-submitter</span>）が Issue 化と TDD 実装を担う。</p>
+      </div>
+      <div class="actor" data-a="codex">
+        <h3>Codex</h3>
+        <p>GitHub App（<span class="mono">chatgpt-codex-connector</span>）。起票直後の Issue ドラフトのレビュー相手であり、PR に対しては致命的バグ・脆弱性に絞ったレビューを返す。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-head">サブエージェントと担当モデル</h2>
+    <p class="lede" style="margin-bottom:20px">
+      Issue 化の <span class="mono">issue-planner</span> だけ Opus ── 設計判断の質がそのまま成果物の質になるため。実装〜レビューの実務は Sonnet で回す。
+      <span class="mono">/issue-picker</span> と <span class="mono">/codex-followup</span> はサブエージェントではなくスラッシュコマンドで、Claude Code のメインセッション上で動き、必要に応じて下のエージェントを呼び出す。
+    </p>
+    <div class="status-scroll">
+      <table class="status-tbl">
+        <thead>
+          <tr><th>エージェント</th><th>モデル</th><th>ツール</th><th>役割</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mono">issue-planner</span></td>
+            <td><span class="tag" data-k="opus">Opus</span></td>
+            <td><span class="mono">Read / Grep / Glob / Bash</span></td>
+            <td>雑な指示を深掘りして Issue 起票（<code>gh issue create</code>）</td>
+          </tr>
+          <tr>
+            <td><span class="mono">policy-checker</span></td>
+            <td><span class="tag" data-k="sonnet">Sonnet</span></td>
+            <td><span class="mono">Read / Grep / Glob</span></td>
+            <td>規約・方針との衝突、非標準アプローチの検出</td>
+          </tr>
+          <tr>
+            <td><span class="mono">test-writer</span></td>
+            <td><span class="tag" data-k="sonnet">Sonnet</span></td>
+            <td><span class="mono">Read / Grep / Glob / Write / Edit / Bash</span></td>
+            <td>Red: <code>src/__tests__/</code> に失敗テストを書く（境界値含む）</td>
+          </tr>
+          <tr>
+            <td><span class="mono">implementer</span></td>
+            <td><span class="tag" data-k="sonnet">Sonnet</span></td>
+            <td><span class="mono">Read / Grep / Glob / Write / Edit / Bash</span></td>
+            <td>Green + Refactor: テストを通す最小実装 → 規約準拠に整理</td>
+          </tr>
+          <tr>
+            <td><span class="mono">code-reviewer</span></td>
+            <td><span class="tag" data-k="sonnet">Sonnet</span></td>
+            <td><span class="mono">Read / Grep / Glob / Bash</span></td>
+            <td>XP・進化・ステータス遷移・日付・集約ロジックの規約準拠を最終チェック</td>
+          </tr>
+          <tr>
+            <td><span class="mono">pr-submitter</span></td>
+            <td><span class="tag" data-k="sonnet">Sonnet</span></td>
+            <td><span class="mono">Read / Grep / Glob / Bash</span></td>
+            <td>ブランチ作成・コミット・push・PR 作成・<code>@codex review</code> 投稿</td>
+          </tr>
+          <tr>
+            <td><span class="mono">/issue-picker</span></td>
+            <td><span class="tag">コマンド</span></td>
+            <td><span class="mono">メインセッション</span></td>
+            <td><span class="mono">auto-pickup</span> Issue を 1 件拾い、上記フローに乗せる</td>
+          </tr>
+          <tr>
+            <td><span class="mono">/codex-followup</span></td>
+            <td><span class="tag">コマンド</span></td>
+            <td><span class="mono">メインセッション</span></td>
+            <td>Codex レビューの取得・対応・再依頼を 1 反復。<code>/loop</code> で反復実行</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-head">6 つのフェーズ</h2>
+    <div class="pipe">
+
+      <article class="phase" data-actor="human">
+        <div class="phase__rail"><span class="phase__num">01</span><span class="phase__actor">You</span></div>
+        <div class="phase__body">
+          <h3>やりたいことを投げる</h3>
+          <p class="phase__lead">整形されたチケットは不要。一文の要望や不具合報告をそのまま渡す。</p>
+          <dl class="kv">
+            <dt>入力例</dt><dd>「クエスト一覧の表示が遅いから直して」「宝箱にレアリティ表示を足したい」</dd>
+            <dt>やること</dt><dd>思いついたことを言葉にするだけ。背景の整理や影響範囲の調査は次のフェーズに任せる。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="phase" data-actor="claude">
+        <div class="phase__rail"><span class="phase__num">02</span><span class="phase__actor">Claude</span></div>
+        <div class="phase__body">
+          <h3>Claude が Issue を起票する</h3>
+          <p class="phase__lead"><span class="mono">issue-planner</span> エージェントが、雑な指示を「考え抜かれた Issue」に変換する。指示をそのまま貼り付けることはしない。</p>
+          <dl class="kv">
+            <dt>使うもの</dt><dd><span class="mono">issue-planner</span>（深掘り担当）→ <code>gh issue create</code></dd>
+            <dt>掘り下げる項目</dt>
+            <dd>
+              <ul class="tight">
+                <li>目的 / 背景（元の指示も引用）</li>
+                <li>実装方針（複数案あれば比較して推奨を 1 つ）</li>
+                <li>影響範囲（波及するファイル・API・DB・集約ロジック）</li>
+                <li>テスト要件と境界値・エッジケース</li>
+                <li>スコープ評価（自動着手向き / 非推奨）を本文に<b>推奨として</b>記載</li>
+              </ul>
+            </dd>
+            <dt>出力</dt><dd>ラベルなしの Issue ドラフト（+ URL 通知）</dd>
+          </dl>
+          <div class="callout callout--note">
+            <b>まだ着手許可は出ていない</b> ── この時点では Issue はドラフト段階。次のフェーズで Codex レビューを挟み、問題がなければ人間に差し戻される。
+          </div>
+        </div>
+      </article>
+
+      <article class="phase" data-actor="codex-claude">
+        <div class="phase__rail"><span class="phase__num">03</span><span class="phase__actor">Codex × Claude</span></div>
+        <div class="phase__body">
+          <h3>Codex と Issue をレビューする</h3>
+          <p class="phase__lead">起票した Issue ドラフトを Claude が Codex に渡してレビューしてもらう。目的・実装方針・影響範囲・テスト観点に穴がないかを往復で詰め、問題がなければ人間に差し戻す。</p>
+          <dl class="kv">
+            <dt>レビュー</dt><dd>Claude が Issue 内容を Codex に共有し、方針の穴・考慮漏れ・過剰スコープなどの指摘を受ける。</dd>
+            <dt>反映</dt><dd>指摘があれば Claude が Issue 本文を修正して再レビュー。</dd>
+            <dt>完了</dt><dd>Codex が「問題なし」と返したら、レビュー済みの Issue を人間に差し戻す。</dd>
+          </dl>
+          <div class="callout callout--gate">
+            <b>人間ゲート 1｜着手許可</b> ── レビュー済みの Issue を人間が確認し、<span class="mono">auto-pickup</span> ラベルを付ける。ここで初めて着手が許可される。ラベル付与は必ず人間の操作で、AI がスコープを自己判定して自分に許可を出す経路は塞いでいる。
+          </div>
+          <div class="callout callout--note">
+            <b>補足</b> ── 現状この Codex レビューは会話ベースで手動。プロジェクト規約との機械的な衝突チェック（<span class="mono">policy-checker</span>）は次フェーズの <span class="mono">issue-picker</span> 内で自動実行される。
+          </div>
+        </div>
+      </article>
+
+      <article class="phase" data-actor="claude">
+        <div class="phase__rail"><span class="phase__num">04</span><span class="phase__actor">Claude</span></div>
+        <div class="phase__body">
+          <h3>テストファーストで実装する</h3>
+          <p class="phase__lead"><span class="mono">issue-picker</span> が <span class="mono">auto-pickup</span> の付いた Issue を 1 件拾い、規約チェック → Red → Green → Refactor を回してから PR を作る。</p>
+          <dl class="kv">
+            <dt>拾い方</dt><dd>作成日が最も古い 1 件のみ（同時進行はしない）。専用 worktree + ブランチ <span class="mono">issue-&lt;N&gt;-&lt;slug&gt;</span>、base は <span class="mono">develop</span>。</dd>
+            <dt>規約チェック</dt><dd><span class="mono">policy-checker</span> が <code>docs/decisions.md</code> と <code>CLAUDE.md</code> を読み、方針と逆行しないか確認。衝突すれば実装せず <span class="mono">auto:blocked</span> にして人間へ差し戻す。</dd>
+            <dt>TDD ループ</dt>
+            <dd>
+              <ul class="tight">
+                <li><span class="mono">test-writer</span> — <code>src/__tests__/</code> に失敗テストを書き <code>npm test</code> で赤を確認（境界値含む）</li>
+                <li><span class="mono">implementer</span> — テストを通す最小実装 → 規約準拠にリファクタ</li>
+                <li><span class="mono">code-reviewer</span> — XP タイミング・進化ロジック・ステータス遷移・集約ロジック・日付処理を照合</li>
+                <li>APPROVED が出るまで implementer ⇄ code-reviewer を最大 3 反復</li>
+              </ul>
+            </dd>
+            <dt>PR 作成</dt><dd><span class="mono">pr-submitter</span> がコミット・push・PR 作成し、<code>@codex review</code> を投稿。Issue は <span class="mono">auto:pr-open</span> へ。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="phase" data-actor="codex">
+        <div class="phase__rail"><span class="phase__num">05</span><span class="phase__actor">Codex</span></div>
+        <div class="phase__body">
+          <h3>Codex がレビューし、Claude が反復対応する</h3>
+          <p class="phase__lead"><code>/loop /codex-followup</code> が「レビュー取得 → 対応 → 再依頼」を自動で回す。最大 20 反復。</p>
+          <dl class="kv">
+            <dt>レビュー方針</dt><dd>Codex には「動作不能バグ（Fatal Bug）と明確なセキュリティ脆弱性のみ、重要度順に最大 3 件」を依頼。些細な指摘は出させない。</dd>
+            <dt>指摘の処理</dt>
+            <dd>
+              <ul class="tight">
+                <li>UI / ロジック・パフォーマンス / QA の 3 カテゴリに判定し、<span class="mono">implementer</span> に重点確認事項を注入</li>
+                <li>コード修正を伴う指摘は必ず先に失敗テストを追加（回帰テスト必須）</li>
+                <li>規約と衝突する指摘は直さず日本語で理由を返信</li>
+                <li>1 反復 = 1 コミット以下、処理済みは 👀 リアクションで管理</li>
+              </ul>
+            </dd>
+            <dt>完了条件</dt><dd>CI green ＋ Codex 承認 ＋ マージ可能（<span class="mono">mergeStateStatus == CLEAN</span>）。ここで <b>「MERGE READY」を通知して停止する</b>。</dd>
+          </dl>
+        </div>
+      </article>
+
+      <article class="phase" data-actor="human">
+        <div class="phase__rail"><span class="phase__num">06</span><span class="phase__actor">You</span></div>
+        <div class="phase__body">
+          <h3>問題なければマージする</h3>
+          <p class="phase__lead">MERGE READY 通知を受けた人間が最終確認してマージする。マージだけは意図的に自動化しない。</p>
+          <dl class="kv">
+            <dt>人間の作業</dt><dd>差分と Codex のやり取りを確認し、<span class="mono">develop</span> へマージ。</dd>
+            <dt>後処理</dt><dd><span class="mono">develop</span> ベースでは <code>Closes #N</code> が効かないため、マージ検知後に <code>gh issue close</code> ＋ <span class="mono">auto:done</span> へ遷移させる。</dd>
+          </dl>
+          <div class="callout callout--gate">
+            <b>人間ゲート 2｜マージ判断</b> ── <code>/codex-followup</code> は「通知して止まる」設計。実際にマージするのは常に人間。
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-head">Issue ラベルで状態を管理する</h2>
+    <p class="lede" style="margin-bottom:20px">
+      DB や外部ストアを持たず、GitHub Issue 自体を状態機械にする。<span class="mono">auto:*</span> 系は自動化プロセスだけが付け外しし、人間は触らない。
+    </p>
+    <div class="labels">
+      <div class="lbl-row">
+        <span class="tag" data-k="go">auto-pickup</span>
+        <p>このIssueは自動着手してよい、という人間の明示的な許可。これが無ければ絶対に着手しない。</p>
+        <span class="who">人間が付与</span>
+      </div>
+      <div class="lbl-row">
+        <span class="tag" data-k="auto">auto:in-progress</span>
+        <p>issue-picker が着手。worktree で実装中。</p>
+        <span class="who">issue-picker</span>
+      </div>
+      <div class="lbl-row">
+        <span class="tag" data-k="auto">auto:pr-open</span>
+        <p>PR 作成済み。/codex-followup がレビュー反復を回している。</p>
+        <span class="who">issue-picker</span>
+      </div>
+      <div class="lbl-row">
+        <span class="tag" data-k="wait">auto:merge-ready</span>
+        <p>CI green・Codex 承認・マージ可能。人間の操作待ち。</p>
+        <span class="who">codex-followup</span>
+      </div>
+      <div class="lbl-row">
+        <span class="tag" data-k="stop">auto:blocked</span>
+        <p>方針衝突、またはレビュー反復上限で自動化を断念。人間の判断が必要。</p>
+        <span class="who">picker / followup</span>
+      </div>
+      <div class="lbl-row">
+        <span class="tag" data-k="done">auto:done</span>
+        <p>PR マージ済み、対応完了（終端）。</p>
+        <span class="who">マージ後処理</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-head">人間が必ず介在する 3 点</h2>
+    <div class="gates">
+      <div class="gate">
+        <h3>着手を許可する</h3>
+        <p>Codex レビューを通った Issue を読み、<span class="mono">auto-pickup</span> ラベルを付ける。スコープが大きすぎる・曖昧な Issue はここで弾く。</p>
+      </div>
+      <div class="gate">
+        <h3>ブロックを解除する</h3>
+        <p><span class="mono">auto:blocked</span> になった Issue は自動リトライしない。人間が対応してラベルを付け直すまで放置される。</p>
+      </div>
+      <div class="gate">
+        <h3>マージする</h3>
+        <p>MERGE READY 通知を受けて最終確認し、自分でマージする。パイプラインはここまで来て止まる。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-head">現在の実装状況</h2>
+    <div class="status-scroll">
+      <table class="status-tbl">
+        <thead>
+          <tr><th>要素</th><th>状態</th><th>補足</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mono">issue-planner</span> エージェント</td>
+            <td><span class="pill" data-s="done">実装済み</span></td>
+            <td>深層思考で Issue 起票。Issue #15 で動作確認済み。</td>
+          </tr>
+          <tr>
+            <td>サブエージェント 5 種</td>
+            <td><span class="pill" data-s="done">実装済み</span></td>
+            <td><span class="mono">policy-checker / test-writer / implementer / code-reviewer / pr-submitter</span>。既存の対話フローと共通。</td>
+          </tr>
+          <tr>
+            <td><span class="mono">issue-picker</span> コマンド</td>
+            <td><span class="pill" data-s="done">実装済み</span></td>
+            <td>Step 0〜8 を手動で通し検証済み。</td>
+          </tr>
+          <tr>
+            <td><span class="mono">/codex-followup</span>（カテゴリ判定込み）</td>
+            <td><span class="pill" data-s="done">実装済み</span></td>
+            <td>最大 20 反復。指摘のカテゴリ別コンテキスト注入まで記述済み（Codex 実レビューでの検証は未）。</td>
+          </tr>
+          <tr>
+            <td>GitHub ラベル 6 種</td>
+            <td><span class="pill" data-s="done">実装済み</span></td>
+            <td><span class="mono">auto-pickup</span> ほか作成済み。</td>
+          </tr>
+          <tr>
+            <td>Codex との Issue レビュー</td>
+            <td><span class="pill" data-s="manual">手動運用</span></td>
+            <td>起票直後の Issue を Codex に見てもらう工程。現状は会話ベースで手動。専用の自動ステップは未整備。</td>
+          </tr>
+          <tr>
+            <td>各エージェント / コマンドの起動</td>
+            <td><span class="pill" data-s="manual">手動運用</span></td>
+            <td><span class="mono">issue-planner</span> と <span class="mono">issue-picker</span> はそれぞれ手動でキックする。</td>
+          </tr>
+          <tr>
+            <td>Issue / ラベルを検知する自動トリガー</td>
+            <td><span class="pill" data-s="todo">未配線</span></td>
+            <td><span class="mono">RemoteTrigger</span> の webhook（<span class="mono">issues.labeled</span>）＋ <span class="mono">schedule</span> のクラウドルーティンが未接続。ここが繋がると全自動化。</td>
+          </tr>
+          <tr>
+            <td>マージ</td>
+            <td><span class="pill" data-s="todo">自動化しない</span></td>
+            <td>設計上の意図。常に人間が実行する。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout--note" style="margin-top:16px">
+      <b>まとめ</b> ── 中身（エージェント・コマンド・ラベル）は揃っている。残りは「Issue に <span class="mono">auto-pickup</span> が付いたのを検知して <span class="mono">issue-picker</span> を自動起動する配線」だけ。それまでは各ステップを手動でキックして運用する。
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec-head">安全装置</h2>
+    <ul class="guardrails">
+      <li><span class="mono">auto-pickup</span> の無い Issue には絶対に着手しない</li>
+      <li>着手前に必ず <span class="mono">policy-checker</span> を通す</li>
+      <li>同時に処理する Issue は 1 件まで</li>
+      <li>反復上限は 2 種（1 指摘あたり 3 回 / PR 全体で 20 回）。到達したら人間にエスカレーション</li>
+      <li><span class="mono">auto-pickup</span> 付与後に Issue 本文が編集されていないか検証（プロンプトインジェクション対策）</li>
+      <li><span class="mono">main</span> への直接コミット・直接 PR は禁止（base は常に <span class="mono">develop</span>）</li>
+      <li><code>npm test</code> が通らないコードは push しない</li>
+      <li><span class="mono">auto:blocked</span> の Issue を自動リトライしない</li>
+      <li>マージは自動化しない</li>
+    </ul>
+  </section>
+
+  <footer>
+    出典: <span class="mono">CLAUDE.md</span> / <span class="mono">docs/未実装仕様書/issue-auto-pipeline.md</span> / <span class="mono">.claude/commands/codex-followup.md</span> · adhd リポジトリ
+  </footer>
+
+</div>
+</body>
+</html>
