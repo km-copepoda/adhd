@@ -71,6 +71,8 @@ model User {
   reportDeadlineTime     String?
   checkinDeadlineTime    String?
   questTimeNotifyEnabled Boolean            @default(true)
+  /// ふりがな（ルビ）表示 ON/OFF。子供のクエスト画面での格言等の表示に使う。
+  rubyEnabled            Boolean            @default(true)
   rebirthPending         Boolean            @default(false)
   rebirthEggBonus        String?
   usedEggBonuses         String             @default("[]")

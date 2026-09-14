@@ -96,5 +96,33 @@ export async function PATCH(request: Request) {
     rlog.info("Child questTimeNotifyEnabled updated", { childId, value });
   }
 
+  // rubyEnabled: ふりがな（ルビ）表示の ON/OFF（子供単位）
+  if ("rubyEnabled" in body && "childId" in body) {
+    const value = body.rubyEnabled;
+    const childId: string = body.childId;
+
+    if (typeof value !== "boolean") {
+      return NextResponse.json(
+        { error: "rubyEnabled は boolean で指定してください" },
+        { status: 400 },
+      );
+    }
+
+    const child = await prisma.user.findFirst({
+      where: { id: childId, familyId: user.familyId, role: "CHILD" },
+      select: { id: true },
+    });
+    if (!child) {
+      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+    }
+
+    await prisma.user.update({
+      where: { id: childId },
+      data: { rubyEnabled: value },
+    });
+
+    rlog.info("Child rubyEnabled updated", { childId, value });
+  }
+
   return NextResponse.json({ ok: true });
 }

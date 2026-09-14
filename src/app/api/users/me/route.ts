@@ -10,5 +10,6 @@ export async function GET() {
     reportDeadlineTime: (user as { reportDeadlineTime?: string | null }).reportDeadlineTime ?? null,
     checkinDeadlineTime: (user as { checkinDeadlineTime?: string | null }).checkinDeadlineTime ?? null,
     minTasksForStreak: (user as { minTasksForStreak?: number }).minTasksForStreak ?? 1,
+    rubyEnabled: user.rubyEnabled,
   });
 }

@@ -84,6 +84,97 @@ describe("PATCH /api/family/settings — questTimeNotifyEnabled", () => {
   });
 });
 
+describe("PATCH /api/family/settings — rubyEnabled", () => {
+  it("親が自分のファミリーの子供のルビ設定を true→false に更新できること", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", rubyEnabled: false }));
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: false }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "child-1" },
+      data: { rubyEnabled: false },
+    });
+  });
+
+  it("true への切り替えも反映されること", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.user.update.mockResolvedValue(childUser({ id: "child-1", rubyEnabled: true }));
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: true }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "child-1" },
+      data: { rubyEnabled: true },
+    });
+  });
+
+  it("rubyEnabled が文字列の場合は 400 を返すこと", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: "true" }));
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("rubyEnabled が null の場合は 400 を返すこと", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: null }));
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("rubyEnabled が数値の場合は 400 を返すこと", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: 1 }));
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("ファミリー外の子供IDは404で拒否されること", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    const res = await PATCH(makeRequest({ childId: "child-other", rubyEnabled: false }));
+
+    expect(res.status).toBe(404);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("存在しない子供IDは404で拒否されること", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+
+    const res = await PATCH(makeRequest({ childId: "not-exist", rubyEnabled: false }));
+
+    expect(res.status).toBe(404);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("親以外（CHILDロール）からの更新は403で拒否されること", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1" }));
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: false }));
+
+    expect(res.status).toBe(403);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("未認証からの更新は403で拒否されること", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+
+    const res = await PATCH(makeRequest({ childId: "child-1", rubyEnabled: false }));
+
+    expect(res.status).toBe(403);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});
+
 describe("PATCH /api/family/settings — checkinDeadlineTime", () => {
   it("HH:mm 形式で更新できること", async () => {
     mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
