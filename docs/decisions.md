@@ -2890,6 +2890,13 @@
 - `package.json` — `tsx` を devDependency に追加、`npm run rescue:treasures` スクリプトを追加
 - `src/__tests__/lib/orphanTreasure.test.ts` / `src/__tests__/lib/orphanTreasureRescue.test.ts` — 新規。境界値（当日/未来日/冪等性/carryOver写像/JST日付境界）を含む単体テスト
 
+### 2026-09-07 追記（PR #129 Codex レビュー対応・別PR）
+
+- **carryOver 曖昧時は SKIP**: `classifyOrphanTreasure` は `q.template.carryOver`（現在の可変値）で支配判定していたが、報告後に親が `PUT /api/tasks/[id]` で `carryOver` を変更していると、古い宝箱がマッチしなくなる／無関係な宝箱を誤 UNLOCK しうる。生成時の値は復元不能（`QuestInstance` にスナップショット列が無い）ため、**carryOver の true/false どちらの仮定でも結論が同じにならない限り自動処理せず SKIP**（reason `CARRYOVER_AMBIGUOUS`）に変更。実質的に「報告日が `quest.date` の JST 暦日を跨ぐクエスト」が絡む宝箱は人間確認送りになる。
+- **適用を原子化**: `dryRun: false` の UNLOCK 群・CANCEL 群を別々の `updateMany` ではなく **1つの `prisma.$transaction([...])`** で適用（片方だけ成功して本番DBが中途半端になる状態を排除）。
+- **監査ログを適用前に永続化**: `rescueOrphanTreasures` に `onPlan` フックを追加し、CLI は `--apply` 時に DB 書き込みの前に監査 JSON（`applied: false` の計画）を書き出す。適用後に `applied: true` を再度書き出す。
+- **`--limit` スタベーション対策**: 候補取得を常に `orderBy: { id: "asc" }`（決定的）にし、`--after <id>` カーソル（`cursor` + `skip: 1`）を追加。SKIP 行が limited バッチを占有し続けても、監査ログの id を渡して次バッチへ進める。
+
 ## 2026-08-30: 設計凍結前に Codex 実現可能性レビュー工程を追加（Issue #120）
 
 ### 背景

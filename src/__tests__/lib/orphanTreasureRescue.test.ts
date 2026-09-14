@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { rescueOrphanTreasures } from "@/lib/orphanTreasureRescue";
 import type { Prisma } from "@/generated/prisma/client";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
@@ -32,10 +32,21 @@ function d(year: number, month: number, day: number): Date {
 const D = d(2026, 8, 20);
 const BEFORE = d(2026, 8, 22);
 
+/**
+ * `$transaction` は配列版とコールバック版のオーバーロードを持ち、`mockImplementation` の
+ * 型検査が通らないため setup.ts と同じキャストパターンで扱う。
+ * #129 finding 2: 実装は配列版（`Prisma.PrismaPromise[]`）で呼ぶ。
+ */
+const transactionMock = mockPrisma.$transaction as unknown as {
+  mockImplementation: (fn: (ops: unknown[]) => Promise<unknown[]>) => void;
+};
+
 beforeEach(() => {
   mockPrisma.treasureLog.findMany.mockReset();
   mockPrisma.questInstance.findMany.mockReset();
   mockPrisma.treasureLog.updateMany.mockReset();
+  mockPrisma.$transaction.mockReset();
+  transactionMock.mockImplementation((ops) => Promise.all(ops));
 });
 
 describe("rescueOrphanTreasures", () => {
@@ -204,6 +215,124 @@ describe("rescueOrphanTreasures", () => {
 
     expect(mockPrisma.treasureLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ take: 50 }),
+    );
+  });
+
+  // --- #129 finding 2: 適用の原子性 / 監査ログの事前永続化 ---
+
+  it("UNLOCK群とCANCEL群を1回の $transaction にまとめて適用する", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      treasureLog({ id: "t-unlock", childId: "child-1", date: D, status: "LOCKED" }),
+      treasureLog({ id: "t-cancel", childId: "child-2", date: D, status: "LOCKED" }),
+    ]);
+    mockPrisma.questInstance.findMany.mockImplementation((args?: Prisma.QuestInstanceFindManyArgs) => {
+      const where = args?.where;
+      if (where?.childId === "child-1") {
+        return asPrismaPromise([
+          questWithTemplate(
+            { id: "q-u", childId: "child-1", date: D, status: "APPROVED", reportedAt: D },
+            { carryOver: false },
+          ),
+        ]);
+      }
+      return asPrismaPromise([
+        questWithTemplate(
+          { id: "q-c", childId: "child-2", date: D, status: "REJECTED", reportedAt: D },
+          { carryOver: false },
+        ),
+      ]);
+    });
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    await rescueOrphanTreasures({ dryRun: false, before: BEFORE });
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    const passed = mockPrisma.$transaction.mock.calls[0]?.[0];
+    expect(Array.isArray(passed)).toBe(true);
+    expect((passed as unknown as unknown[]).length).toBe(2);
+  });
+
+  it("dryRun: true では $transaction を呼ばない", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      treasureLog({ id: "t1", childId: "child-1", date: D, status: "LOCKED" }),
+    ]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      questWithTemplate(
+        { id: "q1", childId: "child-1", date: D, status: "APPROVED", reportedAt: D },
+        { carryOver: false },
+      ),
+    ]);
+
+    await rescueOrphanTreasures({ dryRun: true, before: BEFORE });
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("onPlan は DB 書き込み（$transaction）より前に、分類結果を引数に呼ばれる", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      treasureLog({ id: "t1", childId: "child-1", date: D, status: "LOCKED" }),
+    ]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      questWithTemplate(
+        { id: "q1", childId: "child-1", date: D, status: "APPROVED", reportedAt: D },
+        { carryOver: false },
+      ),
+    ]);
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const order: string[] = [];
+    transactionMock.mockImplementation((ops) => {
+      order.push("transaction");
+      return Promise.all(ops);
+    });
+
+    const onPlan = vi.fn((plan: { unlocked: { id: string }[] }) => {
+      order.push("onPlan");
+      expect(plan.unlocked.map((u) => u.id)).toEqual(["t1"]);
+    });
+
+    await rescueOrphanTreasures({ dryRun: false, before: BEFORE, onPlan });
+
+    expect(onPlan).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(["onPlan", "transaction"]);
+  });
+
+  it("dryRun: true では onPlan を呼ばない", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      treasureLog({ id: "t1", childId: "child-1", date: D, status: "LOCKED" }),
+    ]);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      questWithTemplate(
+        { id: "q1", childId: "child-1", date: D, status: "APPROVED", reportedAt: D },
+        { carryOver: false },
+      ),
+    ]);
+    const onPlan = vi.fn();
+
+    await rescueOrphanTreasures({ dryRun: true, before: BEFORE, onPlan });
+
+    expect(onPlan).not.toHaveBeenCalled();
+  });
+
+  // --- #129 finding 3: --limit のスタベーション対策（決定的カーソルページング） ---
+
+  it("findMany は常に id 昇順で決定的に取得する", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+
+    await rescueOrphanTreasures({ dryRun: true, before: BEFORE });
+
+    expect(mockPrisma.treasureLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { id: "asc" } }),
+    );
+  });
+
+  it("after オプション指定時、cursor + skip:1 でその id より後ろを取得する", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+
+    await rescueOrphanTreasures({ dryRun: true, before: BEFORE, after: "t-100" });
+
+    expect(mockPrisma.treasureLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: { id: "t-100" }, skip: 1, orderBy: { id: "asc" } }),
     );
   });
 
