@@ -2187,6 +2187,13 @@
 - `src/__tests__/components/CheckinSuccessCutscene.test.tsx` — 新規。文言出し分け・onClose・境界値（streak=0）
 - `src/__tests__/components/streak-header-badge.test.tsx` / `src/__tests__/lib/streakDisplay.test.ts` — 削除
 
+### 2026-09-14 追記（Issue #133）
+
+- 「日替わり格言を子供がアプリを開いた時に見せたい」という要望（Issue #133）に対し、当初は独立した常駐コンポーネント + `localStorage` 判定で新しいポップアップを追加する設計（v1）を検討したが、`codex-design-review` で本エントリの「起動時カットインは1つに統一する」方針と衝突すると指摘され、ユーザー確認の上で不採用にした
+- 代わりに、既存の `CheckinSuccessCutscene` 自体に当日の格言（`@/lib/quotes` の `getDailyQuote`）を追加表示する形（v2）を採用した。新規の常駐コンポーネント・`localStorage` キー・APIエンドポイントは一切追加しておらず、本決定の「カットインは1つ」を維持している
+- **やってはいけないこと（追加）**: 「アプリを開いた瞬間」に発火する新しい独立カットイン／ポップアップを追加しない。同種の要望が今後出た場合も、既存の `CheckinSuccessCutscene` を拡張する方向で検討すること
+- 該当箇所: `src/components/child/CheckinSuccessCutscene.tsx`（`rubyEnabled`/`quoteDate` props 追加）、`src/app/app/child/quests/page.tsx`（カットインの描画条件に `rubyEnabled !== null && quoteDate !== null` を追加、`/api/users/me` 失敗時のフォールバック追加）
+
 ## 2026-07-02: 親代理経路でも全完了時に ALL_COMPLETE 宝箱を生成する（PROXY と共存）
 
 ### 決定
