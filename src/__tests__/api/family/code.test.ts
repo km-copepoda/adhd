@@ -106,6 +106,7 @@ describe("GET /api/family/code", () => {
       reportDeadlineTime: null,
       checkinDeadlineTime: null,
       questTimeNotifyEnabled: true,
+      rubyEnabled: true,
       studyPt: 0,
       staminaPt: 0,
       lifePt: 0,
