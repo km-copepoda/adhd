@@ -13,6 +13,7 @@ import StampCelebrationOverlay from "@/components/child/StampCelebrationOverlay"
 import CheckinPill from "@/components/child/CheckinPill";
 import CheckinSuccessCutscene from "@/components/child/CheckinSuccessCutscene";
 import QuestStatusCard from "@/components/child/QuestStatusCard";
+import DailyQuoteCard from "@/components/child/DailyQuoteCard";
 import type { CheckinTodayStatus } from "@/lib/checkinPill";
 import { getMonsterMiniData, type MonsterMiniData } from "@/lib/monster-mini";
 import { computeCompletedCount, computeSkippedCount, sortQuestsForDeclaration } from "@/lib/questProgress";
@@ -39,6 +40,8 @@ export default function QuestsPage() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
+  const [rubyEnabled, setRubyEnabled] = useState<boolean | null>(null);
+  const [quoteDate, setQuoteDate] = useState<Date | null>(null);
   const [checkin, setCheckin] = useState<{
     enabled: boolean;
     deadline: string | null;
@@ -66,8 +69,23 @@ export default function QuestsPage() {
         if (typeof d.minTasksForStreak === "number") {
           setMinTasksForStreak(d.minTasksForStreak);
         }
+        setRubyEnabled(typeof d.rubyEnabled === "boolean" ? d.rubyEnabled : true);
       })
       .catch(() => {});
+  }, []);
+
+  // 日替わり格言: hydration mismatch回避のためマウント後に確定させる。
+  // 画面を開きっぱなしで日付をまたいだ場合に反映されるよう、フォアグラウンド復帰時にも再計算する。
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- マウント後に日付を確定させる意図的な副作用（hydration mismatch回避）
+    setQuoteDate(new Date());
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        setQuoteDate(new Date());
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   // チェックイン記録: マウント時に1回だけ POST し、当日の状態（todayStatus/deadline/currentStreak/justNow）を取得。
@@ -284,6 +302,11 @@ export default function QuestsPage() {
             );
           })()}
         </div>
+
+        {/* 日替わり格言カード（rubyEnabled/quoteDate 両方確定するまでは非表示。ちらつき回避） */}
+        {rubyEnabled !== null && quoteDate !== null && (
+          <DailyQuoteCard rubyEnabled={rubyEnabled} date={quoteDate} />
+        )}
 
         {/* Quest status card（完了数・進捗バー・pt・宝箱カウントダウン・宝箱ストック） */}
         {showQuestStatusCard && (

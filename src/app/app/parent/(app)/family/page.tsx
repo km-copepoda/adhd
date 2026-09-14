@@ -25,6 +25,7 @@ type Member = {
   reportDeadlineTime: string | null;
   checkinDeadlineTime: string | null;
   questTimeNotifyEnabled: boolean;
+  rubyEnabled: boolean;
   studyPt: number;
   staminaPt: number;
   lifePt: number;
@@ -53,6 +54,7 @@ export default function FamilyPage() {
   const [checkinTimes, setCheckinTimes] = useState<Record<string, string>>({});
   const [savingCheckinId, setSavingCheckinId] = useState<string | null>(null);
   const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null);
+  const [savingRubyId, setSavingRubyId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -157,6 +159,31 @@ export default function FamilyPage() {
       }
     } finally {
       setSavingNotifyId(null);
+    }
+  }
+
+  async function handleToggleRuby(childId: string, next: boolean) {
+    setSavingRubyId(childId);
+    try {
+      const res = await fetch("/api/family/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId, rubyEnabled: next }),
+      });
+      if (res.ok) {
+        setFamily((prev) =>
+          prev
+            ? {
+                ...prev,
+                members: prev.members.map((m) =>
+                  m.id === childId ? { ...m, rubyEnabled: next } : m,
+                ),
+              }
+            : prev,
+        );
+      }
+    } finally {
+      setSavingRubyId(null);
     }
   }
 
@@ -521,6 +548,24 @@ export default function FamilyPage() {
                   aria-pressed={member.questTimeNotifyEnabled}
                 >
                   {savingNotifyId === member.id ? "保存中..." : member.questTimeNotifyEnabled ? "ON" : "OFF"}
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] text-quest-dim">📖 ふりがな</span>
+                  <p className="text-[10px] text-quest-dim/60 mt-0.5">クエスト画面の格言などに読み仮名を表示（低学年向け）</p>
+                </div>
+                <button
+                  onClick={() => handleToggleRuby(member.id, !member.rubyEnabled)}
+                  disabled={savingRubyId === member.id}
+                  className={`text-[10px] px-3 py-1 rounded border transition-colors disabled:opacity-50 ${
+                    member.rubyEnabled
+                      ? "bg-quest-gold/20 text-quest-gold border-quest-gold/30 hover:bg-quest-gold/30"
+                      : "bg-quest-border text-quest-dim border-quest-border hover:text-quest-text"
+                  }`}
+                  aria-pressed={member.rubyEnabled}
+                >
+                  {savingRubyId === member.id ? "保存中..." : member.rubyEnabled ? "ON" : "OFF"}
                 </button>
               </div>
               <MonsterThemeSelector
