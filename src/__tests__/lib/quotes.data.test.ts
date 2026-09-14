@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { QUOTES } from "@/lib/quotes.data";
-import { parseRubyMarkup } from "@/lib/ruby";
+
+// ひらがな・カタカナ・長音記号・句読点・記号・数字・ラテン文字以外（＝漢字）が
+// kana列に残っていないことをチェックするための簡易パターン
+const KANJI_PATTERN = /[一-鿿]/;
 
 describe("QUOTES データ整合性", () => {
   it("176件の格言が定義されている", () => {
@@ -12,22 +15,20 @@ describe("QUOTES データ整合性", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("全てのtext/author/idが非空文字列である", () => {
+  it("全てのtext/textKana/author/authorKana/idが非空文字列である", () => {
     for (const q of QUOTES) {
       expect(q.id.length).toBeGreaterThan(0);
       expect(q.text.length).toBeGreaterThan(0);
+      expect(q.textKana.length).toBeGreaterThan(0);
       expect(q.author.length).toBeGreaterThan(0);
+      expect(q.authorKana.length).toBeGreaterThan(0);
     }
   });
 
-  it("全てのtextとauthorがparseRubyMarkupを通り、マークアップ崩れ（{}の残存）がない", () => {
+  it("textKana/authorKanaに漢字が残っていない", () => {
     for (const q of QUOTES) {
-      const textSegments = parseRubyMarkup(q.text);
-      const authorSegments = parseRubyMarkup(q.author);
-      const strippedText = textSegments.map((s) => s.text).join("");
-      const strippedAuthor = authorSegments.map((s) => s.text).join("");
-      expect(strippedText).not.toMatch(/[{}]/);
-      expect(strippedAuthor).not.toMatch(/[{}]/);
+      expect(q.textKana).not.toMatch(KANJI_PATTERN);
+      expect(q.authorKana).not.toMatch(KANJI_PATTERN);
     }
   });
 });

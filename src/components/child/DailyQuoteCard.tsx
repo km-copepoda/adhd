@@ -17,11 +17,13 @@ export default function DailyQuoteCard({ rubyEnabled, date }: DailyQuoteCardProp
     <div className="mb-4 rounded-xl border border-quest-border bg-quest-card px-4 py-3">
       <RubyText
         text={quote.text}
+        kana={quote.textKana}
         enabled={rubyEnabled}
         className="block text-quest-text text-sm leading-relaxed"
       />
       <RubyText
         text={`— ${quote.author}`}
+        kana={`— ${quote.authorKana}`}
         enabled={rubyEnabled}
         className="block text-quest-dim text-xs mt-1.5 text-right"
       />

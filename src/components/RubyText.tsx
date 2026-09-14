@@ -1,33 +1,16 @@
-import { parseRubyMarkup } from "@/lib/ruby";
-
 type RubyTextProps = {
   text: string;
+  kana: string;
   enabled: boolean;
   className?: string;
 };
 
 /**
- * `{漢字:かんじ}` マークアップを含むテキストを描画する共有コンポーネント。
+ * 通常表記（`text`）とひらがな・カタカナのみの読み下し表記（`kana`）を、
+ * `enabled` に応じてまるごと差し替えて表示する共有コンポーネント。
  *
- * `enabled=true` はルビ付きセグメントを `<ruby><rt>` で描画し、`enabled=false` は
- * セグメントの `text` だけを連結して描画する。正規表現によるマークアップ除去は
- * `@/lib/ruby` のパーサーに一本化し、ここでは再実装しない。
+ * インラインルビ（`<ruby><rt>`）ではなく表記全体の差し替え方式を採る。
  */
-export default function RubyText({ text, enabled, className }: RubyTextProps) {
-  const segments = parseRubyMarkup(text);
-
-  return (
-    <span className={className}>
-      {segments.map((segment, i) =>
-        enabled && segment.ruby ? (
-          <ruby key={i}>
-            {segment.text}
-            <rt>{segment.ruby}</rt>
-          </ruby>
-        ) : (
-          <span key={i}>{segment.text}</span>
-        ),
-      )}
-    </span>
-  );
+export default function RubyText({ text, kana, enabled, className }: RubyTextProps) {
+  return <span className={className}>{enabled ? kana : text}</span>;
 }
