@@ -26,12 +26,12 @@ export default function CheckinSuccessCutscene({
         : undefined;
 
   const quote = quoteDate !== null ? getDailyQuote(quoteDate) : null;
-  const description =
-    quote !== null && rubyEnabled !== null
-      ? rubyEnabled
-        ? `${quote.textKana} — ${quote.authorKana}`
-        : `${quote.text} — ${quote.author}`
-      : FALLBACK_DESCRIPTION;
+  const hasQuote = quote !== null && rubyEnabled !== null;
+  const description = hasQuote
+    ? rubyEnabled
+      ? `${quote.textKana} — ${quote.authorKana}`
+      : `${quote.text} — ${quote.author}`
+    : FALLBACK_DESCRIPTION;
 
   return (
     <CutsceneOverlay
@@ -43,6 +43,11 @@ export default function CheckinSuccessCutscene({
       subtitle={subtitle}
       subtitleColor="text-orange-300"
       description={description}
+      descriptionClassName={
+        hasQuote
+          ? "text-quest-gold text-base font-medium text-center leading-relaxed mb-6 max-w-sm"
+          : undefined
+      }
     />
   );
 }

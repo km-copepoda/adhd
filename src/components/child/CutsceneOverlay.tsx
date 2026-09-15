@@ -13,8 +13,13 @@ type Props = {
   subtitle?: string;
   subtitleColor?: string;
   description?: string;
+  /** description の見た目を上書きする場合に指定する（省略時は既存の控えめなスタイル） */
+  descriptionClassName?: string;
   bonus?: { text: string; color: string };
 };
+
+const DEFAULT_DESCRIPTION_CLASS =
+  "text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs";
 
 export default function CutsceneOverlay({
   onClose,
@@ -27,6 +32,7 @@ export default function CutsceneOverlay({
   subtitle,
   subtitleColor = "text-quest-gold/70",
   description,
+  descriptionClassName = DEFAULT_DESCRIPTION_CLASS,
   bonus,
 }: Props) {
   return (
@@ -63,7 +69,7 @@ export default function CutsceneOverlay({
       )}
       {description && (
         <p
-          className="text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs"
+          className={descriptionClassName}
           style={{ animation: "evolveIn 0.7s ease-out" }}
         >
           {description}
