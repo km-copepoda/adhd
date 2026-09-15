@@ -152,5 +152,32 @@ describe("CheckinSuccessCutscene チェックイン成功演出", () => {
       );
       expect(screen.getByText(FALLBACK_TEXT)).toBeTruthy();
     });
+
+    it("格言表示時は目立つスタイル（text-quest-gold）が適用される", () => {
+      const quote = getDailyQuote(FIXED_QUOTE_DATE);
+      render(
+        <CheckinSuccessCutscene
+          currentStreak={1}
+          onClose={() => {}}
+          rubyEnabled={false}
+          quoteDate={FIXED_QUOTE_DATE}
+        />,
+      );
+      const el = screen.getByText(`${quote!.text} — ${quote!.author}`);
+      expect(el.className).toContain("text-quest-gold");
+    });
+
+    it("固定文言フォールバック時は目立つスタイルを適用しない（既存の控えめな見た目のまま）", () => {
+      render(
+        <CheckinSuccessCutscene
+          currentStreak={1}
+          onClose={() => {}}
+          rubyEnabled={false}
+          quoteDate={null}
+        />,
+      );
+      const el = screen.getByText(FALLBACK_TEXT);
+      expect(el.className).not.toContain("text-quest-gold");
+    });
   });
 });
