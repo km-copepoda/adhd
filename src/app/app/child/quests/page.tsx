@@ -71,7 +71,7 @@ export default function QuestsPage() {
         }
         setRubyEnabled(typeof d.rubyEnabled === "boolean" ? d.rubyEnabled : true);
       })
-      .catch(() => {});
+      .catch(() => setRubyEnabled(true));
   }, []);
 
   // 日替わり格言: hydration mismatch回避のためマウント後に確定させる。
@@ -404,13 +404,17 @@ export default function QuestsPage() {
         />
       )}
 
-      {/* チェックイン成功演出 */}
-      {checkinCutsceneStreak !== null && (
-        <CheckinSuccessCutscene
-          currentStreak={checkinCutsceneStreak}
-          onClose={() => setCheckinCutsceneStreak(null)}
-        />
-      )}
+      {/* チェックイン成功演出（rubyEnabled/quoteDate 確定前に固定文言で表示→格言に差し替わる不整合を防ぐため待ち合わせる） */}
+      {checkinCutsceneStreak !== null &&
+        rubyEnabled !== null &&
+        quoteDate !== null && (
+          <CheckinSuccessCutscene
+            currentStreak={checkinCutsceneStreak}
+            onClose={() => setCheckinCutsceneStreak(null)}
+            rubyEnabled={rubyEnabled}
+            quoteDate={quoteDate}
+          />
+        )}
 
       {/* スタンプ祝福オーバーレイ（全件を1枚にまとめて表示） */}
       <StampCelebrationOverlay

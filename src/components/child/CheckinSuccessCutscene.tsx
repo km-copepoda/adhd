@@ -1,19 +1,37 @@
 "use client";
 
 import CutsceneOverlay from "./CutsceneOverlay";
+import { getDailyQuote } from "@/lib/quotes";
 
 interface Props {
   currentStreak: number;
   onClose: () => void;
+  rubyEnabled: boolean | null;
+  quoteDate: Date | null;
 }
 
-export default function CheckinSuccessCutscene({ currentStreak, onClose }: Props) {
+const FALLBACK_DESCRIPTION = "今日もアプリを開けたね。えらい！";
+
+export default function CheckinSuccessCutscene({
+  currentStreak,
+  onClose,
+  rubyEnabled,
+  quoteDate,
+}: Props) {
   const subtitle =
     currentStreak >= 2
       ? `🔥 ${currentStreak}日連続！`
       : currentStreak === 1
         ? "🔥 今日から連続スタート！"
         : undefined;
+
+  const quote = quoteDate !== null ? getDailyQuote(quoteDate) : null;
+  const description =
+    quote !== null && rubyEnabled !== null
+      ? rubyEnabled
+        ? `${quote.textKana} — ${quote.authorKana}`
+        : `${quote.text} — ${quote.author}`
+      : FALLBACK_DESCRIPTION;
 
   return (
     <CutsceneOverlay
@@ -24,7 +42,7 @@ export default function CheckinSuccessCutscene({ currentStreak, onClose }: Props
       titleColor="text-yellow-300"
       subtitle={subtitle}
       subtitleColor="text-orange-300"
-      description="今日もアプリを開けたね。えらい！"
+      description={description}
     />
   );
 }
