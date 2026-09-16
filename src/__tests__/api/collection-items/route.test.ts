@@ -60,6 +60,23 @@ describe("GET /api/collection-items (子供)", () => {
     expect(monthly).toBeDefined();
     expect(monthly.month).toBe(7);
   });
+
+  it("Issue #139: レスポンスの各アイテムにnameKana/descriptionKanaが含まれる（CollectionItemへのkana追加がAPIへ自動反映されることの確認）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "c1" }));
+    mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+    const res = await getChild();
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.items.length).toBeGreaterThan(0);
+    for (const item of json.items) {
+      expect(typeof item.nameKana).toBe("string");
+      expect(item.nameKana.length).toBeGreaterThan(0);
+      expect(typeof item.descriptionKana).toBe("string");
+      expect(item.descriptionKana.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("GET /api/parent/child-view/collection-items (親代理)", () => {
@@ -105,5 +122,23 @@ describe("GET /api/parent/child-view/collection-items (親代理)", () => {
     expect(json.currentMonth).toBeGreaterThanOrEqual(1);
     expect(json.currentMonth).toBeLessThanOrEqual(12);
     expect(json.items.every((i: { owned: boolean }) => i.owned === false)).toBe(true);
+  });
+
+  it("Issue #139: レスポンスの各アイテムにnameKana/descriptionKanaが含まれる", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "c1" }));
+    mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+    const res = await getParentProxy(makeReq("childId=c1"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.items.length).toBeGreaterThan(0);
+    for (const item of json.items) {
+      expect(typeof item.nameKana).toBe("string");
+      expect(item.nameKana.length).toBeGreaterThan(0);
+      expect(typeof item.descriptionKana).toBe("string");
+      expect(item.descriptionKana.length).toBeGreaterThan(0);
+    }
   });
 });

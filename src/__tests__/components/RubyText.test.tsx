@@ -35,4 +35,9 @@ describe("RubyText", () => {
     const root = container.firstElementChild;
     expect(root?.className).toContain("quote-text");
   });
+
+  it("kana が空文字の場合、enabled=true でも text にフォールバックする（Issue #139: pickRuby委譲後の仕様改善）", () => {
+    const { container } = render(<RubyText text="今日は良い天気だ" kana="" enabled />);
+    expect(container.textContent).toBe("今日は良い天気だ");
+  });
 });

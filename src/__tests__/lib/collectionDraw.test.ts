@@ -3,10 +3,10 @@ import { drawCollectionItem } from "@/lib/collectionDraw";
 import type { CollectionItem } from "@/lib/collectionItems";
 
 const pool: CollectionItem[] = [
-  { id: "c1", season: "summer", category: "creature", rarity: "COMMON",   name: "C1", description: "", image: "/x.png" },
-  { id: "c2", season: "summer", category: "food",     rarity: "COMMON",   name: "C2", description: "", image: "/x.png" },
-  { id: "u1", season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "U1", description: "", image: "/x.png" },
-  { id: "r1", season: "summer", category: "tool",     rarity: "RARE",     name: "R1", description: "", image: "/x.png" },
+  { id: "c1", season: "summer", category: "creature", rarity: "COMMON",   name: "C1", nameKana: "C1", description: "", descriptionKana: "", image: "/x.png" },
+  { id: "c2", season: "summer", category: "food",     rarity: "COMMON",   name: "C2", nameKana: "C2", description: "", descriptionKana: "", image: "/x.png" },
+  { id: "u1", season: "summer", category: "jewel",    rarity: "UNCOMMON", name: "U1", nameKana: "U1", description: "", descriptionKana: "", image: "/x.png" },
+  { id: "r1", season: "summer", category: "tool",     rarity: "RARE",     name: "R1", nameKana: "R1", description: "", descriptionKana: "", image: "/x.png" },
 ];
 
 describe("drawCollectionItem", () => {
