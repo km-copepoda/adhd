@@ -128,6 +128,7 @@
 - [2026-08-30: `typecheck` を CI のブロッキングゲートにする（2026-08-12 決定を上書き、Issue #117）](#2026-08-30-typecheck-を-ci-のブロッキングゲートにする2026-08-12-決定を上書きissue-117)
 - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
 - [2026-09-16: モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する（案Z、Issue #140）](#2026-09-16-モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する案zissue-140)
+- [2026-09-16: エール受信表示をトーストから全画面カットインへ変更（2026-05-05決定の更新、Issue #125）](#2026-09-16-エール受信表示をトーストから全画面カットインへ変更2026-05-05決定の更新issue-125)
 
 <!-- TOC:END -->
 
@@ -3014,4 +3015,29 @@
 - `src/components/child/MonsterCutsceneListener.tsx` / `src/components/parent/ChildViewMonsterCutsceneListener.tsx`
 - `src/components/child/TreasureOpenCutscene.tsx` / `TreasureStock.tsx`
 - `src/app/app/child/treasures/page.tsx` / `src/app/app/parent/child-view/[childId]/treasures/page.tsx`
+
+## 2026-09-16: エール受信表示をトーストから全画面カットインへ変更（2026-05-05決定の更新、Issue #125）
+
+### 決定内容
+- `GatheringStampPanel` のエール受信表示を、5秒で自動消滅する上部トースト（`showToast`/`TOAST_DURATION_MS`）から、`CutsceneOverlay` ベースの全画面カットイン（`EncouragementCutscene`）に一本化する。トーストは完全廃止し併用はしない
+- 表示状態は単一配列 `receivedStamps: { id, senderName, status }[]` に統合する。マウント時の未読再生（`/api/gathering/stamps/received-today`）と Supabase Realtime の `Stamp` INSERT 購読は、どちらも同じ `claimStamp(id)` 経由でこの配列に append する共通経路にする（別々にモーダルを開こうとする競合が構造的に起きない設計）
+- 複数エール同時受信時は件数集約（案A）: `receivedStamps.length > 1` のとき、ユニークな送信者名を最大3人「・」区切り（超過時は「ほかN人」）で `subtitle` に、`getStampStatusText(latestStatus)`（送信者名を含まない本文）を `description` に表示する。1件のみの場合は従来の `buildStampMessage(senderName, status)` をそのまま `description` に使う
+- 既読予約（`readSeenIds`/`addSeenIds`、`localStorage["gathering:seenStampIds"]`）は `claimStamp()` として、`await` を挟む前に同期的に行う（チェックと予約を1回の同期区間にまとめる）。`useRef<Set<string>>` で同一マウント内の重複予約も防ぐ
+- `src/lib/gathering.ts` の `buildStampMessage(senderName, status)` は、送信者名を含まない本文部分を返す新関数 `getStampStatusText(status)` のラッパーとして再定義する。出力文字列自体は変更しない
+
+### 理由
+- 2026-05-05決定のトースト表示は `fixed top-4` かつ5秒で自動消滅するため、スクロール位置や操作中だと見逃しやすいという課題があった。宝箱入手時の `TreasureGetCutscene` 等、既存の全画面カットイン演出と同等の気づきやすさに揃えるため
+- Realtime受信とマウント時再生を別々の状態・別々のオーバーレイ発火経路のままモーダル化すると、二重表示や表示中の追加受信の扱いが実装ごとに分岐して複雑化する。単一配列に統合することで、表示中に新規エールが届いても同じモーダルの件数・文言が更新されるだけで済み、キューイング設計が単純になる
+- codex CLIによる設計レビュー（設計凍結前、Issue #125コメント参照）で、v1設計（既読化を非同期処理の後に行う想定）にはRealtime受信時のレース（`await`中の同一ID重複処理）があると指摘され、`claimStamp()`として同期化するよう修正した。あわせて、`buildStampMessage`をそのまま集約表示に流用すると送信者名が`subtitle`と`description`で重複する点も指摘され、`getStampStatusText`への分離で解消した
+
+### やってはいけないこと
+- Realtime受信ハンドラで、既読チェック・予約を `fetchOwnProgressStatus()` などの `await` より後に行う（同一IDの二重処理を招く）
+- マウント時再生・Realtime受信で別々の state / 別々のオーバーレイ表示ロジックを持つ（単一 `receivedStamps` 配列への統合を崩さない）
+- 複数エール集約表示で `buildStampMessage()`（送信者名込み）をそのまま `description` に使う（`subtitle` の送信者名一覧と重複する）
+- `getStampStatusText()` の追加時に `buildStampMessage()` の出力文字列を変えてしまう（既存の1件受信時の表示文言が変わってしまう）
+
+### 該当箇所
+- `src/lib/gathering.ts` — `getStampStatusText` 新設、`buildStampMessage` のラッパー化
+- `src/components/child/GatheringStampPanel.tsx` — `claimStamp`／`receivedStamps` 統合、トースト廃止
+- `src/components/child/EncouragementCutscene.tsx` — 新規、`CutsceneOverlay` ラッパー
 
