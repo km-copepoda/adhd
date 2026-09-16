@@ -8,7 +8,7 @@ import {
 export interface CheckinResult {
   enabled: boolean;
   deadline: string | null;
-  todayStatus: "success" | "fail" | "pending";
+  todayStatus: "success" | "fail" | null;
   justNow: boolean;
   currentStreak: number;
   bestStreak: number;
@@ -29,7 +29,7 @@ export async function recordCheckin(childId: string, now: Date): Promise<Checkin
     return {
       enabled: false,
       deadline: null,
-      todayStatus: "pending",
+      todayStatus: null,
       justNow: false,
       currentStreak: 0,
       bestStreak: 0,

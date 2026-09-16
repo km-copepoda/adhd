@@ -97,6 +97,8 @@ describe("recordCheckin", () => {
     const result = await recordCheckin("child-1", new Date("2026-06-23T06:30:00Z"));
 
     expect(result.enabled).toBe(false);
+    expect(result.todayStatus).toBeNull();
+    expect(result.deadline).toBeNull();
     expect(mockPrisma.checkinLog.upsert).not.toHaveBeenCalled();
   });
 
