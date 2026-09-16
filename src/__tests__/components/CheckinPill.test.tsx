@@ -128,6 +128,24 @@ describe("CheckinPill", () => {
     expect(container?.textContent).toBe("");
   });
 
+  it("todayStatus: fail かつ deadline あり → 明日の締切時刻を含むピル文言を表示する", async () => {
+    await act(async () => {
+      render(
+        <CheckinPill
+          {...baseProps}
+          todayStatus="fail"
+          currentStreak={0}
+          deadline="16:30"
+        />,
+      );
+    });
+    expect(
+      screen.getByText(
+        "今日はチェックインし忘れちゃったね。明日は16:30までにチェックインしよう！",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("展開グリッドに 🔥 N日連続！ 行と『直近7日 チェックイン』見出しが重複表示されない（embedded）", async () => {
     await act(async () => {
       render(<CheckinPill {...baseProps} />);

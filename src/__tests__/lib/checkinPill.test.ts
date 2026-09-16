@@ -7,6 +7,7 @@ describe("getCheckinPillLabel", () => {
       enabled: false,
       todayStatus: null,
       currentStreak: 0,
+      deadline: null,
     });
     expect(r).toBeNull();
   });
@@ -16,6 +17,7 @@ describe("getCheckinPillLabel", () => {
       enabled: true,
       todayStatus: null,
       currentStreak: 0,
+      deadline: null,
     });
     expect(r).toBeNull();
   });
@@ -25,10 +27,11 @@ describe("getCheckinPillLabel", () => {
       enabled: true,
       todayStatus: "success",
       currentStreak: 5,
+      deadline: null,
     });
     expect(r).not.toBeNull();
     expect(r).toContain("🔥 5日連続");
-    // 「今日チェックイン済み」相当（済み表現を含む）
+    // 「今日チェックイン済み」相当(済み表現を含む)
     expect(r).toMatch(/チェックイン済み/);
   });
 
@@ -37,6 +40,7 @@ describe("getCheckinPillLabel", () => {
       enabled: true,
       todayStatus: "success",
       currentStreak: 1,
+      deadline: null,
     });
     expect(r).not.toBeNull();
     expect(r).toMatch(/連続スタート/);
@@ -49,6 +53,7 @@ describe("getCheckinPillLabel", () => {
       enabled: true,
       todayStatus: "success",
       currentStreak: 0,
+      deadline: null,
     });
     expect(r).not.toBeNull();
     expect(r).not.toContain("🔥 0日連続");
@@ -59,6 +64,7 @@ describe("getCheckinPillLabel", () => {
       enabled: true,
       todayStatus: "fail",
       currentStreak: 0,
+      deadline: null,
     });
     expect(r).not.toBeNull();
     expect(r).not.toContain("🔥 0日連続");
@@ -71,8 +77,51 @@ describe("getCheckinPillLabel", () => {
       enabled: true,
       todayStatus: "success",
       currentStreak: 999,
+      deadline: null,
     });
     expect(r).not.toBeNull();
     expect(r).toContain("999日連続");
+  });
+
+  it("todayStatus: fail かつ deadline: '16:30' → 明日の締切時刻を含む文言を完全一致で返す", () => {
+    const r = getCheckinPillLabel({
+      enabled: true,
+      todayStatus: "fail",
+      currentStreak: 0,
+      deadline: "16:30",
+    });
+    expect(r).toBe(
+      "今日はチェックインし忘れちゃったね。明日は16:30までにチェックインしよう！",
+    );
+  });
+
+  it("todayStatus: fail かつ deadline: null → 締切時刻なしの従来文言を完全一致で返す", () => {
+    const r = getCheckinPillLabel({
+      enabled: true,
+      todayStatus: "fail",
+      currentStreak: 0,
+      deadline: null,
+    });
+    expect(r).toBe("今日はチェックインし忘れちゃったね。明日またチャレンジ！");
+  });
+
+  it("境界値 todayStatus: fail かつ deadline: ''（空文字）→ 締切時刻なしの従来文言のまま", () => {
+    const r = getCheckinPillLabel({
+      enabled: true,
+      todayStatus: "fail",
+      currentStreak: 0,
+      deadline: "",
+    });
+    expect(r).toBe("今日はチェックインし忘れちゃったね。明日またチャレンジ！");
+  });
+
+  it("todayStatus: success かつ deadline あり → 締切文言は使われず既存の成功文言のまま", () => {
+    const r = getCheckinPillLabel({
+      enabled: true,
+      todayStatus: "success",
+      currentStreak: 5,
+      deadline: "16:30",
+    });
+    expect(r).toBe("🔥 5日連続！ 今日はチェックイン済み！");
   });
 });

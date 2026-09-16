@@ -31,7 +31,7 @@ export default function CheckinPill({
   const [expanded, setExpanded] = useState(false);
   const [hasExpandedOnce, setHasExpandedOnce] = useState(false);
 
-  const label = getCheckinPillLabel({ enabled, todayStatus, currentStreak });
+  const label = getCheckinPillLabel({ enabled, todayStatus, currentStreak, deadline });
   if (label === null) return null;
 
   function handleToggle() {

@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import { mockDeep } from "vitest-mock-extended";
 import type { PrismaClient } from "@/generated/prisma/client";
