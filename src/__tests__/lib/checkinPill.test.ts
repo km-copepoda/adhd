@@ -5,7 +5,16 @@ describe("getCheckinPillLabel", () => {
   it("enabled: false のときは null（ピル非表示）を返す", () => {
     const r = getCheckinPillLabel({
       enabled: false,
-      todayStatus: "pending",
+      todayStatus: null,
+      currentStreak: 0,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("境界値 enabled: true かつ todayStatus: null のときも null（ピル非表示）を返す", () => {
+    const r = getCheckinPillLabel({
+      enabled: true,
+      todayStatus: null,
       currentStreak: 0,
     });
     expect(r).toBeNull();

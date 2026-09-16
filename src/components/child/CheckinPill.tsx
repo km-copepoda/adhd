@@ -6,7 +6,7 @@ import { getCheckinPillLabel, type CheckinTodayStatus } from "@/lib/checkinPill"
 
 interface Props {
   enabled: boolean;
-  todayStatus: CheckinTodayStatus;
+  todayStatus: CheckinTodayStatus | null;
   currentStreak: number;
   deadline: string;
   todayStr: string;

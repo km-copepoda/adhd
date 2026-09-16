@@ -7,17 +7,17 @@
  *  - currentStreak === 0 → 連続日数バッジは出さない（"🔥 0日連続" は防御的に禁止）
  */
 
-export type CheckinTodayStatus = "success" | "fail" | "pending";
+export type CheckinTodayStatus = "success" | "fail";
 
 export interface CheckinPillInput {
   enabled: boolean;
-  todayStatus: CheckinTodayStatus;
+  todayStatus: CheckinTodayStatus | null;
   currentStreak: number;
 }
 
 export function getCheckinPillLabel(input: CheckinPillInput): string | null {
   const { enabled, todayStatus, currentStreak } = input;
-  if (!enabled) return null;
+  if (!enabled || todayStatus === null) return null;
 
   const streakPart =
     currentStreak >= 2
@@ -32,9 +32,6 @@ export function getCheckinPillLabel(input: CheckinPillInput): string | null {
         return "今日はチェックイン済み！";
       case "fail":
         return "今日はチェックインし忘れちゃったね。明日またチャレンジ！";
-      case "pending":
-      default:
-        return "今日のチェックインはまだだよ";
     }
   })();
 

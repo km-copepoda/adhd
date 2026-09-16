@@ -45,7 +45,7 @@ export default function QuestsPage() {
   const [checkin, setCheckin] = useState<{
     enabled: boolean;
     deadline: string | null;
-    todayStatus: CheckinTodayStatus;
+    todayStatus: CheckinTodayStatus | null;
     currentStreak: number;
   } | null>(null);
   const [checkinJustNow, setCheckinJustNow] = useState<boolean>(false);
@@ -97,14 +97,14 @@ export default function QuestsPage() {
         (d: {
           enabled?: boolean;
           deadline?: string | null;
-          todayStatus?: CheckinTodayStatus;
+          todayStatus?: CheckinTodayStatus | null;
           justNow?: boolean;
           currentStreak?: number;
         }) => {
           setCheckin({
             enabled: !!d.enabled,
             deadline: d.deadline ?? null,
-            todayStatus: d.todayStatus ?? "pending",
+            todayStatus: d.todayStatus ?? null,
             currentStreak: d.currentStreak ?? 0,
           });
           if (d.enabled && d.justNow) {
