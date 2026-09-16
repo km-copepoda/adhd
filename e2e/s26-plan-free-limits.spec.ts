@@ -77,81 +77,70 @@ test.describe("S26: FREE プラン上限", () => {
     await expect(planLink).toHaveAttribute("href", "/app/parent/plan");
   });
 
-  test("タスク上限（10件/子）: 「+ タスク追加」押下でフォームが開かずconfirmが表示される（dismiss）", async ({
-    page,
-  }) => {
-    const bypassHeaders = getBypassHeaders();
-    const childId = await getFreeChildId(page, bypassHeaders);
+  // FREE は子アカウント1人のみのため、この2テストは同じ子供のタスク数（上限10件ちょうど）を
+  // 共有する。dismiss 側でタスクを作らない（preempt がフォームを開かせない）ことを利用し、
+  // 10件のseedはここでのみ行う。serial 指定により実行順を保証し、1件目が壊れたら2件目は
+  // skip されるようにする（このバグは実際に「seedを2回行い11件目で403」という形で発生した）。
+  test.describe.serial("タスク上限（10件/子）", () => {
+    test("「+ タスク追加」押下でフォームが開かずconfirmが表示される（dismiss）", async ({ page }) => {
+      const bypassHeaders = getBypassHeaders();
+      const childId = await getFreeChildId(page, bypassHeaders);
 
-    // API 経由で事前に10件作成（FREE 上限ちょうど）
-    for (let i = 0; i < 10; i++) {
-      const res = await page.request.post("/api/tasks", {
-        data: {
-          title: `E2E_FREE_task_${Date.now()}_${i}`,
-          emoji: "📚",
-          category: "STUDY",
-          repeatDays: [0, 1, 2, 3, 4, 5, 6],
-          isTemporary: false,
-          assignedChildId: childId,
-        },
-        headers: bypassHeaders,
+      // API 経由で事前に10件作成（FREE 上限ちょうど）
+      for (let i = 0; i < 10; i++) {
+        const res = await page.request.post("/api/tasks", {
+          data: {
+            title: `E2E_FREE_task_${Date.now()}_${i}`,
+            emoji: "📚",
+            category: "STUDY",
+            repeatDays: [0, 1, 2, 3, 4, 5, 6],
+            isTemporary: false,
+            assignedChildId: childId,
+          },
+          headers: bypassHeaders,
+        });
+        expect(res.ok()).toBeTruthy();
+      }
+
+      await page.goto("/app/parent/tasks");
+      await expect(page.getByRole("heading", { name: /タスク管理/ })).toBeVisible({
+        timeout: 15000,
       });
-      expect(res.ok()).toBeTruthy();
-    }
 
-    await page.goto("/app/parent/tasks");
-    await expect(page.getByRole("heading", { name: /タスク管理/ })).toBeVisible({
-      timeout: 15000,
-    });
-
-    // preempt はボタン押下と同時に confirm を出すため、クリック前にダイアログリスナーを登録する
-    let dialogMessage = "";
-    page.once("dialog", async (dialog) => {
-      dialogMessage = dialog.message();
-      await dialog.dismiss();
-    });
-    await page.getByRole("button", { name: /タスク追加/ }).first().click();
-
-    await expect
-      .poll(() => dialogMessage, { timeout: 10000 })
-      .toContain("無料プランではタスクは10個までです。プレミアムプランで無制限になります。");
-
-    // preempt によりフォームは開かない（サーバに到達させない）
-    await expect(page.locator('input[placeholder="例: 算数ドリルをやる"]')).not.toBeVisible();
-    // dismiss したのでタスク管理ページに留まる
-    await expect(page).toHaveURL(/\/app\/parent\/tasks/);
-  });
-
-  test("タスク上限（10件/子）: confirmでOKを選ぶと/app/parent/planへ遷移する", async ({ page }) => {
-    const bypassHeaders = getBypassHeaders();
-    const childId = await getFreeChildId(page, bypassHeaders);
-
-    for (let i = 0; i < 10; i++) {
-      const res = await page.request.post("/api/tasks", {
-        data: {
-          title: `E2E_FREE_task_${Date.now()}_${i}`,
-          emoji: "📚",
-          category: "STUDY",
-          repeatDays: [0, 1, 2, 3, 4, 5, 6],
-          isTemporary: false,
-          assignedChildId: childId,
-        },
-        headers: bypassHeaders,
+      // preempt はボタン押下と同時に confirm を出すため、クリック前にダイアログリスナーを登録する
+      let dialogMessage = "";
+      page.once("dialog", async (dialog) => {
+        dialogMessage = dialog.message();
+        await dialog.dismiss();
       });
-      expect(res.ok()).toBeTruthy();
-    }
+      await page.getByRole("button", { name: /タスク追加/ }).first().click();
 
-    await page.goto("/app/parent/tasks");
-    await expect(page.getByRole("heading", { name: /タスク管理/ })).toBeVisible({
-      timeout: 15000,
+      await expect
+        .poll(() => dialogMessage, { timeout: 10000 })
+        .toContain("無料プランではタスクは10個までです。プレミアムプランで無制限になります。");
+
+      // preempt によりフォームは開かない（サーバに到達させない）
+      await expect(page.locator('input[placeholder="例: 算数ドリルをやる"]')).not.toBeVisible();
+      // dismiss したのでタスク管理ページに留まる
+      await expect(page).toHaveURL(/\/app\/parent\/tasks/);
     });
 
-    page.once("dialog", async (dialog) => {
-      await dialog.accept();
-    });
-    await page.getByRole("button", { name: /タスク追加/ }).first().click();
+    test("confirmでOKを選ぶと/app/parent/planへ遷移する", async ({ page }) => {
+      // 直前の dismiss テストで子供は既に10件（FREE上限ちょうど）を保持している。
+      // dismiss は preempt でフォームを開かせない＝POSTしないため、ここで再度10件
+      // seedすると11件目でサーバ403になる（このテストが実際に踏んだ不具合）。
+      await page.goto("/app/parent/tasks");
+      await expect(page.getByRole("heading", { name: /タスク管理/ })).toBeVisible({
+        timeout: 15000,
+      });
 
-    await expect(page).toHaveURL(/\/app\/parent\/plan/, { timeout: 10000 });
+      page.once("dialog", async (dialog) => {
+        await dialog.accept();
+      });
+      await page.getByRole("button", { name: /タスク追加/ }).first().click();
+
+      await expect(page).toHaveURL(/\/app\/parent\/plan/, { timeout: 10000 });
+    });
   });
 
   test("ごほうび上限（5件/子）: 6件目追加時にconfirmでエラーが表示される（dismiss）", async ({ page }) => {
