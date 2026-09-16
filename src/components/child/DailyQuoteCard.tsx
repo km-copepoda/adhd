@@ -6,11 +6,13 @@ type DailyQuoteCardProps = {
   rubyEnabled: boolean;
   /** テスト容易性のためのオーバーライド。省略時は現在日時を使う。 */
   date?: Date;
+  /** 子供ごとに表示を分散させるためのseed（ユーザーIDなど）。省略可。 */
+  userId?: string;
 };
 
 /** 子供のクエスト画面に表示する日替わり格言カード */
-export default function DailyQuoteCard({ rubyEnabled, date }: DailyQuoteCardProps) {
-  const quote = getDailyQuote(date, QUOTES);
+export default function DailyQuoteCard({ rubyEnabled, date, userId }: DailyQuoteCardProps) {
+  const quote = getDailyQuote(date, QUOTES, userId);
   if (!quote) return null;
 
   return (

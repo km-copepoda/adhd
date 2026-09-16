@@ -42,6 +42,7 @@ export default function QuestsPage() {
   const [reportDeadlineTime, setReportDeadlineTime] = useState<string | null>(null);
   const [rubyEnabled, setRubyEnabled] = useState<boolean | null>(null);
   const [quoteDate, setQuoteDate] = useState<Date | null>(null);
+  const [userId, setUserId] = useState<string | null | undefined>(undefined);
   const [checkin, setCheckin] = useState<{
     enabled: boolean;
     deadline: string | null;
@@ -70,8 +71,12 @@ export default function QuestsPage() {
           setMinTasksForStreak(d.minTasksForStreak);
         }
         setRubyEnabled(typeof d.rubyEnabled === "boolean" ? d.rubyEnabled : true);
+        setUserId(typeof d.id === "string" && d.id.length > 0 ? d.id : null);
       })
-      .catch(() => setRubyEnabled(true));
+      .catch(() => {
+        setRubyEnabled(true);
+        setUserId(null);
+      });
   }, []);
 
   // 日替わり格言: hydration mismatch回避のためマウント後に確定させる。
@@ -303,9 +308,9 @@ export default function QuestsPage() {
           })()}
         </div>
 
-        {/* 日替わり格言カード（rubyEnabled/quoteDate 両方確定するまでは非表示。ちらつき回避） */}
-        {rubyEnabled !== null && quoteDate !== null && (
-          <DailyQuoteCard rubyEnabled={rubyEnabled} date={quoteDate} />
+        {/* 日替わり格言カード（rubyEnabled/quoteDate/userId 確定するまでは非表示。ちらつき回避） */}
+        {rubyEnabled !== null && quoteDate !== null && userId !== undefined && (
+          <DailyQuoteCard rubyEnabled={rubyEnabled} date={quoteDate} userId={userId ?? undefined} />
         )}
 
         {/* Quest status card（完了数・進捗バー・pt・宝箱カウントダウン・宝箱ストック） */}
@@ -404,15 +409,17 @@ export default function QuestsPage() {
         />
       )}
 
-      {/* チェックイン成功演出（rubyEnabled/quoteDate 確定前に固定文言で表示→格言に差し替わる不整合を防ぐため待ち合わせる） */}
+      {/* チェックイン成功演出（rubyEnabled/quoteDate/userId 確定前に固定文言で表示→格言に差し替わる不整合を防ぐため待ち合わせる） */}
       {checkinCutsceneStreak !== null &&
         rubyEnabled !== null &&
-        quoteDate !== null && (
+        quoteDate !== null &&
+        userId !== undefined && (
           <CheckinSuccessCutscene
             currentStreak={checkinCutsceneStreak}
             onClose={() => setCheckinCutsceneStreak(null)}
             rubyEnabled={rubyEnabled}
             quoteDate={quoteDate}
+            userId={userId ?? undefined}
           />
         )}
 

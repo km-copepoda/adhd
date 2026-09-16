@@ -81,6 +81,47 @@ describe("dailyQuoteIndex", () => {
   });
 });
 
+// 子供ユーザーごとの表示分散: `seed`（ユーザーID等）を渡すと epochDay とハッシュ合成し、
+// 同じ日でもユーザーによって異なるインデックスになりうる。
+// 「異なる seed なら必ず異なる結果になる」は数学的に成立しない契約なので、
+// ここでは特定の日付・特定の seed の組み合わせについての回帰（ゴールデン値）検証に留める。
+describe("dailyQuoteIndex（seed指定あり）", () => {
+  const SEED_DATE = new Date("2026-03-10T03:00:00Z"); // JST 3/10 12:00, epochDay=20522
+
+  it("同一JST日付・同一seedを複数回渡すと常に同じインデックスを返す（決定性）", () => {
+    const i1 = dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "child-a");
+    const i2 = dailyQuoteIndex(new Date(SEED_DATE.getTime()), FIXED_LENGTH, "child-a");
+    expect(i1).toBe(i2);
+  });
+
+  it("ゴールデン値: 既知の日付・既知の2つのseedで異なるインデックスを返す（length=176固定）", () => {
+    // node -e で fnv1a / hashEpochDay(epochDay ^ fnv1a(seed)) を計算した既知の値
+    expect(dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "child-a")).toBe(42);
+    expect(dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "child-b")).toBe(21);
+    // seed未指定時のゴールデン値（既存の互換性確認）
+    expect(dailyQuoteIndex(SEED_DATE, FIXED_LENGTH)).toBe(12);
+  });
+
+  it("seedに空文字列を渡した場合、seed未指定時とは異なる結果になりうる（seed !== undefined 判定の契約）", () => {
+    // 空文字列は「指定された」として扱われ fnv1a("") の結果がハッシュに合成される。
+    // seed 省略時（epochDay のみ）とは異なるインデックスになる（このケースでは実際に異なる）。
+    const withEmptySeed = dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "");
+    const withoutSeed = dailyQuoteIndex(SEED_DATE, FIXED_LENGTH);
+    expect(withEmptySeed).toBe(85);
+    expect(withoutSeed).toBe(12);
+    expect(withEmptySeed).not.toBe(withoutSeed);
+  });
+
+  it("1970-01-01以前の日付・seedありでも 0 <= index < length（境界値）", () => {
+    const before1970 = new Date("1969-01-01T00:00:00Z");
+    const idx = dailyQuoteIndex(before1970, FIXED_LENGTH, "child-a");
+    expect(idx).toBe(135);
+    expect(Number.isInteger(idx)).toBe(true);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(FIXED_LENGTH);
+  });
+});
+
 describe("getDailyQuote", () => {
   it("引数省略時は現在日時・QUOTESを使い、Quoteオブジェクトを返す", () => {
     const quote = getDailyQuote();
@@ -104,5 +145,21 @@ describe("getDailyQuote", () => {
     const invalid = new Date("not-a-valid-date");
     expect(() => getDailyQuote(invalid, QUOTES)).not.toThrow();
     expect(getDailyQuote(invalid, QUOTES)).toBeNull();
+  });
+
+  it("seedを指定すると dailyQuoteIndex に転送され、seed未指定時と異なる格言を返しうる（既知の組み合わせで検証）", () => {
+    const d = new Date("2026-03-10T03:00:00Z"); // JST 3/10 12:00, epochDay=20522
+    const withoutSeed = getDailyQuote(d, QUOTES);
+    const withSeedA = getDailyQuote(d, QUOTES, "child-a");
+    const withSeedB = getDailyQuote(d, QUOTES, "child-b");
+    expect(withoutSeed).not.toBeNull();
+    expect(withSeedA).not.toBeNull();
+    expect(withSeedB).not.toBeNull();
+    // ゴールデン値: QUOTES.length===176前提（dailyQuoteIndexのゴールデン値テストと同じ前提）
+    expect(QUOTES.length).toBe(176);
+    expect(withSeedA).toEqual(QUOTES[42]);
+    expect(withSeedB).toEqual(QUOTES[21]);
+    expect(withoutSeed).toEqual(QUOTES[12]);
+    expect(withSeedA).not.toEqual(withSeedB);
   });
 });
