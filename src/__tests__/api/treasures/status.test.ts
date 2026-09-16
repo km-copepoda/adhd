@@ -153,4 +153,80 @@ describe("GET /api/treasures/status", () => {
     expect(rewardQuery.take).toBeUndefined();
     expect(rewardQuery.where.openedAt).toBeDefined();
   });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  describe("rubyEnabled（Issue #140）", () => {
+    it("user.rubyEnabled=true のとき、レスポンスの rubyEnabled も true", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ rubyEnabled: true }));
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(true);
+    });
+
+    it("user.rubyEnabled=false のとき、レスポンスの rubyEnabled も false", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ rubyEnabled: false }));
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(false);
+    });
+
+    it.each([undefined, null, "true", 1])(
+      "境界値: user.rubyEnabled が非boolean(%s)のとき、trueにフォールバックすること",
+      async (value) => {
+        mockGetCurrentUser.mockResolvedValue(
+          childUserWithFamily({ rubyEnabled: value as unknown as boolean }),
+        );
+        mockPrisma.treasureLog.count.mockResolvedValue(0);
+        mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+        mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+        const res = await GET();
+        const json = await res.json();
+
+        expect(json.rubyEnabled).toBe(true);
+      },
+    );
+  });
+
+  // ─── Issue #140 コメント: 宝箱は「開封直後」と「履歴」の2経路がある。
+  // /api/treasures/status がマスターから collectionItem を再構築している箇所（履歴）にも
+  // nameKana を明示追加する必要がある（OpenedCollectionItem への追加だけでは開封直後の
+  // 演出にしか効かない）。
+  describe("opened[].collectionItem の nameKana（Issue #140）", () => {
+    it("collectionItemId からマスター解決した履歴アイテムに nameKana が含まれる", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const opened: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "log-col-1",
+            openedAt: new Date("2026-03-21"),
+            status: "OPENED",
+            itemId: null,
+            collectionItemId: "summer-01",
+          }),
+          item: null,
+        },
+      ];
+      mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.opened[0].collectionItem).not.toBeNull();
+      expect(typeof json.opened[0].collectionItem.nameKana).toBe("string");
+      expect(json.opened[0].collectionItem.nameKana.length).toBeGreaterThan(0);
+    });
+  });
 });

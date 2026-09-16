@@ -17,6 +17,7 @@ import {
   type TreasureRarity,
 } from "@/lib/treasureRarity";
 import { SEASON_LABEL, type CollectionRarity } from "@/lib/collectionItems";
+import { pickRuby } from "@/lib/ruby";
 
 type Rarity = TreasureRarity;
 
@@ -34,6 +35,7 @@ interface OpenedLog {
   collectionItem: {
     id: string;
     name: string;
+    nameKana: string;
     season: "spring" | "summer" | "fall" | "winter";
     rarity: Rarity;
     image: string;
@@ -47,6 +49,8 @@ interface StatusResponse {
   unlocked: number;
   hasPool: boolean;
   opened: OpenedLog[];
+  /** Issue #140: 対象児童の rubyEnabled。親自身の値ではない。非 boolean は true にフォールバック。 */
+  rubyEnabled?: unknown;
 }
 
 interface TreasureOpenResult {
@@ -54,9 +58,11 @@ interface TreasureOpenResult {
   collectionItem: {
     id: string;
     name: string;
+    nameKana: string;
     rarity: Rarity;
     season: "spring" | "summer" | "fall" | "winter";
     description: string;
+    descriptionKana: string;
     image: string;
     count: number;
   } | null;
@@ -126,6 +132,8 @@ export default function ParentChildViewTreasuresPage() {
   const hits = data.opened.filter((o) => o.item !== null);
   const collectionWins = data.opened.length - hits.length;
   const canOpen = data.unlocked > 0 && !opening;
+  // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
+  const rubyEnabled = typeof data.rubyEnabled === "boolean" ? data.rubyEnabled : true;
 
   return (
     <div className="p-4 pb-8">
@@ -189,7 +197,7 @@ export default function ParentChildViewTreasuresPage() {
                   ) : o.collectionItem ? (
                     <Image
                       src={o.collectionItem.image}
-                      alt={o.collectionItem.name}
+                      alt={pickRuby(o.collectionItem.name, o.collectionItem.nameKana ?? "", rubyEnabled)}
                       width={40}
                       height={40}
                       className="w-full h-full object-contain"
@@ -200,7 +208,11 @@ export default function ParentChildViewTreasuresPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">
-                    {o.item ? o.item.title : o.collectionItem ? o.collectionItem.name : "コレクションアイテム"}
+                    {o.item
+                      ? o.item.title
+                      : o.collectionItem
+                        ? pickRuby(o.collectionItem.name, o.collectionItem.nameKana ?? "", rubyEnabled)
+                        : "コレクションアイテム"}
                   </div>
                   {o.collectionItem && (
                     <div className="text-[10px] text-quest-dim">
@@ -229,6 +241,7 @@ export default function ParentChildViewTreasuresPage() {
       {result && (
         <TreasureOpenCutscene
           result={result}
+          rubyEnabled={rubyEnabled}
           onClose={() => {
             setResult(null);
             void fetchStatus();

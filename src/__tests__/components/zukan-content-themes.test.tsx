@@ -49,6 +49,7 @@ type MockApiResponse = {
   usedEggBonuses: string;
   monsterSetId: string;
   ownedThemes: string[];
+  rubyEnabled?: unknown;
 };
 
 function mockFetchOnce(data: MockApiResponse) {
@@ -176,6 +177,9 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
       usedEggBonuses: "[]",
       monsterSetId: "dark",
       ownedThemes: ["dark", "buddha"],
+      // Issue #140 のかな表記フォールバックと本テスト（テーマ別モンスター表切り替え）の
+      // 検証対象を分離するため、rubyEnabled=false を明示する
+      rubyEnabled: false,
     });
 
     render(<ZukanContent />);
@@ -200,6 +204,8 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
       usedEggBonuses: "[]",
       monsterSetId: "buddha",
       ownedThemes: ["buddha"],
+      // Issue #140 のかな表記フォールバックと本テスト（シルエットパス）の検証対象を分離
+      rubyEnabled: false,
     });
 
     render(<ZukanContent />);
@@ -227,6 +233,8 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
         usedEggBonuses: "[]",
         monsterSetId: "buddha",
         ownedThemes: ["buddha"],
+        // Issue #140 のかな表記フォールバックと本テスト（collectedPaths変換）の検証対象を分離
+        rubyEnabled: false,
       });
 
       render(<ZukanContent />);
@@ -286,6 +294,8 @@ describe("ZukanContent: テーマ別タブ対応（Issue #86）", () => {
         usedEggBonuses: "[]",
         monsterSetId: "dark",
         ownedThemes: ["dark", "buddha"],
+        // Issue #140 のかな表記フォールバックと本テスト（テーマ切替時の収集済み判定）の検証対象を分離
+        rubyEnabled: false,
       });
 
       render(<ZukanContent />);

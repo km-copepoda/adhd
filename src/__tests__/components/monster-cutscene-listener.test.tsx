@@ -40,6 +40,7 @@ type Status = {
   evolutionPath: string;
   side: string | null;
   monsterSetId?: string;
+  rubyEnabled?: unknown;
 };
 
 function setupFetch(initial: Status, ...subsequent: Status[]) {
@@ -173,9 +174,11 @@ describe("MonsterCutsceneListener — 子レイアウト常駐の進化カット
 
   it("Issue #100: monsterSetId が buddha のとき、カットインに buddha テーマの画像が表示される（side は無視される）", async () => {
     // side は null（未設定）だが monsterSetId が buddha を優先するべき
+    // rubyEnabled=false を明示し、Issue #140 のかな表記フォールバックと本テストの
+    // 検証対象（monsterSetId 優先）を分離する
     setupFetch(
-      { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha" },
-      { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha" },
+      { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha", rubyEnabled: false },
+      { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha", rubyEnabled: false },
     );
 
     await act(async () => {
@@ -211,6 +214,77 @@ describe("MonsterCutsceneListener — 子レイアウト常駐の進化カット
 
     await waitFor(() => {
       expect(localStorage.getItem("lastSeenEvolutionStage")).toBe("3");
+    });
+  });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  // カットインの subtitle（種族名）・description・imageAlt に pickRuby を適用する。
+  describe("rubyEnabled配線（Issue #140）", () => {
+    it("rubyEnabled=true のとき、subtitle・imageAltがかな表記になり、漢字表記は表示されないこと", async () => {
+      // buddha テーマ STUDY: name="文殊丸" nameKana="もんじゅまる"
+      setupFetch(
+        { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha", rubyEnabled: true },
+        { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha", rubyEnabled: true },
+      );
+
+      await act(async () => {
+        render(<MonsterCutsceneListener />);
+      });
+      await waitFor(() => expect(userUpdateCallback).not.toBeNull());
+
+      await act(async () => {
+        userUpdateCallback!();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("もんじゅまる")).toBeTruthy();
+      });
+      expect(screen.queryByText("文殊丸")).toBeNull();
+      expect(screen.getByAltText("もんじゅまる")).toBeTruthy();
+      expect(screen.queryByAltText("文殊丸")).toBeNull();
+    });
+
+    it("rubyEnabled=false のとき、subtitle・imageAltが通常表記（漢字）になり、かな表記は表示されないこと", async () => {
+      setupFetch(
+        { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha", rubyEnabled: false },
+        { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha", rubyEnabled: false },
+      );
+
+      await act(async () => {
+        render(<MonsterCutsceneListener />);
+      });
+      await waitFor(() => expect(userUpdateCallback).not.toBeNull());
+
+      await act(async () => {
+        userUpdateCallback!();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("文殊丸")).toBeTruthy();
+      });
+      expect(screen.queryByText("もんじゅまる")).toBeNull();
+      expect(screen.getByAltText("文殊丸")).toBeTruthy();
+      expect(screen.queryByAltText("もんじゅまる")).toBeNull();
+    });
+
+    it("境界値: rubyEnabled が未指定のとき、trueにフォールバックしてかな表記になること", async () => {
+      setupFetch(
+        { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha" },
+        { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha" },
+      );
+
+      await act(async () => {
+        render(<MonsterCutsceneListener />);
+      });
+      await waitFor(() => expect(userUpdateCallback).not.toBeNull());
+
+      await act(async () => {
+        userUpdateCallback!();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("もんじゅまる")).toBeTruthy();
+      });
     });
   });
 });

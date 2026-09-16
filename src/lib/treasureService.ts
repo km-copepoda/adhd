@@ -206,9 +206,13 @@ export async function generateProxyTreasure(input: {
 export interface OpenedCollectionItem {
   id: string;
   name: string;
+  /** Issue #140: 開封直後の演出でふりがな表示に切り替えるためのかな表記 */
+  nameKana: string;
   rarity: CollectionRarity;
   season: CollectionSeason;
   description: string;
+  /** Issue #140: 開封直後の演出でふりがな表示に切り替えるためのかな表記 */
+  descriptionKana: string;
   image: string;
   /** 通算入手回数 (1 なら初獲得、2 以上ならダブり) */
   count: number;
@@ -286,9 +290,11 @@ export async function openOldestTreasure(
       collectionItem = {
         id: picked.id,
         name: picked.name,
+        nameKana: picked.nameKana,
         rarity: picked.rarity,
         season: picked.season,
         description: picked.description,
+        descriptionKana: picked.descriptionKana,
         image: picked.image,
         count: owned.count,
         month: picked.month,

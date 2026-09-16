@@ -44,5 +44,7 @@ export async function GET() {
     currentSeason: getCurrentSeason(),
     currentMonth: getCurrentMonth(),
     items,
+    // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
+    rubyEnabled: typeof user.rubyEnabled === "boolean" ? user.rubyEnabled : true,
   });
 }

@@ -124,7 +124,10 @@
 - [2026-08-21: モンスターテーマ所持記録を子供単位（`ChildMonsterTheme`）から家族単位（`FamilyMonsterTheme`）へ移行する（2026-08-18決定の補足、Issue #111）](#2026-08-21-モンスターテーマ所持記録を子供単位childmonsterthemeから家族単位familymonsterthemeへ移行する2026-08-18決定の補足issue-111)
 - [2026-08-22: 「開かずの宝箱」バグの恒久修正 — 宝箱日付解決を resolveTreasureDate に一本化](#2026-08-22-開かずの宝箱バグの恒久修正--宝箱日付解決を-resolvetreasuredate-に一本化)
 - [2026-08-22: 既存の孤児LOCKED宝箱を救済するワンショット復旧スクリプトを追加（Issue #109）](#2026-08-22-既存の孤児locked宝箱を救済するワンショット復旧スクリプトを追加issue-109)
+- [2026-08-30: 設計凍結前に Codex 実現可能性レビュー工程を追加（Issue #120）](#2026-08-30-設計凍結前に-codex-実現可能性レビュー工程を追加issue-120)
+- [2026-08-30: `typecheck` を CI のブロッキングゲートにする（2026-08-12 決定を上書き、Issue #117）](#2026-08-30-typecheck-を-ci-のブロッキングゲートにする2026-08-12-決定を上書きissue-117)
 - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
+- [2026-09-16: モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する（案Z、Issue #140）](#2026-09-16-モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する案zissue-140)
 
 <!-- TOC:END -->
 
@@ -1183,10 +1186,6 @@
 
 ## 2026-05-29: 宝箱履歴の子画面表示は直近1週間に制限 / 開封時刻も併記
 
-> **⚠ PARTIALLY SUPERSEDED** — [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
->
-> 保持期間 `TREASURE_HISTORY_RETENTION_DAYS` は 2026-09-06（#72）で 7日 → 30日（1か月固定・可変UIなし）に拡大。API 層でフィルタする方式・純粋関数の集約先・親画面に制限を掛けない方針は現行（親画面は各行に `visibleToChild` 計算値を付与してグレーアウト表示する）。
-
 ### 決定内容
 - 子画面のごほうび履歴（`/app/child/badges` → 「ごほうび」タブ）は **直近 7日（`TREASURE_HISTORY_RETENTION_DAYS`）以内に開封した宝箱のみ** を表示する
 - フィルタは API 層 (`/api/treasures/status`) で `where.openedAt: { gte: cutoff }` で行う（クライアントに古いレコードを送らない）
@@ -1280,9 +1279,8 @@
 > **⚠ PARTIALLY SUPERSEDED** —
 > - [2026-05-31: TreasureTrigger.AUTO を PROXY にリネーム（2026-05-30 の「PROXY 禁止」を打ち消し）](#2026-05-31-treasuretriggerauto-を-proxy-にリネーム2026-05-30-のproxy-禁止を打ち消し)
 > - [2026-05-31: 宝箱ハズレ枠を「コレクションアイテム」に置き換え（季節制 80種）](#2026-05-31-宝箱ハズレ枠をコレクションアイテムに置き換え季節制-80種)
-> - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
 >
-> 「trigger=PROXY を新設しない」ルールは 2026-05-31 で撤回。child-view のコレクションタブも同日中に「図鑑+実績」の 2 タブ→アイテム含む 3 タブに拡張。child-view 宝箱履歴の 7日制限は 2026-09-06（#72）で 30日 に拡大（並走 API `/api/parent/child-view/treasures/status` も `fulfilled` を露出するが、child-view 画面には操作ボタンを出さず表示のみ）。機能本体は現行。
+> 「trigger=PROXY を新設しない」ルールは 2026-05-31 で撤回。child-view のコレクションタブも同日中に「図鑑+実績」の 2 タブ→アイテム含む 3 タブに拡張。機能本体は現行。
 
 ### 決定内容
 - `ChildViewBottomNav` を 3タブ（クエスト/育成/ひろば）から 5タブ（**+宝箱 +コレクション**）に拡張
@@ -1643,10 +1641,6 @@
 - `src/__tests__/lib/treasureService.test.ts` — STREAK→PROXY 抑制 / PROXY→STREAK 抑制 / PROXY+ALL_COMPLETE 共存 の 3 ケース追加
 
 ## 2026-05-31: 「渡したよチェック」を親メモとして復活（2026-05-28 撤回）
-
-> **⚠ PARTIALLY SUPERSEDED** — [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
->
-> 「子画面・子向け API には fulfilled を露出させない」という制約は 2026-09-06（#72）で撤回。`fulfilled` は単一カラムを親子で共有し、子も自分の行を子画面からトグルできる。親 only の `POST /api/treasures/fulfill/[id]` と親メモ表示自体は現行。
 
 ### 決定内容
 - `TreasureLog.fulfilled: Boolean @default(false)` カラムを復活（2026-05-28 で `20260528000001_drop_treasure_log_fulfilled` で削除したものを再追加）
@@ -2986,3 +2980,38 @@
 - `src/app/app/child/treasures/page.tsx` — 「📦 たからばこ / 🎁 ごほうび一覧」サブタブ、使用状態トグル
 - `src/app/app/parent/(app)/treasures/pending/page.tsx` — `visibleToChild === false` 行のグレーアウト表示
 - `src/__tests__/lib/treasureHistory.test.ts` / `src/__tests__/api/child/treasures/fulfill.test.ts`（新規）/ `src/__tests__/api/treasures/status.test.ts` / `src/__tests__/api/treasures/treasure-status.test.ts` / `src/__tests__/api/parent/child-view/treasures-status.test.ts` / `src/__tests__/api/treasures/fulfill-pending.test.ts` / `src/__tests__/components/child-treasures-rewards-tab.test.tsx`（新規）/ `src/__tests__/components/parent-treasures-pending-fulfill.test.tsx` / `src/__tests__/components/parent-child-view-treasures-page.test.tsx`
+
+## 2026-09-16: モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する（案Z、Issue #140）
+
+### 決定内容
+- **`rubyEnabled` は常に「表示対象の子供本人」単位で解決する**。子モード画面は `user.rubyEnabled`（自分自身）をそのまま使い、親代理モード（child-view）は `resolveTargetChild()` で解決した対象児童の `rubyEnabled` を使う。**親代理モードで親自身の `rubyEnabled` を参照することは一切しない**（親が自分の設定でログインしていても、見ている子供の設定が優先される）
+- **相乗り方式（案Z）を採用**: `rubyEnabled` を運ぶための新規APIエンドポイントや `/api/users/me` の追加フェッチは行わない。既存の8ルート（`/api/monster`・`/api/monster-status`・`/api/collection-items`・`/api/treasures/status` とそれぞれの `/api/parent/child-view/*` 版）のレスポンスに `rubyEnabled` フィールドを追加するだけで配線する。理由: 新規エンドポイント方式は追加のラウンドトリップが発生し、親代理モードでは対象児童IDの二重解決が必要になる。Reactコンテキスト方式は8ルート×6+コンポーネントという配線範囲に対してプロバイダのネスト位置の設計コストが見合わない。相乗り方式は各ルートが既に対象ユーザーを解決済みという性質にそのまま乗れる
+- **`rubyEnabled` の非boolean値フォールドバックは `typeof x.rubyEnabled === "boolean" ? x.rubyEnabled : true` に統一する**。既存の `family/code` ルートで使われている `?? true` パターンは踏襲しない（`?? true` は `false` を正しく通すが、文字列や数値等の非boolean値が来た場合に truthy 判定にならず意図しない挙動になりうるため、本Issueの8ルートでは明示的な `typeof` ガードで統一した）
+- **文字列 props はコンポーネント呼び出し前に `pickRuby()` で確定し、JSXとして子要素を持てる箇所は `RubyText` を使う**。`CutsceneOverlay` の `title`/`subtitle`/`description`、`MonsterImageModal` の `description`、`next/image` の `alt` は plain string を要求するため `pickRuby(text, kana, enabled)` の戻り値をそのまま渡す。一方 `ZukanContent`/`ItemsContent` 等の名前・説明表示は `RubyText` コンポーネントで描画する
+- **`/api/treasures/status` 系は「開封直後」と「履歴一覧」の2経路に別々に `nameKana` を配線する**。`OpenedCollectionItem`（開封直後、開封演出用）と `opened[].collectionItem`（履歴再構成、フィールド列挙が別コード）は同じコレクションアイテムを指していてもソースコード上は独立した構築箇所であり、両方に `nameKana` を足す必要がある（片方だけでは見落としが再発する）
+- **親が入力した自由記述のごほうび名（カスタムリワード、`result.item.title` 等）はかな変換の対象外**。これらのテキストにはかなデータ（`nameKana`/`descriptionKana`）が一切存在せず、モンスター・コレクションアイテムのような事前定義データではないため、`pickRuby` を通さずそのまま表示する
+- 対象外（変更しない）と確認した箇所: LP/マーケティングページ `src/components/lp/MonstersSection.tsx`、共有コンポーネント `CutsceneOverlay.tsx`/`MonsterImageModal.tsx` 自体の実装（呼び出し側で `pickRuby` 済みの文字列を渡すだけで、コンポーネント内部は変更不要）
+
+### 理由
+- Issue #139（データ層: `text`/`textKana` 等のCSVカラム方式、`pickRuby`、生成スクリプト）は既にマージ済み（PR #142）。本Issueはそのデータを実際に子供向け画面へ配線する表示層のみを担当するとして分割された
+- 親代理モードで親自身の設定を使ってしまうと、親がふりがな無効で使っている端末から子供の画面を覗いたときに、その子供が普段見ているのと異なる表示になり、意図と異なる（2026-09-16以前のIssue #139設計時点から一貫して「`rubyEnabled` は対象児童のものを使う」という前提だった）
+- 新規API/Reactコンテキストではなく相乗り方式を選んだのは、Codexによる設計レビューで「配線対象が8ルート×6+コンポーネントと広いため、既存の応答経路に相乗りする方が変更範囲が最小になる」と指摘されたことに基づく
+
+### やってはいけないこと
+- 親代理モード（child-view）のAPIルートで `getCurrentUser()` から得た親自身の `rubyEnabled` を使う
+- `rubyEnabled` のフォールバックに `?? true` を使う（非boolean値を誤って truthy 扱いする可能性があるため、本Issueの範囲では `typeof` ガードに統一する）
+- `/api/treasures/status` 系で「開封直後」の `OpenedCollectionItem` にだけ `nameKana` を足して、履歴再構成側の `opened[].collectionItem` を見落とす
+- 親が自由記述したごほうび名（カスタムリワード）を `pickRuby` に通してかな変換しようとする（変換元データが存在しない）
+- `CutsceneOverlay`/`MonsterImageModal` 自体の内部実装を変更して `rubyEnabled` を受け取らせる（呼び出し側で文字列を確定してから渡す設計を崩さない）
+
+### 該当箇所
+- `src/app/api/monster/route.ts` / `src/app/api/parent/child-view/monster/route.ts`
+- `src/app/api/monster-status/route.ts` / `src/app/api/parent/child-view/monster-status/route.ts`
+- `src/app/api/collection-items/route.ts` / `src/app/api/parent/child-view/collection-items/route.ts`
+- `src/app/api/treasures/status/route.ts` / `src/app/api/parent/child-view/treasures/status/route.ts`
+- `src/lib/treasureService.ts` — `OpenedCollectionItem` 型・構築箇所
+- `src/components/child/ZukanContent.tsx` / `ZukanEvolutionBranch.tsx` / `ItemsContent.tsx`
+- `src/components/child/MonsterCutsceneListener.tsx` / `src/components/parent/ChildViewMonsterCutsceneListener.tsx`
+- `src/components/child/TreasureOpenCutscene.tsx` / `TreasureStock.tsx`
+- `src/app/app/child/treasures/page.tsx` / `src/app/app/parent/child-view/[childId]/treasures/page.tsx`
+

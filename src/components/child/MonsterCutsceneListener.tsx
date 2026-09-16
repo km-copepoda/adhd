@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
+import { pickRuby } from "@/lib/ruby";
 import CutsceneOverlay from "@/components/child/CutsceneOverlay";
 
 type MonsterStatus = {
@@ -10,6 +11,8 @@ type MonsterStatus = {
   evolutionPath: string;
   side: string | null;
   monsterSetId?: string | null;
+  /** Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする */
+  rubyEnabled?: unknown;
 };
 
 type CutsceneState = {
@@ -39,12 +42,16 @@ export default function MonsterCutsceneListener() {
 
     function buildCutscene(d: MonsterStatus, kind: "hatched" | "evolved"): CutsceneState {
       const monster = getMonsterStage(d.evolutionStage, d.evolutionPath, d.monsterSetId ?? themeIdFromSide(d.side));
+      const rubyEnabled = typeof d.rubyEnabled === "boolean" ? d.rubyEnabled : true;
+      const name = pickRuby(monster.name, monster.nameKana, rubyEnabled);
+      const description = ("description" in monster && monster.description) || "";
+      const descriptionKana = ("descriptionKana" in monster && monster.descriptionKana) || "";
       return {
         kind,
         imageSrc: monster.image,
-        imageAlt: monster.name,
-        name: monster.name,
-        description: ("description" in monster && monster.description) || "",
+        imageAlt: name,
+        name,
+        description: pickRuby(description, descriptionKana, rubyEnabled),
       };
     }
 

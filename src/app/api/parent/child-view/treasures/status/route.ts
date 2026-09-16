@@ -64,6 +64,8 @@ export async function GET(request: Request) {
           ? {
               id: ci.id,
               name: ci.name,
+              // Issue #140: 履歴表示にも nameKana を明示追加する（開封直後の演出とは別経路）
+              nameKana: ci.nameKana,
               season: ci.season,
               rarity: ci.rarity,
               image: ci.image,
@@ -72,5 +74,7 @@ export async function GET(request: Request) {
           : null,
       };
     }),
+    // Issue #140: 対象児童（child）の rubyEnabled を返す。親自身の値は使わない。
+    rubyEnabled: typeof child.rubyEnabled === "boolean" ? child.rubyEnabled : true,
   });
 }

@@ -46,5 +46,7 @@ export async function GET(request: Request) {
     currentSeason: getCurrentSeason(),
     currentMonth: getCurrentMonth(),
     items,
+    // Issue #140: 対象児童（child）の rubyEnabled を返す。親自身の値は使わない。
+    rubyEnabled: typeof resolved.child.rubyEnabled === "boolean" ? resolved.child.rubyEnabled : true,
   });
 }

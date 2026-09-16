@@ -82,6 +82,8 @@ export async function GET() {
           ? {
               id: ci.id,
               name: ci.name,
+              // Issue #140: 履歴表示にも nameKana を明示追加する（開封直後の演出とは別経路）
+              nameKana: ci.nameKana,
               season: ci.season,
               rarity: ci.rarity,
               image: ci.image,
@@ -100,5 +102,7 @@ export async function GET() {
         item: o.item,
         fulfilled: o.fulfilled,
       })),
+    // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
+    rubyEnabled: typeof user.rubyEnabled === "boolean" ? user.rubyEnabled : true,
   });
 }

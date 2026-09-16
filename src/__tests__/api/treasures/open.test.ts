@@ -89,9 +89,11 @@ describe("POST /api/treasures/open", () => {
       collectionItem: {
         id: "summer-01",
         name: "カブトムシ",
+        nameKana: "かぶとむし",
         rarity: "COMMON",
         season: "summer",
         description: "夏の王様。つのがかっこいい",
+        descriptionKana: "なつのおうさま。つのがかっこいい",
         image: "/collection-items/summer/カブトムシ.png",
         count: 1,
       },
@@ -129,8 +131,8 @@ describe("POST /api/treasures/open", () => {
       logId: "log-4",
       item: null,
       collectionItem: {
-        id: "spring-05", name: "桜", rarity: "COMMON", season: "spring",
-        description: "", image: "", count: 1,
+        id: "spring-05", name: "桜", nameKana: "さくら", rarity: "COMMON", season: "spring",
+        description: "", descriptionKana: "", image: "", count: 1,
       },
     });
 
@@ -147,8 +149,8 @@ describe("POST /api/treasures/open", () => {
       logId: "log-5",
       item: null,
       collectionItem: {
-        id: "spring-05", name: "桜", rarity: "COMMON", season: "spring",
-        description: "", image: "", count: 1,
+        id: "spring-05", name: "桜", nameKana: "さくら", rarity: "COMMON", season: "spring",
+        description: "", descriptionKana: "", image: "", count: 1,
       },
     });
     mockCheckAndUnlockBadges.mockResolvedValue([

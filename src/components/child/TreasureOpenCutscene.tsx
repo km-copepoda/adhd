@@ -4,13 +4,16 @@ import CutsceneOverlay from "./CutsceneOverlay";
 import { formatChildRarity, type TreasureRarity } from "@/lib/treasureRarity";
 import type { CollectionRarity, CollectionSeason } from "@/lib/collectionItems";
 import { SEASON_LABEL } from "@/lib/collectionItems";
+import { pickRuby } from "@/lib/ruby";
 
 interface CollectionItemResult {
   id: string;
   name: string;
+  nameKana: string;
   rarity: CollectionRarity;
   season: CollectionSeason;
   description: string;
+  descriptionKana: string;
   image: string;
   count: number;
   /** 月限定アイテムのみ設定 (1〜12)。通常アイテムは undefined */
@@ -27,6 +30,12 @@ interface Result {
 interface Props {
   result: Result;
   onClose: () => void;
+  /**
+   * Issue #140: 自分では API を叩かないため、呼び出し元が
+   * status API（/api/treasures/status 系）から取得した値を渡す。
+   * 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする。
+   */
+  rubyEnabled?: unknown;
 }
 
 const RARITY_COLOR: Record<TreasureRarity, string> = {
@@ -47,8 +56,10 @@ const COLLECTION_RARITY_LABEL: Record<CollectionRarity, string> = {
   RARE: "とってもレア",
 };
 
-export default function TreasureOpenCutscene({ result, onClose }: Props) {
+export default function TreasureOpenCutscene({ result, onClose, rubyEnabled: rubyEnabledRaw }: Props) {
+  const rubyEnabled = typeof rubyEnabledRaw === "boolean" ? rubyEnabledRaw : true;
   // 親が設定したごほうび当選 → 親ごほうび演出
+  // Issue #140: 親が自由入力した item.title は変換データが存在しないためかな化しない
   if (result.item) {
     const glow = RARITY_COLOR[result.item.rarity];
     return (
@@ -75,16 +86,20 @@ export default function TreasureOpenCutscene({ result, onClose }: Props) {
     const isMonthly = ci.month !== undefined;
     // 月限定アイテムは「◯月げんてい」を強調 (取り逃すと1年待ちの特別感を演出)
     const kindLabel = isMonthly ? `✨${ci.month}月げんてい✨` : `${seasonLabel}のコレクション`;
+    // Issue #140: kana フィールドは必須型だが、旧レスポンス/呼び出し元との後方互換のため
+    // 未設定時は空文字扱いにして pickRuby にフォールバックさせる
+    const displayName = pickRuby(ci.name, ci.nameKana ?? "", rubyEnabled);
+    const displayDescription = pickRuby(ci.description, ci.descriptionKana ?? "", rubyEnabled);
     return (
       <CutsceneOverlay
         onClose={onClose}
         imageSrc={ci.image}
-        imageAlt={ci.name}
+        imageAlt={displayName}
         glowColor={glow}
-        title={ci.name}
+        title={displayName}
         titleColor="text-quest-gold"
         subtitle={isNew ? `${kindLabel}をゲット！` : `${kindLabel}（${ci.count}個目）`}
-        description={ci.description}
+        description={displayDescription}
         bonus={{
           text: `🏆 ${COLLECTION_RARITY_LABEL[ci.rarity]}`,
           color: ci.rarity === "RARE" ? "text-quest-gold" : "text-quest-mint",
