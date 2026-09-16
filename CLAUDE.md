@@ -253,7 +253,7 @@ const parent = await requireUser("PARENT");
 
 | # | エージェント | 役割 | 起動タイミング |
 |---|--------------|------|----------------|
-| 0 | `issue-planner` | ユーザーの雑な指示を目的・背景・実装方針・影響範囲・テスト要件・エッジケースまで深掘りし `gh issue create`（Issue自動着手パイプライン用。通常の対話フローでは不要） | Issue化されていない指示を Issue 自動着手パイプラインに乗せたい場合のみ |
+| 0 | `issue-planner` | 目的・背景・実装方針・影響範囲・テスト要件・エッジケースまで詰めて `gh issue create`。**質問系ツールを持たないため、曖昧な指示のヒアリング（`grillme` 等）はオーケストレータが事前に行う**。それでも残った論点は Issue 本文の「要確認事項」に書き出して差し戻す（Issue自動着手パイプライン用。通常の対話フローでは不要） | Issue化されていない指示を Issue 自動着手パイプラインに乗せたい場合のみ |
 | 1 | `policy-checker` | `docs/decisions.md` / `CLAUDE.md` 参照、方針衝突・非標準アプローチ検出 | タスク着手時（必ず最初） |
 | 2 | `codex-design-review` | `.claude/commands/codex-design-review.md` のコマンド（専用サブエージェントは作らない）。設計ドキュメントをローカル `codex` CLI に渡し、既存コードとの整合性・実現可能性をレビューさせる。結果は対象 Issue にコメントで記録 | `policy-checker` が OK を返した後、`src/` のロジック/スキーマ変更を含むタスクで設計を凍結する前 |
 | 3 | `test-writer` | TDD Red: `src/__tests__/` に失敗テストを書く | `policy-checker` が OK / ユーザー確認後 |
@@ -307,7 +307,10 @@ const parent = await requireUser("PARENT");
 
 ```
 ユーザーの雑な指示
-  → issue-planner（深層思考でIssue化。gh issue create。ラベルは付けず、スコープ評価を本文に推奨として記載するのみ）
+  → オーケストレータ（ユーザーと直接会話しているセッション）が grillme スキルでクエスチョン形式に深掘りインタビュー
+    （issue-planner はサブエージェントで AskUserQuestion 等が使えないため、ヒアリングはここでしか行えない）
+  → issue-planner（ヒアリング結果＋自身のコード調査で深層思考しIssue化。gh issue create。ラベルは付けず、スコープ評価と残った要確認事項を本文に記載するのみ）
+  → 要確認事項が残っていればオーケストレータがユーザーに質問し、回答をIssueにコメント追記
   → 人間が内容を確認し auto-pickup ラベルを付与（この操作だけが実際の着手許可。issue-planner自身は付与しない）
   → issue-picker（`.claude/commands/issue-picker.md`。auto-pickup Issueを1件拾い policy-checker 以降の通常フローに乗せる）
   → pr-submitter が PR 作成
