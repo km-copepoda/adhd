@@ -8,7 +8,7 @@ import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { xpRangeLabel, calcActualXP } from "@/lib/xp";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 type PendingQuest = {
   id: string;
@@ -92,6 +92,7 @@ export default function ApprovePage() {
     });
 
     // スキップ承認 + 一時タスク + コピーオン の場合、翌日にコピー
+    let copyRes: Response | null = null;
     if (
       action === "approve" &&
       quest.status === "SKIP_REPORTED" &&
@@ -99,17 +100,24 @@ export default function ApprovePage() {
       copyEnabled[quest.id]
     ) {
       const targetDate = copyDates[quest.id] ?? getTomorrowStr();
-      const copyRes = await fetch(`/api/tasks/${quest.templateId}/copy`, {
+      // 上限到達で失敗しても、既に完了した承認処理は取り消さず、コピー失敗のみ後で通知する
+      copyRes = await fetch(`/api/tasks/${quest.templateId}/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetDate }),
       });
-      // 上限到達で失敗しても、既に完了した承認処理は取り消さず、コピー失敗のみ通知する
-      await alertOnApiError(copyRes);
     }
 
+    // 承認結果の同期 (通知・一覧再取得) は、コピーの成否に関わらず必ず実行する。
+    // confirmPlanLimitOrAlert は上限到達時に /app/parent/plan へ遷移する可能性があり、
+    // location.href 代入後に JS 実行が止まる想定に暗黙に依存しないため、遷移判定より先に行う
+    // (Issue #148 v2差分6番)。
     notifyApprovalsUpdated();
     fetchPending();
+
+    if (copyRes) {
+      await confirmPlanLimitOrAlert(copyRes);
+    }
   }
 
   function openRejectModal(quest: PendingQuest) {
