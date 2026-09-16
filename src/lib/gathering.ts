@@ -43,14 +43,19 @@ export function getStampProgressStatus(done: number, total: number): StampProgre
   return "IN_PROGRESS";
 }
 
-/** スタンプ受信時の表示メッセージ。タスク名や数値は含めない（プライバシー方針）。 */
-export function buildStampMessage(senderName: string, status: StampProgressStatus): string {
+/** スタンプ受信時の本文（送信者名を含まない）。タスク名や数値は含めない（プライバシー方針）。 */
+export function getStampStatusText(status: StampProgressStatus): string {
   switch (status) {
     case "NOT_STARTED":
-      return `${senderName}からエール！スタートのきっかけにしよう！`;
+      return "スタートのきっかけにしよう！";
     case "IN_PROGRESS":
-      return `${senderName}からエール！その調子、いっしょに頑張ろう！`;
+      return "その調子、いっしょに頑張ろう！";
     case "DONE":
-      return `${senderName}からエール！今日のがんばり、最高だね！`;
+      return "今日のがんばり、最高だね！";
   }
+}
+
+/** スタンプ受信時の表示メッセージ。タスク名や数値は含めない（プライバシー方針）。 */
+export function buildStampMessage(senderName: string, status: StampProgressStatus): string {
+  return `${senderName}からエール！${getStampStatusText(status)}`;
 }

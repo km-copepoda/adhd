@@ -4,6 +4,7 @@ import {
   LOCATION_CAPACITY,
   getStampProgressStatus,
   buildStampMessage,
+  getStampStatusText,
 } from "@/lib/gathering";
 
 // ─── normalizeSecretWord ──────────────────────────────────────────────────────
@@ -105,5 +106,58 @@ describe("buildStampMessage", () => {
   it("メッセージにタスク名や数値などの具体情報を含めない（プライバシー方針）", () => {
     const msg = buildStampMessage("たろう", "IN_PROGRESS");
     expect(msg).not.toMatch(/[0-9０-９]/);
+  });
+
+  it("送信者名 + getStampStatusText(status) の連結である（NOT_STARTED）", () => {
+    expect(buildStampMessage("たろう", "NOT_STARTED")).toBe(
+      `たろうからエール！${getStampStatusText("NOT_STARTED")}`,
+    );
+  });
+
+  it("送信者名 + getStampStatusText(status) の連結である（IN_PROGRESS）", () => {
+    expect(buildStampMessage("はなこ", "IN_PROGRESS")).toBe(
+      `はなこからエール！${getStampStatusText("IN_PROGRESS")}`,
+    );
+  });
+
+  it("送信者名 + getStampStatusText(status) の連結である（DONE）", () => {
+    expect(buildStampMessage("けんた", "DONE")).toBe(
+      `けんたからエール！${getStampStatusText("DONE")}`,
+    );
+  });
+
+  it("送信者名が空文字でも本文部分は変わらない（境界値）", () => {
+    expect(buildStampMessage("", "DONE")).toBe(
+      `からエール！${getStampStatusText("DONE")}`,
+    );
+  });
+});
+
+// ─── getStampStatusText ───────────────────────────────────────────────────────
+describe("getStampStatusText", () => {
+  it("NOT_STARTED はスタートを促す文言を返す", () => {
+    expect(getStampStatusText("NOT_STARTED")).toBe("スタートのきっかけにしよう！");
+  });
+
+  it("IN_PROGRESS は継続を励ます文言を返す", () => {
+    expect(getStampStatusText("IN_PROGRESS")).toBe("その調子、いっしょに頑張ろう！");
+  });
+
+  it("DONE は達成を称える文言を返す", () => {
+    expect(getStampStatusText("DONE")).toBe("今日のがんばり、最高だね！");
+  });
+
+  it("送信者名を含まない（buildStampMessage との差分の境界値）", () => {
+    for (const status of ["NOT_STARTED", "IN_PROGRESS", "DONE"] as const) {
+      const text = getStampStatusText(status);
+      expect(text).not.toContain("エール");
+    }
+  });
+
+  it("3状態ですべて異なる文言を返す", () => {
+    const a = getStampStatusText("NOT_STARTED");
+    const b = getStampStatusText("IN_PROGRESS");
+    const c = getStampStatusText("DONE");
+    expect(new Set([a, b, c]).size).toBe(3);
   });
 });

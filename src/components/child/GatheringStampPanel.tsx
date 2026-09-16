@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { buildStampMessage, getStampProgressStatus, type StampProgressStatus } from "@/lib/gathering";
+import {
+  buildStampMessage,
+  getStampProgressStatus,
+  getStampStatusText,
+  type StampProgressStatus,
+} from "@/lib/gathering";
+import EncouragementCutscene from "./EncouragementCutscene";
 
 type Member = {
   id: string;
@@ -15,13 +21,13 @@ type Props = {
   members: Member[];
 };
 
-type ToastEntry = { id: string; message: string };
+type ReceivedStamp = { id: string; senderName: string; status: StampProgressStatus };
 
 type StampRow = { id: string; groupId: string; senderId: string; date: string };
 
-const TOAST_DURATION_MS = 5000;
 const SEEN_KEY = "gathering:seenStampIds";
 const SEEN_MAX = 100;
+const MAX_NAMES_SHOWN = 3;
 
 function readSeenIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -58,13 +64,37 @@ async function fetchOwnProgressStatus(): Promise<StampProgressStatus> {
   }
 }
 
+/** 受信済みスタンプ一覧から演出に表示する subtitle / description を組み立てる。 */
+function buildCutsceneText(stamps: ReceivedStamp[]): { subtitle?: string; description: string } {
+  const latestStatus = stamps[stamps.length - 1].status;
+  if (stamps.length === 1) {
+    return { description: buildStampMessage(stamps[0].senderName, latestStatus) };
+  }
+  const uniqueNames = Array.from(new Set(stamps.map((s) => s.senderName)));
+  const shown = uniqueNames.slice(0, MAX_NAMES_SHOWN);
+  const restCount = uniqueNames.length - shown.length;
+  const namesText =
+    restCount > 0 ? `${shown.join("・")}・ほか${restCount}人` : shown.join("・");
+  return { subtitle: `${namesText}からエール！`, description: getStampStatusText(latestStatus) };
+}
+
 export default function GatheringStampPanel({ groupId, members }: Props) {
   const [sentToday, setSentToday] = useState<boolean | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<ToastEntry[]>([]);
+  const [receivedStamps, setReceivedStamps] = useState<ReceivedStamp[]>([]);
+  const claimedIdsRef = useRef<Set<string>>(new Set());
 
   const me = members.find((m) => m.isMe);
+
+  // 同一 ID の二重処理（マウント再生 / Realtime の競合含む）を防ぐための予約。
+  // 同期的に判定・記録することで await をまたいだ競合を防ぐ。
+  const claimStamp = useCallback((id: string): boolean => {
+    if (readSeenIds().has(id) || claimedIdsRef.current.has(id)) return false;
+    claimedIdsRef.current.add(id);
+    addSeenIds([id]);
+    return true;
+  }, []);
 
   // 初回: 今日送信済みかチェック
   useEffect(() => {
@@ -81,15 +111,7 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
     })();
   }, []);
 
-  const showToast = useCallback((message: string) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setToasts((prev) => [...prev, { id, message }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, TOAST_DURATION_MS);
-  }, []);
-
-  // マウント時: 当日届いた未読エールをトーストで再生する。
+  // マウント時: 当日届いた未読エールを全画面演出で再生する。
   // Push を抑制した DONE 状態の受信者でも、ひろばを開いたタイミングでここで気づける。
   useEffect(() => {
     if (!me) return;
@@ -103,17 +125,15 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
         };
         if (cancelled || data.stamps.length === 0) return;
 
-        const seen = readSeenIds();
-        const unseen = data.stamps.filter((s) => !seen.has(s.id));
-        // 既読化は「全件」（既に既読のものは no-op）。これで古いID混入を防ぐ
-        addSeenIds(data.stamps.map((s) => s.id));
+        const claimed = data.stamps.filter((s) => claimStamp(s.id));
+        if (claimed.length === 0) return;
 
-        if (unseen.length === 0) return;
         const status = await fetchOwnProgressStatus();
         if (cancelled) return;
-        for (const s of unseen) {
-          showToast(buildStampMessage(s.senderName, status));
-        }
+        setReceivedStamps((prev) => [
+          ...prev,
+          ...claimed.map((s) => ({ id: s.id, senderName: s.senderName, status })),
+        ]);
       } catch {
         // 失敗時は黙って終了（次回マウントで再試行）
       }
@@ -121,7 +141,7 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [me, showToast]);
+  }, [me, claimStamp]);
 
   // Realtime: 同じグループの Stamp INSERT を購読
   useEffect(() => {
@@ -135,20 +155,19 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
         async (payload) => {
           const row = payload.new as StampRow;
           if (row.senderId === me.id) return; // 自分が送ったものはスキップ
-          if (readSeenIds().has(row.id)) return; // マウント再生で既に表示済み
+          if (!claimStamp(row.id)) return; // マウント再生・他イベントで既に処理済み
 
           const sender = members.find((m) => m.id === row.senderId);
           const senderName = sender?.monsterName ?? "なかま";
           const status = await fetchOwnProgressStatus();
-          showToast(buildStampMessage(senderName, status));
-          addSeenIds([row.id]);
+          setReceivedStamps((prev) => [...prev, { id: row.id, senderName, status }]);
         },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, me, members, showToast]);
+  }, [groupId, me, members, claimStamp]);
 
   async function handleSend() {
     setError(null);
@@ -189,19 +208,17 @@ export default function GatheringStampPanel({ groupId, members }: Props) {
         {error && <p className="text-red-400 text-xs mt-2 text-center">{error}</p>}
       </div>
 
-      {/* 受信トースト（複数同時表示も縦に積む） */}
-      {toasts.length > 0 && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 max-w-sm w-[90%] pointer-events-none">
-          {toasts.map((t) => (
-            <div
-              key={t.id}
-              className="bg-quest-gold text-quest-bg rounded-xl px-4 py-3 shadow-lg text-sm font-bold animate-fade-in"
-            >
-              📣 {t.message}
-            </div>
-          ))}
-        </div>
-      )}
+      {receivedStamps.length > 0 &&
+        (() => {
+          const { subtitle, description } = buildCutsceneText(receivedStamps);
+          return (
+            <EncouragementCutscene
+              subtitle={subtitle}
+              description={description}
+              onClose={() => setReceivedStamps([])}
+            />
+          );
+        })()}
     </>
   );
 }
