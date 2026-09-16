@@ -8,6 +8,8 @@ interface Props {
   onClose: () => void;
   rubyEnabled: boolean | null;
   quoteDate: Date | null;
+  /** 子供ごとに表示を分散させるためのseed（ユーザーIDなど）。省略可。 */
+  userId?: string;
 }
 
 const FALLBACK_DESCRIPTION = "今日もアプリを開けたね。えらい！";
@@ -17,6 +19,7 @@ export default function CheckinSuccessCutscene({
   onClose,
   rubyEnabled,
   quoteDate,
+  userId,
 }: Props) {
   const subtitle =
     currentStreak >= 2
@@ -25,7 +28,7 @@ export default function CheckinSuccessCutscene({
         ? "🔥 今日から連続スタート！"
         : undefined;
 
-  const quote = quoteDate !== null ? getDailyQuote(quoteDate) : null;
+  const quote = quoteDate !== null ? getDailyQuote(quoteDate, undefined, userId) : null;
   const hasQuote = quote !== null && rubyEnabled !== null;
   const description = hasQuote
     ? rubyEnabled

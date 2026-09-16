@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import CheckinSuccessCutscene from "@/components/child/CheckinSuccessCutscene";
 import { getDailyQuote } from "@/lib/quotes";
+import { QUOTES } from "@/lib/quotes.data";
 
 vi.mock("next/image", () => ({
   __esModule: true,
@@ -178,6 +179,48 @@ describe("CheckinSuccessCutscene チェックイン成功演出", () => {
       );
       const el = screen.getByText(FALLBACK_TEXT);
       expect(el.className).not.toContain("text-quest-gold");
+    });
+
+    it("userIdありの場合、同じ日付でもuserId未指定時とは異なる（seedを反映した）格言が表示される", () => {
+      // ゴールデン値: FIXED_QUOTE_DATE(epochDay=20454) で
+      // seedなし→QUOTES[103]、seed="test-child-id"→QUOTES[1] になることを事前計算済み
+      const withoutSeed = getDailyQuote(FIXED_QUOTE_DATE);
+      const withSeed = getDailyQuote(FIXED_QUOTE_DATE, QUOTES, "test-child-id");
+      expect(withoutSeed).not.toBeNull();
+      expect(withSeed).not.toBeNull();
+      expect(withSeed).not.toEqual(withoutSeed);
+
+      render(
+        <CheckinSuccessCutscene
+          currentStreak={1}
+          onClose={() => {}}
+          rubyEnabled={false}
+          quoteDate={FIXED_QUOTE_DATE}
+          userId="test-child-id"
+        />,
+      );
+      expect(
+        screen.getByText(`${withSeed!.text} — ${withSeed!.author}`),
+      ).toBeTruthy();
+      expect(
+        screen.queryByText(`${withoutSeed!.text} — ${withoutSeed!.author}`),
+      ).toBeNull();
+    });
+
+    it("userId未指定(undefined)の場合は従来通りseedなしの格言が表示される", () => {
+      const withoutSeed = getDailyQuote(FIXED_QUOTE_DATE);
+      expect(withoutSeed).not.toBeNull();
+      render(
+        <CheckinSuccessCutscene
+          currentStreak={1}
+          onClose={() => {}}
+          rubyEnabled={false}
+          quoteDate={FIXED_QUOTE_DATE}
+        />,
+      );
+      expect(
+        screen.getByText(`${withoutSeed!.text} — ${withoutSeed!.author}`),
+      ).toBeTruthy();
     });
   });
 });

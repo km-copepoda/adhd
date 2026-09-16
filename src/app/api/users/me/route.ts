@@ -7,6 +7,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return NextResponse.json({
+    id: user.id,
     reportDeadlineTime: (user as { reportDeadlineTime?: string | null }).reportDeadlineTime ?? null,
     checkinDeadlineTime: (user as { checkinDeadlineTime?: string | null }).checkinDeadlineTime ?? null,
     minTasksForStreak: (user as { minTasksForStreak?: number }).minTasksForStreak ?? 1,

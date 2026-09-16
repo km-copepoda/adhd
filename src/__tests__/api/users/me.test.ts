@@ -33,4 +33,15 @@ describe("GET /api/users/me", () => {
     expect(res.status).toBe(200);
     expect(data.reportDeadlineTime).toBe("20:00");
   });
+
+  it("認証中の本人のユーザーID（id）を返すこと", async () => {
+    const user = childUserWithFamily({ id: "child-42" });
+    mockGetCurrentUser.mockResolvedValue(user);
+    const res = await GET();
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.id).toBe("child-42");
+    // familyId など別の識別子と混同していないこと
+    expect(data.id).not.toBe(user.familyId);
+  });
 });

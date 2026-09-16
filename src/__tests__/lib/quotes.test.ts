@@ -5,6 +5,11 @@ import type { Quote } from "@/lib/quotes.data";
 
 const LENGTH = QUOTES.length;
 
+// ハッシュ化アルゴリズム（epochDay を種とする決定的ハッシュ）を前提としたゴールデン値。
+// データ件数（QUOTES.length）が将来変わってもこの回帰検証自体は成立するよう、
+// length を 176 に固定して呼び出す。
+const FIXED_LENGTH = 176;
+
 describe("dailyQuoteIndex", () => {
   it("同一JST日付を複数回渡すと常に同じインデックスを返す（決定性）", () => {
     const d = new Date("2026-03-10T03:00:00Z"); // JST 3/10 12:00
@@ -13,25 +18,29 @@ describe("dailyQuoteIndex", () => {
     expect(i1).toBe(i2);
   });
 
-  it("連続する2日で+1進む（周回しない場合）", () => {
-    // LENGTH件のリストで、周回しない適当な起点を選ぶ（エポック日数 % LENGTH が LENGTH-1 でない日）
-    let day = new Date("2026-03-10T03:00:00Z");
-    let next = new Date(day.getTime() + 24 * 60 * 60 * 1000);
-    // 周回する場合は基準日をずらして再試行
-    while (dailyQuoteIndex(day, LENGTH) === LENGTH - 1) {
-      day = new Date(day.getTime() + 24 * 60 * 60 * 1000);
-      next = new Date(day.getTime() + 24 * 60 * 60 * 1000);
+  it("ゴールデン値: 既知の日付に対して期待したインデックスを返す（length=176固定）", () => {
+    const cases: Array<[string, number]> = [
+      ["2026-01-01T14:59:59Z", 103], // JST 1/1 23:59:59
+      ["2026-01-01T15:00:00Z", 40], // JST 1/2 00:00:00
+      ["2025-12-31T03:00:00Z", 47], // JST 12/31 12:00
+      ["2026-01-01T03:00:00Z", 103], // JST 1/1 12:00
+      ["2028-02-28T03:00:00Z", 130],
+      ["2028-02-29T03:00:00Z", 151],
+      ["2028-03-01T03:00:00Z", 132],
+      ["1999-12-31T00:00:00Z", 169],
+      ["2000-01-01T00:00:00Z", 43],
+      ["2038-01-19T00:00:00Z", 63],
+      ["2100-01-01T00:00:00Z", 31],
+      ["1969-01-01T00:00:00Z", 43], // 1970年以前
+    ];
+    for (const [iso, expected] of cases) {
+      expect(dailyQuoteIndex(new Date(iso), FIXED_LENGTH)).toBe(expected);
     }
-    expect(dailyQuoteIndex(next, LENGTH)).toBe(dailyQuoteIndex(day, LENGTH) + 1);
   });
 
-  it("JST日付境界: 23:59と翌0:00で異なるインデックスになりうる（日付が変わる）", () => {
+  it("JST日付境界: 23:59と翌0:00で日付が変わり、インデックスも変化する", () => {
     const before = new Date("2026-01-01T14:59:59Z"); // JST 1/1 23:59:59
     const after = new Date("2026-01-01T15:00:00Z"); // JST 1/2 00:00:00
-    // 日付そのものが変わったことを確認する意味で、それぞれの元日数を比較する
-    const beforeIndex = dailyQuoteIndex(before, LENGTH);
-    const afterIndex = dailyQuoteIndex(after, LENGTH);
-    // 日付が進んでいるので、周回しない限りインデックスも進む
     const beforeEpochDay = Math.floor(
       (before.getTime() + 9 * 60 * 60 * 1000) / 86400000,
     );
@@ -39,40 +48,9 @@ describe("dailyQuoteIndex", () => {
       (after.getTime() + 9 * 60 * 60 * 1000) / 86400000,
     );
     expect(afterEpochDay).toBe(beforeEpochDay + 1);
-    expect(afterIndex).toBe((beforeIndex + 1) % LENGTH);
-  });
-
-  it("年またぎでローテーションがリセットされず連続して進む", () => {
-    const dec31 = new Date("2025-12-31T03:00:00Z"); // JST 12/31 12:00
-    const jan1 = new Date("2026-01-01T03:00:00Z"); // JST 1/1 12:00
-    const i1 = dailyQuoteIndex(dec31, LENGTH);
-    const i2 = dailyQuoteIndex(jan1, LENGTH);
-    expect(i2).toBe((i1 + 1) % LENGTH);
-  });
-
-  it("うるう年の2/28→2/29→3/1が連続して1ずつ進む", () => {
-    const feb28 = new Date("2028-02-28T03:00:00Z");
-    const feb29 = new Date("2028-02-29T03:00:00Z");
-    const mar1 = new Date("2028-03-01T03:00:00Z");
-    const i28 = dailyQuoteIndex(feb28, LENGTH);
-    const i29 = dailyQuoteIndex(feb29, LENGTH);
-    const i1 = dailyQuoteIndex(mar1, LENGTH);
-    expect(i29).toBe((i28 + 1) % LENGTH);
-    expect(i1).toBe((i29 + 1) % LENGTH);
-  });
-
-  it("剰余0の境界: 一周して0に戻る日でも 0 <= index < length の範囲内", () => {
-    // 176日分連続して確認し、必ず一度は0に戻ることと、常に範囲内であることを検証する
-    const base = new Date("2026-01-01T03:00:00Z");
-    const indices: number[] = [];
-    for (let i = 0; i < LENGTH; i++) {
-      const d = new Date(base.getTime() + i * 24 * 60 * 60 * 1000);
-      const idx = dailyQuoteIndex(d, LENGTH);
-      expect(idx).toBeGreaterThanOrEqual(0);
-      expect(idx).toBeLessThan(LENGTH);
-      indices.push(idx);
-    }
-    expect(new Set(indices).size).toBe(LENGTH);
+    // 日付が変わっているので、（重複しうるハッシュ方式でも）このゴールデン値では実際に異なる
+    expect(dailyQuoteIndex(before, FIXED_LENGTH)).toBe(103);
+    expect(dailyQuoteIndex(after, FIXED_LENGTH)).toBe(40);
   });
 
   it("常に 0 <= index < length（複数日付で検証）", () => {
@@ -84,6 +62,7 @@ describe("dailyQuoteIndex", () => {
     ];
     for (const d of dates) {
       const idx = dailyQuoteIndex(d, LENGTH);
+      expect(Number.isInteger(idx)).toBe(true);
       expect(idx).toBeGreaterThanOrEqual(0);
       expect(idx).toBeLessThan(LENGTH);
     }
@@ -99,6 +78,47 @@ describe("dailyQuoteIndex", () => {
   it("length <= 0 を渡した場合は例外を投げる（契約固定）", () => {
     expect(() => dailyQuoteIndex(new Date(), 0)).toThrow();
     expect(() => dailyQuoteIndex(new Date(), -1)).toThrow();
+  });
+});
+
+// 子供ユーザーごとの表示分散: `seed`（ユーザーID等）を渡すと epochDay とハッシュ合成し、
+// 同じ日でもユーザーによって異なるインデックスになりうる。
+// 「異なる seed なら必ず異なる結果になる」は数学的に成立しない契約なので、
+// ここでは特定の日付・特定の seed の組み合わせについての回帰（ゴールデン値）検証に留める。
+describe("dailyQuoteIndex（seed指定あり）", () => {
+  const SEED_DATE = new Date("2026-03-10T03:00:00Z"); // JST 3/10 12:00, epochDay=20522
+
+  it("同一JST日付・同一seedを複数回渡すと常に同じインデックスを返す（決定性）", () => {
+    const i1 = dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "child-a");
+    const i2 = dailyQuoteIndex(new Date(SEED_DATE.getTime()), FIXED_LENGTH, "child-a");
+    expect(i1).toBe(i2);
+  });
+
+  it("ゴールデン値: 既知の日付・既知の2つのseedで異なるインデックスを返す（length=176固定）", () => {
+    // node -e で fnv1a / hashEpochDay(epochDay ^ fnv1a(seed)) を計算した既知の値
+    expect(dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "child-a")).toBe(42);
+    expect(dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "child-b")).toBe(21);
+    // seed未指定時のゴールデン値（既存の互換性確認）
+    expect(dailyQuoteIndex(SEED_DATE, FIXED_LENGTH)).toBe(12);
+  });
+
+  it("seedに空文字列を渡した場合、seed未指定時とは異なる結果になりうる（seed !== undefined 判定の契約）", () => {
+    // 空文字列は「指定された」として扱われ fnv1a("") の結果がハッシュに合成される。
+    // seed 省略時（epochDay のみ）とは異なるインデックスになる（このケースでは実際に異なる）。
+    const withEmptySeed = dailyQuoteIndex(SEED_DATE, FIXED_LENGTH, "");
+    const withoutSeed = dailyQuoteIndex(SEED_DATE, FIXED_LENGTH);
+    expect(withEmptySeed).toBe(85);
+    expect(withoutSeed).toBe(12);
+    expect(withEmptySeed).not.toBe(withoutSeed);
+  });
+
+  it("1970-01-01以前の日付・seedありでも 0 <= index < length（境界値）", () => {
+    const before1970 = new Date("1969-01-01T00:00:00Z");
+    const idx = dailyQuoteIndex(before1970, FIXED_LENGTH, "child-a");
+    expect(idx).toBe(135);
+    expect(Number.isInteger(idx)).toBe(true);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(FIXED_LENGTH);
   });
 });
 
@@ -125,5 +145,21 @@ describe("getDailyQuote", () => {
     const invalid = new Date("not-a-valid-date");
     expect(() => getDailyQuote(invalid, QUOTES)).not.toThrow();
     expect(getDailyQuote(invalid, QUOTES)).toBeNull();
+  });
+
+  it("seedを指定すると dailyQuoteIndex に転送され、seed未指定時と異なる格言を返しうる（既知の組み合わせで検証）", () => {
+    const d = new Date("2026-03-10T03:00:00Z"); // JST 3/10 12:00, epochDay=20522
+    const withoutSeed = getDailyQuote(d, QUOTES);
+    const withSeedA = getDailyQuote(d, QUOTES, "child-a");
+    const withSeedB = getDailyQuote(d, QUOTES, "child-b");
+    expect(withoutSeed).not.toBeNull();
+    expect(withSeedA).not.toBeNull();
+    expect(withSeedB).not.toBeNull();
+    // ゴールデン値: QUOTES.length===176前提（dailyQuoteIndexのゴールデン値テストと同じ前提）
+    expect(QUOTES.length).toBe(176);
+    expect(withSeedA).toEqual(QUOTES[42]);
+    expect(withSeedB).toEqual(QUOTES[21]);
+    expect(withoutSeed).toEqual(QUOTES[12]);
+    expect(withSeedA).not.toEqual(withSeedB);
   });
 });
