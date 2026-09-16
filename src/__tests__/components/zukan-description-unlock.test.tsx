@@ -37,6 +37,7 @@ type MockApiResponse = {
   usedEggBonuses: string;
   monsterSetId: string;
   ownedThemes: string[];
+  rubyEnabled?: unknown;
 };
 
 function mockFetchOnce(data: MockApiResponse) {
@@ -67,6 +68,8 @@ describe("ZukanContent: タップで説明文を表示する（Issue #94）", ()
       usedEggBonuses: "[]",
       monsterSetId: "dark",
       ownedThemes: ["dark"],
+      // Issue #140 のかな表記フォールバックと本テスト（description表示）の検証対象を分離
+      rubyEnabled: false,
     });
 
     render(<ZukanContent />);
@@ -88,6 +91,7 @@ describe("ZukanContent: タップで説明文を表示する（Issue #94）", ()
       usedEggBonuses: "[]",
       monsterSetId: "dark",
       ownedThemes: ["dark"],
+      rubyEnabled: false,
     });
 
     render(<ZukanContent />);
@@ -111,6 +115,7 @@ describe("ZukanContent: タップで説明文を表示する（Issue #94）", ()
       usedEggBonuses: "[]",
       monsterSetId: "dark",
       ownedThemes: ["dark"],
+      rubyEnabled: false,
     });
 
     render(<ZukanContent />);
@@ -177,6 +182,7 @@ describe("ZukanContent: タップで説明文を表示する（Issue #94）", ()
       usedEggBonuses: "[]",
       monsterSetId: "dark",
       ownedThemes: ["dark", "buddha"],
+      rubyEnabled: false,
     });
 
     render(<ZukanContent />);

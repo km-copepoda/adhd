@@ -19,6 +19,7 @@ type Status = {
   evolutionPath: string;
   side: string | null;
   monsterSetId?: string;
+  rubyEnabled?: unknown;
 };
 
 function setupFetch(initial: Status, ...subsequent: Status[]) {
@@ -147,9 +148,11 @@ describe("ChildViewMonsterCutsceneListener — 親モード代理操作後の進
 
   it("Issue #100: monsterSetId が buddha のとき、カットインに buddha テーマの画像が表示される（side は無視される）", async () => {
     // side は null（未設定）だが monsterSetId が buddha を優先するべき
+    // rubyEnabled=false を明示し、Issue #140 のかな表記フォールバックと本テストの
+    // 検証対象（monsterSetId 優先）を分離する
     setupFetch(
-      { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha" },
-      { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha" },
+      { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha", rubyEnabled: false },
+      { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha", rubyEnabled: false },
     );
 
     await act(async () => {
@@ -237,5 +240,73 @@ describe("ChildViewMonsterCutsceneListener — 親モード代理操作後の進
     // 兄のキーは触らない
     expect(localStorage.getItem("lastSeenEvolutionStage:child-1")).toBe("3");
     expect(localStorage.getItem("lastSeenEvolutionStage:child-2")).toBe("2");
+  });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  // 対象児童の rubyEnabled（/api/parent/child-view/monster-status のレスポンス）が
+  // 使われること。親自身の設定に依存しないことを、親自身の設定とは異なる値を
+  // 返すモックで固定する。
+  describe("rubyEnabled配線（Issue #140） — 対象児童の設定が使われること", () => {
+    it("対象児童のrubyEnabled=trueのとき、subtitle・imageAltがかな表記になり、漢字表記は表示されないこと", async () => {
+      // buddha テーマ STUDY: name="文殊丸" nameKana="もんじゅまる"
+      setupFetch(
+        { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha", rubyEnabled: true },
+        { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha", rubyEnabled: true },
+      );
+
+      await act(async () => {
+        render(<ChildViewMonsterCutsceneListener childId="child-1" />);
+      });
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("もんじゅまる")).toBeTruthy();
+      });
+      expect(screen.queryByText("文殊丸")).toBeNull();
+      expect(screen.getByAltText("もんじゅまる")).toBeTruthy();
+      expect(screen.queryByAltText("文殊丸")).toBeNull();
+    });
+
+    it("対象児童のrubyEnabled=falseのとき、通常表記（漢字）になり、かな表記は表示されないこと（親自身の設定に依存しないこと）", async () => {
+      setupFetch(
+        { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha", rubyEnabled: false },
+        { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha", rubyEnabled: false },
+      );
+
+      await act(async () => {
+        render(<ChildViewMonsterCutsceneListener childId="child-1" />);
+      });
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("文殊丸")).toBeTruthy();
+      });
+      expect(screen.queryByText("もんじゅまる")).toBeNull();
+    });
+
+    it("境界値: 対象児童のrubyEnabledが未指定のとき、trueにフォールバックしてかな表記になること", async () => {
+      setupFetch(
+        { evolutionStage: 0, evolutionPath: "", side: null, monsterSetId: "buddha" },
+        { evolutionStage: 1, evolutionPath: "STUDY", side: null, monsterSetId: "buddha" },
+      );
+
+      await act(async () => {
+        render(<ChildViewMonsterCutsceneListener childId="child-1" />);
+      });
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("もんじゅまる")).toBeTruthy();
+      });
+    });
   });
 });

@@ -77,6 +77,44 @@ describe("GET /api/collection-items (子供)", () => {
       expect(item.descriptionKana.length).toBeGreaterThan(0);
     }
   });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  describe("rubyEnabled（Issue #140）", () => {
+    it("user.rubyEnabled=true のとき、レスポンスの rubyEnabled も true", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "c1", rubyEnabled: true }));
+      mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+      const res = await getChild();
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(true);
+    });
+
+    it("user.rubyEnabled=false のとき、レスポンスの rubyEnabled も false", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "c1", rubyEnabled: false }));
+      mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+      const res = await getChild();
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(false);
+    });
+
+    it.each([undefined, null, "true", 1])(
+      "境界値: user.rubyEnabled が非boolean(%s)のとき、trueにフォールバックすること",
+      async (value) => {
+        mockGetCurrentUser.mockResolvedValue(
+          childUserWithFamily({ id: "c1", rubyEnabled: value as unknown as boolean }),
+        );
+        mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+        const res = await getChild();
+        const json = await res.json();
+
+        expect(json.rubyEnabled).toBe(true);
+      },
+    );
+  });
 });
 
 describe("GET /api/parent/child-view/collection-items (親代理)", () => {
@@ -140,5 +178,47 @@ describe("GET /api/parent/child-view/collection-items (親代理)", () => {
       expect(typeof item.descriptionKana).toBe("string");
       expect(item.descriptionKana.length).toBeGreaterThan(0);
     }
+  });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  // 親代理ルートは対象児童の rubyEnabled を返す（親自身の値ではない）。
+  describe("rubyEnabled（Issue #140）", () => {
+    it("対象児童（child）のrubyEnabledを返す。親自身の値ではないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ rubyEnabled: false }));
+      mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "c1", rubyEnabled: true }));
+      mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+      const res = await getParentProxy(makeReq("childId=c1"));
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(true);
+    });
+
+    it("対象児童のrubyEnabled=falseのとき、親がtrueでもfalseを返す", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ rubyEnabled: true }));
+      mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "c1", rubyEnabled: false }));
+      mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+      const res = await getParentProxy(makeReq("childId=c1"));
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(false);
+    });
+
+    it.each([undefined, null, "true", 1])(
+      "境界値: 対象児童のrubyEnabledが非boolean(%s)のとき、trueにフォールバックすること",
+      async (value) => {
+        mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+        mockPrisma.user.findFirst.mockResolvedValue(
+          childUser({ id: "c1", rubyEnabled: value as unknown as boolean }),
+        );
+        mockPrisma.userCollectionItem.findMany.mockResolvedValue([]);
+
+        const res = await getParentProxy(makeReq("childId=c1"));
+        const json = await res.json();
+
+        expect(json.rubyEnabled).toBe(true);
+      },
+    );
   });
 });

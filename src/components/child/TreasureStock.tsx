@@ -8,9 +8,11 @@ interface TreasureOpenResult {
   collectionItem: {
     id: string;
     name: string;
+    nameKana: string;
     rarity: "COMMON" | "UNCOMMON" | "RARE";
     season: "spring" | "summer" | "fall" | "winter";
     description: string;
+    descriptionKana: string;
     image: string;
     count: number;
   } | null;
@@ -20,6 +22,8 @@ interface TreasureOpenResult {
 interface StatusResponse {
   locked: number;
   unlocked: number;
+  /** Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする */
+  rubyEnabled?: unknown;
 }
 
 interface Props {
@@ -69,12 +73,14 @@ export default function TreasureStock({ variant = "pill" }: Props = {}) {
   };
 
   if (!status) return null;
+  const rubyEnabled = typeof status.rubyEnabled === "boolean" ? status.rubyEnabled : true;
   if (status.locked === 0 && status.unlocked === 0) {
     return (
       <>
         {result && (
           <TreasureOpenCutscene
             result={result}
+            rubyEnabled={rubyEnabled}
             onClose={() => {
               setResult(null);
               void refresh();
@@ -113,6 +119,7 @@ export default function TreasureStock({ variant = "pill" }: Props = {}) {
       {result && (
         <TreasureOpenCutscene
           result={result}
+          rubyEnabled={rubyEnabled}
           onClose={() => {
             setResult(null);
             void refresh();

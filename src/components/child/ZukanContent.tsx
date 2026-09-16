@@ -30,6 +30,7 @@ type ZukanApiResponse = {
   usedEggBonuses?: string;
   monsterSetId?: string;
   ownedThemes?: string[];
+  rubyEnabled?: unknown;
 };
 
 type ZukanData = {
@@ -37,6 +38,8 @@ type ZukanData = {
   monsterLevels: string;
   usedEggBonuses: string;
   ownedThemes: string[];
+  /** Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする */
+  rubyEnabled: boolean;
 };
 
 type SelectedMonster = {
@@ -89,6 +92,7 @@ export default function ZukanContent({
           monsterLevels: d.monsterLevels ?? "{}",
           usedEggBonuses: d.usedEggBonuses ?? "[]",
           ownedThemes,
+          rubyEnabled: typeof d.rubyEnabled === "boolean" ? d.rubyEnabled : true,
         });
         setActiveTheme(ownedThemes.includes(currentTheme) ? currentTheme : ownedThemes[0]);
         if (trackVisit) {
@@ -105,19 +109,20 @@ export default function ZukanContent({
   const usedEggs = new Set<string>(JSON.parse(data.usedEggBonuses) as string[]);
   const monsterLevels = JSON.parse(data.monsterLevels) as Record<string, number>;
 
-  const openModal = (
-    image: string,
-    name: string,
-    path: string,
-    description?: string,
-    lockedHint?: string,
-  ) =>
+  // Issue #140: 位置引数7個は誤配線リスクが高いためオブジェクト引数化する。
+  const openModal = (args: {
+    image: string;
+    name: string;
+    path: string;
+    description?: string;
+    lockedHint?: string;
+  }) =>
     setSelected({
-      image,
-      name,
-      stageLabel: getZukanStageLabel(path),
-      description,
-      lockedHint,
+      image: args.image,
+      name: args.name,
+      stageLabel: getZukanStageLabel(args.path),
+      description: args.description,
+      lockedHint: args.lockedHint,
     });
 
   const activeThemeDef = MONSTER_THEMES[activeTheme];
@@ -195,6 +200,7 @@ export default function ZukanContent({
             monsterLevels={monsterLevels}
             monsterTable={monsterTable}
             themeId={activeTheme}
+            rubyEnabled={data.rubyEnabled}
             openModal={openModal}
           />
         ))}

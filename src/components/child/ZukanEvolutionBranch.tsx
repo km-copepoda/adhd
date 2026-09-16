@@ -8,6 +8,7 @@ import { getS3Aura } from "@/lib/s3Aura";
 import { getMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
 import { isDescriptionUnlocked, s3DescriptionLockedHint } from "@/lib/zukanDescription";
 import type { MonsterEntry } from "@/lib/monsterEntry";
+import { pickRuby } from "@/lib/ruby";
 import PathChips from "./PathChips";
 
 function shadowPath(imagePath: string): string {
@@ -26,13 +27,16 @@ interface ZukanEvolutionBranchProps {
   monsterLevels: Record<string, number>;
   monsterTable: Record<string, MonsterEntry>;
   themeId: string;
-  openModal: (
-    image: string,
-    name: string,
-    path: string,
-    description?: string,
-    lockedHint?: string,
-  ) => void;
+  /** Issue #140: ふりがな表示切り替え。呼び出し元（ZukanContent）の API レスポンス由来。 */
+  rubyEnabled: boolean;
+  // Issue #140: 位置引数7個は誤配線リスクが高いためオブジェクト引数化する。
+  openModal: (args: {
+    image: string;
+    name: string;
+    path: string;
+    description?: string;
+    lockedHint?: string;
+  }) => void;
 }
 
 export default function ZukanEvolutionBranch({
@@ -41,6 +45,7 @@ export default function ZukanEvolutionBranch({
   monsterLevels,
   monsterTable,
   themeId,
+  rubyEnabled,
   openModal,
 }: ZukanEvolutionBranchProps) {
   const s1Color = CATEGORY_COLORS[s1] ?? { r: 154, g: 140, b: 110 };
@@ -79,11 +84,21 @@ export default function ZukanEvolutionBranch({
       >
         <div
           className={`flex flex-col items-center gap-1 flex-shrink-0${isS1Collected ? " cursor-pointer active:opacity-80" : ""}`}
-          onClick={isS1Collected ? () => openModal(m1.image, m1.name, s1, m1.description) : undefined}
+          onClick={
+            isS1Collected
+              ? () =>
+                  openModal({
+                    image: m1.image,
+                    name: pickRuby(m1.name, m1.nameKana, rubyEnabled),
+                    path: s1,
+                    description: pickRuby(m1.description, m1.descriptionKana, rubyEnabled),
+                  })
+              : undefined
+          }
         >
           <Image
             src={isS1Collected ? m1.image : shadowPath(m1.image)}
-            alt={m1.name}
+            alt={pickRuby(m1.name, m1.nameKana, rubyEnabled)}
             width={88}
             height={88}
             className="object-contain"
@@ -94,7 +109,7 @@ export default function ZukanEvolutionBranch({
             }}
           />
           <p className="text-[11px] text-center" style={{ color: "#c9bfa0" }}>
-            {isS1Collected ? m1.name : "？？？"}
+            {isS1Collected ? pickRuby(m1.name, m1.nameKana, rubyEnabled) : "？？？"}
           </p>
         </div>
         <div className="flex flex-col gap-1 flex-1 justify-center">
@@ -128,18 +143,28 @@ export default function ZukanEvolutionBranch({
                   background: "#1a1829",
                   border: `1px solid ${isS2Collected ? "rgba(251,191,36,0.28)" : "#2e2a42"}`,
                 }}
-                onClick={isS2Collected ? () => openModal(m2.image, m2.name, s2, m2.description) : undefined}
+                onClick={
+                  isS2Collected
+                    ? () =>
+                        openModal({
+                          image: m2.image,
+                          name: pickRuby(m2.name, m2.nameKana, rubyEnabled),
+                          path: s2,
+                          description: pickRuby(m2.description, m2.descriptionKana, rubyEnabled),
+                        })
+                    : undefined
+                }
               >
                 <PathChips path={s2} />
                 <Image
                   src={isS2Collected ? m2.image : shadowPath(m2.image)}
-                  alt={m2.name}
+                  alt={pickRuby(m2.name, m2.nameKana, rubyEnabled)}
                   width={50}
                   height={50}
                   className="object-contain"
                 />
                 <p className="text-[9px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
-                  {isS2Collected ? m2.name : "？？？"}
+                  {isS2Collected ? pickRuby(m2.name, m2.nameKana, rubyEnabled) : "？？？"}
                 </p>
               </div>
 
@@ -175,13 +200,15 @@ export default function ZukanEvolutionBranch({
                       onClick={
                         isS3Collected
                           ? () =>
-                              openModal(
-                                m3.image,
-                                m3.name,
-                                s3,
-                                descUnlocked ? m3.description : undefined,
-                                descUnlocked ? undefined : s3DescriptionLockedHint(),
-                              )
+                              openModal({
+                                image: m3.image,
+                                name: pickRuby(m3.name, m3.nameKana, rubyEnabled),
+                                path: s3,
+                                description: descUnlocked
+                                  ? pickRuby(m3.description, m3.descriptionKana, rubyEnabled)
+                                  : undefined,
+                                lockedHint: descUnlocked ? undefined : s3DescriptionLockedHint(),
+                              })
                           : undefined
                       }
                     >
@@ -200,13 +227,13 @@ export default function ZukanEvolutionBranch({
                       <PathChips path={s3} size="sm" />
                       <Image
                         src={isS3Collected ? m3.image : shadowPath(m3.image)}
-                        alt={m3.name}
+                        alt={pickRuby(m3.name, m3.nameKana, rubyEnabled)}
                         width={40}
                         height={40}
                         className="w-full aspect-square object-contain"
                       />
                       <p className="text-[8px] text-center leading-tight" style={{ color: "#c9bfa0" }}>
-                        {isS3Collected ? m3.name : "？？？"}
+                        {isS3Collected ? pickRuby(m3.name, m3.nameKana, rubyEnabled) : "？？？"}
                       </p>
                       {isS3Collected && (
                         <span

@@ -22,6 +22,7 @@ import {
   type CollectionSeason,
 } from "@/lib/collectionItems";
 import { todayStringJST } from "@/lib/date";
+import { pickRuby } from "@/lib/ruby";
 
 interface ApiItem {
   id: string;
@@ -29,7 +30,9 @@ interface ApiItem {
   category: CollectionCategory;
   rarity: CollectionRarity;
   name: string;
+  nameKana: string;
   description: string;
+  descriptionKana: string;
   image: string;
   month?: number;
   owned: boolean;
@@ -42,6 +45,8 @@ interface ApiResponse {
   currentSeason: CollectionSeason;
   currentMonth: number;
   items: ApiItem[];
+  /** Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする */
+  rubyEnabled?: unknown;
 }
 
 interface Props {
@@ -130,6 +135,9 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
   }, [data, season]);
 
   if (loading || !data || !season) return <LoadingSpinner />;
+
+  // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
+  const rubyEnabled = typeof data.rubyEnabled === "boolean" ? data.rubyEnabled : true;
 
   const todayStr = todayStringJST();
   const isAcquiredToday = (lastAcquiredAt: string | null): boolean => {
@@ -279,6 +287,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                       item={it}
                       isNew={isAcquiredToday(it.lastAcquiredAt)}
                       showFuturePlaceholder={isFuture}
+                      rubyEnabled={rubyEnabled}
                       onClick={() => it.owned && setSelected(it)}
                     />
                   ))}
@@ -319,7 +328,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                       <Image
                         // 未取得は shadow (単色シルエット webp) を返し、実画像を DL させない
                         src={it.owned ? it.image : getCollectionShadowPath(it.image)}
-                        alt={it.owned ? it.name : "未獲得"}
+                        alt={it.owned ? pickRuby(it.name, it.nameKana ?? "", rubyEnabled) : "未獲得"}
                         width={64}
                         height={64}
                         className="object-contain"
@@ -340,7 +349,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                       className="text-[10px] leading-tight truncate w-full"
                       style={{ color: it.owned ? undefined : "rgba(154,140,110,0.5)" }}
                     >
-                      {it.owned ? it.name : "？？？"}
+                      {it.owned ? pickRuby(it.name, it.nameKana ?? "", rubyEnabled) : "？？？"}
                     </p>
                     <span
                       className="text-[9px] px-1 rounded"
@@ -371,7 +380,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
             <div className="w-32 h-32 mx-auto mb-3 flex items-center justify-center">
               <Image
                 src={selected.image}
-                alt={selected.name}
+                alt={pickRuby(selected.name, selected.nameKana ?? "", rubyEnabled)}
                 width={128}
                 height={128}
                 className="object-contain"
@@ -380,7 +389,9 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                 }}
               />
             </div>
-            <h3 className="font-bold text-lg text-quest-text mb-1">{selected.name}</h3>
+            <h3 className="font-bold text-lg text-quest-text mb-1">
+              {pickRuby(selected.name, selected.nameKana ?? "", rubyEnabled)}
+            </h3>
             <p className="text-[10px] text-quest-dim mb-1">
               {SEASON_LABEL[selected.season]} / {CATEGORY_LABEL[selected.category]} /{" "}
               {RARITY_LABEL[selected.rarity]}
@@ -390,7 +401,9 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
                 ✨ {selected.month}月げんてい
               </p>
             )}
-            <p className="text-xs text-quest-text mb-4 mt-2">{selected.description}</p>
+            <p className="text-xs text-quest-text mb-4 mt-2">
+              {pickRuby(selected.description, selected.descriptionKana ?? "", rubyEnabled)}
+            </p>
             {selected.count > 1 && (
               <p className="text-[11px] text-quest-mint mb-3">
                 これまでに {selected.count} 回ゲットしたよ！
@@ -415,11 +428,13 @@ function MonthlyThumb({
   item,
   isNew,
   showFuturePlaceholder = false,
+  rubyEnabled,
   onClick,
 }: {
   item: ApiItem;
   isNew: boolean;
   showFuturePlaceholder?: boolean;
+  rubyEnabled: boolean;
   onClick: () => void;
 }) {
   return (
@@ -440,7 +455,7 @@ function MonthlyThumb({
         <Image
           // 未取得は shadow を返して実画像を DL させない (元画像の絵柄を伏せる)
           src={item.owned ? item.image : getCollectionShadowPath(item.image)}
-          alt={item.owned ? item.name : "未獲得"}
+          alt={item.owned ? pickRuby(item.name, item.nameKana ?? "", rubyEnabled) : "未獲得"}
           width={48}
           height={48}
           className="object-contain"
@@ -461,7 +476,7 @@ function MonthlyThumb({
         className="text-[9px] leading-tight truncate w-full"
         style={{ color: item.owned ? undefined : "rgba(154,140,110,0.5)" }}
       >
-        {item.owned ? item.name : showFuturePlaceholder ? "？？？" : "？？？"}
+        {item.owned ? pickRuby(item.name, item.nameKana ?? "", rubyEnabled) : showFuturePlaceholder ? "？？？" : "？？？"}
       </p>
     </button>
   );

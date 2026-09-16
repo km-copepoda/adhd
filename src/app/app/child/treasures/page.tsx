@@ -11,6 +11,7 @@ import {
 } from "@/lib/treasureRarity";
 import { SEASON_LABEL, type CollectionRarity } from "@/lib/collectionItems";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
+import { pickRuby } from "@/lib/ruby";
 
 type Rarity = TreasureRarity;
 
@@ -28,6 +29,7 @@ interface OpenedLog {
   collectionItem: {
     id: string;
     name: string;
+    nameKana: string;
     season: "spring" | "summer" | "fall" | "winter";
     rarity: Rarity;
     image: string;
@@ -44,6 +46,8 @@ interface StatusResponse {
   // #127: ごほうび一覧は開封履歴（opened, 50件上限）と独立した在庫リスト。
   // 実ごほうび当選のみ・保持期間内。古い API 応答互換のため optional。
   rewards?: OpenedLog[];
+  /** Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする */
+  rubyEnabled?: unknown;
 }
 
 interface TreasureOpenResult {
@@ -51,9 +55,11 @@ interface TreasureOpenResult {
   collectionItem: {
     id: string;
     name: string;
+    nameKana: string;
     rarity: Rarity;
     season: "spring" | "summer" | "fall" | "winter";
     description: string;
+    descriptionKana: string;
     image: string;
     count: number;
   } | null;
@@ -152,6 +158,8 @@ export default function ChildTreasuresPage() {
   // #127: ごほうび一覧は履歴上限に縛られない rewards を使う（無ければ opened から算出）
   const rewardList = data.rewards ?? hits;
   const canOpen = data.unlocked > 0 && !opening;
+  // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
+  const rubyEnabled = typeof data.rubyEnabled === "boolean" ? data.rubyEnabled : true;
 
   return (
     <div className="p-4 pb-8">
@@ -285,7 +293,7 @@ export default function ChildTreasuresPage() {
                   ) : o.collectionItem ? (
                     <Image
                       src={o.collectionItem.image}
-                      alt={o.collectionItem.name}
+                      alt={pickRuby(o.collectionItem.name, o.collectionItem.nameKana ?? "", rubyEnabled)}
                       width={40}
                       height={40}
                       className="w-full h-full object-contain"
@@ -296,7 +304,11 @@ export default function ChildTreasuresPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm truncate">
-                    {o.item ? o.item.title : o.collectionItem ? o.collectionItem.name : "コレクションアイテム"}
+                    {o.item
+                      ? o.item.title
+                      : o.collectionItem
+                        ? pickRuby(o.collectionItem.name, o.collectionItem.nameKana ?? "", rubyEnabled)
+                        : "コレクションアイテム"}
                   </div>
                   <div className="text-[11px] text-quest-dim">
                     {o.collectionItem && (
@@ -324,6 +336,7 @@ export default function ChildTreasuresPage() {
       {result && (
         <TreasureOpenCutscene
           result={result}
+          rubyEnabled={rubyEnabled}
           onClose={() => {
             setResult(null);
             void fetchStatus();

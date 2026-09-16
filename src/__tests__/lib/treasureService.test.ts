@@ -735,6 +735,25 @@ describe("openOldestTreasure", () => {
     expect(mockPrisma.userCollectionItem.upsert).toHaveBeenCalled();
   });
 
+  // ─── Issue #140: OpenedCollectionItem にも nameKana/descriptionKana を明示追加する ──
+  // treasureService.ts の OpenedCollectionItem はフィールドを明示列挙しているため、
+  // マスター (ALL_COLLECTION_ITEMS) に nameKana/descriptionKana が乗っていても
+  // スプレッドではなく個別代入なので自動追従しない。
+  it("Issue #140: 開封結果の collectionItem に nameKana/descriptionKana が含まれる", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-kana", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
+
+    const result = await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+
+    expect(result!.collectionItem).not.toBeNull();
+    expect(typeof result!.collectionItem!.nameKana).toBe("string");
+    expect(result!.collectionItem!.nameKana.length).toBeGreaterThan(0);
+    expect(typeof result!.collectionItem!.descriptionKana).toBe("string");
+    expect(result!.collectionItem!.descriptionKana.length).toBeGreaterThan(0);
+  });
+
   it("親プールがあっても抽選結果が無アイテムならコレクションを付与", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-3", childId: "c1", boosted: false }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);

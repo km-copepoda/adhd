@@ -70,5 +70,7 @@ export async function GET() {
     monthlyDays: monthlyQuests.length,
     lastAchievedDate: streakRecord?.lastAchievedDate?.toISOString().split("T")[0] ?? null,
     currentTitle: title ? { title: title.title, emoji: title.emoji } : null,
+    // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
+    rubyEnabled: typeof user.rubyEnabled === "boolean" ? user.rubyEnabled : true,
   });
 }

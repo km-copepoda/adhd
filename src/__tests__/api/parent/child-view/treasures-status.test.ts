@@ -131,4 +131,86 @@ describe("GET /api/parent/child-view/treasures/status", () => {
     const json = await res.json();
     expect(json.hasPool).toBe(false);
   });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  // 親代理ルートは対象児童の rubyEnabled を返す（親自身の値ではない）。
+  describe("rubyEnabled（Issue #140）", () => {
+    it("対象児童（child）のrubyEnabledを返す。親自身の値ではないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ rubyEnabled: false }));
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", rubyEnabled: true }),
+      );
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(true);
+    });
+
+    it("対象児童のrubyEnabled=falseのとき、親がtrueでもfalseを返す", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ rubyEnabled: true }));
+      mockPrisma.user.findFirst.mockResolvedValue(
+        childUser({ id: "child-1", rubyEnabled: false }),
+      );
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(false);
+    });
+
+    it.each([undefined, null, "true", 1])(
+      "境界値: 対象児童のrubyEnabledが非boolean(%s)のとき、trueにフォールバックすること",
+      async (value) => {
+        mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+        mockPrisma.user.findFirst.mockResolvedValue(
+          childUser({ id: "child-1", rubyEnabled: value as unknown as boolean }),
+        );
+        mockPrisma.treasureLog.count.mockResolvedValue(0);
+        mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+        mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+        const res = await GET(makeReq("child-1"));
+        const json = await res.json();
+
+        expect(json.rubyEnabled).toBe(true);
+      },
+    );
+  });
+
+  // ─── Issue #140 コメント: 履歴の collectionItem にも nameKana を明示追加する ──
+  describe("opened[].collectionItem の nameKana（Issue #140）", () => {
+    it("collectionItemId からマスター解決した履歴アイテムに nameKana が含まれる", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const opened: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "log-col-1",
+            openedAt: new Date("2026-05-29T09:00:00Z"),
+            status: "OPENED",
+            itemId: null,
+            collectionItemId: "summer-01",
+          }),
+          item: null,
+        },
+      ];
+      mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET(makeReq("child-1"));
+      const json = await res.json();
+
+      expect(json.opened[0].collectionItem).not.toBeNull();
+      expect(typeof json.opened[0].collectionItem.nameKana).toBe("string");
+      expect(json.opened[0].collectionItem.nameKana.length).toBeGreaterThan(0);
+    });
+  });
 });

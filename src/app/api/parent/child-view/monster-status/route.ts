@@ -76,5 +76,7 @@ export async function GET(request: Request) {
     monthlyDays: monthlyQuests.length,
     lastAchievedDate: streakRecord?.lastAchievedDate?.toISOString().split("T")[0] ?? null,
     currentTitle: title ? { title: title.title, emoji: title.emoji } : null,
+    // Issue #140: 対象児童（child）の rubyEnabled を返す。親自身の値は使わない。
+    rubyEnabled: typeof child.rubyEnabled === "boolean" ? child.rubyEnabled : true,
   });
 }

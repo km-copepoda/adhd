@@ -186,4 +186,45 @@ describe("GET /api/monster-status", () => {
 
     expect(json.monsterSetId).toBe("buddha");
   });
+
+  // ─── Issue #140: モンスター図鑑・コレクションアイテムの表示にrubyEnabledを配線 ──
+  describe("rubyEnabled（Issue #140）", () => {
+    it("user.rubyEnabled=true のとき、レスポンスの rubyEnabled も true", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ rubyEnabled: true }));
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(true);
+    });
+
+    it("user.rubyEnabled=false のとき、レスポンスの rubyEnabled も false", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ rubyEnabled: false }));
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.rubyEnabled).toBe(false);
+    });
+
+    it.each([undefined, null, "true", 1])(
+      "境界値: user.rubyEnabled が非boolean(%s)のとき、trueにフォールバックすること",
+      async (value) => {
+        mockGetCurrentUser.mockResolvedValue(
+          childUserWithFamily({ rubyEnabled: value as unknown as boolean }),
+        );
+        mockPrisma.questInstance.findMany.mockResolvedValue([]);
+        mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+        const res = await GET();
+        const json = await res.json();
+
+        expect(json.rubyEnabled).toBe(true);
+      },
+    );
+  });
 });

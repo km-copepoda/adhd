@@ -67,5 +67,7 @@ export async function GET(request: Request) {
     usedEggBonuses: child.usedEggBonuses ?? "[]",
     monsterSetId: child.monsterSetId,
     ownedThemes,
+    // Issue #140: 対象児童（child）の rubyEnabled を返す。親自身の値は使わない。
+    rubyEnabled: typeof child.rubyEnabled === "boolean" ? child.rubyEnabled : true,
   });
 }
