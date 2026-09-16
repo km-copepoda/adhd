@@ -7,6 +7,7 @@ import type { Category } from "@/types";
 import { getS3Aura } from "@/lib/s3Aura";
 import { getMonsterLevel } from "@/lib/monsterThemes/monsterLevels";
 import { isDescriptionUnlocked, s3DescriptionLockedHint } from "@/lib/zukanDescription";
+import type { MonsterEntry } from "@/lib/monsterEntry";
 import PathChips from "./PathChips";
 
 function shadowPath(imagePath: string): string {
@@ -18,8 +19,6 @@ const CATEGORY_COLORS: Record<string, { r: number; g: number; b: number }> = {
   STAMINA: { r: 248, g: 113, b: 113 },
   LIFE:    { r: 74,  g: 222, b: 128 },
 };
-
-type MonsterEntry = { image: string; name: string; description: string };
 
 interface ZukanEvolutionBranchProps {
   s1: string;

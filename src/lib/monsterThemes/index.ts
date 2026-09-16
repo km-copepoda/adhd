@@ -8,6 +8,7 @@
 
 import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, EGG_STAGE, EGG_STAGE_LIGHT } from "@/lib/monsters";
 import { MONSTER_TABLE as BUDDHA_TABLE, EGG_STAGE as BUDDHA_EGG_STAGE } from "@/lib/monsterThemes/buddha";
+import type { MonsterEntry } from "@/lib/monsterEntry";
 
 export type MonsterThemeDefinition = {
   id: string;
@@ -15,7 +16,7 @@ export type MonsterThemeDefinition = {
   description: string;
   thumbnail: string;
   eggImage: string;
-  table: Record<string, { image: string; name: string; description: string }>;
+  table: Record<string, MonsterEntry>;
   isFree: boolean;
   /** 転生卵選択ボーナス（STUDY/STAMINA/LIFE）の画像。
    *  現状これを定義しているテーマは無く、全テーマが既定の egg-study/egg-stamina/egg-life

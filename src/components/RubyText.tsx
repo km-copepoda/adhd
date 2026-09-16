@@ -1,3 +1,5 @@
+import { pickRuby } from "@/lib/ruby";
+
 type RubyTextProps = {
   text: string;
   kana: string;
@@ -10,7 +12,8 @@ type RubyTextProps = {
  * `enabled` に応じてまるごと差し替えて表示する共有コンポーネント。
  *
  * インラインルビ（`<ruby><rt>`）ではなく表記全体の差し替え方式を採る。
+ * 実際の切り替えロジックは `pickRuby` に委譲する。
  */
 export default function RubyText({ text, kana, enabled, className }: RubyTextProps) {
-  return <span className={className}>{enabled ? kana : text}</span>;
+  return <span className={className}>{pickRuby(text, kana, enabled)}</span>;
 }
