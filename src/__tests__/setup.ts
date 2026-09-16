@@ -89,9 +89,30 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 // Mock getCurrentUser (individual tests can override)
-vi.mock("@/lib/auth", () => ({
-  getCurrentUser: vi.fn(),
-}));
+// requireUser / AuthError は実装 (src/lib/auth.ts) と同じロジックをモック内に再現する。
+// getCurrentUser がモックされている以上、requireUser を importActual 経由で読み込むと
+// 内部で参照する getCurrentUser がモックされていない実体になってしまうため、
+// ここで小さく再実装して同じ mock 済み getCurrentUser を参照させる。
+vi.mock("@/lib/auth", () => {
+  const getCurrentUser = vi.fn();
+
+  class AuthError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  async function requireUser(role?: "PARENT" | "CHILD") {
+    const user = await getCurrentUser();
+    if (!user) throw new AuthError("認証が必要です", 401);
+    if (role && user.role !== role) throw new AuthError("権限がありません", 403);
+    return user;
+  }
+
+  return { getCurrentUser, AuthError, requireUser };
+});
 
 // Mock push notifications (web-push is not available in test environment)
 vi.mock("@/lib/push", () => ({

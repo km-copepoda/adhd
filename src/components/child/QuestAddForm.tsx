@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CATEGORY_LABEL, DAY_LABELS } from "@/lib/categories";
 import type { Category } from "@/types";
-import { alertOnApiError } from "@/lib/apiError";
+import { alertChildPlanLimit } from "@/lib/apiError";
 
 type FormMode = "regular" | "temporary";
 
@@ -11,6 +11,9 @@ type Props = {
   onClose: () => void;
   onAdded: () => void;
 };
+
+// 数値・プラン名を含まない固定文言 (monetization-plan.md §5.1: 子供に課金UIを見せない)。
+const CHILD_TASK_LIMIT_MESSAGE = "これいじょうタスクをふやせないよ。ママ・パパにおねがいしてね！";
 
 export default function QuestAddForm({ onClose, onAdded }: Props) {
   const [formMode, setFormMode] = useState<FormMode>("temporary");
@@ -20,8 +23,33 @@ export default function QuestAddForm({ onClose, onAdded }: Props) {
     repeatDays: [0, 1, 2, 3, 4, 5, 6] as number[],
   });
   const [submitting, setSubmitting] = useState(false);
+  // 追加ボタンの preempt チェック用 (null = 未取得/取得失敗 = フェイルオープン)。
+  const [limitInfo, setLimitInfo] = useState<{ limit: number | null; current: number } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/subscription/child-task-limit");
+        if (res.ok) {
+          const data = await res.json();
+          setLimitInfo({
+            limit: typeof data.limit === "number" ? data.limit : null,
+            current: typeof data.current === "number" ? data.current : 0,
+          });
+        }
+      } catch {
+        // フェイルオープン: 取得失敗時は limitInfo=null のまま。サーバ403が最終ガード。
+      }
+    })();
+  }, []);
 
   async function handleAddTask() {
+    if (limitInfo && limitInfo.limit !== null && limitInfo.current >= limitInfo.limit) {
+      alert(CHILD_TASK_LIMIT_MESSAGE);
+      return;
+    }
     setSubmitting(true);
     const isTemporary = formMode === "temporary";
     const emoji = CATEGORY_LABEL[form.category].emoji;
@@ -46,7 +74,7 @@ export default function QuestAddForm({ onClose, onAdded }: Props) {
       body: JSON.stringify(body),
     });
     setSubmitting(false);
-    if (!(await alertOnApiError(res))) return;
+    if (!(await alertChildPlanLimit(res, CHILD_TASK_LIMIT_MESSAGE))) return;
     onClose();
     setForm({ title: "", category: "STUDY", repeatDays: [0, 1, 2, 3, 4, 5, 6] });
     onAdded();

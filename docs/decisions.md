@@ -129,6 +129,7 @@
 - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72)
 - [2026-09-16: モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する（案Z、Issue #140）](#2026-09-16-モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する案zissue-140)
 - [2026-09-16: エール受信表示をトーストから全画面カットインへ変更（2026-05-05決定の更新、Issue #125）](#2026-09-16-エール受信表示をトーストから全画面カットインへ変更2026-05-05決定の更新issue-125)
+- [2026-09-17: プラン管理UI + 上限到達時のアップグレード誘導導線（旧PR #12の引き継ぎ、Issue #148）](#2026-09-17-プラン管理ui--上限到達時のアップグレード誘導導線旧pr-12の引き継ぎissue-148)
 
 <!-- TOC:END -->
 
@@ -2520,7 +2521,7 @@
 - `POST /api/tasks/bulk` は最大 30 件までを一括作成できるので、FREE 上限を大きく超過できていた。既存の `bulk` 30 件制限は enforce ではなくバリデーション
 
 ### やってはいけないこと
-- UI 側で `code === "PLAN_LIMIT_EXCEEDED"` を条件分岐して独自メッセージに置き換える (サーバの error 文字列を SoT に。将来変更時に UI が追随する必要が無くなる)
+- UI 側で `code === "PLAN_LIMIT_EXCEEDED"` のときサーバが返す**事実（上限数値・リソース種別・プラン名）を複製・改変**する (サーバの error 文字列を SoT に。将来変更時に UI が追随する必要が無くなる)。**2026-09-17 補足**: この禁止はサーバが返す事実の複製に適用されるものであり、「誰に見せるか」に応じた表現の切り替え（オーディエンス別プレゼンテーション）までは対象外。詳細は 2026-09-17 決定を参照
 - copy の重複タスク早期 return を上限チェックの後ろに移す (既存を返すだけなら枠を消費しないので、上限に達していても取得だけは通してよい)
 - 承認 API のスキップ承認経路で「コピーが 403 なら承認自体を undo する」実装にする (承認取り消しは可視な副作用を持ち、実装が複雑化する)
 
@@ -3040,4 +3041,40 @@
 - `src/lib/gathering.ts` — `getStampStatusText` 新設、`buildStampMessage` のラッパー化
 - `src/components/child/GatheringStampPanel.tsx` — `claimStamp`／`receivedStamps` 統合、トースト廃止
 - `src/components/child/EncouragementCutscene.tsx` — 新規、`CutsceneOverlay` ラッパー
+
+## 2026-09-17: プラン管理UI + 上限到達時のアップグレード誘導導線（旧PR #12の引き継ぎ、Issue #148）
+
+### 決定内容
+- 親画面 `/app/parent/plan` を新設。現在のプラン・有効期限・子ごとの使用状況・アップグレード訴求（決済は「準備中」でdisabled）を表示する
+- `GET /api/subscription/status`（PARENT専用、プラン画面用）・`GET /api/subscription/limits`（PARENT専用、軽量版・親preempt用）・`GET /api/subscription/child-task-limit`（CHILD専用、プラン名等を含まない）の3APIを新設
+- `src/lib/apiError.ts` に `promptPlanLimit` / `confirmPlanLimitOrAlert` / `alertChildPlanLimit` を追加（既存 `readApiError` / `alertOnApiError` は無改変）。`confirmPlanLimitOrAlert` は `res.ok` のときだけ `true` を返し、`PLAN_LIMIT_EXCEEDED` を含む全エラーは confirm の選択結果に関わらず必ず `false` を返す契約に固定する
+- 親側6コールサイト（`tasks/page.tsx`×2、`treasures/page.tsx`×4、`approve/page.tsx`、`CompletedContent.tsx`、`TemplateImportSection.tsx`）を `confirmPlanLimitOrAlert` に差し替え。子側 `QuestAddForm.tsx` は `alertChildPlanLimit`（子は `/app/parent/plan` に遷移できないため別ヘルパー）に差し替え、文言は数値・プラン名を含まない固定文言（「これいじょうタスクをふやせないよ。ママ・パパにおねがいしてね！」）にする
+- `family/page.tsx` の子アカウント上限到達時は、既存のインラインエラー表示（`setAddError`）を維持したまま、直下に「プラン管理を見る」リンクを追加するのみとする（confirm誘導への変更はしない）。モバイルの恒常導線は `family/page.tsx` へのリンクで担保し、`ParentBottomNav` へのタブ追加は行わない（Sidebarは従来通りPC向け）
+- 追加ボタン押下時のクライアント側preempt（`src/lib/planLimitPreempt.ts`）を新設。サーバの `countActiveTasksForChild`（`src/lib/subscriptionService.ts`）と同じ「有効タスク」の定義を純粋関数として再現し、where条件は `activeTaskWhereFragment()` として両者で共通化する。preemptは新規作成ボタンのみが対象で、編集フォーム・停止中タスクの再開・テンプレート一括追加はサーバ403後のconfirmに任せる。取得失敗・未取得時はフェイルオープン（サーバ側enforceを最終ガードとする二重防御）
+- `/api/subscription/status` の課金主体（Subscriptionをどのユーザーに紐づけて見るか）は、既存の `getFamilyPlan` と同じ規則（family内最初のPARENTを`findFirst`）を共通ヘルパー `findFamilyBillingParentId` として切り出して使う。ログイン中の親個人のSubscriptionを直接参照しない
+- usage集計（子ごとのタスク数・ごほうび数）はPrismaの`groupBy`で固定3クエリに抑える（子一覧・タスクgroupBy・ごほうびgroupByの3回のみ、子人数に比例したN+1にしない）
+
+### 2026-08-06決定（Phase 1-5）のSoT原則の適用範囲を明確化
+2026-08-06決定「UI側で`code === PLAN_LIMIT_EXCEEDED`を条件分岐して独自メッセージに置き換えない」は、実装時にpolicy-checkerが本Issueの`confirmPlanLimitOrAlert`/`alertChildPlanLimit`と文字通り衝突すると判定し、ユーザーに確認した（Issue #148コメント参照）。以下の原則を明確化した上で、ユーザー承認を得て実装した:
+- SoT原則が適用されるのは「サーバが返す**事実**（上限数値・リソース種別・プラン名など）をUIが複製・改変し、サーバ側変更時にUIが追随せず値がズレる」ドリフト問題に対してである
+- 子供向け文言（`alertChildPlanLimit`）は具体的な数値・プラン名を一切含まない固定文言であり、サーバ側の値が将来変わってもズレが生じない。これは「誰に見せるか（オーディエンス）」に応じた表現の切り替えであり、事実の複製ではないため、2026-08-06決定の禁止事項の対象外とする
+- 親向け（`confirmPlanLimitOrAlert`）はサーバの`error`文言を内容としてそのまま使い、末尾に案内文を追加するのみで、内容の複製・改変はしていない
+
+### 理由
+- 旧PR #12（2026-08-10作成）が`develop`から182コミット乖離しCONFLICTINGとなりマージ不能になったため、実装内容を引き継ぐ形でクローズし本Issueとして再設計した。Phase1〜3の上限enforce自体は既に`develop`で稼働中だったが、UI側（プラン管理ページ・アップグレード誘導）が空白のままで、上限到達時は素の`alertOnApiError`のみで行き止まりになっていた
+- codex CLIによる設計レビュー（設計凍結前、Issue #148コメント参照）で、`confirmPlanLimitOrAlert`の戻り値契約（confirm結果をそのまま返すとOK選択時に成功処理が誤実行される）、課金主体選定の不一致リスク、usage集計のN+1、承認+コピー失敗時の同期漏れ等の指摘を受け、設計に反映した
+
+### やってはいけないこと
+- `confirmPlanLimitOrAlert`にconfirmの選択結果をそのまま返させる（`res.ok`以外は常に`false`を返す契約を崩さない。OKを選んでも403は403として扱う）
+- `/api/subscription/status`でログイン中の親個人のSubscriptionを直接参照する（`findFamilyBillingParentId`経由の規則を崩すとenforceとの食い違いが生じる）
+- `alertChildPlanLimit`の子向け文言に数値・プラン名・「プレミアム」等の課金訴求語を含める（§5.1「子供に課金UIを見せない」に反する）
+- `family/page.tsx`の既存インラインエラー表示をconfirmに置き換える（Q1で明示的に不採用と決定済み）
+- preemptを編集フォームや一括操作にまで広げる（新規作成ボタンのみが対象）
+
+### 該当箇所
+- 新規: `src/app/api/subscription/{status,limits,child-task-limit}/route.ts`、`src/lib/planLimitPreempt.ts`、`src/app/app/parent/(app)/plan/page.tsx`
+- `src/lib/apiError.ts` — `promptPlanLimit`/`confirmPlanLimitOrAlert`/`alertChildPlanLimit`追加
+- `src/lib/subscriptionService.ts` — `findFamilyBillingParentId`/`getFamilySubscription`/`activeTaskWhereFragment`/`getFamilyUsage`追加
+- `src/components/parent/Sidebar.tsx`、`src/app/app/parent/(app)/family/page.tsx`・`tasks/page.tsx`・`treasures/page.tsx`・`approve/page.tsx`、`src/components/parent/CompletedContent.tsx`・`TemplateImportSection.tsx`、`src/components/child/QuestAddForm.tsx`
+- `e2e/s26-plan-free-limits.spec.ts`
 
