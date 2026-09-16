@@ -320,3 +320,4 @@ const parent = await requireUser("PARENT");
 
 - 現状の実装状況: `issue-planner` エージェント・6種のGitHubラベル（`auto-pickup`/`auto:in-progress`/`auto:pr-open`/`auto:merge-ready`/`auto:blocked`/`auto:done`）・`issue-picker` コマンドまでは実装済み。**Issue作成/PR作成を検知して自動起動するトリガー（webhook/cronルーティン）は未配線**なので、現状は `issue-planner` と `issue-picker` をそれぞれ手動で起動する運用
 - マージは意図的に自動化しない（`/codex-followup` が「MERGE READY通知で停止」する設計をそのまま踏襲）
+- **Issueのクローズはパイプラインに組み込まれていない**。PR本文/コミットの `Closes #N` はGitHubの自動クローズ機能だが、これは**リポジトリのデフォルトブランチ（`main`）にマージされたときのみ発火**する。このリポジトリは `develop` にPRを積んでから定期的に `develop → main` へ統合マージする運用のため、`pr-submitter` が `base: develop` へPRを作成・マージしても Issue は自動では閉じない。`develop → main` のマージが行われるまで Issue は OPEN のまま残るのが正常な状態であり、パイプラインのどの工程にも Issue を明示的にクローズする責任者はいない
