@@ -13,10 +13,11 @@ export interface CheckinPillInput {
   enabled: boolean;
   todayStatus: CheckinTodayStatus | null;
   currentStreak: number;
+  deadline: string | null;
 }
 
 export function getCheckinPillLabel(input: CheckinPillInput): string | null {
-  const { enabled, todayStatus, currentStreak } = input;
+  const { enabled, todayStatus, currentStreak, deadline } = input;
   if (!enabled || todayStatus === null) return null;
 
   const streakPart =
@@ -31,7 +32,9 @@ export function getCheckinPillLabel(input: CheckinPillInput): string | null {
       case "success":
         return "今日はチェックイン済み！";
       case "fail":
-        return "今日はチェックインし忘れちゃったね。明日またチャレンジ！";
+        return deadline
+          ? `今日はチェックインし忘れちゃったね。明日は${deadline}までにチェックインしよう！`
+          : "今日はチェックインし忘れちゃったね。明日またチャレンジ！";
     }
   })();
 
