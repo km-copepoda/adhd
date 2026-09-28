@@ -366,16 +366,20 @@ model TreasureItem {
 /// 報告時に LOCKED 生成、承認で UNLOCKED、子供が開封で OPENED + 抽選結果 (itemId) 確定。
 /// 自動承認時は LOCKED をスキップして直接 UNLOCKED で生成。
 /// 差し戻しで minTasks を割った場合は CANCELLED。
+///
+/// #151: 開封後の「実ごほうび使用」を子の自由トグルから親承認フローに変更した際に
+/// useStatus / useRequestedAt / useApprovedAt を追加。fulfilled は削除せず
+/// useStatus===USED と同値になるよう二重書き込みで維持する（過去互換のため）。
 model TreasureLog {
-  id               String          @id @default(cuid())
+  id               String            @id @default(cuid())
   childId          String
-  child            User            @relation(fields: [childId], references: [id], onDelete: Cascade)
-  date             DateTime        @db.Date
+  child            User              @relation(fields: [childId], references: [id], onDelete: Cascade)
+  date             DateTime          @db.Date
   trigger          TreasureTrigger
-  boosted          Boolean         @default(false)
-  status           TreasureStatus  @default(LOCKED)
+  boosted          Boolean           @default(false)
+  status           TreasureStatus    @default(LOCKED)
   itemId           String?
-  item             TreasureItem?   @relation(fields: [itemId], references: [id])
+  item             TreasureItem?     @relation(fields: [itemId], references: [id])
   /// 親ごほうび不当選時に付与されたコレクションアイテムの id (例: "summer-01")。
   /// マスターは src/lib/collectionItems.ts (DB FK 無し)。当選 / 未開封なら null。
   collectionItemId String?
@@ -384,13 +388,22 @@ model TreasureLog {
   /// チェックできる（水掛け論の防衛用、2026-05-28 廃止を 2026-05-31 で復活）。
   /// 親ごほうび当選 (itemId が non-null) の TreasureLog のみ意味を持つ。
   /// コレクション獲得 (itemId=null) は実物受け渡しが無いので無関係。
-  fulfilled        Boolean         @default(false)
+  /// #151 以降: useStatus===USED と同値になるよう承認/却下/巻き戻し時に同時更新する。
+  fulfilled        Boolean           @default(false)
+  /// ごほうび使用申請の状態。itemId===null（コレクション獲得）の行は常に UNUSED 固定。
+  useStatus        TreasureUseStatus @default(UNUSED)
+  /// 子が使用申請した時刻。却下・巻き戻しで null に戻す。
+  useRequestedAt   DateTime?
+  /// 親が使用申請を承認した時刻。却下・巻き戻しで null に戻す。
+  useApprovedAt    DateTime?
   openedAt         DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([childId, status])
   @@index([childId, date])
+  @@index([childId, useStatus])
+  @@index([useStatus, useRequestedAt])
 }
 
 enum TreasureRarity {
@@ -410,6 +423,14 @@ enum TreasureStatus {
   UNLOCKED
   OPENED
   CANCELLED
+}
+
+/// #151: ごほうび使用申請の親承認フロー用ステータス。
+/// UNUSED（初期値・却下/巻き戻しでも戻る先） -> USE_REQUESTED（子が申請） -> USED（親が承認）。
+enum TreasureUseStatus {
+  UNUSED
+  USE_REQUESTED
+  USED
 }
 
 /// 子供が宝箱のハズレ枠から獲得した季節コレクションアイテムの所持記録。

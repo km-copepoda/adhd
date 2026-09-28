@@ -77,7 +77,12 @@ export async function GET() {
         boosted: o.boosted,
         item: o.item, // null = 親ごほうび不当選
         // #72: 子向けにも使用状態を露出。コレクション当選行（item=null）は概念が無いので false 固定。
+        // #151以降: fulfilled は承認/却下/巻き戻し時に useStatus と同時書き込みされる
+        // ため常に同値だが、カラムとしては fulfilled をそのまま返す。
         fulfilled: o.item != null ? o.fulfilled : false,
+        // #151: ごほうび使用申請の親承認フロー用ステータスを子にも露出する。
+        // コレクション当選行（item=null）は使用申請の概念が無いので UNUSED 固定。
+        useStatus: o.item != null ? o.useStatus : "UNUSED",
         collectionItem: ci
           ? {
               id: ci.id,
@@ -101,6 +106,7 @@ export async function GET() {
         boosted: o.boosted,
         item: o.item,
         fulfilled: o.fulfilled,
+        useStatus: o.useStatus,
       })),
     // Issue #140: 非 boolean（undefined/null/文字列/数値）は true（かな表示）にフォールバックする
     rubyEnabled: typeof user.rubyEnabled === "boolean" ? user.rubyEnabled : true,

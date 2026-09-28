@@ -1,19 +1,17 @@
-// 親用 — ごほうび受け渡し記録のチェック / 取り消し
+// #151: ごほうび使用を親承認フロー化する — このルートは「承認済み(USED)の巻き戻し専用」に一本化。
 //
-// POST /api/treasures/fulfill/[id]  body: { fulfilled: boolean }
+// POST /api/treasures/fulfill/[id]
 //
-// このルートは PARENT only（子は POST /api/child/treasures/fulfill/[id] を使う）。
-// #72/#127 で fulfilled は親子で共有する単一カラムになり、子も子画面から切り替えられる。
-// 親ごほうび当選 (itemId not null) の TreasureLog のみ対象。
-// コレクション獲得行 (itemId=null) は実物受け渡しが無いので 400。
-//
-// 2026-05-31: 2026-05-28 で廃止した fulfilled フラグを復活させた。
-// MVP で「子が『もらってない』親が『あげた』」の水掛け論が観測されたため。
+// 旧仕様（fulfilled を任意の boolean にトグルできた）は廃止。
+// USED -> UNUSED の巻き戻しのみを許可する（PARENT only）。
+// USE_REQUESTED や UNUSED からの巻き戻しは 400（承認/却下は /api/approve/[id] 側の責務）。
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { canRevokeUse } from "@/lib/treasureUse";
+import { revokeTreasureUse } from "@/lib/approve";
 
 export async function POST(
   request: Request,
@@ -28,17 +26,12 @@ export async function POST(
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as { fulfilled?: unknown };
-  if (typeof body.fulfilled !== "boolean") {
-    return NextResponse.json({ error: "fulfilled は boolean で指定してください" }, { status: 400 });
-  }
-
   const { id } = await params;
 
   // 同 family の TreasureLog のみ対象 (family スコープで他家庭の操作を防ぐ)
   const log = await prisma.treasureLog.findFirst({
     where: { id, child: { familyId: user.familyId } },
-    select: { id: true, itemId: true },
+    select: { id: true, itemId: true, useStatus: true },
   });
   if (!log) {
     return NextResponse.json({ error: "対象が見つかりません" }, { status: 404 });
@@ -52,12 +45,18 @@ export async function POST(
     );
   }
 
-  const updated = await prisma.treasureLog.update({
-    where: { id },
-    data: { fulfilled: body.fulfilled },
-    select: { id: true, fulfilled: true },
-  });
+  if (!canRevokeUse(log.useStatus)) {
+    return NextResponse.json(
+      { error: "承認済みのごほうびのみ取り消せます" },
+      { status: 400 },
+    );
+  }
 
-  rlog.info("Fulfill toggled", { logId: id, fulfilled: body.fulfilled, parentId: user.id });
-  return NextResponse.json({ ok: true, id: updated.id, fulfilled: updated.fulfilled });
+  const { count } = await revokeTreasureUse(id);
+  if (count === 0) {
+    return NextResponse.json({ error: "この状態からは取り消せません" }, { status: 400 });
+  }
+
+  rlog.info("Treasure use revoked", { logId: id, parentId: user.id });
+  return NextResponse.json({ ok: true, id, useStatus: "UNUSED", fulfilled: false });
 }

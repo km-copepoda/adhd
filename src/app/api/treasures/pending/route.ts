@@ -49,6 +49,8 @@ export async function GET() {
       item: i.item,
       child: i.child,
       fulfilled: i.fulfilled,
+      // #151: ごほうび使用申請の親承認フロー用ステータス。
+      useStatus: i.useStatus,
       // #72: フィルタではなく計算値。子画面（保持期間30日）で見えるかを親に示しグレーアウト表示する。
       visibleToChild: isWithinTreasureHistoryWindow(i.openedAt, now),
     })),

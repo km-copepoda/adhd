@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
-import { todayJST } from "@/lib/date";
+import { approveQuestInstance, approveSkipQuestInstance, autoApproveStaleTreasureUses } from "@/lib/approve";
+import { todayJST, todayRangeJST } from "@/lib/date";
 import { routeLogger } from "@/lib/logger";
 
 export async function GET(request: Request) {
@@ -67,6 +67,13 @@ export async function GET(request: Request) {
   // cron が追加で宝箱を作ると常に重複するため生成しない（trigger="PROXY" は
   // 親代理 report-approve 経路専用）。
 
-  rlog.done("Auto-approve cron completed", { approved, skipped });
-  return NextResponse.json({ ok: true, approved, skipped });
+  // #151: JST前日以前に申請されたまま放置された「ごほうび使用申請」も自動承認する。
+  // 書き込みロジックは src/lib/approve.ts の autoApproveStaleTreasureUses に集約済み
+  // （承認処理は approve.ts に集約する規約、CLAUDE.md 参照）。
+  // cutoff は JST 今日 0:00（todayRangeJST().start）。
+  const cutoff = todayRangeJST().start;
+  const { count: treasureUsesApproved } = await autoApproveStaleTreasureUses(cutoff);
+
+  rlog.done("Auto-approve cron completed", { approved, skipped, treasureUsesApproved });
+  return NextResponse.json({ ok: true, approved, skipped, treasureUsesApproved });
 }

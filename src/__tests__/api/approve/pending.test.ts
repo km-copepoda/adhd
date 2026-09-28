@@ -2,7 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/approve/pending/route";
 import { getCurrentUser } from "@/lib/auth";
 import { prismaMock } from "../../helpers/prisma-mock";
-import { parentUserWithFamily, childUserWithFamily, childUser, taskTemplate, questInstance, questDeclaration } from "../../helpers/fixtures";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  childUser,
+  taskTemplate,
+  questInstance,
+  questDeclaration,
+  treasureLog,
+} from "../../helpers/fixtures";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
@@ -191,6 +199,114 @@ describe("GET /api/approve/pending", () => {
       await GET();
 
       expect(prismaMock.questDeclaration.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── #151: ごほうび使用申請 (TreasureLog) の合流 ─────────────
+  describe("ごほうび使用申請の合流（#151）", () => {
+    it("クエストとごほうび申請の両方が返り、kind で判別できる", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+
+      const quest = {
+        ...questInstance({ id: "q1", status: "REPORTED", reportedAt: new Date("2026-03-12T10:00:00Z") }),
+        child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY" },
+      };
+      prismaMock.questInstance.findMany.mockResolvedValue([quest]);
+
+      const treasureUse = {
+        ...treasureLog({
+          id: "tl-1",
+          childId: "child-1",
+          itemId: "item-1",
+          useStatus: "USE_REQUESTED",
+          useRequestedAt: new Date("2026-03-12T09:00:00Z"),
+        }),
+        child: { name: "太郎", monsterName: "ドラゴン", side: "DARK" },
+        item: { id: "item-1", title: "ゲーム30分", rarity: "COMMON" },
+      };
+      prismaMock.treasureLog.findMany.mockResolvedValue([treasureUse]);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json).toHaveLength(2);
+      const kinds = json.map((j: { kind: string }) => j.kind).sort();
+      expect(kinds).toEqual(["quest", "treasure_use"]);
+    });
+
+    it("reportedAt / useRequestedAt が混在した降順ソートで返る", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+
+      const olderQuest = {
+        ...questInstance({ id: "q-old", status: "REPORTED", reportedAt: new Date("2026-03-12T08:00:00Z") }),
+        child: { name: "太郎" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY" },
+      };
+      prismaMock.questInstance.findMany.mockResolvedValue([olderQuest]);
+
+      const newerTreasureUse = {
+        ...treasureLog({
+          id: "tl-new",
+          childId: "child-1",
+          itemId: "item-1",
+          useStatus: "USE_REQUESTED",
+          useRequestedAt: new Date("2026-03-12T11:00:00Z"),
+        }),
+        child: { name: "太郎" },
+        item: { id: "item-1", title: "ゲーム30分", rarity: "COMMON" },
+      };
+      prismaMock.treasureLog.findMany.mockResolvedValue([newerTreasureUse]);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json).toHaveLength(2);
+      // 新しい方（ごほうび申請 11:00）が先頭
+      expect(json[0].kind).toBe("treasure_use");
+      expect(json[0].id).toBe("tl-new");
+      expect(json[1].kind).toBe("quest");
+      expect(json[1].id).toBe("q-old");
+    });
+
+    it("USE_REQUESTED 以外のごほうびは返らない（family scope の findMany 呼び出しで絞る）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+      prismaMock.questInstance.findMany.mockResolvedValue([]);
+      prismaMock.treasureLog.findMany.mockResolvedValue([]);
+
+      await GET();
+
+      const call = prismaMock.treasureLog.findMany.mock.calls[0]?.[0] as {
+        where?: { useStatus?: unknown; child?: { familyId?: unknown } };
+      };
+      expect(call?.where?.useStatus).toBe("USE_REQUESTED");
+      expect(call?.where?.child?.familyId).toBe("fam-1");
+    });
+
+    it("ごほうび申請が0件でもクエストのみ従来通り返る", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      const quest = {
+        ...questInstance({ id: "q1", status: "REPORTED", reportedAt: new Date("2026-03-12T10:00:00Z") }),
+        child: { name: "太郎" },
+        template: { title: "宿題", emoji: "📚", category: "STUDY" },
+      };
+      prismaMock.questInstance.findMany.mockResolvedValue([quest]);
+      prismaMock.treasureLog.findMany.mockResolvedValue([]);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json).toHaveLength(1);
+      expect(json[0].kind).toBe("quest");
+    });
+
+    it("両方0件なら空配列（従来通り）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      prismaMock.questInstance.findMany.mockResolvedValue([]);
+      prismaMock.treasureLog.findMany.mockResolvedValue([]);
+
+      const res = await GET();
+      expect(await res.json()).toEqual([]);
     });
   });
 });

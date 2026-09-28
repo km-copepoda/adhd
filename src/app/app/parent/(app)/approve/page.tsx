@@ -9,9 +9,13 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { xpRangeLabel, calcActualXP } from "@/lib/xp";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
 import { alertOnApiError } from "@/lib/apiError";
+import TreasureUseApprovalCard, {
+  type PendingTreasureUse,
+} from "@/components/parent/TreasureUseApprovalCard";
 
 type PendingQuest = {
   id: string;
+  kind: "quest";
   templateId: string;
   date: string;
   status: QuestStatus;
@@ -30,6 +34,9 @@ type PendingQuest = {
   };
 };
 
+// #151: 承認センターは「クエスト報告/スキップ申請」と「ごほうび使用申請」が kind で判別しつつ合流する
+type PendingItem = PendingQuest | PendingTreasureUse;
+
 type RejectModalState = {
   quest: PendingQuest;
   selectedReason: string;
@@ -43,7 +50,7 @@ const getTomorrowStr = () => {
 };
 
 export default function ApprovePage() {
-  const [quests, setQuests] = useState<PendingQuest[]>([]);
+  const [items, setItems] = useState<PendingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyEnabled, setCopyEnabled] = useState<Record<string, boolean>>({});
   const [copyDates, setCopyDates] = useState<Record<string, string>>({});
@@ -59,11 +66,12 @@ export default function ApprovePage() {
     const channel = supabase
       .channel("approve-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, refreshPending)
+      .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, refreshPending)
       .subscribe();
 
     const onVisible = () => { if (document.visibilityState === "visible") refreshPending(); };
     document.addEventListener("visibilitychange", onVisible);
-    
+
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);
@@ -72,13 +80,13 @@ export default function ApprovePage() {
 
   async function refreshPending() {
     const res = await fetch("/api/approve/pending");
-    if (res.ok) setQuests(await res.json());
+    if (res.ok) setItems(await res.json());
   }
 
   async function fetchPending() {
     try {
       const res = await fetch("/api/approve/pending");
-      if (res.ok) setQuests(await res.json());
+      if (res.ok) setItems(await res.json());
     } finally {
       setLoading(false);
     }
@@ -88,7 +96,7 @@ export default function ApprovePage() {
     await fetch(`/api/approve/${quest.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, rejectionReason, rejectionComment, ...(stamp ? { stamp } : {}) }),
+      body: JSON.stringify({ kind: "quest", action, rejectionReason, rejectionComment, ...(stamp ? { stamp } : {}) }),
     });
 
     // スキップ承認 + 一時タスク + コピーオン の場合、翌日にコピー
@@ -112,6 +120,16 @@ export default function ApprovePage() {
     fetchPending();
   }
 
+  async function handleTreasureUseAction(item: PendingTreasureUse, action: "approve" | "reject") {
+    await fetch(`/api/approve/${item.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "treasure_use", action }),
+    });
+    notifyApprovalsUpdated();
+    fetchPending();
+  }
+
   function openRejectModal(quest: PendingQuest) {
     setRejectModal({ quest, selectedReason: "", otherComment: "" });
   }
@@ -124,11 +142,11 @@ export default function ApprovePage() {
   }
 
   async function handleBulkApprove() {
-    const ids = quests.map((q) => q.id);
+    const bulkItems = items.map((i) => ({ kind: i.kind, id: i.id }));
     await fetch("/api/approve/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ items: bulkItems }),
     });
     notifyApprovalsUpdated();
     fetchPending();
@@ -149,10 +167,10 @@ export default function ApprovePage() {
             ✅ 承認センター
           </h1>
           <p className="text-quest-dim text-sm mt-1">
-            {quests.length}件の報告が承認待ちです
+            {items.length}件の報告が承認待ちです
           </p>
         </div>
-        {quests.length > 0 && (
+        {items.length > 0 && (
           <button onClick={handleBulkApprove} className="btn-gold text-sm">
             ✓ まとめて承認
           </button>
@@ -160,12 +178,23 @@ export default function ApprovePage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        {quests.length === 0 && (
+        {items.length === 0 && (
           <p className="text-quest-dim text-sm text-center py-12">
             承認待ちの報告はありません
           </p>
         )}
-        {quests.map((quest) => {
+        {items.map((item) => {
+          if (item.kind === "treasure_use") {
+            return (
+              <TreasureUseApprovalCard
+                key={item.id}
+                item={item}
+                onApprove={(t) => handleTreasureUseAction(t, "approve")}
+                onReject={(t) => handleTreasureUseAction(t, "reject")}
+              />
+            );
+          }
+          const quest = item;
           const cat = CATEGORY_LABEL[quest.template.category];
           const isSkipRequest = quest.status === "SKIP_REPORTED";
           const showCopyOption = isSkipRequest && quest.template.isTemporary;

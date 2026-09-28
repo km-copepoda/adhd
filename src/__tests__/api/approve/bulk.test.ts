@@ -4,7 +4,12 @@ import { POST } from "@/app/api/approve/bulk/route";
 import { getCurrentUser } from "@/lib/auth";
 import { makeRequest } from "../../helpers/request";
 import { prismaMock } from "../../helpers/prisma-mock";
-import { parentUserWithFamily, childUserWithFamily, questWithTemplateAndChild } from "../../helpers/fixtures";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  questWithTemplateAndChild,
+  treasureLog,
+} from "../../helpers/fixtures";
 
 vi.mock("@/lib/streak", () => ({
   recordDailyAchievement: vi.fn().mockResolvedValue(undefined),
@@ -149,7 +154,9 @@ describe("POST /api/approve/bulk", () => {
     );
   });
 
-  it("存在しないクエストIDはスキップして続行すること", async () => {
+  // #151: 「部分成功」は現行の continue 実装を廃止し、不明ID・不正状態が1件でも
+  // 含まれていれば全体を 400 にして何も更新しない（all-or-nothing）方針に変更する。
+  it("存在しないクエストIDが1件でも含まれていれば何も更新せず400を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
     const q2 = makeQuest("q2");
@@ -161,9 +168,10 @@ describe("POST /api/approve/bulk", () => {
     prismaMock.user.update.mockResolvedValue(q2.child);
 
     const res = await POST(makeRequest("/api/approve/bulk", { ids: ["q-none", "q2"] }));
-    const json = await res.json();
 
-    expect(json).toEqual({ ok: true, count: 1 });
+    expect(res.status).toBe(400);
+    expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
   it("SKIP_REPORTEDクエストもまとめて承認できること", async () => {
@@ -185,5 +193,140 @@ describe("POST /api/approve/bulk", () => {
       expect.objectContaining({ where: { id: "q-skip" }, data: expect.objectContaining({ status: "SKIPPED" }) })
     );
     expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  // ─── #151: { items: [{ kind, id }] } 形式への対応 ─────────────
+  describe("items 形式（#151）", () => {
+    it("{ items: [...] } 形式でクエストとごほうび使用申請の両方をまとめて承認できること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+
+      const q1 = makeQuest("q1");
+      prismaMock.questInstance.findUnique.mockResolvedValue(q1);
+      prismaMock.user.findUnique.mockResolvedValue(q1.child);
+      prismaMock.questInstance.update.mockResolvedValue(q1);
+      prismaMock.user.update.mockResolvedValue(q1.child);
+
+      const tl = treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED" });
+      prismaMock.treasureLog.findFirst.mockResolvedValue(tl);
+      prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+      const res = await POST(
+        makeRequest("/api/approve/bulk", {
+          items: [
+            { kind: "quest", id: "q1" },
+            { kind: "treasure_use", id: "tl-1" },
+          ],
+        }),
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json).toEqual({ ok: true, count: 2 });
+      expect(prismaMock.questInstance.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "q1" }, data: expect.objectContaining({ status: "APPROVED" }) }),
+      );
+      expect(prismaMock.treasureLog.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: "tl-1", useStatus: "USE_REQUESTED" }),
+          data: expect.objectContaining({ useStatus: "USED" }),
+        }),
+      );
+    });
+
+    it("旧 { ids: string[] } 形式は引き続き quest 専用として動作すること（後方互換）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+
+      const q1 = makeQuest("q1");
+      const q2 = makeQuest("q2");
+      prismaMock.questInstance.findUnique
+        .mockResolvedValueOnce(q1)
+        .mockResolvedValueOnce(q2);
+      prismaMock.user.findUnique
+        .mockResolvedValueOnce({ ...q1.child, studyPt: 0 })
+        .mockResolvedValueOnce({ ...q2.child, studyPt: 1 });
+      prismaMock.questInstance.update.mockResolvedValue(q1);
+      prismaMock.user.update.mockResolvedValue(q1.child);
+
+      const res = await POST(makeRequest("/api/approve/bulk", { ids: ["q1", "q2"] }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json).toEqual({ ok: true, count: 2 });
+    });
+
+    it("不明な TreasureLog id が1件でも含まれていれば何も更新されず400", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+
+      const q1 = makeQuest("q1");
+      prismaMock.questInstance.findUnique.mockResolvedValue(q1);
+      prismaMock.treasureLog.findFirst.mockResolvedValue(null); // tl-missing は存在しない
+
+      const res = await POST(
+        makeRequest("/api/approve/bulk", {
+          items: [
+            { kind: "quest", id: "q1" },
+            { kind: "treasure_use", id: "tl-missing" },
+          ],
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
+      expect(prismaMock.treasureLog.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("他家庭のクエストIDが1件でも含まれていれば何も更新されず400（家庭スコープ漏れ修正）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+
+      const q1 = makeQuest("q1");
+      const otherFamilyQuest = questWithTemplateAndChild(
+        { id: "q-other", status: "REPORTED", childId: "child-9", templateId: "tpl-other" },
+        { id: "tpl-other", category: "STUDY", familyId: "fam-2" },
+        { id: "child-9", familyId: "fam-2" },
+      );
+      prismaMock.questInstance.findUnique
+        .mockResolvedValueOnce(q1)
+        .mockResolvedValueOnce(otherFamilyQuest);
+
+      const res = await POST(
+        makeRequest("/api/approve/bulk", {
+          items: [
+            { kind: "quest", id: "q1" },
+            { kind: "quest", id: "q-other" },
+          ],
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
+    });
+
+    it("不正な状態（既にUSEDなごほうび）が1件でも含まれていれば何も更新されず400", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+
+      const q1 = makeQuest("q1");
+      prismaMock.questInstance.findUnique.mockResolvedValue(q1);
+      const usedTreasure = treasureLog({ id: "tl-used", itemId: "item-1", useStatus: "USED" });
+      prismaMock.treasureLog.findFirst.mockResolvedValue(usedTreasure);
+
+      const res = await POST(
+        makeRequest("/api/approve/bulk", {
+          items: [
+            { kind: "quest", id: "q1" },
+            { kind: "treasure_use", id: "tl-used" },
+          ],
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
+      expect(prismaMock.treasureLog.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("CHILDロールは items 形式でも403", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      const res = await POST(makeRequest("/api/approve/bulk", { items: [{ kind: "quest", id: "q1" }] }));
+      expect(res.status).toBe(403);
+    });
   });
 });
