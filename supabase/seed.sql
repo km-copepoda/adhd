@@ -71,6 +71,13 @@ BEGIN
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE "User";
   END IF;
+  -- #151: ごほうび使用申請の親承認フロー用（承認センター / バッジカウントの Realtime 購読）
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'TreasureLog'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE "TreasureLog";
+  END IF;
 END $$;
 
 -- RLS 再帰を避けるための SECURITY DEFINER ヘルパー関数
@@ -137,5 +144,28 @@ BEGIN
   ) THEN
     CREATE POLICY "realtime_select_badges" ON "UserBadge" FOR SELECT
     USING ("userId" = get_my_user_id());
+  END IF;
+END $$;
+
+-- #151: ごほうび使用申請の親承認フロー用。役割別に絞る
+--   PARENT: 同 family の全 TreasureLog（承認センターで子供全員分を見る）
+--   CHILD : 自分の childId の行のみ
+ALTER TABLE "TreasureLog" ENABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'TreasureLog' AND policyname = 'realtime_select_treasure_logs'
+  ) THEN
+    CREATE POLICY "realtime_select_treasure_logs" ON "TreasureLog" FOR SELECT
+    USING (
+      "childId" = get_my_user_id()
+      OR (
+        is_same_family("childId")
+        AND EXISTS (
+          SELECT 1 FROM "User" u
+          WHERE u."supabaseId" = auth.uid()::text AND u.role = 'PARENT'
+        )
+      )
+    );
   END IF;
 END $$;

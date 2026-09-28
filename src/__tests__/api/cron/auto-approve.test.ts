@@ -1,13 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Prisma } from "@/generated/prisma/client";
 import { GET } from "@/app/api/cron/auto-approve/route";
 import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
 import { questInstance } from "../../helpers/fixtures";
+import { todayRangeJST } from "@/lib/date";
 
-vi.mock("@/lib/approve", () => ({
-  approveQuestInstance: vi.fn().mockResolvedValue(undefined),
-  approveSkipQuestInstance: vi.fn().mockResolvedValue(undefined),
-}));
+// autoApproveStaleTreasureUses は実装（prisma.treasureLog.updateMany 呼び出し）を維持し、
+// prismaMock 側でその呼び出し内容を検証する（#151 CHANGES_REQUESTED 対応:
+// 書き込みロジックを src/lib/approve.ts に一本化したため）。
+vi.mock("@/lib/approve", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/approve")>();
+  return {
+    ...actual,
+    approveQuestInstance: vi.fn().mockResolvedValue(undefined),
+    approveSkipQuestInstance: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 vi.mock("@/lib/treasureService", () => ({
   generateProxyTreasure: vi.fn().mockResolvedValue(null),
@@ -101,6 +109,12 @@ function makeRequest(secret?: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("CRON_SECRET", "test-secret");
+  // #151: ごほうび使用申請の自動承認（対象0件がデフォルト。個別テストで上書き）
+  mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("GET /api/cron/auto-approve", () => {
@@ -240,6 +254,101 @@ describe("GET /api/cron/auto-approve", () => {
       const res = await GET(makeRequest("test-secret"));
       const body = await res.json();
       expect(body).not.toHaveProperty("autoTreasures");
+    });
+  });
+
+  // ─── #151: ごほうび使用申請の自動承認 ─────────────────────────
+  describe("ごほうび使用申請の自動承認（#151）", () => {
+    it("CRON_SECRET不一致なら1件も承認されない（401）", async () => {
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      const res = await GET(makeRequest("wrong-secret"));
+      expect(res.status).toBe(401);
+      expect(mockPrisma.treasureLog.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("JST前日以前に申請された USE_REQUESTED を自動承認し、件数をレスポンスに含める", async () => {
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 3 });
+
+      const res = await GET(makeRequest("test-secret"));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.treasureUsesApproved).toBe(3);
+    });
+
+    it("itemId===null（コレクション獲得）は対象外にする", async () => {
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+
+      await GET(makeRequest("test-secret"));
+
+      const call = mockPrisma.treasureLog.updateMany.mock.calls[0]?.[0] as {
+        where?: { itemId?: unknown };
+      };
+      expect(call?.where?.itemId).toEqual({ not: null });
+    });
+
+    it("対象クエリの useStatus は USE_REQUESTED であること", async () => {
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+
+      await GET(makeRequest("test-secret"));
+
+      const call = mockPrisma.treasureLog.updateMany.mock.calls[0]?.[0] as {
+        where?: { useStatus?: unknown };
+      };
+      expect(call?.where?.useStatus).toBe("USE_REQUESTED");
+    });
+
+    describe("境界値: JST日付の切り替え", () => {
+      it("cutoff は JST 今日0:00（todayRangeJST().start）と一致すること", async () => {
+        vi.useFakeTimers();
+        // JST 2026-03-22 10:00 = UTC 2026-03-22 01:00
+        vi.setSystemTime(new Date("2026-03-22T01:00:00.000Z"));
+        mockPrisma.questInstance.findMany.mockResolvedValue([]);
+        mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+
+        await GET(makeRequest("test-secret"));
+
+        const call = mockPrisma.treasureLog.updateMany.mock.calls[0]?.[0] as {
+          where?: { useRequestedAt?: { lt?: Date } };
+        };
+        expect(call?.where?.useRequestedAt?.lt).toEqual(todayRangeJST().start);
+      });
+
+      it("JST当日0:00ちょうどの useRequestedAt は cutoff と等しく、lt 比較で対象外になること", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-03-22T01:00:00.000Z")); // JST 2026-03-22 10:00
+        mockPrisma.questInstance.findMany.mockResolvedValue([]);
+        mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+
+        await GET(makeRequest("test-secret"));
+
+        const cutoff = todayRangeJST().start; // JST 2026-03-22 00:00 の UTC 表現
+        const todayMidnightJST = new Date("2026-03-22T00:00:00+09:00");
+        expect(cutoff.getTime()).toBe(todayMidnightJST.getTime());
+
+        const call = mockPrisma.treasureLog.updateMany.mock.calls[0]?.[0] as {
+          where?: { useRequestedAt?: { lt?: Date } };
+        };
+        // where.useRequestedAt.lt === cutoff のため、useRequestedAt===cutoff（ちょうど0:00）の行は
+        // `lt` 比較（未満のみ）で除外される
+        expect(call?.where?.useRequestedAt?.lt?.getTime()).toBe(cutoff.getTime());
+      });
+
+      it("前日23:59:59（JST）の useRequestedAt は cutoff より前で対象になること", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-03-22T01:00:00.000Z")); // JST 2026-03-22 10:00
+        mockPrisma.questInstance.findMany.mockResolvedValue([]);
+        mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+        await GET(makeRequest("test-secret"));
+
+        const cutoff = todayRangeJST().start;
+        const prevDay2359 = new Date("2026-03-21T23:59:59+09:00");
+        expect(prevDay2359.getTime()).toBeLessThan(cutoff.getTime());
+      });
     });
   });
 });

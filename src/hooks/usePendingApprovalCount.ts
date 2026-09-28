@@ -33,6 +33,7 @@ export function usePendingCounts(): PendingCounts {
       .channel(`pending-counts-${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, fetchCounts)
       .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, fetchCounts)
+      .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, fetchCounts)
       .subscribe();
 
     const onVisible = () => { if (document.visibilityState === "visible") fetchCounts(); };

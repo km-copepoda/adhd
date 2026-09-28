@@ -365,6 +365,10 @@ export function treasureLog(overrides?: Partial<TreasureLog>): TreasureLog {
     itemId: null,
     collectionItemId: null,
     fulfilled: false,
+    // #151: ごほうび使用申請の親承認フロー用ステータス。既定は未申請 (UNUSED)。
+    useStatus: "UNUSED",
+    useRequestedAt: null,
+    useApprovedAt: null,
     openedAt: null,
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,

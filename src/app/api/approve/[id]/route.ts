@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { approveQuestInstance, approveSkipQuestInstance } from "@/lib/approve";
+import {
+  approveQuestInstance,
+  approveSkipQuestInstance,
+  approveTreasureUse,
+  rejectTreasureUse,
+} from "@/lib/approve";
+import { canApproveUse, canRejectUse } from "@/lib/treasureUse";
 import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { cancelTreasuresOnReject } from "@/lib/treasureService";
@@ -18,13 +24,21 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { action, rejectionReason, rejectionComment, stamp } = await request.json();
+  const { kind, action, rejectionReason, rejectionComment, stamp } = await request.json();
+
+  if (kind !== "quest" && kind !== "treasure_use") {
+    return NextResponse.json({ error: "kind は quest または treasure_use を指定してください" }, { status: 400 });
+  }
+
+  if (kind === "treasure_use") {
+    return handleTreasureUse(rlog, user, id, action);
+  }
 
   const quest = await prisma.questInstance.findUnique({
     where: { id },
     include: { template: true, child: true },
   });
-  if (!quest) {
+  if (!quest || quest.template.familyId !== user.familyId || quest.child.familyId !== user.familyId) {
     rlog.warn("Quest not found", { questId: id, userId: user.id });
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
@@ -129,5 +143,43 @@ export async function POST(
     childId: quest.childId,
     category: quest.template.category,
   });
+  return NextResponse.json({ ok: true });
+}
+
+async function handleTreasureUse(
+  rlog: ReturnType<typeof routeLogger>,
+  user: { id: string; familyId: string | null },
+  id: string,
+  action: string,
+) {
+  const log = await prisma.treasureLog.findFirst({
+    where: { id, child: { familyId: user.familyId } },
+    select: { id: true, useStatus: true },
+  });
+  if (!log) {
+    rlog.warn("Treasure use not found", { logId: id, userId: user.id });
+    return NextResponse.json({ error: "対象が見つかりません" }, { status: 404 });
+  }
+
+  if (action === "reject") {
+    if (!canRejectUse(log.useStatus)) {
+      return NextResponse.json({ error: "この状態からは却下できません" }, { status: 400 });
+    }
+    const { count } = await rejectTreasureUse(id);
+    if (count === 0) {
+      return NextResponse.json({ error: "この状態からは却下できません" }, { status: 400 });
+    }
+    rlog.info("Treasure use rejected", { logId: id, parentId: user.id });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (!canApproveUse(log.useStatus)) {
+    return NextResponse.json({ error: "この状態からは承認できません" }, { status: 400 });
+  }
+  const { count } = await approveTreasureUse(id);
+  if (count === 0) {
+    return NextResponse.json({ error: "この状態からは承認できません" }, { status: 400 });
+  }
+  rlog.info("Treasure use approved", { logId: id, parentId: user.id });
   return NextResponse.json({ ok: true });
 }
