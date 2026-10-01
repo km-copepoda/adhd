@@ -14,6 +14,7 @@
  *     パスは STUDY_STAMINA / S→St / 勉体 のどの書き方でもよい。
  * 完全一致しないファイル、複数行に一致するファイル、仕様書にあるのに画像が無い行は、すべて一覧で報告する。
  * 既に「勉体生_」形式のファイル・卵（接頭辞なしで「たまご」を含む）・サブフォルダ・「不要_」は触らない。
+ * リネーム先に既存ファイル（または他の項目の同一リネーム先）があれば、--allow-partial でも一切変更せず中止する。
  * 1件でも曖昧/未一致があれば --apply でもリネームせず終了コード1（--allow-partial で一致分のみ実行）。
  */
 import { readFile, readdir, rename } from "fs/promises";
@@ -111,6 +112,7 @@ async function main() {
   }
 
   const entries = await readdir(src, { withFileTypes: true });
+  const allNames = entries.map((e) => e.name);
   const files = entries.filter((e) => e.isFile() && extname(e.name).toLowerCase() === ".png").map((e) => e.name);
 
   const plan = [];
@@ -139,6 +141,19 @@ async function main() {
   const alreadyPrefixed = new Set(untouched.map((f) => f.match(/^([勉体生]{1,3})[_：]/)?.[1]).filter(Boolean));
   const missing = rows.filter((r) => !usedPrefix.has(r.prefix) && !alreadyPrefixed.has(r.prefix));
 
+  // リネーム先の上書き検査（untouched を含む全ファイル名と比較。大文字小文字無視・NFC 正規化）
+  const norm = (n) => n.normalize("NFC").toLowerCase();
+  const existing = new Map(allNames.map((n) => [norm(n), n]));
+  const planned = new Map();
+  const overwrites = [];
+  for (const p of plan) {
+    const key = norm(p.to);
+    const hit = existing.get(key);
+    if (hit && norm(hit) !== norm(p.file)) overwrites.push(`${p.file} → ${p.to}（既存: ${hit}）`);
+    else if (planned.has(key)) overwrites.push(`${p.file} → ${p.to}（${planned.get(key)} と同じリネーム先）`);
+    planned.set(key, p.file);
+  }
+
   console.log(`テーマ: ${theme}  仕様書の行: ${rows.length}  ${apply ? "(--apply)" : "(dry-run)"}\n`);
   for (const p of plan) console.log(`${p.file}  →  ${p.to}`);
   if (untouched.length) console.log(`\n[そのまま] 卵/リネーム済み/不要_:\n  ${untouched.join("\n  ")}`);
@@ -147,7 +162,13 @@ async function main() {
   if (collisions.length) console.log(`\n[衝突] 同じパスに複数ファイル:\n  ${collisions.join("\n  ")}`);
   if (missing.length) console.log(`\n[画像なし] 仕様書にあるが対応ファイルが無い行:\n  ${missing.map((r) => `${r.label} ${r.names.join("/")}`).join("\n  ")}`);
 
-  const problems = unmatched.length + ambiguous.length + collisions.length + missing.length;
+  if (overwrites.length) console.log(`\n[上書き衝突] リネーム先に既存ファイルあり（元ファイル → リネーム先）:\n  ${overwrites.join("\n  ")}`);
+
+  const problems = unmatched.length + ambiguous.length + collisions.length + missing.length + overwrites.length;
+  if (overwrites.length) {
+    if (apply) console.error("\n上書き衝突があるため一件もリネームしませんでした（--allow-partial でも中止）。");
+    process.exit(1);
+  }
   if (problems > 0 && !allowPartial) {
     if (apply) console.error("\n問題があるためリネームしませんでした（--allow-partial で一致分のみ実行）。");
     process.exit(problems > 0 ? 1 : 0);
