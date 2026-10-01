@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { fetchDeduped } from "@/lib/fetchDeduped";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
 import {
   RARITY_BADGE_CLASS,
@@ -45,7 +46,7 @@ export default function TreasureHistoryList() {
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/treasures/status", { cache: "no-store" });
+      const res = await fetchDeduped("/api/treasures/status", { cache: "no-store" });
       if (!res.ok) {
         setData(null);
         return;

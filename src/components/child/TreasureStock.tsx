@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchDeduped } from "@/lib/fetchDeduped";
 import TreasureOpenCutscene from "./TreasureOpenCutscene";
 
 interface TreasureOpenResult {
@@ -40,7 +41,7 @@ export default function TreasureStock({ variant = "pill" }: Props = {}) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/treasures/status", { cache: "no-store" });
+      const res = await fetchDeduped("/api/treasures/status", { cache: "no-store" });
       if (!res.ok) return;
       const json = (await res.json()) as StatusResponse;
       setStatus(json);

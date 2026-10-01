@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { fetchDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/streakMilestones";
 import type { MonsterStatusResponse } from "@/types";
 
@@ -50,7 +51,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
   const [unlockedAchievement, setUnlockedAchievement] = useState<typeof STREAK_MILESTONES[number] | null>(null);
 
   const fetchStatus = (): Promise<MonsterStatusResponse | null> =>
-    fetch("/api/monster-status").then((r) => (r.ok ? r.json() : null));
+    fetchDeduped("/api/monster-status").then((r) => (r.ok ? r.json() : null));
 
   const checkAchievementUnlock = (currentStreak: number) => {
     try {
@@ -85,19 +86,15 @@ export function useMonsterStatus(): UseMonsterStatusResult {
       .then((d) => { if (d) applyStatus(d); })
       .finally(() => setLoading(false));
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("monster-changes")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
-        fetchStatus().then((d) => { if (d) applyStatus(d); });
-      })
-      .subscribe();
+    const offRealtime = subscribeChildRealtime("User", () => {
+      fetchStatus().then((d) => { if (d) applyStatus(d); });
+    });
 
     const onVisible = () => { if (document.visibilityState === "visible") fetchStatus(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      supabase.removeChannel(channel);
+      offRealtime();
       document.removeEventListener("visibilitychange", onVisible);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

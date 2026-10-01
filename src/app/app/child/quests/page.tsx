@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getDeadlineDisplay, todayStringJST } from "@/lib/date";
+import { fetchDeduped } from "@/lib/fetchDeduped";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
@@ -124,7 +125,7 @@ export default function QuestsPage() {
   // 宝箱ストック件数: QuestStatusCard の表示可否判定に使う（あける操作自体は TreasureStock 側で完結）
   useEffect(() => {
     function fetchTreasureStatus() {
-      fetch("/api/treasures/status", { cache: "no-store" })
+      fetchDeduped("/api/treasures/status", { cache: "no-store" })
         .then((r) => r.json())
         .then((d: { locked?: number; unlocked?: number }) => {
           setTreasureStatus({ locked: d.locked ?? 0, unlocked: d.unlocked ?? 0 });
@@ -143,7 +144,7 @@ export default function QuestsPage() {
   }, []);
 
   async function fetchMonster() {
-    const res = await fetch("/api/monster-status");
+    const res = await fetchDeduped("/api/monster-status");
     if (!res.ok) return;
     const d = await res.json();
     setChildName(d.name ?? "");
