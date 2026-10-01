@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchDeduped } from "@/lib/fetchDeduped";
+import { fetchDeduped, invalidateDeduped } from "@/lib/fetchDeduped";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -135,5 +135,93 @@ describe("fetchDeduped", () => {
       name: "AbortError",
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+  describe("invalidateDeduped（イベント起点の再取得は古い進行中リクエストに相乗りしない）", () => {
+    function deferred() {
+      let resolve!: (r: Response) => void;
+      const promise = new Promise<Response>((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    }
+
+    it("無効化後の呼び出しは新しく fetch し、古いリクエストの待ち手は古い結果を受け取る", async () => {
+      const first = deferred();
+      const second = deferred();
+      fetchMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+      const oldCall = fetchDeduped("/api/x");
+      invalidateDeduped();
+      const newCall = fetchDeduped("/api/x");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      first.resolve(jsonResponse({ v: "old" }));
+      second.resolve(jsonResponse({ v: "new" }));
+      expect(await (await oldCall).json()).toEqual({ v: "old" });
+      expect(await (await newCall).json()).toEqual({ v: "new" });
+    });
+
+    it("無効化の後に来た複数の呼び出しは、新しい1本の fetch に相乗りする", async () => {
+      const first = deferred();
+      const second = deferred();
+      fetchMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+      fetchDeduped("/api/x");
+      invalidateDeduped();
+      const a = fetchDeduped("/api/x");
+      const b = fetchDeduped("/api/x");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      first.resolve(jsonResponse({}));
+      second.resolve(jsonResponse({ v: "new" }));
+      expect(await (await a).json()).toEqual({ v: "new" });
+      expect(await (await b).json()).toEqual({ v: "new" });
+    });
+
+    it("古いリクエストが先に完了しても、新しい進行中リクエストへの相乗りは壊れない", async () => {
+      const first = deferred();
+      const second = deferred();
+      fetchMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+      const oldCall = fetchDeduped("/api/x");
+      invalidateDeduped();
+      const newCall = fetchDeduped("/api/x");
+
+      first.resolve(jsonResponse({ v: "old" }));
+      await oldCall;
+      // 古い方の完了後も、新しい方はまだ進行中 → 後から来た呼び出しは相乗りできる
+      const late = fetchDeduped("/api/x");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      second.resolve(jsonResponse({ v: "new" }));
+      expect(await (await newCall).json()).toEqual({ v: "new" });
+      expect(await (await late).json()).toEqual({ v: "new" });
+    });
+
+    it("URL を指定すると、その URL だけを無効化する", async () => {
+      const a1 = deferred();
+      const b1 = deferred();
+      const a2 = deferred();
+      fetchMock
+        .mockReturnValueOnce(a1.promise)
+        .mockReturnValueOnce(b1.promise)
+        .mockReturnValueOnce(a2.promise);
+
+      fetchDeduped("/api/a");
+      fetchDeduped("/api/b");
+      invalidateDeduped("/api/a");
+      fetchDeduped("/api/a"); // 新しく fetch
+      fetchDeduped("/api/b"); // 相乗り（無効化されていない）
+
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      a1.resolve(jsonResponse({}));
+      b1.resolve(jsonResponse({}));
+      a2.resolve(jsonResponse({}));
+    });
+
+    it("進行中のリクエストが無いときに呼んでも何も起きない", () => {
+      expect(() => invalidateDeduped()).not.toThrow();
+      expect(() => invalidateDeduped("/api/none")).not.toThrow();
+    });
   });
 });

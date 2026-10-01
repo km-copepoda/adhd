@@ -6,6 +6,7 @@ import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo } from "@/lib/evolution";
 import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { invalidateDeduped } from "@/lib/fetchDeduped";
 import EggSelectionModal from "@/components/child/EggSelectionModal";
 import CutsceneOverlay from "@/components/child/CutsceneOverlay";
 import EvolutionProgressCard from "@/components/child/EvolutionProgressCard";
@@ -51,6 +52,7 @@ export default function MonsterPage() {
         setShowEggSelection(false);
         setReborn(true);
         // BottomNav 育成バッジ (rebirthPending) を Realtime 取りこぼし時にも即クリア
+        invalidateDeduped("/api/monster-status");
         window.dispatchEvent(new CustomEvent("monster-changed"));
       }
     } finally {

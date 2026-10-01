@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchDeduped } from "@/lib/fetchDeduped";
+import { fetchDeduped, invalidateDeduped } from "@/lib/fetchDeduped";
 import TreasureOpenCutscene from "./TreasureOpenCutscene";
 
 interface TreasureOpenResult {
@@ -66,6 +66,7 @@ export default function TreasureStock({ variant = "pill" }: Props = {}) {
       setResult(json);
       setStatus((s) => (s ? { ...s, unlocked: json.remainingUnlocked } : s));
       // BottomNav バッジを即時更新するため通知
+      invalidateDeduped("/api/treasures/status");
       window.dispatchEvent(new CustomEvent("treasure-changed"));
     } finally {
       openingRef.current = false;

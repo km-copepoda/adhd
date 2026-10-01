@@ -1,5 +1,6 @@
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { invalidateDeduped } from "@/lib/fetchDeduped";
 
 // 子供画面の Realtime（postgres_changes）購読を、アプリ全体で1チャンネルに共有する（クライアント専用）。
 //
@@ -32,6 +33,9 @@ function listenerCount(): number {
 }
 
 function dispatch(table: ChildRealtimeTable, payload: ChildRealtimePayload) {
+  // 変更イベントを受けた再取得が、イベント前に始まった進行中の GET に相乗りして古い値を拾わないようにする。
+  // イベントごとに1回だけ無効化するので、同じイベントを受けた複数リスナーは新しい1本の fetch を共有できる。
+  invalidateDeduped();
   for (const entry of [...listeners[table]]) {
     try {
       entry.handler(payload);

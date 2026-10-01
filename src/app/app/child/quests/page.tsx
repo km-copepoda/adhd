@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getDeadlineDisplay, todayStringJST } from "@/lib/date";
-import { fetchDeduped } from "@/lib/fetchDeduped";
+import { fetchDeduped, invalidateDeduped } from "@/lib/fetchDeduped";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
@@ -185,6 +185,8 @@ export default function QuestsPage() {
         // 旧APIで JSON が無い場合などは無視
       }
     }
+    // 報告/スキップ直後の再取得は、POST 前に始まった進行中の GET に相乗りさせない
+    invalidateDeduped("/api/quests/today");
     await refreshQuests();
   }
 
@@ -206,6 +208,8 @@ export default function QuestsPage() {
         // 旧 API で JSON が無い場合などは無視
       }
     }
+    // 報告/スキップ直後の再取得は、POST 前に始まった進行中の GET に相乗りさせない
+    invalidateDeduped("/api/quests/today");
     await refreshQuests();
   }
 

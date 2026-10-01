@@ -37,6 +37,7 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 import { subscribeChildRealtime } from "@/lib/childRealtime";
+import { fetchDeduped } from "@/lib/fetchDeduped";
 
 function emit(table: string, payload: unknown = {}) {
   for (const r of registered.filter((x) => x.filter.table === table)) r.cb(payload);
@@ -180,5 +181,39 @@ describe("subscribeChildRealtime", () => {
     expect(good).toHaveBeenCalledTimes(1);
     offBad();
     offGood();
+  });
+  it("イベント到着時に進行中の fetch を無効化し、リスナーの再取得は古いリクエストに相乗りしない", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      let resolveOld!: (r: Response) => void;
+      fetchMock
+        .mockReturnValueOnce(new Promise<Response>((r) => (resolveOld = r)))
+        .mockImplementation(async () => new Response(JSON.stringify({ v: "new" })));
+
+      // イベント前に始まった（読み取りが更新前だったかもしれない）進行中リクエスト
+      const oldCall = fetchDeduped("/api/quests/today");
+
+      const results: unknown[] = [];
+      const offA = subscribeChildRealtime("QuestInstance", async () => {
+        results.push(await (await fetchDeduped("/api/quests/today")).json());
+      });
+      const offB = subscribeChildRealtime("QuestInstance", async () => {
+        results.push(await (await fetchDeduped("/api/quests/today")).json());
+      });
+
+      emit("QuestInstance");
+      // 同じイベントを受けた2つのリスナーは、新しい1本の fetch を共有する（古い fetch + 新しい1本 = 計2回）
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      await vi.waitFor(() => expect(results).toHaveLength(2));
+      expect(results).toEqual([{ v: "new" }, { v: "new" }]);
+
+      resolveOld(new Response(JSON.stringify({ v: "old" })));
+      await oldCall;
+      offA();
+      offB();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

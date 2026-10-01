@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { invalidateDeduped } from "@/lib/fetchDeduped";
 import TreasureOpenCutscene from "@/components/child/TreasureOpenCutscene";
 import {
   RARITY_BADGE_CLASS,
@@ -111,6 +112,7 @@ export default function ChildTreasuresPage() {
       const json = (await res.json()) as TreasureOpenResult;
       setResult(json);
       // BottomNav バッジを即時更新するため通知
+      invalidateDeduped("/api/treasures/status");
       window.dispatchEvent(new CustomEvent("treasure-changed"));
     } finally {
       setOpening(false);
