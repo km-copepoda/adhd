@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
 import { shouldShowMonsterBadge, shouldShowZukanBadge, getUnreadAchievements, getNewBadgeCount, STREAK_MILESTONES } from "@/lib/streakMilestones";
 import { computeRemainingCount } from "@/lib/questProgress";
@@ -48,7 +50,7 @@ export default function BottomNav() {
   }
 
   function fetchMonsterStatus() {
-    fetch("/api/monster-status")
+    fetchDeduped("/api/monster-status")
       .then((r) => r.json())
       .then((d) => {
         const count = (JSON.parse(d.collectedPaths ?? "[]") as string[]).length;
@@ -61,7 +63,7 @@ export default function BottomNav() {
   }
   
   function fetchQuestRemaining() {
-    fetch("/api/quests/today")
+    fetchDeduped("/api/quests/today")
       .then((r) => r.json())
       .then((quests: { status: string }[]) => {
         setQuestRemaining(computeRemainingCount(quests));
@@ -70,7 +72,7 @@ export default function BottomNav() {
   }
   
   function fetchTreasureCount() {
-    fetch("/api/treasures/status")
+    fetchDeduped("/api/treasures/status", { cache: "no-store" })
       .then((r) => r.json())
       .then((d: { unlocked?: number }) => {
         // LOCKED（承認待ち）は除外し、UNLOCKED（開封可）のみカウント
@@ -80,7 +82,7 @@ export default function BottomNav() {
   }
 
   function fetchBadgesCount() {
-    fetch("/api/badges/unseen-count")
+    fetchDeduped("/api/badges/unseen-count")
       .then((r) => r.json())
       .then((d) => {
         const count = d.unlockedCount ?? 0;
@@ -96,7 +98,7 @@ export default function BottomNav() {
     fetchQuestRemaining();
     fetchTreasureCount();
 
-    fetch("/api/streak")
+    fetchDeduped("/api/streak")
       .then((r) => r.json())
       .then((d) => {
         const streak = d.currentStreak ?? 0;
@@ -111,22 +113,13 @@ export default function BottomNav() {
   
   // Realtimeでバッジをリアルタイム更新
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("child-nav-realtime")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
-        fetchMonsterStatus();
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, () => {
-        fetchBadgesCount();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, () => {
-        fetchQuestRemaining();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, () => {
-        fetchTreasureCount();
-      })
-      .subscribe();
+    // 子供画面共通の1チャンネルを共有する（lib/childRealtime.ts）
+    const offRealtime = [
+      subscribeChildRealtime("User", () => fetchMonsterStatus()),
+      subscribeChildRealtime("UserBadge", () => fetchBadgesCount()),
+      subscribeChildRealtime("QuestInstance", () => fetchQuestRemaining()),
+      subscribeChildRealtime("TreasureLog", () => fetchTreasureCount()),
+    ];
 
     const onVisible = () => {
       if (document.visibilityState === "visible") {
@@ -147,7 +140,7 @@ export default function BottomNav() {
     window.addEventListener("monster-changed", onMonsterChanged);
 
     return () => {
-      supabase.removeChannel(channel);
+      offRealtime.forEach((off) => off());
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("treasure-changed", onTreasureChanged);
       window.removeEventListener("monster-changed", onMonsterChanged);
