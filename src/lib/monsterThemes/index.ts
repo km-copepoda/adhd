@@ -8,6 +8,7 @@
 
 import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, EGG_STAGE, EGG_STAGE_LIGHT } from "@/lib/monsters";
 import { MONSTER_TABLE as BUDDHA_TABLE, EGG_STAGE as BUDDHA_EGG_STAGE } from "@/lib/monsterThemes/buddha";
+import { MONSTER_TABLE as YOKAI_TABLE, EGG_STAGE as YOKAI_EGG_STAGE } from "@/lib/monsterThemes/yokai";
 import type { MonsterEntry } from "@/lib/monsterEntry";
 
 export type MonsterThemeDefinition = {
@@ -52,6 +53,15 @@ export const MONSTER_THEMES: Record<string, MonsterThemeDefinition> = {
     thumbnail: BUDDHA_TABLE["STUDY"].image,
     eggImage: BUDDHA_EGG_STAGE.image,
     table: BUDDHA_TABLE,
+    isFree: false,
+  },
+  yokai: {
+    id: "yokai",
+    label: "妖怪",
+    description: "日本の妖怪モチーフのモンスターセット。",
+    thumbnail: YOKAI_TABLE["STUDY"].image,
+    eggImage: YOKAI_EGG_STAGE.image,
+    table: YOKAI_TABLE,
     isFree: false,
   },
 };
