@@ -1,50 +1,63 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { onApprovalsUpdated } from "@/lib/approval-events";
+import {
+  createPendingCountsStore,
+  type PendingCounts,
+} from "@/lib/pendingCountsStore";
 
-type PendingCounts = { approvals: number; tasks: number };
+const INITIAL_COUNTS: PendingCounts = { approvals: 0, tasks: 0 };
+
+async function fetchCounts(): Promise<PendingCounts> {
+  const res = await fetch("/api/nav/pending-counts");
+  if (!res.ok) throw new Error(`pending-counts ${res.status}`);
+  const data = await res.json();
+  return { approvals: data.approvals ?? 0, tasks: data.tasks ?? 0 };
+}
+
+type Store = ReturnType<typeof createPendingCountsStore>;
+let store: Store | undefined;
+
+// SSR で副作用が出ないよう、クライアントで最初に使われた時に生成する
+function getStore(): Store {
+  if (!store) {
+    const created: Store = createPendingCountsStore({
+      fetchCounts,
+      onActive: () => {
+        const unsubApproval = onApprovalsUpdated(() => created.refreshNow());
+
+        const supabase = createClient();
+        const refresh = () => created.refresh();
+        const channel = supabase
+          .channel("pending-counts")
+          .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, refresh)
+          .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, refresh)
+          .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, refresh)
+          .subscribe();
+
+        const onVisible = () => {
+          if (document.visibilityState === "visible") created.refresh();
+        };
+        document.addEventListener("visibilitychange", onVisible);
+
+        return () => {
+          unsubApproval();
+          supabase.removeChannel(channel);
+          document.removeEventListener("visibilitychange", onVisible);
+        };
+      },
+    });
+    store = created;
+  }
+  return store;
+}
+
+const subscribe = (listener: () => void) => getStore().subscribe(listener);
+const getSnapshot = () => getStore().getSnapshot();
+const getServerSnapshot = () => INITIAL_COUNTS;
 
 export function usePendingCounts(): PendingCounts {
-  const id = useId();
-  const [counts, setCounts] = useState<PendingCounts>({ approvals: 0, tasks: 0 });
-
-  useEffect(() => {
-    async function fetchCounts() {
-      try {
-        const res = await fetch("/api/nav/pending-counts");
-        if (res.ok) {
-          const data = await res.json();
-          setCounts({ approvals: data.approvals ?? 0, tasks: data.tasks ?? 0 });
-        }
-      } catch {
-        // ネットワークエラーは無視
-      }
-    }
-
-    fetchCounts();
-
-    // 承認操作後の直接通知（Realtime の補完）
-    const unsubApproval = onApprovalsUpdated(fetchCounts);
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`pending-counts-${id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, fetchCounts)
-      .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, fetchCounts)
-      .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, fetchCounts)
-      .subscribe();
-
-    const onVisible = () => { if (document.visibilityState === "visible") fetchCounts(); };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      unsubApproval();
-      supabase.removeChannel(channel);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [id]);
-
-  return counts;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
