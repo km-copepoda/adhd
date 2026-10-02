@@ -12,7 +12,7 @@ description: モンスターテーマセット（妖怪・ドラゴン・仏像�
 
 ## 担当範囲
 
-やること: webp変換 → public配置 → TSテーブル生成（かな版含む）→ レジストリ登録 → テスト。
+やること: webp変換 → public配置 → 影画像生成 → TSテーブル生成（かな版含む）→ レジストリ登録 → テスト。
 やらないこと: 購入導線・Prisma・課金まわり（有料テーマは `isFree: false` で登録するだけ。選択可否は既存の `FamilyMonsterTheme` 機構に任せる）。ドット絵版など別バリエーションの取り込み。
 
 ## 進め方
@@ -61,6 +61,16 @@ node .claude/skills/theme-set-import/scripts/convert-theme-images.mjs --theme <i
 
 dry-run が通ったら `--dry-run` を外して実行する。出力は `public/monsters/<id>/<パスキー>_<名前>.webp` と `egg.webp`（256×256 に contain で収め、背景は透過、webp quality 85）。全テーマ同じ設定に揃えるための固定値なので、変えない。
 
+### 4b. 影画像を生成する
+
+図鑑の未取得表示は `/monsters/` を `/monsters/shadow/` に置換した画像を読む（`ZukanEggSection.tsx` / `ZukanEvolutionBranch.tsx`）。`public/monsters/shadow/<id>/` が無いと子供画面の図鑑で影が404になるので、ステップ4の直後に必ず生成する。
+
+```bash
+python scripts/gen_shadow.py <id>
+```
+
+不透明部分を暗紫色 (25, 20, 50) で塗った webp を、元画像と同じファイル名（卵 `egg.webp` 含む40枚）で出力する。引数なしだと dark / light / yokai が対象になる。buddha の影は別途生成済みなので、新テーマは必ずテーマIDを引数で渡す。
+
 ### 5. 名前・説明データ（JSON）を作る
 
 仕様書のセクションから、卵 + 39体分の JSON を作業用の場所（スクラッチパッド等。リポジトリには残さない）に書く。形式は `scripts/gen-theme-ts.mjs` の冒頭コメントを参照。
@@ -80,6 +90,7 @@ dry-run が通ったら `--dry-run` を外して実行する。出力は `public
 - `image` が `/monsters/<id>/` 配下、かつ `public/` に**実ファイルとして存在する**（`fs.existsSync`）
 - `nameKana`/`descriptionKana` に漢字・カタカナが残っていない（`/[一-鿿゠-ヿ]/` に一致しない。「ー」は許可）
 - 卵の `image` が `/monsters/<id>/egg.webp`
+- 全エントリと卵について、`image` の `/monsters/` を `/monsters/shadow/` に置換したファイルが `public/` に実在する（影画像の生成漏れ検知）
 
 `src/__tests__/lib/monsterThemes/registry.test.ts` には「dark/light/buddha の3テーマ」を前提にした厳密比較があるので、新テーマ追加に合わせて更新する。この時点で `npm test` が失敗することを確認する。
 
@@ -102,6 +113,7 @@ buddha と同じ2か所に追加する。片方だけだと `getMonsterStage` �
 
 - `npm test` が全部通ること（新規テスト含む）
 - `npx tsc --noEmit` で型エラーがないこと
+- `public/monsters/shadow/<id>/` に40枚あり、ファイル名が `public/monsters/<id>/` と一致すること
 - `public/monsters/<id>/` の合計サイズを報告する（元PNGは1枚1MB超。256px webp化で大きく縮む想定）
 - 生成された `nameKana` / `descriptionKana` から数件をサンプルして、ユーザーに読み違いがないか見てもらう
 
