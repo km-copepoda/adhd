@@ -41,7 +41,7 @@ export default function MonsterPage() {
         const newData = await fetchStatus();
         if (!newData) return;
         setData({
-          name: newData.name, side: newData.side ?? null, monsterSetId: newData.monsterSetId ?? "dark",
+          name: newData.name, side: newData.side ?? null, monsterSetId: newData.monsterSetId ?? "dark", pendingMonsterSetId: newData.pendingMonsterSetId ?? null,
           evolutionStage: newData.evolutionStage, evolutionPath: newData.evolutionPath ?? "",
           collectedPaths: newData.collectedPaths ?? "[]",
           studyPt: newData.studyPt, staminaPt: newData.staminaPt, lifePt: newData.lifePt,
@@ -130,7 +130,7 @@ export default function MonsterPage() {
       {/* Egg selection overlay */}
       {showEggSelection && (
         <EggSelectionModal
-          monsterSetId={data.monsterSetId}
+          monsterSetId={data.pendingMonsterSetId ?? data.monsterSetId}
           loading={rebirthLoading}
           onSelect={handleRebirth}
           onCancel={() => setShowEggSelection(false)}
