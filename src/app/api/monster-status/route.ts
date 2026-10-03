@@ -53,6 +53,8 @@ export async function GET() {
     name: user.monsterName || user.name || "ぼうけんしゃ",
     side: user.side,
     monsterSetId: user.monsterSetId,
+    // 親が予約したテーマ。転生時に反映されるため、卵選択画面ではこちらを優先表示する
+    pendingMonsterSetId: user.pendingMonsterSetId ?? null,
     evolutionStage: user.evolutionStage,
     evolutionPath: user.evolutionPath,
     collectedPaths: user.collectedPaths,

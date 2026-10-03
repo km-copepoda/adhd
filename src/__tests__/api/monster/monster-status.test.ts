@@ -56,6 +56,17 @@ describe("GET /api/monster-status", () => {
     expect(json.lastAchievedDate).toBe("2026-03-13");
   });
 
+  it("予約中のテーマ(pendingMonsterSetId)をレスポンスに含めること / 未予約なら null", async () => {
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+    mockPrisma.streak.findUnique.mockResolvedValue(null);
+
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ pendingMonsterSetId: "yokai" } as never));
+    expect((await (await GET()).json()).pendingMonsterSetId).toBe("yokai");
+
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ pendingMonsterSetId: null } as never));
+    expect((await (await GET()).json()).pendingMonsterSetId).toBeNull();
+  });
+
   it("承認待ちクエストのpendingXPをカテゴリ別に集計すること", async () => {
     mockGetCurrentUser.mockResolvedValue(
       childUserWithFamily({ monsterName: "ピカ", studyPt: 5, staminaPt: 3, lifePt: 1 }),
