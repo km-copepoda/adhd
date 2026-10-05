@@ -59,14 +59,14 @@ export default function MonsterImageModal({
         {description ? (
           <p
             data-testid="monster-modal-description"
-            className="max-w-xs text-white/80 text-sm leading-relaxed text-center"
+            className="max-w-xs text-white/90 text-sm leading-relaxed text-center"
           >
             {description}
           </p>
         ) : lockedHint ? (
           <p
             data-testid="monster-modal-locked-hint"
-            className="max-w-xs text-white/60 text-sm leading-relaxed text-center"
+            className="max-w-xs text-white/80 text-sm leading-relaxed text-center"
           >
             {lockedHint}
           </p>

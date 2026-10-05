@@ -19,7 +19,7 @@ type Props = {
 };
 
 const DEFAULT_DESCRIPTION_CLASS =
-  "text-quest-dim/80 text-xs text-center leading-relaxed mb-6 max-w-xs";
+  "text-quest-muted text-xs text-center leading-relaxed mb-6 max-w-xs";
 
 export default function CutsceneOverlay({
   onClose,
