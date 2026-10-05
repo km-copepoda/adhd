@@ -7,7 +7,7 @@
 // （ヘッダー内の「実績/ごほうび」サブタブ切替は呼び出し側の責務）
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { sortAndFilterBadges, isBadgeNew, type BadgeData, type BadgeFilter } from "@/lib/badgeFilter";
 
@@ -65,17 +65,13 @@ export default function BadgesContent({
       };
     }
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("badge-changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, fetchBadges)
-      .subscribe();
+    const unsub = subscribeChildRealtime("UserBadge", fetchBadges);
 
     const onVisible = () => { if (document.visibilityState === "visible") fetchBadges(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      supabase.removeChannel(channel);
+      unsub();
       document.removeEventListener("visibilitychange", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
