@@ -179,7 +179,7 @@ function BadgeCard({ badge }: { badge: BadgeData }) {
         >
           {badge.name}
         </span>
-        <span className="text-[10px] text-quest-dim leading-tight">
+        <span className="text-xs text-quest-muted leading-tight">
           {badge.description}
         </span>
         {!badge.unlocked && badge.progress && badge.progress.current < badge.progress.target && (
