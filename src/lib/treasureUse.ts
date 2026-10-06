@@ -5,6 +5,7 @@
 //   USE_REQUESTED -> USED            (canApproveUse) 親が承認
 //   USE_REQUESTED -> UNUSED          (canRejectUse)  親が却下
 //   USED          -> UNUSED          (canRevokeUse)  親が巻き戻し
+//   UNUSED/USE_REQUESTED -> USED     (canUseByParent) 親が直接使用（#164。承認を挟まない）
 //
 // 上記以外は全て false。DB操作を含まない純粋関数で、API 側はこの結果を 400 に変換する。
 
@@ -24,6 +25,10 @@ export function canRejectUse(current: TreasureUseStatus): boolean {
 
 export function canRevokeUse(current: TreasureUseStatus): boolean {
   return current === "USED";
+}
+
+export function canUseByParent(current: TreasureUseStatus): boolean {
+  return current === "UNUSED" || current === "USE_REQUESTED";
 }
 
 /**

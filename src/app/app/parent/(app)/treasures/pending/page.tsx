@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ParentTreasureTabs from "@/components/parent/ParentTreasureTabs";
+import TreasureUseConfirmModal from "@/components/parent/TreasureUseConfirmModal";
 import { formatTreasureOpenedAt } from "@/lib/treasureHistory";
 import {
   RARITY_LABEL,
@@ -36,6 +37,7 @@ export default function ParentTreasureHistoryPage() {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<HistoryItem | null>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -87,6 +89,28 @@ export default function ParentTreasureHistoryPage() {
       }
     } catch {
       setItems((arr) => arr.map((i) => (i.id === id ? { ...i, useStatus: "USED", fulfilled: true } : i)));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  // #164: 親が承認なしで直接「使用済み」にする。失敗時は操作前の useStatus / fulfilled に戻す。
+  async function markUsedDirectly(target: HistoryItem) {
+    const { id } = target;
+    const prevUseStatus: TreasureUseStatus = target.useStatus ?? (target.fulfilled ? "USED" : "UNUSED");
+    const prevFulfilled = target.fulfilled;
+    setConfirmTarget(null);
+    setPendingId(id);
+    setItems((arr) => arr.map((i) => (i.id === id ? { ...i, useStatus: "USED", fulfilled: true } : i)));
+    const rollback = () =>
+      setItems((arr) =>
+        arr.map((i) => (i.id === id ? { ...i, useStatus: prevUseStatus, fulfilled: prevFulfilled } : i)),
+      );
+    try {
+      const res = await fetch(`/api/treasures/use/${id}`, { method: "POST" });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
     } finally {
       setPendingId(null);
     }
@@ -159,6 +183,18 @@ export default function ParentTreasureHistoryPage() {
                     {RARITY_LABEL[it.item.rarity]}
                   </span>
                 )}
+                {(useStatus === "UNUSED" || useStatus === "USE_REQUESTED") &&
+                  it.item &&
+                  it.visibleToChild !== false && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmTarget(it)}
+                      disabled={pendingId === it.id}
+                      className="text-xs px-3 py-1.5 rounded font-bold transition-colors disabled:opacity-50 bg-quest-gold/15 border border-quest-gold text-quest-gold"
+                    >
+                      つかった
+                    </button>
+                  )}
                 {useStatus === "USED" && (
                   <button
                     type="button"
@@ -173,6 +209,14 @@ export default function ParentTreasureHistoryPage() {
             );
           })}
         </ul>
+      )}
+
+      {confirmTarget && (
+        <TreasureUseConfirmModal
+          title={confirmTarget.item?.title ?? "このごほうび"}
+          onCancel={() => setConfirmTarget(null)}
+          onConfirm={() => void markUsedDirectly(confirmTarget)}
+        />
       )}
     </div>
   );
