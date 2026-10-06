@@ -70,6 +70,28 @@ export function getIdleCalendarDays(params: {
   return diff < 0 ? 0 : diff;
 }
 
+/**
+ * 複数テンプレート分を一括取得した行を、テンプレートごとに date 降順で直近 limit 件へ絞る。
+ * templateIds の全要素をキーに持つ（行が無ければ空配列）。入力配列は変更しない。
+ */
+export function groupRecentInstancesByTemplate<T extends { templateId: string; date: Date }>(
+  rows: readonly T[],
+  templateIds: readonly string[],
+  limit: number,
+): Map<string, T[]> {
+  const buckets = new Map<string, T[]>(templateIds.map((tid) => [tid, []]));
+  for (const row of rows) {
+    buckets.get(row.templateId)?.push(row);
+  }
+  for (const [tid, bucket] of buckets) {
+    buckets.set(
+      tid,
+      bucket.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, limit),
+    );
+  }
+  return buckets;
+}
+
 /** 「今日やる」ボタンを今日のクエストに出すべきかどうか */
 export function isEligibleForDeclaration(params: {
   missedExposures: number;
