@@ -246,6 +246,17 @@ export async function approveTreasureUse(logId: string): Promise<{ count: number
   });
 }
 
+/**
+ * #164: UNUSED / USE_REQUESTED -> USED（親が承認なしで直接使用）。
+ * useRequestedAt は触らない（UNUSED 起点では null のまま。虚偽の申請記録を作らない）。
+ */
+export async function useTreasureByParent(logId: string): Promise<{ count: number }> {
+  return prisma.treasureLog.updateMany({
+    where: { id: logId, useStatus: { in: ["UNUSED", "USE_REQUESTED"] } },
+    data: { useStatus: "USED", fulfilled: true, useApprovedAt: new Date() },
+  });
+}
+
 /** USE_REQUESTED -> UNUSED（却下）。useRequestedAt をクリアし再申請可能にする。 */
 export async function rejectTreasureUse(logId: string): Promise<{ count: number }> {
   return prisma.treasureLog.updateMany({

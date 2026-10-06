@@ -129,7 +129,8 @@
 - [2026-09-06: 子供が子画面からごほうび使用状態をトグル可能に / 宝箱履歴の保持期間を30日に拡大（Issue 72）](#2026-09-06-子供が子画面からごほうび使用状態をトグル可能に--宝箱履歴の保持期間を30日に拡大issue-72) ⚠️ partial
 - [2026-09-16: モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する（案Z、Issue #140）](#2026-09-16-モンスター図鑑・コレクションアイテムの説明文にふりがな表示を配線する案zissue-140)
 - [2026-09-16: エール受信表示をトーストから全画面カットインへ変更（2026-05-05決定の更新、Issue #125）](#2026-09-16-エール受信表示をトーストから全画面カットインへ変更2026-05-05決定の更新issue-125)
-- [2026-09-25: ごほうび使用を親承認フロー化する（Issue #151）](#2026-09-25-ごほうび使用を親承認フロー化するissue-151)
+- [2026-09-25: ごほうび使用を親承認フロー化する（Issue #151）](#2026-09-25-ごほうび使用を親承認フロー化するissue-151) ⚠️ partial
+- [2026-10-06: 親が承認なしでごほうびを直接「使用済み」にできるようにする（Issue #164）](#2026-10-06-親が承認なしでごほうびを直接使用済みにできるようにするissue-164)
 
 <!-- TOC:END -->
 
@@ -3054,6 +3055,10 @@
 
 ## 2026-09-25: ごほうび使用を親承認フロー化する（Issue #151）
 
+> **⚠ PARTIALLY SUPERSEDED** — [2026-10-06: 親が承認なしでごほうびを直接「使用済み」にできるようにする（Issue #164）](#2026-10-06-親が承認なしでごほうびを直接使用済みにできるようにするissue-164)
+>
+> 「使用済みになるには必ず子の申請と親承認を経る」部分は、親操作に限り承認を挟まず直接 `USED` にできるよう更新。子の権限・申請/承認/却下/巻き戻しの各フロー・`fulfill/[id]` の巻き戻し専用はそのまま現行。
+
 ### 決定内容
 - **`TreasureLog` に `TreasureUseStatus` enum（`UNUSED` / `USE_REQUESTED` / `USED`）と `useRequestedAt` / `useApprovedAt` を新設**（`prisma/migrations/20260925000001_add_treasure_use_status`）。既存 `fulfilled: Boolean` は**削除しない**。承認・却下・巻き戻しの各操作で `fulfilled` を `useStatus === "USED"` と同値になるよう二重書き込みで維持する（旧クライアント・旧経路との互換のため）
 - **状態遷移はクエスト報告と同じ「申請 → 親承認」メンタルモデルに統一**: `UNUSED → USE_REQUESTED`（子が申請）→ `USED`（親が承認 / 自動承認 cron）または `UNUSED`（親が却下、再申請可）。承認済み `USED → UNUSED` の巻き戻しは**親のみ**、`/app/parent/(app)/treasures/pending` から個別に行う（承認センターの却下とは別操作）。**子は申請を一切キャンセルできない**（`USE_REQUESTED` / `USED` を子から戻す API は存在しない）
@@ -3100,3 +3105,31 @@
 - `supabase/seed.sql` — `TreasureLog` を publication に追加、RLS ポリシー新設
 - テスト: `src/__tests__/lib/treasureUse.test.ts`（新規）/ `src/__tests__/api/treasures/use-request.test.ts`（新規）/ `src/__tests__/api/approve/approve-id.test.ts` / `src/__tests__/api/approve/bulk.test.ts` / `src/__tests__/api/approve/pending.test.ts` / `src/__tests__/api/treasures/fulfill.test.ts` / `src/__tests__/api/treasures/status.test.ts` / `src/__tests__/api/nav/pending-counts.test.ts` / `src/__tests__/api/cron/auto-approve.test.ts` / `src/__tests__/components/child-treasures-rewards-tab.test.tsx` / `src/__tests__/components/parent-treasures-pending-fulfill.test.tsx`
 
+
+## 2026-10-06: 親が承認なしでごほうびを直接「使用済み」にできるようにする（Issue #164）
+
+### 決定内容
+- **親は `/app/parent/treasures/pending` から、開封済みごほうび（`status === "OPENED"` かつ `itemId != null`）を承認なしで直接 `USED` にできる**。遷移は `UNUSED → USED` と `USE_REQUESTED → USED`。確認モーダル「使用済みにする」を挟む
+- **新ルート `POST /api/treasures/use/[id]`（PARENT 専用・同家庭スコープ）を新設**。状態判定は純粋関数 `canUseByParent`（`src/lib/treasureUse.ts`）、DB 書き込みは `useTreasureByParent`（`src/lib/approve.ts`）に集約。`updateMany` の where に `useStatus: { in: ["UNUSED", "USE_REQUESTED"] }` を含め、承認センター・cron との競合は 0 件更新 → 400 とする。`fulfilled` は `useStatus === "USED"` と同値で二重書き込み、`useRequestedAt` は触らない
+- **子の権限は増えない**。子画面は従来どおり `UNUSED → USE_REQUESTED` の申請のみ。子から `USE_REQUESTED` / `USED` に遷移させる API は存在しない
+- **`POST /api/treasures/fulfill/[id]` は `USED` の巻き戻し専用のまま**（トグル化しない）
+- **子への Push 通知は送らない**（親操作であり、承認フローの結果通知が不要なため）
+- **保持期間（30日）外の行は子と同じく使用不可**（API で 400、UI ではボタン非表示）
+- XP・進化・ストリーク・バッジ判定は呼ばない（#151 の方針を維持）
+- UI は失敗時、操作前の `useStatus` / `fulfilled` に戻す（`USE_REQUESTED` を一律 `UNUSED` に落とさない）
+
+### 理由
+- 親が自分で操作するのに承認待ちを挟む意味がなく、子の申請が無いと親が使用済みにできない不便があったため
+- 既存の承認 API（`kind: "treasure_use"`）に UNUSED 起点を許可する案は承認の意味が曖昧になる、`fulfill/[id]` のトグル化は #151 の一本化に反する、子の申請を自動生成する案は `useRequestedAt` の虚偽記録を生むため、いずれも不採用
+
+### やってはいけないこと
+- 子から `USE_REQUESTED` / `USED` に遷移させる API を新設する（#151 の方針を維持）
+- `itemId === null`（コレクション獲得）の `TreasureLog` に対して使用系操作を許可する（#151 の方針を維持）
+- `fulfill/[id]` に「使用済みにする」方向の遷移を追加する
+- 親の直接使用で `useRequestedAt` を偽って設定する
+
+### 該当箇所
+- `src/lib/treasureUse.ts` — `canUseByParent` 追加
+- `src/lib/approve.ts` — `useTreasureByParent` 追加
+- `src/app/api/treasures/use/[id]/route.ts` — 新規
+- `src/app/app/parent/(app)/treasures/pending/page.tsx` / `src/components/parent/TreasureUseConfirmModal.tsx` — 「つかった」ボタンと確認モーダル

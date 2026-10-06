@@ -14,6 +14,7 @@ import {
   canApproveUse,
   canRejectUse,
   canRevokeUse,
+  canUseByParent,
   deriveUseStatusFromLegacy,
 } from "@/lib/treasureUse";
 import type { TreasureUseStatus } from "@/generated/prisma/client";
@@ -112,5 +113,27 @@ describe("deriveUseStatusFromLegacy（マイグレーション後の状態）", 
 
   it("itemId===null（コレクション獲得）は fulfilled=false でも UNUSED", () => {
     expect(deriveUseStatusFromLegacy(false, null)).toBe("UNUSED");
+  });
+});
+
+// ─── #164: 親が承認なしで直接「使用済み」にする ─────────────────────
+//   UNUSED        -> USED (canUseByParent) 親が直接使用
+//   USE_REQUESTED -> USED (canUseByParent) 申請済みでも親が直接使用
+//   USED          -> USED は不可（二重使用拒否）
+describe("canUseByParent (UNUSED | USE_REQUESTED -> USED) #164", () => {
+  it("UNUSED からは親が直接使用できる", () => {
+    expect(canUseByParent("UNUSED")).toBe(true);
+  });
+
+  it("USE_REQUESTED からも親が直接使用できる", () => {
+    expect(canUseByParent("USE_REQUESTED")).toBe(true);
+  });
+
+  it("USED からは使用できない（二重使用拒否）", () => {
+    expect(canUseByParent("USED")).toBe(false);
+  });
+
+  it("既存バリデータ canApproveUse(UNUSED) は false のまま（承認の契約は変えない）", () => {
+    expect(canApproveUse("UNUSED")).toBe(false);
   });
 });
