@@ -195,7 +195,7 @@ export default function ParentTreasureHistoryPage() {
                       つかった
                     </button>
                   )}
-                {useStatus === "USED" && (
+                {useStatus === "USED" && it.visibleToChild !== false && (
                   <button
                     type="button"
                     onClick={() => revokeUse(it.id)}
