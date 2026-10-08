@@ -141,23 +141,48 @@ describe("親 pending ページ — visibleToChild グレーアウト (#72)", ()
     expect(li?.className ?? "").not.toMatch(/opacity-50/);
     expect(screen.queryByText(/子画面では非表示/)).toBeNull();
   });
+});
 
-  it("グレーアウト行でも「使用を取り消す」ボタンは動作する（回帰）", async () => {
-    const onRevoke = vi.fn();
-    setupFetch({
-      items: [{ ...sampleItem, useStatus: "USED", fulfilled: true, visibleToChild: false }],
-      onRevoke,
-    });
+// #171: 保持期間外（visibleToChild:false）の行は取り消せない。#72 の「グレーアウト行でもトグル可能」を上書き。
+describe("親 pending ページ — 「使用を取り消す」の表示条件 (#171)", () => {
+  async function renderWith(item: Record<string, unknown>) {
+    setupFetch({ items: [{ ...sampleItem, ...item }] as Parameters<typeof setupFetch>[0]["items"] });
     await act(async () => {
       render(<ParentTreasureHistoryPage />);
     });
     await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+  }
+  const revokeBtn = () => screen.queryByRole("button", { name: /使用を取り消す/ });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /使用を取り消す/ }));
-    });
+  it("USED + visibleToChild:false（期限切れ）は取り消しボタンなし", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true, visibleToChild: false });
+    expect(revokeBtn()).toBeNull();
+  });
 
-    await waitFor(() => expect(onRevoke).toHaveBeenCalledWith("t1"));
+  it("USED + visibleToChild:true は取り消しボタンあり", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true, visibleToChild: true });
+    expect(revokeBtn()).toBeTruthy();
+  });
+
+  it("USED + visibleToChild 未取得（旧レスポンス）は後方互換で取り消しボタンあり", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true });
+    expect(revokeBtn()).toBeTruthy();
+  });
+
+  it("UNUSED + visibleToChild:true は取り消しボタンなし", async () => {
+    await renderWith({ useStatus: "UNUSED", visibleToChild: true });
+    expect(revokeBtn()).toBeNull();
+  });
+
+  it("USE_REQUESTED + visibleToChild:true は取り消しボタンなし", async () => {
+    await renderWith({ useStatus: "USE_REQUESTED", visibleToChild: true });
+    expect(revokeBtn()).toBeNull();
+  });
+
+  it("USED + visibleToChild:false でも行は表示され「子画面では非表示」ラベルが残る", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true, visibleToChild: false });
+    expect(screen.getByText("✅ 使用済み")).toBeTruthy();
+    expect(screen.getByText(/子画面では非表示/)).toBeTruthy();
   });
 });
 

@@ -1171,3 +1171,41 @@ describe("POST /api/approve/[id] — kind:treasure_use", () => {
     expect(mockCheckAndUnlockBadges).not.toHaveBeenCalled();
   });
 });
+
+// ─── #171: 保持期間外でも承認センターの承認・却下は従来どおり動く（実装が期限を見ない契約）─────
+describe("POST /api/approve/[id] — kind:treasure_use は保持期間外でも動作する（#171 回帰）", () => {
+  const EXPIRED_OPENED_AT = new Date("2020-01-01T00:00:00Z"); // 30日を大幅に超過
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("期限切れの openedAt を持つ USE_REQUESTED の承認が 200", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED", openedAt: EXPIRED_OPENED_AT }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("期限切れの openedAt を持つ USE_REQUESTED の却下が 200", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED", openedAt: EXPIRED_OPENED_AT }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "reject" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+});
+

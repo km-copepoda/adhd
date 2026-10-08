@@ -4,6 +4,7 @@
 //
 // 旧仕様（fulfilled を任意の boolean にトグルできた）は廃止。
 // USED -> UNUSED の巻き戻しのみを許可する（PARENT only）。
+// #171: 保持期間（30日）を過ぎたごほうびは取り消し不可（400）。
 // USE_REQUESTED や UNUSED からの巻き戻しは 400（承認/却下は /api/approve/[id] 側の責務）。
 
 import { NextResponse } from "next/server";
@@ -12,6 +13,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { canRevokeUse } from "@/lib/treasureUse";
 import { revokeTreasureUse } from "@/lib/approve";
+import { isWithinTreasureHistoryWindow } from "@/lib/treasureHistory";
 
 export async function POST(
   request: Request,
@@ -31,7 +33,7 @@ export async function POST(
   // 同 family の TreasureLog のみ対象 (family スコープで他家庭の操作を防ぐ)
   const log = await prisma.treasureLog.findFirst({
     where: { id, child: { familyId: user.familyId } },
-    select: { id: true, itemId: true, useStatus: true },
+    select: { id: true, itemId: true, useStatus: true, openedAt: true },
   });
   if (!log) {
     return NextResponse.json({ error: "対象が見つかりません" }, { status: 404 });
@@ -41,6 +43,14 @@ export async function POST(
   if (log.itemId === null) {
     return NextResponse.json(
       { error: "コレクション獲得には受け渡しチェックは不要です" },
+      { status: 400 },
+    );
+  }
+
+  // 保持期間を過ぎたごほうびは親でも取り消せない（子の履歴から消えた状態を変えない）
+  if (!isWithinTreasureHistoryWindow(log.openedAt, new Date())) {
+    return NextResponse.json(
+      { error: "保持期間を過ぎたごほうびは取り消せません" },
       { status: 400 },
     );
   }
