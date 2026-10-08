@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { fetchDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import { STREAK_MILESTONES, getUnreadAchievements } from "@/lib/streakMilestones";
 import type { MonsterStatusResponse } from "@/types";
 
@@ -9,6 +10,7 @@ export type MonsterData = {
   name: string;
   side: string | null;
   monsterSetId: string;
+  pendingMonsterSetId?: string | null;
   evolutionStage: number;
   evolutionPath: string;
   collectedPaths: string;
@@ -50,7 +52,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
   const [unlockedAchievement, setUnlockedAchievement] = useState<typeof STREAK_MILESTONES[number] | null>(null);
 
   const fetchStatus = (): Promise<MonsterStatusResponse | null> =>
-    fetch("/api/monster-status").then((r) => (r.ok ? r.json() : null));
+    fetchDeduped("/api/monster-status").then((r) => (r.ok ? r.json() : null));
 
   const checkAchievementUnlock = (currentStreak: number) => {
     try {
@@ -66,7 +68,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
 
   function applyStatus(d: MonsterStatusResponse) {
     setData({
-      name: d.name, side: d.side ?? null, monsterSetId: d.monsterSetId ?? "dark", evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
+      name: d.name, side: d.side ?? null, monsterSetId: d.monsterSetId ?? "dark", pendingMonsterSetId: d.pendingMonsterSetId ?? null, evolutionStage: d.evolutionStage, evolutionPath: d.evolutionPath ?? "",
       collectedPaths: d.collectedPaths ?? "[]",
       studyPt: d.studyPt, staminaPt: d.staminaPt, lifePt: d.lifePt,
       pendingStudyPt: d.pendingStudyPt, pendingStaminaPt: d.pendingStaminaPt, pendingLifePt: d.pendingLifePt,
@@ -85,19 +87,15 @@ export function useMonsterStatus(): UseMonsterStatusResult {
       .then((d) => { if (d) applyStatus(d); })
       .finally(() => setLoading(false));
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("monster-changes")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, () => {
-        fetchStatus().then((d) => { if (d) applyStatus(d); });
-      })
-      .subscribe();
+    const offRealtime = subscribeChildRealtime("User", () => {
+      fetchStatus().then((d) => { if (d) applyStatus(d); });
+    });
 
     const onVisible = () => { if (document.visibilityState === "visible") fetchStatus(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      supabase.removeChannel(channel);
+      offRealtime();
       document.removeEventListener("visibilitychange", onVisible);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

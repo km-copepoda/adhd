@@ -1,9 +1,9 @@
 """
 モンスター画像から影版webpを生成するスクリプト。
 透明部分はそのまま、不透明ピクセルはすべて暗紫色 (25, 20, 50) に置換する。
-出力先: public/monsters/shadow/dark/ および public/monsters/shadow/light/
+出力先: public/monsters/shadow/<テーマID>/
 """
-import os
+import sys
 from pathlib import Path
 from PIL import Image
 
@@ -26,10 +26,9 @@ def make_shadow(src: Path, dst: Path) -> None:
 
 def main() -> None:
     base = Path(__file__).parent.parent / "public" / "monsters"
-    targets = [
-        (base / "dark", base / "shadow" / "dark"),
-        (base / "light", base / "shadow" / "light"),
-    ]
+    # 引数でテーマIDを指定できる（例: python scripts/gen_shadow.py yokai）。省略時は dark / light / yokai
+    themes = sys.argv[1:] or ["dark", "light", "yokai"]
+    targets = [(base / t, base / "shadow" / t) for t in themes]
     for src_dir, dst_dir in targets:
         if not src_dir.exists():
             continue

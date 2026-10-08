@@ -8,11 +8,18 @@ export async function GET() {
     return NextResponse.json({ approvals: 0, tasks: 0 });
   }
 
-  const [approvals, tasks] = await Promise.all([
+  const [questApprovals, treasureUseApprovals, tasks] = await Promise.all([
     prisma.questInstance.count({
       where: {
         OR: [{ status: "REPORTED" }, { status: "SKIP_REPORTED" }],
         template: { familyId: user.familyId },
+      },
+    }),
+    // #151: ごほうび使用申請も承認待ちに合算する
+    prisma.treasureLog.count({
+      where: {
+        useStatus: "USE_REQUESTED",
+        child: { familyId: user.familyId },
       },
     }),
     prisma.taskTemplate.count({
@@ -24,5 +31,5 @@ export async function GET() {
     }),
   ]);
 
-  return NextResponse.json({ approvals, tasks });
+  return NextResponse.json({ approvals: questApprovals + treasureUseApprovals, tasks });
 }

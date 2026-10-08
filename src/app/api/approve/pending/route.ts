@@ -71,13 +71,42 @@ export async function GET() {
     );
   }
 
-  const enriched = quests.map((q) => {
+  const enrichedQuests = quests.map((q) => {
     const declaredToday = q.reportedAt
       ? declaredSet.has(`${q.templateId}|${q.childId}|${jstDateOf(q.reportedAt).toISOString()}`)
       : false;
-    return { ...q, declaredToday };
+    return { ...q, declaredToday, kind: "quest" as const, requestedAt: q.reportedAt };
   });
 
-  rlog.info("Pending approvals fetched", { userId: user.id, familyId: user.familyId, count: quests.length });
-  return NextResponse.json(enriched);
+  // #151: ごほうび使用申請 (TreasureLog) を承認待ちに合流させる
+  const treasureUses = await prisma.treasureLog.findMany({
+    where: {
+      useStatus: "USE_REQUESTED",
+      child: { familyId: user.familyId },
+    },
+    include: {
+      child: { select: { name: true, monsterName: true, side: true } },
+      item: { select: { id: true, title: true, rarity: true } },
+    },
+    orderBy: { useRequestedAt: "desc" },
+  });
+  const enrichedTreasureUses = treasureUses.map((t) => ({
+    ...t,
+    kind: "treasure_use" as const,
+    requestedAt: t.useRequestedAt,
+  }));
+
+  // クエストとごほうび申請を requestedAt（reportedAt / useRequestedAt）で降順に再ソートして合流
+  const merged = [...enrichedQuests, ...enrichedTreasureUses].sort((a, b) => {
+    const at = a.requestedAt ? new Date(a.requestedAt).getTime() : 0;
+    const bt = b.requestedAt ? new Date(b.requestedAt).getTime() : 0;
+    return bt - at;
+  });
+
+  rlog.info("Pending approvals fetched", {
+    userId: user.id,
+    familyId: user.familyId,
+    count: merged.length,
+  });
+  return NextResponse.json(merged);
 }

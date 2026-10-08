@@ -229,3 +229,64 @@ export async function approveSkipQuestInstance(
     resolveTreasureDate(quest.date, quest.template.carryOver, quest.reportedAt ?? new Date()),
   );
 }
+
+// ─── #151: ごほうび使用申請の親承認フロー ─────────────────────────
+//
+// XP・進化(checkEvolution)・ストリーク・バッジには一切触れない
+// （ごほうび使用は既に付与済みの実物の受け渡し確認であり、成長要素と無関係）。
+// すべて条件付き updateMany（where に現在の useStatus を含める）で、
+// TOCTOU レース・多重実行に対して安全にする。呼び出し元が count===0（レース負け）
+// を判別できるよう、Prisma の BatchPayload をそのまま返す。
+
+/** USE_REQUESTED -> USED。fulfilled も同時に true へ同期する。 */
+export async function approveTreasureUse(logId: string): Promise<{ count: number }> {
+  return prisma.treasureLog.updateMany({
+    where: { id: logId, useStatus: "USE_REQUESTED" },
+    data: { useStatus: "USED", useApprovedAt: new Date(), fulfilled: true },
+  });
+}
+
+/**
+ * #164: UNUSED / USE_REQUESTED -> USED（親が承認なしで直接使用）。
+ * useRequestedAt は触らない（UNUSED 起点では null のまま。虚偽の申請記録を作らない）。
+ */
+export async function useTreasureByParent(logId: string): Promise<{ count: number }> {
+  return prisma.treasureLog.updateMany({
+    where: { id: logId, useStatus: { in: ["UNUSED", "USE_REQUESTED"] } },
+    data: { useStatus: "USED", fulfilled: true, useApprovedAt: new Date() },
+  });
+}
+
+/** USE_REQUESTED -> UNUSED（却下）。useRequestedAt をクリアし再申請可能にする。 */
+export async function rejectTreasureUse(logId: string): Promise<{ count: number }> {
+  return prisma.treasureLog.updateMany({
+    where: { id: logId, useStatus: "USE_REQUESTED" },
+    data: { useStatus: "UNUSED", useRequestedAt: null },
+  });
+}
+
+/** USED -> UNUSED（巻き戻し）。useRequestedAt / useApprovedAt を両方クリアし再申請可能にする。 */
+export async function revokeTreasureUse(logId: string): Promise<{ count: number }> {
+  return prisma.treasureLog.updateMany({
+    where: { id: logId, useStatus: "USED" },
+    data: { useStatus: "UNUSED", useRequestedAt: null, useApprovedAt: null, fulfilled: false },
+  });
+}
+
+/**
+ * #151: cron 用 — cutoff（JST今日0:00）より前に申請されたまま放置された
+ * 「ごほうび使用申請」(USE_REQUESTED) をまとめて自動承認する。
+ * 書き込み内容は `approveTreasureUse` と同一だが、対象を1件のIDではなく
+ * cutoff より前の USE_REQUESTED 全件に広げたもの。
+ * itemId===null（コレクション獲得）は使用申請の概念が無く常に UNUSED 固定なので対象外。
+ */
+export async function autoApproveStaleTreasureUses(cutoff: Date): Promise<{ count: number }> {
+  return prisma.treasureLog.updateMany({
+    where: {
+      useStatus: "USE_REQUESTED",
+      itemId: { not: null },
+      useRequestedAt: { lt: cutoff },
+    },
+    data: { useStatus: "USED", useApprovedAt: new Date(), fulfilled: true },
+  });
+}

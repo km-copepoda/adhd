@@ -6,6 +6,7 @@ import { ensureTodayQuests } from "@/lib/quests";
 import {
   getIdleCalendarDays,
   getMissedExposureCount,
+  groupRecentInstancesByTemplate,
   isEligibleForDeclaration,
 } from "@/lib/declaration";
 
@@ -55,17 +56,18 @@ export async function GET() {
 
   // 「今日やる宣言」用の集計: 各テンプレートの直近 N インスタンス + 当日宣言の有無
   const templateIds = Array.from(new Set(quests.map((q) => q.templateId)));
-  const [instancesByTemplate, declarationsToday] = await Promise.all([
-    Promise.all(
-      templateIds.map((tid) =>
-        prisma.questInstance.findMany({
-          where: { templateId: tid, childId: user.id },
+  // 履歴は全テンプレート分を1クエリで取得し、テンプレートごとの直近 N 件へ絞る
+  // （取得行数は増えるがクエリ本数は定数。N+1 回避）
+  const [historyRows, declarationsToday] = await Promise.all([
+    templateIds.length
+      ? prisma.questInstance.findMany({
+          where: { childId: user.id, templateId: { in: templateIds } },
           orderBy: { date: "desc" },
-          take: INSTANCE_LOOKBACK_LIMIT,
-          select: { date: true, status: true, approvedAt: true },
-        }),
-      ),
-    ),
+          select: { templateId: true, date: true, status: true, approvedAt: true },
+        })
+      : Promise.resolve(
+          [] as { templateId: string; date: Date; status: string; approvedAt: Date | null }[],
+        ),
     templateIds.length
       ? prisma.questDeclaration.findMany({
           where: { childId: user.id, date: today, templateId: { in: templateIds } },
@@ -74,8 +76,10 @@ export async function GET() {
       : Promise.resolve([] as { templateId: string }[]),
   ]);
 
-  const instancesMap = new Map<string, { date: Date; status: string; approvedAt: Date | null }[]>(
-    templateIds.map((tid, i) => [tid, instancesByTemplate[i]]),
+  const instancesMap = groupRecentInstancesByTemplate(
+    historyRows,
+    templateIds,
+    INSTANCE_LOOKBACK_LIMIT,
   );
   const declaredTemplateIds = new Set(declarationsToday.map((d) => d.templateId));
 

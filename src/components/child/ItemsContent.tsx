@@ -197,7 +197,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
       <h1 className="font-serif text-quest-gold text-xl tracking-widest mb-1 text-center">
         🎁 コレクションアイテム
       </h1>
-      <p className="text-quest-dim text-xs text-center mb-4">
+      <p className="text-quest-muted text-xs text-center mb-4">
         つうじょう <span className="text-quest-text font-bold">{totalOwnedRegular}</span> /{" "}
         {allRegular.length}
         <span className="mx-2 opacity-40">|</span>
@@ -235,7 +235,7 @@ export default function ItemsContent({ fetchUrl = "/api/collection-items" }: Pro
         })}
       </div>
 
-      <p className="text-center text-quest-dim text-[11px] mb-4">
+      <p className="text-center text-quest-muted text-[11px] mb-4">
         {SEASON_LABEL[season]}: つうじょう {ownedRegularInSeason} / {seasonRegular.length}
         <span className="mx-1 opacity-40">・</span>
         げんてい {ownedMonthlyInSeason} / {seasonMonthly.length}

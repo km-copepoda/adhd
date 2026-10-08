@@ -2,10 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/approve/[id]/route";
 import { getCurrentUser } from "@/lib/auth";
 import { recordTaskStreak } from "@/lib/streak";
+import { checkAndUnlockBadges } from "@/lib/badges";
 import { cancelTreasuresOnReject } from "@/lib/treasureService";
 import { makeRequest, makeParams } from "../../helpers/request";
 import { prismaMock } from "../../helpers/prisma-mock";
-import { parentUserWithFamily, childUserWithFamily, questWithTemplateAndChild, questInstance, questDeclaration } from "../../helpers/fixtures";
+import {
+  parentUserWithFamily,
+  childUserWithFamily,
+  questWithTemplateAndChild,
+  questInstance,
+  questDeclaration,
+  treasureLog,
+} from "../../helpers/fixtures";
 
 // recordDailyAchievement / recordTaskStreak をモックして承認テストから分離
 vi.mock("@/lib/streak", () => ({
@@ -24,6 +32,7 @@ vi.mock("@/lib/treasureService", () => ({
 
 const mockRecordTaskStreak = vi.mocked(recordTaskStreak);
 const mockCancelTreasures = vi.mocked(cancelTreasuresOnReject);
+const mockCheckAndUnlockBadges = vi.mocked(checkAndUnlockBadges);
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 
@@ -37,13 +46,13 @@ beforeEach(() => {
 describe("POST /api/approve/[id]", () => {
   it("未認証の場合、403を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
-    const res = await POST(makeRequest("/api/approve/q1", { action: "approve" }), makeParams("q1"));
+    const res = await POST(makeRequest("/api/approve/q1", { kind: "quest", action: "approve" }), makeParams("q1"));
     expect(res.status).toBe(403);
   });
 
   it("CHILDロールの場合、403を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
-    const res = await POST(makeRequest("/api/approve/q1", { action: "approve" }), makeParams("q1"));
+    const res = await POST(makeRequest("/api/approve/q1", { kind: "quest", action: "approve" }), makeParams("q1"));
     expect(res.status).toBe(403);
   });
 
@@ -52,7 +61,7 @@ describe("POST /api/approve/[id]", () => {
     prismaMock.questInstance.findUnique.mockResolvedValue(null);
 
     const res = await POST(
-      makeRequest("/api/approve/q-none", { action: "approve" }),
+      makeRequest("/api/approve/q-none", { kind: "quest", action: "approve" }),
       makeParams("q-none"),
     );
     expect(res.status).toBe(404);
@@ -71,7 +80,7 @@ describe("POST /api/approve/[id]", () => {
     );
 
     const res = await POST(
-      makeRequest("/api/approve/q-pending", { action: "approve" }),
+      makeRequest("/api/approve/q-pending", { kind: "quest", action: "approve" }),
       makeParams("q-pending"),
     );
     expect(res.status).toBe(400);
@@ -89,7 +98,7 @@ describe("POST /api/approve/[id]", () => {
     );
 
     const res = await POST(
-      makeRequest("/api/approve/q-approved", { action: "approve" }),
+      makeRequest("/api/approve/q-approved", { kind: "quest", action: "approve" }),
       makeParams("q-approved"),
     );
     expect(res.status).toBe(400);
@@ -107,7 +116,7 @@ describe("POST /api/approve/[id]", () => {
     );
 
     const res = await POST(
-      makeRequest("/api/approve/q-skipped", { action: "approve" }),
+      makeRequest("/api/approve/q-skipped", { kind: "quest", action: "approve" }),
       makeParams("q-skipped"),
     );
     expect(res.status).toBe(400);
@@ -125,7 +134,7 @@ describe("POST /api/approve/[id]", () => {
     );
 
     const res = await POST(
-      makeRequest("/api/approve/q-rejected", { action: "approve" }),
+      makeRequest("/api/approve/q-rejected", { kind: "quest", action: "approve" }),
       makeParams("q-rejected"),
     );
     expect(res.status).toBe(400);
@@ -151,7 +160,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.user.update.mockResolvedValue(quest.child);
 
       const res = await POST(
-        makeRequest("/api/approve/q1", { action: "approve" }),
+        makeRequest("/api/approve/q1", { kind: "quest", action: "approve" }),
         makeParams("q1"),
       );
       const json = await res.json();
@@ -190,7 +199,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q1-dl", { action: "approve" }), makeParams("q1-dl"));
+      await POST(makeRequest("/api/approve/q1-dl", { kind: "quest", action: "approve" }), makeParams("q1-dl"));
 
       // 基本1 + 期限1 = 2pt → studyPt: 2
       expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -212,7 +221,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q1-ph", { action: "approve" }), makeParams("q1-ph"));
+      await POST(makeRequest("/api/approve/q1-ph", { kind: "quest", action: "approve" }), makeParams("q1-ph"));
 
       // 基本1 + 写真1 = 2pt → staminaPt: 2
       expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -234,7 +243,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q1-all", { action: "approve" }), makeParams("q1-all"));
+      await POST(makeRequest("/api/approve/q1-all", { kind: "quest", action: "approve" }), makeParams("q1-all"));
 
       // 基本1 + 期限1 + 写真1 = 3pt → lifePt: 3
       expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -256,7 +265,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q1b", { action: "approve" }), makeParams("q1b"));
+      await POST(makeRequest("/api/approve/q1b", { kind: "quest", action: "approve" }), makeParams("q1b"));
 
       // EASY=1pt → studyPt: 1+1=2, total=2 < 10 (ステージ1の閾値) → 進化しない
       expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -288,7 +297,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.taskTemplate.update.mockResolvedValue(quest.template);
 
       const res = await POST(
-        makeRequest("/api/approve/q2", { action: "approve" }),
+        makeRequest("/api/approve/q2", { kind: "quest", action: "approve" }),
         makeParams("q2"),
       );
       const json = await res.json();
@@ -314,7 +323,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.user.update.mockResolvedValue(quest.child);
 
       const res = await POST(
-        makeRequest("/api/approve/q-tmp", { action: "approve" }),
+        makeRequest("/api/approve/q-tmp", { kind: "quest", action: "approve" }),
         makeParams("q-tmp"),
       );
       const json = await res.json();
@@ -338,7 +347,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.user.update.mockResolvedValue(quest.child);
 
       await POST(
-        makeRequest("/api/approve/q-stamp", { action: "approve", stamp: "⭐" }),
+        makeRequest("/api/approve/q-stamp", { kind: "quest", action: "approve", stamp: "⭐" }),
         makeParams("q-stamp"),
       );
 
@@ -364,7 +373,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.user.update.mockResolvedValue(quest.child);
 
       await POST(
-        makeRequest("/api/approve/q-nostamp", { action: "approve" }),
+        makeRequest("/api/approve/q-nostamp", { kind: "quest", action: "approve" }),
         makeParams("q-nostamp"),
       );
 
@@ -388,7 +397,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q3", { action: "approve" }), makeParams("q3"));
+      await POST(makeRequest("/api/approve/q3", { kind: "quest", action: "approve" }), makeParams("q3"));
 
       expect(prismaMock.taskTemplate.update).not.toHaveBeenCalled();
     });
@@ -420,7 +429,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q-decl", { action: "approve" }), makeParams("q-decl"));
+      await POST(makeRequest("/api/approve/q-decl", { kind: "quest", action: "approve" }), makeParams("q-decl"));
 
       // 基本1pt + 宣言ボーナス1pt = 2pt
       expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -453,7 +462,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q-no-decl", { action: "approve" }), makeParams("q-no-decl"));
+      await POST(makeRequest("/api/approve/q-no-decl", { kind: "quest", action: "approve" }), makeParams("q-no-decl"));
 
       expect(prismaMock.user.update).toHaveBeenCalledWith({
         where: { id: "child-1" },
@@ -485,7 +494,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q-decl-all", { action: "approve" }), makeParams("q-decl-all"));
+      await POST(makeRequest("/api/approve/q-decl-all", { kind: "quest", action: "approve" }), makeParams("q-decl-all"));
 
       // 1 + 1 (deadline) + 1 (photo) + 1 (declaration) = 4
       expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -520,7 +529,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.user.update.mockResolvedValue(quest.child);
 
       const res = await POST(
-        makeRequest("/api/approve/q-rebirth", { action: "approve" }),
+        makeRequest("/api/approve/q-rebirth", { kind: "quest", action: "approve" }),
         makeParams("q-rebirth"),
       );
       const json = await res.json();
@@ -562,7 +571,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
       prismaMock.user.update.mockResolvedValue(quest.child);
 
-      await POST(makeRequest("/api/approve/q-legacy", { action: "approve" }), makeParams("q-legacy"));
+      await POST(makeRequest("/api/approve/q-legacy", { kind: "quest", action: "approve" }), makeParams("q-legacy"));
 
       // snapshotCategory欠落 → template.category (STAMINA) にフォールバックして staminaPt に加算
       // monsterLevels欠落 → "{}" 扱いで正常に更新される
@@ -587,7 +596,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
 
       const res = await POST(
-        makeRequest("/api/approve/q-skip", { action: "approve" }),
+        makeRequest("/api/approve/q-skip", { kind: "quest", action: "approve" }),
         makeParams("q-skip"),
       );
       const json = await res.json();
@@ -617,7 +626,7 @@ describe("POST /api/approve/[id]", () => {
       ]);
 
       const res = await POST(
-        makeRequest("/api/approve/q-skip2", { action: "reject" }),
+        makeRequest("/api/approve/q-skip2", { kind: "quest", action: "reject" }),
         makeParams("q-skip2"),
       );
       const json = await res.json();
@@ -650,7 +659,7 @@ describe("POST /api/approve/[id]", () => {
       ]);
 
       await POST(
-        makeRequest("/api/approve/q-skip3", { action: "reject" }),
+        makeRequest("/api/approve/q-skip3", { kind: "quest", action: "reject" }),
         makeParams("q-skip3"),
       );
 
@@ -679,7 +688,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
 
       await POST(
-        makeRequest("/api/approve/q-skip-ok", { action: "approve" }),
+        makeRequest("/api/approve/q-skip-ok", { kind: "quest", action: "approve" }),
         makeParams("q-skip-ok"),
       );
       // SKIP_REPORTED→SKIPPED は reportedCount も skippedCount も変えないので再評価不要
@@ -701,7 +710,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.findUnique.mockResolvedValue(quest);
 
       const res = await POST(
-        makeRequest("/api/approve/q4", { action: "reject" }),
+        makeRequest("/api/approve/q4", { kind: "quest", action: "reject" }),
         makeParams("q4"),
       );
       expect(res.status).toBe(400);
@@ -719,7 +728,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.update.mockResolvedValue(quest);
 
       const res = await POST(
-        makeRequest("/api/approve/q4", { action: "reject", rejectionReason: "写真が暗くてよく見えないよ" }),
+        makeRequest("/api/approve/q4", { kind: "quest", action: "reject", rejectionReason: "写真が暗くてよく見えないよ" }),
         makeParams("q4"),
       );
       const json = await res.json();
@@ -743,7 +752,7 @@ describe("POST /api/approve/[id]", () => {
       prismaMock.questInstance.findUnique.mockResolvedValue(quest);
 
       const res = await POST(
-        makeRequest("/api/approve/q4b", { action: "reject", rejectionReason: "その他" }),
+        makeRequest("/api/approve/q4b", { kind: "quest", action: "reject", rejectionReason: "その他" }),
         makeParams("q4b"),
       );
       expect(res.status).toBe(400);
@@ -761,6 +770,7 @@ describe("POST /api/approve/[id]", () => {
 
       const res = await POST(
         makeRequest("/api/approve/q4c", {
+          kind: "quest",
           action: "reject",
           rejectionReason: "その他",
           rejectionComment: "算数プリントだけやってね",
@@ -794,7 +804,7 @@ describe("POST /api/approve/[id]", () => {
       ]);
 
       await POST(
-        makeRequest("/api/approve/q-rej", { action: "reject", rejectionReason: "がんばろう" }),
+        makeRequest("/api/approve/q-rej", { kind: "quest", action: "reject", rejectionReason: "がんばろう" }),
         makeParams("q-rej"),
       );
 
@@ -842,7 +852,7 @@ describe("POST /api/approve/[id]", () => {
         ]);
 
         await POST(
-          makeRequest("/api/approve/q-carry-rej", { action: "reject", rejectionReason: "がんばろう" }),
+          makeRequest("/api/approve/q-carry-rej", { kind: "quest", action: "reject", rejectionReason: "がんばろう" }),
           makeParams("q-carry-rej"),
         );
 
@@ -881,7 +891,7 @@ describe("POST /api/approve/[id]", () => {
         ]);
 
         await POST(
-          makeRequest("/api/approve/q-noncarry-rej", { action: "reject", rejectionReason: "がんばろう" }),
+          makeRequest("/api/approve/q-noncarry-rej", { kind: "quest", action: "reject", rejectionReason: "がんばろう" }),
           makeParams("q-noncarry-rej"),
         );
 
@@ -895,3 +905,307 @@ describe("POST /api/approve/[id]", () => {
     });
   });
 });
+
+// ─── #151: body.kind バリデーション ─────────────────────────
+// bodyに kind: "quest" | "treasure_use" を必須化する。未指定・不正値は 400。
+
+describe("POST /api/approve/[id] — kind バリデーション（#151）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.questDeclaration.findUnique.mockResolvedValue(null);
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+  });
+
+  it("kind未指定は400（クエスト取得もしない）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    const res = await POST(makeRequest("/api/approve/q1", { action: "approve" }), makeParams("q1"));
+    expect(res.status).toBe(400);
+    expect(prismaMock.questInstance.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("kindが不正な値（quest/treasure_use以外）は400", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    const res = await POST(
+      makeRequest("/api/approve/q1", { kind: "invalid", action: "approve" }),
+      makeParams("q1"),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─── #151: kind:"quest" の家庭スコープ漏れ修正の回帰テスト ─────────
+// 既存実装は quest.id のみで findUnique しており、familyId によるスコープが
+// 一切掛かっていなかった（親が他家庭の questId を指定すると操作できてしまう）。
+
+describe("POST /api/approve/[id] — kind:quest の家庭スコープ（#151 回帰テスト）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.questDeclaration.findUnique.mockResolvedValue(null);
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+  });
+
+  it("他家庭のテンプレート（template.familyId不一致）に紐づくクエストは404", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    const quest = questWithTemplateAndChild(
+      { id: "q-other-fam", status: "REPORTED", childId: "child-1", templateId: "tpl-1" },
+      { category: "STUDY", familyId: "fam-2" },
+      { id: "child-1" },
+    );
+    prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-other-fam", { kind: "quest", action: "approve" }),
+      makeParams("q-other-fam"),
+    );
+    expect(res.status).toBe(404);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(prismaMock.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("他家庭の子供（child.familyId不一致）に紐づくクエストは404", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    const quest = questWithTemplateAndChild(
+      { id: "q-other-child-fam", status: "REPORTED", childId: "child-9", templateId: "tpl-1" },
+      { category: "STUDY", familyId: "fam-1" },
+      { id: "child-9", familyId: "fam-2" },
+    );
+    prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-other-child-fam", { kind: "quest", action: "approve" }),
+      makeParams("q-other-child-fam"),
+    );
+    expect(res.status).toBe(404);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("同家庭のクエストは通常通り承認できる（回帰防止）", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    const childOverrides = {
+      id: "child-1",
+      familyId: "fam-1",
+      evolutionPath: "",
+      evolutionStage: 0,
+      studyPt: 0,
+      staminaPt: 0,
+      lifePt: 0,
+      collectedPaths: "[]",
+      side: null,
+      monsterSetId: "dark",
+    };
+    const quest = questWithTemplateAndChild(
+      { id: "q-same-fam", status: "REPORTED", childId: "child-1", templateId: "tpl-1", deadlineBonusEarned: false, photoUrl: null, snapshotCategory: "STUDY" },
+      { category: "STUDY", createdBy: "PARENT", photoBonus: false, familyId: "fam-1" },
+      childOverrides,
+    );
+    prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+    prismaMock.user.findUnique.mockResolvedValue(quest.child);
+    prismaMock.questInstance.update.mockResolvedValue(quest);
+    prismaMock.user.update.mockResolvedValue(quest.child);
+
+    const res = await POST(
+      makeRequest("/api/approve/q-same-fam", { kind: "quest", action: "approve" }),
+      makeParams("q-same-fam"),
+    );
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    vi.restoreAllMocks();
+  });
+});
+
+// ─── #151: kind:"treasure_use" の承認・却下 ─────────────────────
+
+describe("POST /api/approve/[id] — kind:treasure_use", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("CHILDロールは403（treasure_useでも通常のロールチェックが効く）", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("対象 TreasureLog が無ければ404", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(null);
+    const res = await POST(
+      makeRequest("/api/approve/tl-missing", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-missing"),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("他家庭の TreasureLog は404（新規の家庭スコープチェック）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(null);
+    const res = await POST(
+      makeRequest("/api/approve/tl-other-fam", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-other-fam"),
+    );
+    expect(res.status).toBe(404);
+    const where = prismaMock.treasureLog.findFirst.mock.calls[0][0]?.where as {
+      id?: unknown;
+      child?: { familyId?: unknown };
+    };
+    expect(where.id).toBe("tl-other-fam");
+    expect(where.child?.familyId).toBe("fam-1");
+  });
+
+  it("USE_REQUESTED以外（UNUSED）への承認は400", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "UNUSED" }),
+    );
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(400);
+    expect(prismaMock.treasureLog.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("USE_REQUESTED以外（USED）への承認は400（二重承認防止）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USED" }),
+    );
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("USE_REQUESTED以外（UNUSED）への却下は400", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "UNUSED" }),
+    );
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "reject" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(400);
+    expect(prismaMock.treasureLog.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("承認: useStatus が USED になり useApprovedAt が設定され fulfilled も同期する", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED", useRequestedAt: new Date("2026-05-20T10:00:00Z") }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+
+    const call = prismaMock.treasureLog.updateMany.mock.calls[0][0];
+    expect(call?.data).toMatchObject({
+      useStatus: "USED",
+      useApprovedAt: expect.any(Date),
+      fulfilled: true,
+    });
+    const where = call?.where as { id?: unknown; useStatus?: unknown };
+    expect(where.id).toBe("tl-1");
+    expect(where.useStatus).toBe("USE_REQUESTED");
+  });
+
+  it("却下: useStatus が UNUSED に戻り useRequestedAt がクリアされる（再申請可能）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED", useRequestedAt: new Date("2026-05-20T10:00:00Z") }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "reject" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+
+    const call = prismaMock.treasureLog.updateMany.mock.calls[0][0];
+    expect(call?.data).toMatchObject({
+      useStatus: "UNUSED",
+      useRequestedAt: null,
+    });
+  });
+
+  it("却下に理由（rejectionReason）は不要（未指定でも400にならない）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED" }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "reject" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("承認してもXP・進化ステージ・ストリーク・バッジが変化しない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED" }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(mockRecordTaskStreak).not.toHaveBeenCalled();
+    expect(mockCheckAndUnlockBadges).not.toHaveBeenCalled();
+  });
+});
+
+// ─── #171: 保持期間外でも承認センターの承認・却下は従来どおり動く（実装が期限を見ない契約）─────
+describe("POST /api/approve/[id] — kind:treasure_use は保持期間外でも動作する（#171 回帰）", () => {
+  const EXPIRED_OPENED_AT = new Date("2020-01-01T00:00:00Z"); // 30日を大幅に超過
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("期限切れの openedAt を持つ USE_REQUESTED の承認が 200", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED", openedAt: EXPIRED_OPENED_AT }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "approve" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("期限切れの openedAt を持つ USE_REQUESTED の却下が 200", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+    prismaMock.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "tl-1", itemId: "item-1", useStatus: "USE_REQUESTED", openedAt: EXPIRED_OPENED_AT }),
+    );
+    prismaMock.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(
+      makeRequest("/api/approve/tl-1", { kind: "treasure_use", action: "reject" }),
+      makeParams("tl-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+});
+

@@ -59,9 +59,8 @@ describe("子 BottomNav 宝箱タブは常に表示される", () => {
     render(<BottomNav />);
     // fetch が完了して状態が更新された後も維持されることを担保
     await waitFor(() => {
-      expect((global.fetch as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(
-        expect.stringContaining("/api/treasures/status"),
-      );
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.some(([url]) => String(url).includes("/api/treasures/status"))).toBe(true);
     });
     expect(screen.getByText("宝箱")).toBeTruthy();
   });

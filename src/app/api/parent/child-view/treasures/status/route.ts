@@ -60,6 +60,8 @@ export async function GET(request: Request) {
         item: o.item,
         // #72: 親モード並走レスポンスにも使用状態を露出（child-view は表示のみ・ボタンは出さない）。
         fulfilled: o.item != null ? o.fulfilled : false,
+        // #151: ごほうび使用申請の親承認フロー用ステータス（child-view は表示のみ）。
+        useStatus: o.item != null ? o.useStatus : "UNUSED",
         collectionItem: ci
           ? {
               id: ci.id,

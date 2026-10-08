@@ -13,6 +13,8 @@ export type MonsterStatusResponse = {
   side: Side | null;
   /** 現在有効なモンスターテーマセット id（@/lib/monsterThemes/index の MONSTER_THEMES キー）。 */
   monsterSetId: string;
+  /** 親が予約した次回転生時に反映されるテーマ。未予約は null。 */
+  pendingMonsterSetId?: string | null;
   evolutionStage: number;
   evolutionPath: string;
   collectedPaths: string;

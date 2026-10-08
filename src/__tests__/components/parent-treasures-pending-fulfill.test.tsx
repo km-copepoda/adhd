@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// 親 pending ページの「渡した」チェックトグル UI 動作。
-// 子画面に露出しないことは API レベルで担保 (fulfill route が PARENT のみ受理)。
+// #151: 親 pending ページのごほうび使用申請ステータス表示 / 「使用済み」の取り消しボタン UI 動作。
+// 承認・却下は承認センター（/app/parent/approve）の責務。ここは USED -> UNUSED の巻き戻しのみ。
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -10,6 +10,8 @@ vi.mock("@/components/parent/ParentTreasureTabs", () => ({
 
 import ParentTreasureHistoryPage from "@/app/app/parent/(app)/treasures/pending/page";
 
+type TreasureUseStatus = "UNUSED" | "USE_REQUESTED" | "USED";
+
 function setupFetch(opts: {
   items: Array<{
     id: string;
@@ -17,10 +19,11 @@ function setupFetch(opts: {
     item: { id: string; title: string; rarity: "COMMON" | "UNCOMMON" | "RARE" } | null;
     child: { id: string; name: string | null; monsterName: string | null };
     fulfilled: boolean;
+    useStatus?: TreasureUseStatus;
     visibleToChild?: boolean;
   }>;
   members?: Array<{ id: string; role: "CHILD" | "PARENT"; name: string | null; monsterName: string | null }>;
-  onFulfill?: (id: string, fulfilled: boolean) => void;
+  onRevoke?: (id: string) => void;
 }) {
   const fetchSpy = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     if (typeof url === "string" && url.includes("/api/treasures/pending")) {
@@ -34,11 +37,10 @@ function setupFetch(opts: {
     }
     const m = typeof url === "string" && url.match(/\/api\/treasures\/fulfill\/([^/]+)/);
     if (m && init?.method === "POST") {
-      const body = JSON.parse(init.body as string) as { fulfilled: boolean };
-      opts.onFulfill?.(m[1], body.fulfilled);
+      opts.onRevoke?.(m[1]);
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ ok: true, id: m[1], fulfilled: body.fulfilled }),
+        json: () => Promise.resolve({ ok: true, id: m[1], useStatus: "UNUSED", fulfilled: false }),
       });
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
@@ -62,60 +64,56 @@ const sampleItem = {
   item: { id: "i1", title: "おやつ", rarity: "COMMON" as const },
   child: { id: "c1", name: "太郎", monsterName: "ドラゴン" },
   fulfilled: false,
+  useStatus: "UNUSED" as TreasureUseStatus,
 };
 
-describe("親 pending ページ — 渡したチェック", () => {
-  it("未チェック (fulfilled=false) の行に「まだ渡してない」表示が出る", async () => {
+describe("親 pending ページ — ごほうび使用申請ステータス表示（#151）", () => {
+  it("UNUSED の行に「未使用」表示が出て取り消しボタンは出ない", async () => {
     setupFetch({ items: [sampleItem] });
     await act(async () => {
       render(<ParentTreasureHistoryPage />);
     });
     await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
-    expect(screen.getByText(/まだ渡してない/)).toBeTruthy();
+    expect(screen.getByText("未使用")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /使用を取り消す/ })).toBeNull();
   });
 
-  it("チェック済 (fulfilled=true) の行に「渡し済み」表示が出る", async () => {
-    setupFetch({ items: [{ ...sampleItem, fulfilled: true }] });
+  it("USE_REQUESTED の行に「使用申請中」表示が出て取り消しボタンは出ない", async () => {
+    setupFetch({ items: [{ ...sampleItem, useStatus: "USE_REQUESTED" }] });
     await act(async () => {
       render(<ParentTreasureHistoryPage />);
     });
     await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
-    expect(screen.getByText(/渡し済み/)).toBeTruthy();
+    expect(screen.getByText(/使用申請中/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /使用を取り消す/ })).toBeNull();
   });
 
-  it("ボタンを押すと fulfill API を呼び出し、UI が「渡し済み」表示に切り替わる", async () => {
-    const onFulfill = vi.fn();
-    setupFetch({ items: [sampleItem], onFulfill });
+  it("USED の行に「使用済み」表示が出て取り消しボタンが表示される", async () => {
+    setupFetch({ items: [{ ...sampleItem, useStatus: "USED", fulfilled: true }] });
+    await act(async () => {
+      render(<ParentTreasureHistoryPage />);
+    });
+    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+    expect(screen.getByText("✅ 使用済み")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /使用を取り消す/ })).toBeTruthy();
+  });
+
+  it("取り消しボタンを押すと fulfill API を呼び出し、UI が「未使用」表示に切り替わる", async () => {
+    const onRevoke = vi.fn();
+    setupFetch({ items: [{ ...sampleItem, useStatus: "USED", fulfilled: true }], onRevoke });
     await act(async () => {
       render(<ParentTreasureHistoryPage />);
     });
     await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /渡した/ }));
+      fireEvent.click(screen.getByRole("button", { name: /使用を取り消す/ }));
     });
 
     await waitFor(() => {
-      expect(onFulfill).toHaveBeenCalledWith("t1", true);
+      expect(onRevoke).toHaveBeenCalledWith("t1");
     });
-    await waitFor(() => expect(screen.getByText(/渡し済み/)).toBeTruthy());
-  });
-
-  it("渡し済みボタンを再度押すと fulfilled=false で取り消し", async () => {
-    const onFulfill = vi.fn();
-    setupFetch({ items: [{ ...sampleItem, fulfilled: true }], onFulfill });
-    await act(async () => {
-      render(<ParentTreasureHistoryPage />);
-    });
-    await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /取り消し/ }));
-    });
-
-    await waitFor(() => {
-      expect(onFulfill).toHaveBeenCalledWith("t1", false);
-    });
+    await waitFor(() => expect(screen.getByText("未使用")).toBeTruthy());
   });
 });
 
@@ -143,24 +141,52 @@ describe("親 pending ページ — visibleToChild グレーアウト (#72)", ()
     expect(li?.className ?? "").not.toMatch(/opacity-50/);
     expect(screen.queryByText(/子画面では非表示/)).toBeNull();
   });
+});
 
-  it("グレーアウト行でも「渡した」トグルは動作する（回帰）", async () => {
-    const onFulfill = vi.fn();
-    setupFetch({ items: [{ ...sampleItem, visibleToChild: false }], onFulfill });
+// #171: 保持期間外（visibleToChild:false）の行は取り消せない。#72 の「グレーアウト行でもトグル可能」を上書き。
+describe("親 pending ページ — 「使用を取り消す」の表示条件 (#171)", () => {
+  async function renderWith(item: Record<string, unknown>) {
+    setupFetch({ items: [{ ...sampleItem, ...item }] as Parameters<typeof setupFetch>[0]["items"] });
     await act(async () => {
       render(<ParentTreasureHistoryPage />);
     });
     await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
+  }
+  const revokeBtn = () => screen.queryByRole("button", { name: /使用を取り消す/ });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /渡した/ }));
-    });
+  it("USED + visibleToChild:false（期限切れ）は取り消しボタンなし", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true, visibleToChild: false });
+    expect(revokeBtn()).toBeNull();
+  });
 
-    await waitFor(() => expect(onFulfill).toHaveBeenCalledWith("t1", true));
+  it("USED + visibleToChild:true は取り消しボタンあり", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true, visibleToChild: true });
+    expect(revokeBtn()).toBeTruthy();
+  });
+
+  it("USED + visibleToChild 未取得（旧レスポンス）は後方互換で取り消しボタンあり", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true });
+    expect(revokeBtn()).toBeTruthy();
+  });
+
+  it("UNUSED + visibleToChild:true は取り消しボタンなし", async () => {
+    await renderWith({ useStatus: "UNUSED", visibleToChild: true });
+    expect(revokeBtn()).toBeNull();
+  });
+
+  it("USE_REQUESTED + visibleToChild:true は取り消しボタンなし", async () => {
+    await renderWith({ useStatus: "USE_REQUESTED", visibleToChild: true });
+    expect(revokeBtn()).toBeNull();
+  });
+
+  it("USED + visibleToChild:false でも行は表示され「子画面では非表示」ラベルが残る", async () => {
+    await renderWith({ useStatus: "USED", fulfilled: true, visibleToChild: false });
+    expect(screen.getByText("✅ 使用済み")).toBeTruthy();
+    expect(screen.getByText(/子画面では非表示/)).toBeTruthy();
   });
 });
 
-describe("親 pending ページ — 説明文 (#127)", () => {
+describe("親 pending ページ — 説明文 (#151)", () => {
   it("「子供には見えません」という誤った記述を出さない", async () => {
     setupFetch({ items: [sampleItem] });
     await act(async () => {
@@ -171,13 +197,13 @@ describe("親 pending ページ — 説明文 (#127)", () => {
     expect(screen.queryByText(/子供には表示されません/)).toBeNull();
   });
 
-  it("チェックが子供の画面と共有される旨の説明を出す", async () => {
+  it("使用申請・承認フローに触れる説明を出す", async () => {
     setupFetch({ items: [sampleItem] });
     await act(async () => {
       render(<ParentTreasureHistoryPage />);
     });
     await waitFor(() => expect(screen.getByText("おやつ")).toBeTruthy());
-    expect(screen.getByText(/このチェックは子供の画面と共有され/)).toBeTruthy();
+    expect(screen.getByText(/承認センター/)).toBeTruthy();
   });
 });
 

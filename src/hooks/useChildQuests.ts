@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { fetchDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import type { Category, QuestStatus } from "@/types";
 import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCelebration";
 
@@ -75,7 +76,7 @@ export function useChildQuests(): UseChildQuestsResult {
     const controller = new AbortController();
     refreshControllerRef.current = controller;
     try {
-      const res = await fetch("/api/quests/today", { signal: controller.signal });
+      const res = await fetchDeduped("/api/quests/today", { signal: controller.signal });
       if (!res.ok) return;
       const newQuests: Quest[] = await res.json();
       if (controller.signal.aborted) return;
@@ -92,7 +93,7 @@ export function useChildQuests(): UseChildQuestsResult {
 
   async function fetchQuests() {
     setLoading(true);
-    const res = await fetch("/api/quests/today");
+    const res = await fetchDeduped("/api/quests/today");
     if (res.ok) {
       const loaded: Quest[] = await res.json();
 
@@ -123,19 +124,15 @@ export function useChildQuests(): UseChildQuestsResult {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchQuests();
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("quest-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, async () => {
-        await refreshQuests();
-      })
-      .subscribe();
+    const offRealtime = subscribeChildRealtime("QuestInstance", async () => {
+      await refreshQuests();
+    });
 
     const onVisible = () => { if (document.visibilityState === "visible") refreshQuests(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      supabase.removeChannel(channel);
+      offRealtime();
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);

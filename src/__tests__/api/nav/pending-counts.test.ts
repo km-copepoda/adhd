@@ -29,9 +29,10 @@ describe("GET /api/nav/pending-counts", () => {
     expect(await res.json()).toEqual({ approvals: 0, tasks: 0 });
   });
 
-  it("承認待ちとタスク申請中の件数を返すこと", async () => {
+  it("承認待ち（クエスト）とタスク申請中の件数を返すこと（ごほうび申請0件）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.questInstance.count.mockResolvedValue(3);
+    mockPrisma.treasureLog.count.mockResolvedValue(0);
     mockPrisma.taskTemplate.count.mockResolvedValue(2);
 
     const res = await GET();
@@ -57,9 +58,72 @@ describe("GET /api/nav/pending-counts", () => {
   it("両方0件の場合、0を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.questInstance.count.mockResolvedValue(0);
+    mockPrisma.treasureLog.count.mockResolvedValue(0);
     mockPrisma.taskTemplate.count.mockResolvedValue(0);
 
     const res = await GET();
     expect(await res.json()).toEqual({ approvals: 0, tasks: 0 });
+  });
+
+  // ─── #151: approvals はクエスト承認待ち + ごほうび使用申請の合算 ─────────
+  describe("approvals はクエスト承認待ち + ごほうび使用申請の合算（#151）", () => {
+    it("クエスト0件・ごほうび0件 -> approvals: 0", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.questInstance.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.taskTemplate.count.mockResolvedValue(0);
+
+      const res = await GET();
+      expect((await res.json()).approvals).toBe(0);
+    });
+
+    it("クエスト0件・ごほうび2件 -> approvals: 2", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.questInstance.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.count.mockResolvedValue(2);
+      mockPrisma.taskTemplate.count.mockResolvedValue(0);
+
+      const res = await GET();
+      expect((await res.json()).approvals).toBe(2);
+    });
+
+    it("クエスト3件・ごほうび2件 -> approvals: 5", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      mockPrisma.questInstance.count.mockResolvedValue(3);
+      mockPrisma.treasureLog.count.mockResolvedValue(2);
+      mockPrisma.taskTemplate.count.mockResolvedValue(0);
+
+      const res = await GET();
+      expect((await res.json()).approvals).toBe(5);
+    });
+
+    it("treasureLog.count は useStatus=USE_REQUESTED かつ家庭スコープで絞ること", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+      mockPrisma.questInstance.count.mockResolvedValue(0);
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.taskTemplate.count.mockResolvedValue(0);
+
+      await GET();
+
+      expect(mockPrisma.treasureLog.count).toHaveBeenCalledWith({
+        where: {
+          useStatus: "USE_REQUESTED",
+          child: { familyId: "fam-1" },
+        },
+      });
+    });
+
+    it("他家庭のごほうび申請は合算されない（family スコープの回帰防止）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+      mockPrisma.questInstance.count.mockResolvedValue(0);
+      // モック側は呼び出し引数を検証しないため、family スコープ漏れがあれば
+      // 実装は他家庭分も含めて 5 を返しうる。ここでは「正しく絞られた結果」として
+      // count が where 引数どおりに呼ばれていることを上のテストと合わせて担保する。
+      mockPrisma.treasureLog.count.mockResolvedValue(0);
+      mockPrisma.taskTemplate.count.mockResolvedValue(0);
+
+      const res = await GET();
+      expect((await res.json()).approvals).toBe(0);
+    });
   });
 });

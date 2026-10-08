@@ -229,4 +229,135 @@ describe("GET /api/treasures/status", () => {
       expect(json.opened[0].collectionItem.nameKana.length).toBeGreaterThan(0);
     });
   });
+
+  // ─── #151: ごほうび使用申請の親承認フロー — useStatus の露出 ─────────
+  describe("useStatus（#151）", () => {
+    it("opened[] の各行に useStatus が含まれる", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const opened: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "log-1",
+            openedAt: new Date("2026-03-21"),
+            status: "OPENED",
+            itemId: "i1",
+            useStatus: "USE_REQUESTED",
+            fulfilled: false,
+          }),
+          item: { id: "i1", title: "おやつ", rarity: "COMMON" },
+        },
+      ];
+      mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.opened[0].useStatus).toBe("USE_REQUESTED");
+    });
+
+    it("rewards[] の各行に useStatus が含まれる", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const history: OpenedTreasureLog[] = [];
+      const rewardInventory: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "rw-1",
+            openedAt: new Date("2026-03-10"),
+            status: "OPENED",
+            itemId: "i1",
+            useStatus: "USED",
+            fulfilled: true,
+          }),
+          item: { id: "i1", title: "おかし", rarity: "COMMON" },
+        },
+      ];
+      mockPrisma.treasureLog.findMany
+        .mockResolvedValueOnce(history)
+        .mockResolvedValueOnce(rewardInventory);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.rewards[0].useStatus).toBe("USED");
+    });
+
+    it("itemId===null（コレクション獲得）行の useStatus は UNUSED 固定", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const opened: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "log-col",
+            openedAt: new Date("2026-03-20"),
+            status: "OPENED",
+            itemId: null,
+            collectionItemId: "summer-01",
+            useStatus: "UNUSED",
+          }),
+          item: null,
+        },
+      ];
+      mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.opened[0].useStatus).toBe("UNUSED");
+    });
+
+    it("fulfilled は useStatus===USED の派生値として返る（USED -> true）", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const opened: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "log-used",
+            openedAt: new Date("2026-03-21"),
+            status: "OPENED",
+            itemId: "i1",
+            useStatus: "USED",
+            fulfilled: true,
+          }),
+          item: { id: "i1", title: "おやつ", rarity: "COMMON" },
+        },
+      ];
+      mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.opened[0].fulfilled).toBe(true);
+    });
+
+    it("fulfilled は useStatus===USED の派生値として返る（USE_REQUESTED -> false）", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.treasureLog.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      const opened: OpenedTreasureLog[] = [
+        {
+          ...treasureLog({
+            id: "log-pending",
+            openedAt: new Date("2026-03-21"),
+            status: "OPENED",
+            itemId: "i1",
+            useStatus: "USE_REQUESTED",
+            fulfilled: false,
+          }),
+          item: { id: "i1", title: "おやつ", rarity: "COMMON" },
+        },
+      ];
+      mockPrisma.treasureLog.findMany.mockResolvedValue(opened);
+      mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+      const res = await GET();
+      const json = await res.json();
+
+      expect(json.opened[0].fulfilled).toBe(false);
+    });
+  });
 });

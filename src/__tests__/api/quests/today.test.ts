@@ -348,9 +348,9 @@ describe("GET /api/quests/today", () => {
       mockPrisma.questInstance.findMany
         .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          questInstance({ date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
-          questInstance({ date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") }),
-          questInstance({ date: day("2026-04-27"), status: "APPROVED", approvedAt: day("2026-04-27") }),
+          questInstance({ templateId: "tpl-week", date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tpl-week", date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") }),
+          questInstance({ templateId: "tpl-week", date: day("2026-04-27"), status: "APPROVED", approvedAt: day("2026-04-27") }),
         ]);
 
       const res = await GET();
@@ -379,10 +379,10 @@ describe("GET /api/quests/today", () => {
       mockPrisma.questInstance.findMany
         .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          questInstance({ date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
-          questInstance({ date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") }),
-          questInstance({ date: day("2026-04-27"), status: "SKIPPED", approvedAt: day("2026-04-27") }),
-          questInstance({ date: day("2026-04-20"), status: "APPROVED", approvedAt: day("2026-04-20") }),
+          questInstance({ templateId: "tpl-week", date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tpl-week", date: day("2026-05-04"), status: "SKIPPED", approvedAt: day("2026-05-04") }),
+          questInstance({ templateId: "tpl-week", date: day("2026-04-27"), status: "SKIPPED", approvedAt: day("2026-04-27") }),
+          questInstance({ templateId: "tpl-week", date: day("2026-04-20"), status: "APPROVED", approvedAt: day("2026-04-20") }),
         ]);
 
       const res = await GET();
@@ -412,10 +412,10 @@ describe("GET /api/quests/today", () => {
       mockPrisma.questInstance.findMany
         .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          questInstance({ date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
-          questInstance({ date: day("2026-05-08"), status: "PENDING", approvedAt: null }),
-          questInstance({ date: day("2026-05-07"), status: "PENDING", approvedAt: null }),
-          questInstance({ date: day("2026-05-06"), status: "APPROVED", approvedAt: day("2026-05-06") }),
+          questInstance({ templateId: "tpl-daily", date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tpl-daily", date: day("2026-05-08"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tpl-daily", date: day("2026-05-07"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tpl-daily", date: day("2026-05-06"), status: "APPROVED", approvedAt: day("2026-05-06") }),
         ]);
 
       const res = await GET();
@@ -444,7 +444,7 @@ describe("GET /api/quests/today", () => {
       mockPrisma.questInstance.findMany
         .mockResolvedValueOnce([todayQuest])
         .mockResolvedValueOnce([
-          questInstance({ date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tpl-1", date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
         ]);
       mockPrisma.questDeclaration.findMany.mockResolvedValue([
         questDeclaration({ templateId: "tpl-1" }),
@@ -454,6 +454,164 @@ describe("GET /api/quests/today", () => {
       const json = await res.json();
 
       expect(json[0].declaredToday).toBe(true);
+    });
+  });
+
+  describe("履歴クエリの一括取得（N+1 解消 / #165）", () => {
+    const day = (s: string) => new Date(s + "T00:00:00.000Z");
+    const isHistoryCall = (arg: unknown) => {
+      const w = (arg as { where?: { templateId?: { in?: string[] } } } | undefined)?.where;
+      return !!w?.templateId && Array.isArray(w.templateId.in);
+    };
+    const setupQuests = (
+      templates: { id: string; createdAt: Date; carryOver?: boolean }[],
+      history: ReturnType<typeof questInstance>[],
+    ) => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+      const quests = templates.map((t, i) =>
+        makeTodayQuest(
+          { id: `q${i}`, templateId: t.id, childId: "child-1", status: "PENDING" },
+          { id: t.id, carryOver: t.carryOver ?? false, createdAt: t.createdAt },
+        ),
+      );
+      mockPrisma.questInstance.findMany.mockImplementation(((arg: unknown) =>
+        Promise.resolve(isHistoryCall(arg) ? history : quests)) as never);
+    };
+    const historyCalls = () =>
+      mockPrisma.questInstance.findMany.mock.calls.filter((c) => isHistoryCall(c[0]));
+
+    it("テンプレートが複数でも履歴クエリは正確に1回、所定の where/select/orderBy で呼ばれる", async () => {
+      vi.setSystemTime(new Date("2026-05-11T09:00:00"));
+      setupQuests(
+        [
+          { id: "t1", createdAt: day("2026-04-01") },
+          { id: "t2", createdAt: day("2026-04-01") },
+          { id: "t3", createdAt: day("2026-04-01") },
+        ],
+        [],
+      );
+
+      await GET();
+
+      const calls = historyCalls();
+      expect(calls).toHaveLength(1);
+      const arg = calls[0][0] as {
+        where: { childId: string; templateId: { in: string[] } };
+        select: Record<string, boolean>;
+        orderBy: unknown;
+        take?: number;
+      };
+      expect(arg.where.childId).toBe("child-1");
+      expect([...arg.where.templateId.in].sort()).toEqual(["t1", "t2", "t3"]);
+      expect(arg.select).toEqual({ templateId: true, date: true, status: true, approvedAt: true });
+      expect(arg.orderBy).toEqual({ date: "desc" });
+      expect(arg.take).toBeUndefined();
+      // メイン取得 + 履歴取得 = 合計2回（テンプレート数に依らない）
+      expect(mockPrisma.questInstance.findMany).toHaveBeenCalledTimes(2);
+    });
+
+    it("同一テンプレートの重複クエスト（carryOver 等）でも templateId.in は重複しない", async () => {
+      vi.setSystemTime(new Date("2026-05-11T09:00:00"));
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+      mockPrisma.taskTemplate.findMany.mockResolvedValue([]);
+      const mk = (id: string) =>
+        makeTodayQuest({ id, templateId: "t1", childId: "child-1" }, { id: "t1", createdAt: day("2026-04-01") });
+      mockPrisma.questInstance.findMany.mockImplementation(((arg: unknown) =>
+        Promise.resolve(isHistoryCall(arg) ? [] : [mk("qa"), mk("qb")])) as never);
+
+      await GET();
+
+      const calls = historyCalls();
+      expect(calls).toHaveLength(1);
+      expect((calls[0][0] as { where: { templateId: { in: string[] } } }).where.templateId.in).toEqual(["t1"]);
+    });
+
+    it("テンプレート0件（クエスト0件）なら履歴クエリを発行しない", async () => {
+      vi.setSystemTime(new Date("2026-05-11T09:00:00"));
+      setupQuests([], []);
+
+      const res = await GET();
+
+      expect(await res.json()).toEqual([]);
+      expect(historyCalls()).toHaveLength(0);
+      expect(mockPrisma.questInstance.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("複数テンプレートの履歴が混在していてもテンプレートごとに idleDays / eligibleForDeclaration が正しい", async () => {
+      vi.setSystemTime(new Date("2026-05-09T09:00:00"));
+      setupQuests(
+        [
+          { id: "ta", createdAt: day("2026-04-01") },
+          { id: "tb", createdAt: day("2026-04-01") },
+        ],
+        // 順序をわざと混ぜる（DB は全体 date 降順）
+        [
+          questInstance({ templateId: "ta", date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tb", date: day("2026-05-09"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "ta", date: day("2026-05-08"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "tb", date: day("2026-05-08"), status: "APPROVED", approvedAt: day("2026-05-08") }),
+          questInstance({ templateId: "ta", date: day("2026-05-07"), status: "PENDING", approvedAt: null }),
+          questInstance({ templateId: "ta", date: day("2026-05-06"), status: "APPROVED", approvedAt: day("2026-05-06") }),
+        ],
+      );
+
+      const json = await (await GET()).json();
+      const a = json.find((q: { templateId: string }) => q.templateId === "ta");
+      const b = json.find((q: { templateId: string }) => q.templateId === "tb");
+      expect(a.eligibleForDeclaration).toBe(true);
+      expect(a.idleDays).toBe(3);
+      expect(b.eligibleForDeclaration).toBe(false);
+      expect(b.idleDays).toBe(1);
+    });
+
+    it("履歴が30件超: テンプレートごとに新しい30件の窓のみ参照し、窓外(31件目)の APPROVED は lastApprovedAt に使わない", async () => {
+      vi.setSystemTime(new Date("2026-05-11T09:00:00"));
+      const created = day("2026-01-01");
+      const base = Date.UTC(2026, 4, 11);
+      const DAY = 24 * 60 * 60 * 1000;
+      // ta: 今日から遡って 30 件の PENDING + 31 件目(最古)に APPROVED
+      const taRows = Array.from({ length: 30 }, (_, i) =>
+        questInstance({ templateId: "ta", date: new Date(base - i * DAY), status: "PENDING", approvedAt: null }),
+      );
+      taRows.push(
+        questInstance({
+          templateId: "ta",
+          date: new Date(base - 30 * DAY),
+          status: "APPROVED",
+          approvedAt: new Date(base - 30 * DAY),
+        }),
+      );
+      // tb: 少数だが APPROVED あり（ta の件数に押し出されない）
+      const tbRows = [
+        questInstance({ templateId: "tb", date: day("2026-05-11"), status: "PENDING", approvedAt: null }),
+        questInstance({ templateId: "tb", date: day("2026-05-10"), status: "APPROVED", approvedAt: day("2026-05-10") }),
+      ];
+      const all = [...taRows, ...tbRows].sort((x, y) => y.date.getTime() - x.date.getTime());
+      setupQuests(
+        [
+          { id: "ta", createdAt: created },
+          { id: "tb", createdAt: created },
+        ],
+        all,
+      );
+
+      const json = await (await GET()).json();
+      const a = json.find((q: { templateId: string }) => q.templateId === "ta");
+      const b = json.find((q: { templateId: string }) => q.templateId === "tb");
+      // 旧実装(take 30)では 31 件目は見えない → lastApprovedAt=null → templateCreatedAt(1/1)起点 = 130 日
+      expect(a.idleDays).toBe(130);
+      expect(a.eligibleForDeclaration).toBe(true);
+      expect(b.idleDays).toBe(1);
+      expect(b.eligibleForDeclaration).toBe(false);
+    });
+
+    it("履歴行が0件のテンプレートでも落ちず templateCreatedAt 起点になる", async () => {
+      vi.setSystemTime(new Date("2026-05-11T09:00:00"));
+      setupQuests([{ id: "ta", createdAt: day("2026-05-01") }], []);
+      const json = await (await GET()).json();
+      expect(json[0].idleDays).toBe(10);
+      expect(json[0].eligibleForDeclaration).toBe(false);
     });
   });
 

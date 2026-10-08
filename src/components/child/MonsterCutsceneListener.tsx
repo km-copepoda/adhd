@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { fetchDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { pickRuby } from "@/lib/ruby";
 import CutsceneOverlay from "@/components/child/CutsceneOverlay";
@@ -58,7 +59,7 @@ export default function MonsterCutsceneListener() {
     async function fetchAndCompare() {
       let res: Response;
       try {
-        res = await fetch("/api/monster-status");
+        res = await fetchDeduped("/api/monster-status");
       } catch {
         return;
       }
@@ -84,21 +85,13 @@ export default function MonsterCutsceneListener() {
 
     fetchAndCompare();
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("monster-cutscene-listener")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "User" },
-        () => {
-          fetchAndCompare();
-        },
-      )
-      .subscribe();
+    const offRealtime = subscribeChildRealtime("User", () => {
+      fetchAndCompare();
+    });
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      offRealtime();
     };
   }, []);
 

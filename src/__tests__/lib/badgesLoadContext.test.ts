@@ -12,6 +12,7 @@ import { loadBadgeContext } from "@/lib/badges";
 import { ALL_COLLECTION_ITEMS } from "@/lib/collectionItems";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { childUser, userCollectionItem } from "../helpers/fixtures";
+import { wireQuestInstanceDb } from "../helpers/badgeContextReference";
 
 function mockPrismaBaseline() {
   mockPrisma.user.findUnique.mockResolvedValue(
@@ -25,7 +26,9 @@ function mockPrismaBaseline() {
     }),
   );
   mockPrisma.streak.findUnique.mockResolvedValue(null);
-  mockPrisma.questInstance.findMany.mockResolvedValue([]);
+  // Issue #161: QuestInstance は全件取得ではなく groupBy / count / 時刻系 findMany で集計する。
+  // 0件の子として、いずれのクエリも空・0 を返すインメモリ評価器に差し替える。
+  wireQuestInstanceDb(mockPrisma.questInstance, []);
   // taskStreak.findMany はグローバル setup ではデフォルト値が設定されていないので、その場で追加する
   mockPrisma.taskStreak.findMany.mockResolvedValue([]);
   mockPrisma.taskTemplate.count.mockResolvedValue(0);

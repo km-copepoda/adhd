@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import { ALL_BADGES, type Badge } from "@/lib/badges.data";
 
 const SHOWN_KEY = "shownBadgeToastIds";
@@ -61,23 +61,15 @@ export default function BadgeUnlockToast() {
   }
 
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel("badge-toast-listener")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "UserBadge" },
-        (payload) => {
-          const badgeId = (payload.new as { badgeId?: string }).badgeId;
-          if (!badgeId) return;
-          const badge = ALL_BADGES.find(b => b.id === badgeId);
-          if (badge) enqueue(badge);
-        }
-      )
-      .subscribe();
+    const offRealtime = subscribeChildRealtime("UserBadge", (payload) => {
+      const badgeId = (payload.new as { badgeId?: string }).badgeId;
+      if (!badgeId) return;
+      const badge = ALL_BADGES.find(b => b.id === badgeId);
+      if (badge) enqueue(badge);
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      offRealtime();
       if (timerRef.current) clearTimeout(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

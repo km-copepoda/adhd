@@ -6,6 +6,7 @@ import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo } from "@/lib/evolution";
 import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { invalidateDeduped } from "@/lib/fetchDeduped";
 import EggSelectionModal from "@/components/child/EggSelectionModal";
 import CutsceneOverlay from "@/components/child/CutsceneOverlay";
 import EvolutionProgressCard from "@/components/child/EvolutionProgressCard";
@@ -40,7 +41,7 @@ export default function MonsterPage() {
         const newData = await fetchStatus();
         if (!newData) return;
         setData({
-          name: newData.name, side: newData.side ?? null, monsterSetId: newData.monsterSetId ?? "dark",
+          name: newData.name, side: newData.side ?? null, monsterSetId: newData.monsterSetId ?? "dark", pendingMonsterSetId: newData.pendingMonsterSetId ?? null,
           evolutionStage: newData.evolutionStage, evolutionPath: newData.evolutionPath ?? "",
           collectedPaths: newData.collectedPaths ?? "[]",
           studyPt: newData.studyPt, staminaPt: newData.staminaPt, lifePt: newData.lifePt,
@@ -51,6 +52,7 @@ export default function MonsterPage() {
         setShowEggSelection(false);
         setReborn(true);
         // BottomNav 育成バッジ (rebirthPending) を Realtime 取りこぼし時にも即クリア
+        invalidateDeduped("/api/monster-status");
         window.dispatchEvent(new CustomEvent("monster-changed"));
       }
     } finally {
@@ -128,7 +130,7 @@ export default function MonsterPage() {
       {/* Egg selection overlay */}
       {showEggSelection && (
         <EggSelectionModal
-          monsterSetId={data.monsterSetId}
+          monsterSetId={data.pendingMonsterSetId ?? data.monsterSetId}
           loading={rebirthLoading}
           onSelect={handleRebirth}
           onCancel={() => setShowEggSelection(false)}

@@ -42,6 +42,8 @@ interface OpenedLog {
   } | null;
   // #127: 子が使用済みにしたごほうびの状態。child-view は表示のみ（トグルは出さない）。
   fulfilled?: boolean;
+  // #151: ごほうび使用申請の親承認フロー用ステータス。child-view は表示のみ。
+  useStatus?: "UNUSED" | "USE_REQUESTED" | "USED";
 }
 
 interface StatusResponse {
@@ -222,8 +224,11 @@ export default function ParentChildViewTreasuresPage() {
                   <div className="text-[11px] text-quest-dim">
                     {formatDate(o.openedAt)}
                     {o.boosted && <span className="ml-2 text-quest-gold">★ ボーナス</span>}
-                    {o.item && o.fulfilled && (
+                    {o.item && (o.useStatus ?? (o.fulfilled ? "USED" : "UNUSED")) === "USED" && (
                       <span className="ml-2 text-quest-mint">✅ つかったよ</span>
+                    )}
+                    {o.item && o.useStatus === "USE_REQUESTED" && (
+                      <span className="ml-2 text-quest-gold">⏳ しんせいちゅう</span>
                     )}
                   </div>
                 </div>
