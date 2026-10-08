@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
@@ -179,9 +180,17 @@ export default function ApprovePage() {
 
       <div className="flex flex-col gap-4">
         {items.length === 0 && (
-          <p className="text-quest-dim text-sm text-center py-12">
-            承認待ちの報告はありません
-          </p>
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <span className="text-4xl" aria-hidden>🎉</span>
+            <p className="text-quest-text text-sm font-bold">全部確認できました！おつかれさま</p>
+            <p className="text-quest-muted text-sm">承認待ちの報告はありません</p>
+            <Link
+              href="/app/parent/tasks"
+              className="mt-3 inline-flex items-center justify-center min-h-10 px-5 rounded-xl border border-quest-gold/40 text-quest-gold text-sm hover:bg-quest-gold/10 transition-colors"
+            >
+              タスクへ戻る
+            </Link>
+          </div>
         )}
         {items.map((item) => {
           if (item.kind === "treasure_use") {

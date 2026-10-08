@@ -3163,3 +3163,23 @@
 - `src/app/api/treasures/fulfill/[id]/route.ts` — 保持期間チェック追加
 - `src/app/app/parent/(app)/treasures/pending/page.tsx` — 「使用を取り消す」の表示条件
 - テスト: `src/__tests__/api/treasures/fulfill.test.ts` / `src/__tests__/components/parent-treasures-pending-fulfill.test.tsx`
+
+## 2026-10-08: 子ナビからログアウトを外し育成画面下部へ移す／文字コントラストを引き上げる（Issue #173）
+
+### 決定
+- 子の BottomNav から「ログアウト」タブを外し 5 タブ（クエスト/育成/宝箱/ひろば/コレクション）にする。ログアウトは育成画面（`/app/child/monster`）最下部の `ChildLogoutButton`（確認ダイアログ付き）に置く
+- `--color-quest-dim` を `#555a72` から `#8d93ae` に変更し、card/bg 背景に対して 4.5:1 以上を確保する（`quest-muted` より暗い関係は維持）
+- 子クエストの催促表示は日数を出さない「今日やってみる？」にする（`eligibleForDeclaration`・並び順・+1XP は不変）
+- 子の宝箱画面の「承認まち」を「おうちの人のOKまち」にする（親画面は「承認まち」のまま）
+
+### 理由
+- 子供の押し間違いによるログアウトを防ぐため（2026-05-30 の「ログアウトは BottomNav に残置」は設定画面が無いための暫定判断だった）
+- 暗背景の灰色文字が読みにくい。「N日やってないよ」の繰り返しは責める印象になるため
+
+### やってはいけないこと
+- BottomNav に「ログアウト」タブを戻す
+- 催促表示に未実施日数を再び出す
+- `quest-dim` を `quest-muted` より明るくする、または 4.5:1 を下回らせる
+
+### 該当箇所
+- `src/components/child/BottomNav.tsx` / `src/components/child/ChildLogoutButton.tsx` / `src/lib/idleNudge.ts` / `src/app/globals.css`

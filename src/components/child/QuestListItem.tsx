@@ -2,6 +2,7 @@
 
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
 import { DECLARATION_BONUS_XP } from "@/lib/declaration";
+import { getIdleNudgeText } from "@/lib/idleNudge";
 import { calcActualXP } from "@/lib/xp";
 import { displayRejectionReason } from "@/lib/rejectionReason";
 import type { Quest } from "@/hooks/useChildQuests";
@@ -10,9 +11,11 @@ type Props = {
   quest: Quest;
   onOpen: (quest: Quest) => void;
   onDeclare: (questId: string) => void;
+  /** ふりがな表示（未指定は ON 相当） */
+  rubyEnabled?: boolean;
 };
 
-export default function QuestListItem({ quest, onOpen, onDeclare }: Props) {
+export default function QuestListItem({ quest, onOpen, onDeclare, rubyEnabled = true }: Props) {
   const cat = CATEGORY_LABEL[quest.template.category];
   const xp = calcActualXP(
     quest.deadlineBonusEarned,
@@ -136,7 +139,7 @@ export default function QuestListItem({ quest, onOpen, onDeclare }: Props) {
           <span className="text-xl shrink-0">⏰</span>
           <div className="flex-1 min-w-0">
             <p className="text-[11px] text-quest-gold/80 font-medium">
-              {quest.idleDays}日やってないよ
+              {getIdleNudgeText(rubyEnabled)}
             </p>
             <p className="text-[10px] text-quest-dim mt-0.5">
               {quest.declaredToday

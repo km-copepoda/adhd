@@ -58,7 +58,7 @@ global.fetch = vi.fn().mockResolvedValue({
 
 import Sidebar from "@/components/parent/Sidebar";
 import ParentBottomNav from "@/components/parent/ParentBottomNav";
-import BottomNav from "@/components/child/BottomNav";
+import ChildLogoutButton from "@/components/child/ChildLogoutButton";
 
 // --- tests ---
 
@@ -83,9 +83,9 @@ describe("ログアウト後のリダイレクト先", () => {
     expect(screen.queryByText("ログアウト")).toBeNull();
   });
 
-  it("子 BottomNav: 確認ダイアログでOKを押すと /login にリダイレクトする", async () => {
+  it("子 ログアウトボタン: 確認ダイアログでOKを押すと /login にリダイレクトする", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<BottomNav />);
+    render(<ChildLogoutButton />);
     const btn = screen.getByText("ログアウト").closest("button")!;
     fireEvent.click(btn);
     expect(confirmSpy).toHaveBeenCalledTimes(1);
@@ -97,7 +97,7 @@ describe("ログアウト後のリダイレクト先", () => {
   });
 });
 
-describe("子 BottomNav: 誤タップ防止の確認ダイアログ", () => {
+describe("子 ログアウトボタン: 誤タップ防止の確認ダイアログ", () => {
   beforeEach(() => {
     vi.stubGlobal("location", { href: "" });
     mockSignOut.mockResolvedValue({});
@@ -110,7 +110,7 @@ describe("子 BottomNav: 誤タップ防止の確認ダイアログ", () => {
 
   it("確認ダイアログでキャンセルした場合、signOut もリダイレクトもしない", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<BottomNav />);
+    render(<ChildLogoutButton />);
     const btn = screen.getByText("ログアウト").closest("button")!;
     fireEvent.click(btn);
     expect(confirmSpy).toHaveBeenCalledTimes(1);
@@ -124,7 +124,7 @@ describe("子 BottomNav: 誤タップ防止の確認ダイアログ", () => {
 
   it("ログアウトボタン押下時にconfirmが呼ばれる（メッセージ確認）", () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<BottomNav />);
+    render(<ChildLogoutButton />);
     const btn = screen.getByText("ログアウト").closest("button")!;
     fireEvent.click(btn);
     expect(confirmSpy).toHaveBeenCalledTimes(1);

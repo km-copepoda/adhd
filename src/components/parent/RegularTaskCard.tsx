@@ -71,12 +71,13 @@ export default function RegularTaskCard({ task, childId, childOptions, todayDow,
   const dimmed = task.completedToday || isPaused;
   return (
     <div
-      className={`bg-quest-card border rounded-xl p-4 flex items-center gap-4 ${
+      className={`bg-quest-card border rounded-xl p-4 ${
         dimmed || isOffDay
           ? "border-quest-border/30"
           : "border-quest-border"
       }`}
     >
+      <div className="flex items-start gap-3">
       <div className={`text-2xl ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.emoji}</div>
       <div className="flex-1 min-w-0">
         {hasBadges && (
@@ -114,7 +115,7 @@ export default function RegularTaskCard({ task, childId, childOptions, todayDow,
             )}
           </div>
         )}
-        <p className={`text-sm font-medium break-all ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
+        <p className={`text-sm font-medium break-words ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>{task.title}</p>
         <div className={`flex items-center gap-2 mt-1 text-[10px] text-quest-dim ${dimmed ? "opacity-40" : isOffDay ? "opacity-35" : ""}`}>
           <span>{cat.emoji} {cat.name}</span>
           <span>{xpRangeLabel(!!assignedChild?.reportDeadlineTime, task.photoBonus)}</span>
@@ -140,17 +141,18 @@ export default function RegularTaskCard({ task, childId, childOptions, todayDow,
           ))}
         </div>
       </div>
-      <div className="flex flex-col items-end gap-1">
+      </div>
+      <div className="mt-3 flex flex-col gap-2">
         {!task.completedToday && !isPaused && isOffDay && (
-          <span className="text-[9px] text-quest-dim border border-quest-border rounded px-1">
+          <span className="self-start text-[9px] text-quest-dim border border-quest-border rounded px-1">
             対象外
           </span>
         )}
-        <div className="flex gap-1">
+        <div className="flex gap-2">
           <button
             onClick={() => onTogglePause(task.id, !isPaused)}
             title={isPaused ? "子供画面での表示を再開" : "子供画面から一時的に非表示（日程は保持）"}
-            className={`text-xs border rounded-lg px-2 py-1 ${
+            className={`text-sm border rounded-lg px-3 min-h-10 ${
               isPaused
                 ? "text-green-400 hover:text-green-300 border-green-400/30"
                 : "text-quest-dim hover:text-quest-text border-quest-border"
@@ -160,13 +162,13 @@ export default function RegularTaskCard({ task, childId, childOptions, todayDow,
           </button>
           <button
             onClick={() => onEdit(task)}
-            className="text-xs text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-2 py-1"
+            className="text-sm text-blue-400 hover:text-blue-300 border border-blue-400/30 rounded-lg px-3 min-h-10"
           >
             編集
          </button>
          <button
            onClick={() => onDelete(task.id)}
-           className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-2 py-1"
+           className="ml-auto text-sm text-red-400 hover:text-red-300 border border-red-400/30 rounded-lg px-3 min-h-10"
          >
            削除
          </button>

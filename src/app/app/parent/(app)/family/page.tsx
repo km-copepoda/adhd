@@ -271,12 +271,12 @@ export default function FamilyPage() {
       {/* Family code */}
       <div className="bg-quest-card border border-quest-border rounded-xl p-6 mb-8">
         <p className="text-quest-dim text-xs tracking-wider mb-3">ファミリーコード</p>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 min-w-0">
             {(family?.code || "------").split("").map((char, i) => (
               <div
                 key={i}
-                className="w-10 h-12 bg-quest-bg border border-quest-border rounded-lg flex items-center justify-center text-quest-gold font-serif text-lg tracking-wider"
+                className="w-8 h-11 sm:w-10 sm:h-12 bg-quest-bg border border-quest-border rounded-lg flex items-center justify-center text-quest-gold font-serif text-lg tracking-wider"
               >
                 {char}
               </div>
@@ -284,7 +284,7 @@ export default function FamilyPage() {
           </div>
           <button
             onClick={handleCopy}
-            className="text-sm text-quest-dim hover:text-quest-gold border border-quest-border rounded-lg px-3 py-2 transition-colors"
+            className="shrink-0 whitespace-nowrap text-sm text-quest-dim hover:text-quest-gold border border-quest-border rounded-lg px-3 py-2 min-h-10 transition-colors"
           >
             {copied ? "✓ コピー済み" : "コピー"}
           </button>
@@ -454,31 +454,6 @@ export default function FamilyPage() {
                       </button>
                     </div>
                   </div>
-                  {deleteConfirmId === member.id ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-red-400">本当に削除？</span>
-                    <button
-                      onClick={() => handleDeleteChild(member.id)}
-                      disabled={deleting}
-                      className="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50"
-                    >
-                      削除
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmId(null)}
-                      className="text-[10px] px-2 py-1 rounded bg-quest-border text-quest-dim hover:text-quest-text"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setDeleteConfirmId(member.id)}
-                    className="text-[10px] text-quest-dim/50 hover:text-red-400 transition-colors"
-                  >
-                    削除
-                  </button>
-                )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <p className="text-[10px] text-quest-dim/60">⏰ 報告期限（JST）— この時刻より前に報告すると +1pt ボーナス。未設定なら期限なし</p>
@@ -578,6 +553,34 @@ export default function FamilyPage() {
                 }}
                 ownedThemes={member.ownedThemes ?? []}
               />
+              <div className="mt-2 pt-4 border-t border-quest-border/60">
+                {deleteConfirmId === member.id ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-red-400 w-full">本当に削除？</span>
+                    <span className="text-[10px] text-quest-muted w-full">この子のデータは元に戻せません。</span>
+                    <button
+                      onClick={() => handleDeleteChild(member.id)}
+                      disabled={deleting}
+                      className="min-h-10 px-4 text-xs rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50"
+                    >
+                      削除
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(null)}
+                      className="min-h-10 px-4 text-xs rounded-lg bg-quest-border text-quest-muted hover:text-quest-text"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirmId(member.id)}
+                    className="min-h-10 px-4 text-xs text-quest-dim border border-quest-border rounded-lg hover:text-red-400 hover:border-red-400/40 transition-colors"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
             </div>
             )}
             </div>

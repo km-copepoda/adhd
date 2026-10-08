@@ -3,7 +3,7 @@
  * 前提: as-child プロジェクト（storageState: child-light.json）で実行
  *
  * - /app/child/treasures が表示される
- * - 承認まち / あけられる カウントが表示される
+ * - おうちの人のOKまち / あけられる カウントが表示される
  * - 「あける」ボタンが unlocked=0 のとき無効
  * - 履歴がない場合は「まだ宝箱を開けていません。」が表示される
  */
@@ -21,8 +21,8 @@ test.describe("S19: 子供の宝箱ページ", () => {
     await expect(page.getByRole("heading", { name: "宝箱", exact: true })).toBeVisible();
   });
 
-  test("承認まち / あけられる カウントラベルが表示される", async ({ page }) => {
-    await expect(page.getByText("承認まち")).toBeVisible();
+  test("おうちの人のOKまち / あけられる カウントラベルが表示される", async ({ page }) => {
+    await expect(page.getByText(/おうちの(人|ひと)のOKまち/)).toBeVisible();
     await expect(page.getByText("あけられる")).toBeVisible();
   });
 
