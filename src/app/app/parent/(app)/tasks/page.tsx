@@ -14,7 +14,8 @@ import ChildSelector from "@/components/parent/ChildSelector";
 import PendingTaskCard from "@/components/parent/PendingTaskCard";
 import RegularTaskCard from "@/components/parent/RegularTaskCard";
 import TemporaryTaskCard from "@/components/parent/TemporaryTaskCard";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert, promptPlanLimit } from "@/lib/apiError";
+import { countActiveTasksForChildClient } from "@/lib/planLimitPreempt";
 
 type Task = {
   id: string;
@@ -69,6 +70,8 @@ export default function TasksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));
+  // 親タスク画面の preempt 用上限 (null = 未取得/取得失敗/無制限 = フェイルオープン)。
+  const [taskLimit, setTaskLimit] = useState<number | null>(null);
 
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
@@ -85,14 +88,37 @@ export default function TasksPage() {
     }
   }
 
+  async function fetchTaskLimit() {
+    try {
+      const res = await fetch("/api/subscription/limits");
+      if (res.ok) {
+        const data = await res.json();
+        setTaskLimit(typeof data.task === "number" ? data.task : null);
+      }
+    } catch {
+      // フェイルオープン: 取得失敗時は taskLimit=null (無制限扱い) のまま。サーバ403が最終ガード。
+    }
+  }
+
   useEffect(() => {
-    // マウント時に一度だけタスク・子供一覧を取得する。fetchTasks/fetchChildren内部でsetState系を呼ぶが、
+    // マウント時に一度だけタスク・子供一覧・プラン上限を取得する。fetchTasks/fetchChildren内部でsetState系を呼ぶが、
     // 外部API（サーバー）との同期が目的でありレンダー時算出はできないためuseEffect内が正しい。
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
+    Promise.all([fetchTasks(), fetchChildren(), fetchTaskLimit()]).finally(() => setLoading(false));
   }, []);
 
+  // 新規タスク追加ボタンの preempt チェック。編集フォーム (startEdit) は対象外
+  // (Issue #148 v2差分5番: 既存タスク編集・停止中タスクの再開はサーバ403後のconfirmに任せる)。
   function openFormForChild(childId: string) {
+    if (taskLimit !== null) {
+      const activeCount = countActiveTasksForChildClient(tasks, childId, todayStringJST());
+      if (activeCount >= taskLimit) {
+        promptPlanLimit(
+          `無料プランではタスクは${taskLimit}個までです。プレミアムプランで無制限になります。`,
+        );
+        return;
+      }
+    }
     setForm(defaultForm(childId));
     setEditingId(null);
     setFormMode("regular");
@@ -147,7 +173,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     if (isEditingPending && editingId) {
       await fetch(`/api/tasks/${editingId}`, { method: "PATCH" });
       notifyApprovalsUpdated();
@@ -175,7 +201,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paused }),
     });
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     fetchTasks();
   }
 
