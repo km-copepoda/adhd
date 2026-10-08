@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import ChildLogoutButton from "@/components/child/ChildLogoutButton";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo } from "@/lib/evolution";
 import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
@@ -173,6 +174,8 @@ export default function MonsterPage() {
 
       {/* Parameter cards */}
       <ParameterCardList params={params} xpToEvolve={xpInfo.xpToEvolve} />
+
+      <ChildLogoutButton />
 
     </div>
   );

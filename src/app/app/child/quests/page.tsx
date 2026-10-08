@@ -382,6 +382,7 @@ export default function QuestsPage() {
               quest={quest}
               onOpen={setActiveQuest}
               onDeclare={handleDeclare}
+              rubyEnabled={rubyEnabled ?? true}
             />
           ))}
         </div>

@@ -195,7 +195,7 @@ export default function ChildTreasuresPage() {
           <div className="flex items-center gap-1">
             <span aria-hidden>🔒</span>
             <span className="font-bold tabular-nums">{data.locked}</span>
-            <span className="text-quest-dim text-xs">承認まち</span>
+            <span className="text-quest-dim text-xs">{pickRuby("おうちの人のOKまち", "おうちのひとのOKまち", rubyEnabled)}</span>
           </div>
           <div className="flex items-center gap-1">
             <span aria-hidden>🔓</span>
