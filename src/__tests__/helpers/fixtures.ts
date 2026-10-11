@@ -129,14 +129,18 @@ export function childUser(overrides?: Partial<User>): User {
   };
 }
 
-/** `include: { family: true }` 付きクエリの戻り値用。 `childUser` + `family` の合成。 */
+/**
+ * `include: { family: true }` 付きクエリの戻り値用。 `childUser` + `family` の合成。
+ * familyOverrides に `null` を渡すと `family: null`（familyId なしのケース）を表現する
+ * (`parentUserWithFamily` と同じ規約)。
+ */
 export function childUserWithFamily(
   overrides?: Partial<User>,
-  familyOverrides?: Partial<Family>,
+  familyOverrides?: Partial<Family> | null,
 ): Prisma.UserGetPayload<{ include: { family: true } }> {
   return {
     ...childUser(overrides),
-    family: family(familyOverrides),
+    family: familyOverrides === null ? null : family(familyOverrides),
   };
 }
 
