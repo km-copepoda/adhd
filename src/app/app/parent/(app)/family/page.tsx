@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
@@ -48,6 +49,7 @@ export default function FamilyPage() {
   const [addForm, setAddForm] = useState({ name: "", side: "LIGHT" as Side });
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
+  const [addErrorCode, setAddErrorCode] = useState<string | null>(null);
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
   const [deadlineTimes, setDeadlineTimes] = useState<Record<string, string>>({});
   const [savingDeadlineId, setSavingDeadlineId] = useState<string | null>(null);
@@ -233,10 +235,12 @@ export default function FamilyPage() {
   async function handleAddChild() {
     if (!addForm.name.trim()) {
       setAddError("名前を入力してください");
+      setAddErrorCode(null);
       return;
     }
     setAdding(true);
     setAddError("");
+    setAddErrorCode(null);
     try {
       const res = await fetch("/api/family/members", {
         method: "POST",
@@ -246,13 +250,16 @@ export default function FamilyPage() {
       const data = await res.json();
       if (!res.ok) {
         setAddError(data.error || "追加に失敗しました");
+        setAddErrorCode(typeof data.code === "string" ? data.code : null);
         return;
       }
       setShowAddForm(false);
       setAddForm({ name: "", side: "LIGHT" });
+      setAddErrorCode(null);
       fetchFamily();
     } catch {
       setAddError("通信エラーが発生しました");
+      setAddErrorCode(null);
     } finally {
       setAdding(false);
     }
@@ -344,14 +351,26 @@ export default function FamilyPage() {
               </button>
             </div>
 
-            {addError && <p className="text-red-400 text-xs mb-3">{addError}</p>}
+            {addError && (
+              <div className="mb-3">
+                <p className="text-red-400 text-xs">{addError}</p>
+                {addErrorCode === "PLAN_LIMIT_EXCEEDED" && (
+                  <Link
+                    href="/app/parent/plan"
+                    className="text-quest-gold text-xs underline mt-1 inline-block"
+                  >
+                    プラン管理を見る
+                  </Link>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button onClick={handleAddChild} disabled={adding} className="btn-gold flex-1 text-sm">
                 {adding ? "追加中..." : "追加"}
               </button>
               <button
-                onClick={() => { setShowAddForm(false); setAddError(""); }}
+                onClick={() => { setShowAddForm(false); setAddError(""); setAddErrorCode(null); }}
                 className="text-quest-dim text-sm border border-quest-border rounded-xl px-4 py-2 hover:border-quest-gold/20"
               >
                 キャンセル

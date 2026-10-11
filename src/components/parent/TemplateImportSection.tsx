@@ -10,11 +10,13 @@ import {
   type AgeGroup,
   type TaskPreset,
 } from "@/lib/categories";
-import { alertOnApiError } from "@/lib/apiError";
+import { confirmPlanLimitOrAlert } from "@/lib/apiError";
 
 type Props = {
   childId: string;
   existingTitles: string[];
+  /// 無料プランのタスク上限に対する残り枠。null = 無制限。
+  remainingSlots?: number | null;
   onImported: () => void;
   onCancel: () => void;
 };
@@ -23,21 +25,25 @@ const DEFAULT_REPEAT_DAYS = [1, 2, 3, 4, 5]; // 月〜金
 
 export function getInitialSelectedTitles(
   templates: TaskPreset[],
-  existingTitles: string[]
+  existingTitles: string[],
+  remainingSlots: number | null = null
 ): Set<string> {
   const existingSet = new Set(existingTitles);
-  return new Set(templates.filter((t) => !existingSet.has(t.title)).map((t) => t.title));
+  const candidates = templates.filter((t) => !existingSet.has(t.title)).map((t) => t.title);
+  if (remainingSlots === null) return new Set(candidates);
+  return new Set(candidates.slice(0, Math.max(0, remainingSlots)));
 }
 
 export default function TemplateImportSection({
   childId,
   existingTitles,
+  remainingSlots = null,
   onImported,
   onCancel,
 }: Props) {
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>("elementary_low");
   const [selectedTitles, setSelectedTitles] = useState<Set<string>>(
-    () => getInitialSelectedTitles(TASK_TEMPLATES_BY_AGE.elementary_low, existingTitles)
+    () => getInitialSelectedTitles(TASK_TEMPLATES_BY_AGE.elementary_low, existingTitles, remainingSlots)
   );
   const [repeatDaysMap, setRepeatDaysMap] = useState<Record<string, number[]>>(
     () =>
@@ -52,7 +58,7 @@ export default function TemplateImportSection({
   function handleAgeGroupChange(group: AgeGroup) {
     setSelectedAgeGroup(group);
     const templates = TASK_TEMPLATES_BY_AGE[group];
-    setSelectedTitles(getInitialSelectedTitles(templates, existingTitles));
+    setSelectedTitles(getInitialSelectedTitles(templates, existingTitles, remainingSlots));
     setRepeatDaysMap(
       Object.fromEntries(templates.map((t) => [t.title, DEFAULT_REPEAT_DAYS]))
     );
@@ -63,7 +69,7 @@ export default function TemplateImportSection({
       const next = new Set(prev);
       if (next.has(title)) {
         next.delete(title);
-      } else {
+      } else if (remainingSlots === null || next.size < remainingSlots) {
         next.add(title);
       }
       return next;
@@ -80,7 +86,7 @@ export default function TemplateImportSection({
 
   function selectAll() {
     setSelectedTitles(
-      getInitialSelectedTitles(TASK_TEMPLATES_BY_AGE[selectedAgeGroup], existingTitles)
+      getInitialSelectedTitles(TASK_TEMPLATES_BY_AGE[selectedAgeGroup], existingTitles, remainingSlots)
     );
   }
 
@@ -107,17 +113,23 @@ export default function TemplateImportSection({
       body: JSON.stringify({ assignedChildId: childId, tasks }),
     });
     setLoading(false);
-    if (!(await alertOnApiError(res))) return;
+    if (!(await confirmPlanLimitOrAlert(res))) return;
     onImported();
   }
 
   const templates = TASK_TEMPLATES_BY_AGE[selectedAgeGroup];
   const selectedCount = selectedTitles.size;
+  const slotsLeft = remainingSlots === null ? null : Math.max(0, remainingSlots - selectedCount);
 
   return (
     <div className="bg-quest-card border border-quest-gold/20 rounded-xl p-5 mb-4">
       <h3 className="text-quest-gold text-sm font-bold mb-1">📋 テンプレートから一括追加</h3>
       <p className="text-quest-dim text-xs mb-4">年齢グループを選んでタスクをまとめて追加できます</p>
+      {remainingSlots !== null && (
+        <p className="text-quest-gold text-xs mb-3">
+          無料プランのタスク上限まで、あと{slotsLeft}件選べます（追加できるのは合計{Math.max(0, remainingSlots)}件まで）
+        </p>
+      )}
 
       {/* Age group tabs */}
       <div className="flex gap-1 mb-4 overflow-x-auto">
@@ -172,6 +184,7 @@ export default function TemplateImportSection({
                   type="checkbox"
                   id={`tpl-${tpl.title}`}
                   checked={isChecked}
+                  disabled={!isChecked && slotsLeft === 0}
                   onChange={() => toggleTemplate(tpl.title)}
                   className="w-4 h-4 accent-quest-gold"
                 />
