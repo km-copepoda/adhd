@@ -126,7 +126,20 @@ export default function TasksPage() {
     setImportChildId(null);
   }
 
+  // 無料プランのタスク上限に対する子供ごとの残り枠。null = 無制限/未取得 (フェイルオープン)。
+  function remainingTaskSlots(childId: string): number | null {
+    if (taskLimit === null) return null;
+    const activeCount = countActiveTasksForChildClient(tasks, childId, todayStringJST());
+    return Math.max(0, taskLimit - activeCount);
+  }
+
   function openImportForChild(childId: string) {
+    if (remainingTaskSlots(childId) === 0) {
+      promptPlanLimit(
+        `無料プランではタスクは${taskLimit}個までです。プレミアムプランで無制限になります。`,
+      );
+      return;
+    }
     setImportChildId(childId);
     setOpenChildId(null);
     setEditingId(null);
@@ -328,6 +341,7 @@ export default function TasksPage() {
               <TemplateImportSection
                 childId={child.id}
                 existingTitles={[...pending, ...regular].map((t) => t.title)}
+                remainingSlots={remainingTaskSlots(child.id)}
                 onImported={() => { resetForm(); fetchTasks(); }}
                 onCancel={resetForm}
               />
