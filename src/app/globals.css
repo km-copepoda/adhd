@@ -8,7 +8,7 @@
   --color-quest-gold: #f0c040;
   --color-quest-gold-dark: #c9973a;
   --color-quest-text: #e8e4d8;
-  --color-quest-dim: #555a72;
+  --color-quest-dim: #8d93ae; /* 暗背景(#07080f/#131828)上で 4.5:1 以上 */
   --color-quest-muted: #a9adc4;
 
   /* Parameter colors */

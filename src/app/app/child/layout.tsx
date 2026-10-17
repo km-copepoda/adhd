@@ -11,17 +11,20 @@ export default function ChildLayout({
 }) {
   return (
     <div className="min-h-dvh max-w-md mx-auto relative pb-20">
+      {/* 通知ベルは固定配置にせずヘッダー行に置く（コンテンツと重ならないように） */}
+      <div className="flex justify-end px-3 pt-3 empty:hidden">
+        <PushSubscriber
+          className="flex items-center gap-1 min-h-9 bg-quest-card border border-quest-gold/30 rounded-full px-3 py-1.5 text-xs text-quest-muted hover:text-quest-gold transition-colors"
+          iconClassName="text-sm"
+          labelClassName="hidden sm:inline"
+          showDenied
+        />
+      </div>
       {children}
       <BottomNav />
       <LoginStreakChecker />
       <BadgeUnlockToast />
       <MonsterCutsceneListener />
-      <PushSubscriber
-        className="fixed top-3 right-3 z-50 flex items-center gap-1 bg-quest-card border border-quest-gold/30 rounded-full px-3 py-1.5 text-xs text-quest-dim hover:text-quest-gold transition-colors"
-        iconClassName="text-sm"
-        labelClassName="hidden sm:inline"
-        showDenied
-      />
     </div>
   );
 }

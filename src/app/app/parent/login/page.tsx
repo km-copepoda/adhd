@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { EmailField, PasswordField } from "@/components/AuthFields";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -43,22 +44,8 @@ export default function LoginPage() {
       <p className="text-quest-dim text-sm mb-8">管理者 ログイン</p>
 
       <form onSubmit={handleSubmit} className="w-full max-w-xs flex flex-col gap-3">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="メールアドレス"
-          required
-          className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/50"
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="パスワード"
-          required
-          className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/50"
-        />
+        <EmailField label="メールアドレス" value={email} onChange={setEmail} placeholder="メールアドレス" />
+        <PasswordField label="パスワード" value={password} onChange={setPassword} placeholder="パスワード" />
         {error && <p className="text-red-400 text-xs">{error}</p>}
         <button type="submit" disabled={loading} className="btn-gold disabled:opacity-50">
           {loading ? "ログイン中..." : "ログイン"}

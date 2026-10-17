@@ -55,7 +55,7 @@ describe("/app/child/treasures 宝箱専用画面", () => {
       render(<ChildTreasuresPage />);
     });
     await waitFor(() => {
-      expect(screen.getByText("承認まち")).toBeTruthy();
+      expect(screen.getByText("おうちのひとのOKまち")).toBeTruthy();
       expect(screen.getByText("あけられる")).toBeTruthy();
       // 数字も含まれていること（locked=2, unlocked=3）
       expect(screen.getAllByText("2").length).toBeGreaterThan(0);
