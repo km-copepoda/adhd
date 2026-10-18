@@ -41,6 +41,19 @@ describe("MonsterImageModal", () => {
     expect(screen.getByText("じゅくれんしゃ")).toBeTruthy();
   });
 
+  it("stageLabel を渡したときはステージラベル要素が描画される（後方互換）", () => {
+    render(<MonsterImageModal {...defaultProps} />);
+    expect(screen.getByTestId("monster-modal-stage-label")).toBeTruthy();
+  });
+
+  it("stageLabel を省略すると、ステージラベル用の要素が描画されない", () => {
+    const { stageLabel, ...propsWithoutStageLabel } = defaultProps;
+    void stageLabel;
+    render(<MonsterImageModal {...propsWithoutStageLabel} />);
+    expect(screen.queryByTestId("monster-modal-stage-label")).toBeNull();
+    expect(screen.getByText("ラーン")).toBeTruthy();
+  });
+
   it("背景オーバーレイをクリックすると onClose が呼ばれる", () => {
     const onClose = vi.fn();
     render(<MonsterImageModal {...defaultProps} onClose={onClose} />);
