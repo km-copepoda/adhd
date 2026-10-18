@@ -28,8 +28,16 @@ describe("globals.css: --color-quest-muted", () => {
     expect(tokenValue("quest-muted")).not.toBeNull();
   });
 
-  it("--color-quest-dim の値は #555a72 のまま変更されていない", () => {
-    expect(tokenValue("quest-dim")).toBe("#555a72");
+  // Issue #173: 暗背景での低コントラスト解消のため quest-dim 自体を引き上げた（旧 #555a72 は約2.9:1）
+  it("quest-dim は card/bg 背景の双方に対し 4.5:1 以上（Issue #173）", () => {
+    const dim = tokenValue("quest-dim");
+    expect(dim).not.toBeNull();
+    expect(contrast(dim!, "#131828")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(dim!, "#07080f")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("quest-dim は quest-muted より暗い（階層が逆転していない）", () => {
+    expect(luminance(tokenValue("quest-dim")!)).toBeLessThan(luminance(tokenValue("quest-muted")!));
   });
 
   it("quest-muted は quest-dim と異なる値である", () => {
