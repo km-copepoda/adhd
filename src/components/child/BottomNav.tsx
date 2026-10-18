@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { fetchDeduped } from "@/lib/fetchDeduped";
 import { subscribeChildRealtime } from "@/lib/childRealtime";
 import { shouldShowBottomNav } from "@/lib/bottom-nav";
@@ -178,13 +177,6 @@ export default function BottomNav() {
 
   if (!shouldShowBottomNav(pathname ?? "")) return null;
 
-  async function handleLogout() {
-    if (!confirm("ログアウトするとさいしょの画面にもどるよ。本当にログアウトする？")) return;
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
-
   // 宝箱タブは常に表示する (decisions.md 2026-05-31:
   // 「コレクションアイテム実装によりプール未設定でも確定報酬がある」)。
   const visibleTabs = tabs;
@@ -233,13 +225,6 @@ export default function BottomNav() {
             </Link>
           );
         })}
-        <button
-          onClick={handleLogout}
-          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-colors text-quest-dim hover:text-red-400"
-        >
-          <span className="text-xl">🚪</span>
-          <span className="text-[10px] tracking-wider">ログアウト</span>
-        </button>
       </div>
     </nav>
   );

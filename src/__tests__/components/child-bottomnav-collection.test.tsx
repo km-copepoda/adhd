@@ -48,8 +48,9 @@ describe("子 BottomNav コレクション統合", () => {
     expect(screen.queryByText("実績")).toBeNull();
   });
 
-  it("ログアウトボタンは引き続き存在する（移動先未確定のため当面残置）", () => {
+  it("ログアウトはボトムナビに含まれない（誤タップ防止。5タブ構成）", () => {
     render(<BottomNav />);
-    expect(screen.getByText("ログアウト")).toBeTruthy();
+    expect(screen.queryByText("ログアウト")).toBeNull();
+    expect(screen.getAllByRole("link")).toHaveLength(5);
   });
 });
