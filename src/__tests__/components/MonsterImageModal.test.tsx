@@ -62,6 +62,15 @@ describe("MonsterImageModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // ─── Codexレビュー指摘: 下部ナビ(z-50)より背面に表示され、モーダル表示中に
+  // ナビ操作で別画面へ遷移できてしまう問題への対応 ───────────────────
+  it("オーバーレイが下部ナビ(z-50)より前面に表示されるz-indexを持つ", () => {
+    render(<MonsterImageModal {...defaultProps} />);
+    const overlay = screen.getByTestId("monster-modal-overlay");
+    expect(overlay.className).not.toMatch(/(?:^|\s)z-50(?:\s|$)/);
+    expect(overlay.className).toMatch(/z-\[60\]/);
+  });
+
   it("閉じるボタンをクリックすると onClose が呼ばれる", () => {
     const onClose = vi.fn();
     render(<MonsterImageModal {...defaultProps} onClose={onClose} />);
