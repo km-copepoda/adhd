@@ -5,7 +5,7 @@ import Image from "next/image";
 type Props = {
   image: string;
   monsterName: string;
-  stageLabel: string;
+  stageLabel?: string;
   onClose: () => void;
   description?: string;
   /** 未解放 stage3 で description の代わりに表示する解放条件ヒント。 */
@@ -23,7 +23,7 @@ export default function MonsterImageModal({
   return (
     <div
       data-testid="monster-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -53,7 +53,14 @@ export default function MonsterImageModal({
         {/* 名前・ステージ */}
         <div className="text-center">
           <p className="text-white text-xl font-bold">{monsterName}</p>
-          <p className="text-white/60 text-sm mt-1">{stageLabel}</p>
+          {stageLabel ? (
+            <p
+              data-testid="monster-modal-stage-label"
+              className="text-white/60 text-sm mt-1"
+            >
+              {stageLabel}
+            </p>
+          ) : null}
         </div>
 
         {description ? (

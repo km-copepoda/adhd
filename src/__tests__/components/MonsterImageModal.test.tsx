@@ -41,12 +41,34 @@ describe("MonsterImageModal", () => {
     expect(screen.getByText("じゅくれんしゃ")).toBeTruthy();
   });
 
+  it("stageLabel を渡したときはステージラベル要素が描画される（後方互換）", () => {
+    render(<MonsterImageModal {...defaultProps} />);
+    expect(screen.getByTestId("monster-modal-stage-label")).toBeTruthy();
+  });
+
+  it("stageLabel を省略すると、ステージラベル用の要素が描画されない", () => {
+    const { stageLabel, ...propsWithoutStageLabel } = defaultProps;
+    void stageLabel;
+    render(<MonsterImageModal {...propsWithoutStageLabel} />);
+    expect(screen.queryByTestId("monster-modal-stage-label")).toBeNull();
+    expect(screen.getByText("ラーン")).toBeTruthy();
+  });
+
   it("背景オーバーレイをクリックすると onClose が呼ばれる", () => {
     const onClose = vi.fn();
     render(<MonsterImageModal {...defaultProps} onClose={onClose} />);
     const overlay = screen.getByTestId("monster-modal-overlay");
     fireEvent.click(overlay);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // ─── Codexレビュー指摘: 下部ナビ(z-50)より背面に表示され、モーダル表示中に
+  // ナビ操作で別画面へ遷移できてしまう問題への対応 ───────────────────
+  it("オーバーレイが下部ナビ(z-50)より前面に表示されるz-indexを持つ", () => {
+    render(<MonsterImageModal {...defaultProps} />);
+    const overlay = screen.getByTestId("monster-modal-overlay");
+    expect(overlay.className).not.toMatch(/(?:^|\s)z-50(?:\s|$)/);
+    expect(overlay.className).toMatch(/z-\[60\]/);
   });
 
   it("閉じるボタンをクリックすると onClose が呼ばれる", () => {
