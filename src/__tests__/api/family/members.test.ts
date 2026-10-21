@@ -166,6 +166,94 @@ describe("POST /api/family/members", () => {
   });
 });
 
+describe("POST /api/family/members: themeId（作成時のテーマ選択）", () => {
+  function setupCreate() {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({ id: "child-t", monsterName: "テスト", side: "DARK", childCode: "3333" }),
+    );
+  }
+
+  it("所持済みの有料テーマを指定した場合、monsterSetIdがそのテーマになること", async () => {
+    setupCreate();
+    mockPrisma.familyMonsterTheme.findUnique.mockResolvedValue({
+      id: "fmt-1", familyId: "fam-1", themeId: "buddha", activatedAt: new Date(), grantReason: "purchase",
+    });
+
+    const res = await POST(
+      makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK", themeId: "buddha" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.familyMonsterTheme.findUnique).toHaveBeenCalledWith({
+      where: { familyId_themeId: { familyId: "fam-1", themeId: "buddha" } },
+    });
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ side: "DARK", monsterSetId: "buddha" }),
+    });
+  });
+
+  it("未所持の有料テーマを指定した場合、400を返し子供を作成しないこと", async () => {
+    setupCreate();
+    mockPrisma.familyMonsterTheme.findUnique.mockResolvedValue(null);
+
+    const res = await POST(
+      makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK", themeId: "buddha" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("存在しないテーマIDを指定した場合、400を返すこと", async () => {
+    setupCreate();
+
+    const res = await POST(
+      makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK", themeId: "nonexistent" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("themeIdが文字列以外の場合、400を返すこと", async () => {
+    setupCreate();
+
+    const res = await POST(
+      makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK", themeId: 123 }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("無料テーマ(light)を指定した場合、所持チェックをせずmonsterSetIdがlightになること", async () => {
+    setupCreate();
+
+    const res = await POST(
+      makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK", themeId: "light" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.familyMonsterTheme.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ monsterSetId: "light" }),
+    });
+  });
+
+  it("themeIdがnullの場合、従来どおりsideからmonsterSetIdが決まること", async () => {
+    setupCreate();
+
+    await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "DARK", themeId: null }));
+
+    expect(mockPrisma.familyMonsterTheme.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ monsterSetId: "dark" }),
+    });
+  });
+});
+
 describe("PATCH /api/family/members", () => {
   it("未認証の場合、403を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(null);

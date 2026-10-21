@@ -61,6 +61,8 @@ export async function GET() {
     return NextResponse.json({
       code: family?.code,
       members,
+      // 子供が0人でも作成フォームで所持テーマを出せるよう、家族単位でも返す
+      ownedThemes: resolveOwnedThemes(ownedThemeRecords, null),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

@@ -169,6 +169,19 @@ describe("GET /api/family/code", () => {
     });
   });
 
+  it("トップレベルにownedThemesを返し、子供が0人でも家族所持の有料テーマと無料テーマが含まれること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.familyMonsterTheme.findMany.mockResolvedValue([
+      { id: "fmt-1", familyId: "fam-1", themeId: "buddha", activatedAt: new Date("2026-02-01"), grantReason: "purchase" },
+    ]);
+    mockFamilyFindUnique({ ...family(), users: [] });
+
+    const res = await GET();
+    const json = await res.json();
+
+    expect(json.ownedThemes).toEqual(expect.arrayContaining(["dark", "light", "buddha"]));
+  });
+
   describe("ownedThemes（Issue #111: 家族単位所持への移行、兄弟共有）", () => {
     it("家族がbuddhaを所持している場合、子供2人の両方のmembers[].ownedThemesにbuddhaが含まれること", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
