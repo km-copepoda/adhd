@@ -6,6 +6,7 @@ import { routeLogger } from "@/lib/logger";
 import { getFamilyPlan } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
 import { themeIdFromSide } from "@/lib/monsters";
+import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/family/members");
@@ -14,9 +15,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  const { monsterName, side } = await request.json();
+  const { monsterName, side, themeId } = await request.json();
   if (!monsterName || !side) {
     return NextResponse.json({ error: "名前とサイドを入力してください" }, { status: 400 });
+  }
+
+  // themeId は任意。未指定（null/undefined）なら side から決まる無料テーマを使う
+  let monsterSetId = themeIdFromSide(side);
+  if (themeId !== undefined && themeId !== null) {
+    if (typeof themeId !== "string" || !MONSTER_THEMES[themeId]) {
+      return NextResponse.json({ error: "無効なテーマです" }, { status: 400 });
+    }
+    if (MONSTER_THEMES[themeId].isFree === false) {
+      // 所持判定は monster-theme PATCH と同じく家族単位（FamilyMonsterTheme）
+      const owned = await prisma.familyMonsterTheme.findUnique({
+        where: { familyId_themeId: { familyId: user.familyId, themeId } },
+      });
+      if (!owned) {
+        return NextResponse.json({ error: "このテーマはまだ購入されていません" }, { status: 400 });
+      }
+    }
+    monsterSetId = themeId;
   }
 
   // FREE プランの子アカウント上限 enforce (仕様: monetization-plan.md §2.1 / §4.4)
@@ -62,7 +81,7 @@ export async function POST(request: Request) {
       role: "CHILD",
       monsterName,
       side,
-      monsterSetId: themeIdFromSide(side),
+      monsterSetId,
       familyId: user.familyId,
       childCode,
     },
