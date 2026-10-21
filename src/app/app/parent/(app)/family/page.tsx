@@ -10,6 +10,7 @@ import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
 import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
+import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 
 type Member = {
   id: string;
@@ -39,6 +40,7 @@ type Member = {
 type FamilyData = {
   code: string;
   members: Member[];
+  ownedThemes?: string[];
 };
 
 export default function FamilyPage() {
@@ -46,7 +48,7 @@ export default function FamilyPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", side: "LIGHT" as Side });
+  const [addForm, setAddForm] = useState({ name: "", side: "LIGHT" as Side, themeId: "" });
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [addErrorCode, setAddErrorCode] = useState<string | null>(null);
@@ -245,7 +247,11 @@ export default function FamilyPage() {
       const res = await fetch("/api/family/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ monsterName: addForm.name, side: addForm.side }),
+        body: JSON.stringify({
+          monsterName: addForm.name,
+          side: addForm.side,
+          ...(addForm.themeId ? { themeId: addForm.themeId } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -254,7 +260,7 @@ export default function FamilyPage() {
         return;
       }
       setShowAddForm(false);
-      setAddForm({ name: "", side: "LIGHT" });
+      setAddForm({ name: "", side: "LIGHT", themeId: "" });
       setAddErrorCode(null);
       fetchFamily();
     } catch {
@@ -264,6 +270,11 @@ export default function FamilyPage() {
       setAdding(false);
     }
   }
+
+  // 作成フォームで選べるのは所持済みの有料テーマのみ（無料テーマは「スタイル」で選ぶ）
+  const purchasedThemeIds = (family?.ownedThemes ?? []).filter(
+    (id) => MONSTER_THEMES[id]?.isFree === false,
+  );
 
   if (loading) {
     return <LoadingSpinner />;
@@ -350,6 +361,25 @@ export default function FamilyPage() {
                 🌑 かっこいい
               </button>
             </div>
+
+            {purchasedThemeIds.length > 0 && (
+              <>
+                <label className="block text-quest-dim text-xs mb-1 tracking-wider">テーマ</label>
+                <select
+                  data-testid="add-child-theme-select"
+                  value={addForm.themeId}
+                  onChange={(e) => setAddForm((f) => ({ ...f, themeId: e.target.value }))}
+                  className="w-full bg-quest-card border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text mb-4"
+                >
+                  <option value="">スタイルに合わせる</option>
+                  {purchasedThemeIds.map((themeId) => (
+                    <option key={themeId} value={themeId}>
+                      {MONSTER_THEMES[themeId].label}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
 
             {addError && (
               <div className="mb-3">
