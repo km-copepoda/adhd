@@ -10,8 +10,8 @@ import { MONSTER_TABLE } from "@/lib/monsters";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const AXES = ["STUDY", "STAMINA", "LIFE"];
-// 漢字・カタカナ（長音「ー」U+30FC は許可するため ァ-ヺ に限定）
-const KANJI_OR_KATAKANA = /[一-鿿ァ-ヺヽヾ]/;
+// かな版は「漢字だけをひらがなに直す」方針。英字・数字・カタカナ・記号はそのまま残るため、漢字のみ禁止する。
+const KANJI = /[一-鿿]/;
 
 const toFile = (image: string) => path.join(PUBLIC_DIR, image);
 const toShadow = (image: string) => image.replace("/monsters/", "/monsters/shadow/");
@@ -21,11 +21,11 @@ describe("RAILWAY_EGG_STAGE (@/lib/monsterThemes/railway)", () => {
     expect(RAILWAY_EGG_STAGE.image).toBe("/monsters/railway/egg.webp");
   });
 
-  it("name・description・かな版が空でなく、かな版に漢字・カタカナが残っていないこと", () => {
+  it("name・description・かな版が空でなく、かな版に漢字が残っていないこと", () => {
     expect(RAILWAY_EGG_STAGE.name.length).toBeGreaterThan(0);
     expect(RAILWAY_EGG_STAGE.description.length).toBeGreaterThan(0);
-    expect(RAILWAY_EGG_STAGE.nameKana).not.toMatch(KANJI_OR_KATAKANA);
-    expect(RAILWAY_EGG_STAGE.descriptionKana).not.toMatch(KANJI_OR_KATAKANA);
+    expect(RAILWAY_EGG_STAGE.nameKana).not.toMatch(KANJI);
+    expect(RAILWAY_EGG_STAGE.descriptionKana).not.toMatch(KANJI);
     expect(RAILWAY_EGG_STAGE.nameKana.length).toBeGreaterThan(0);
     expect(RAILWAY_EGG_STAGE.descriptionKana.length).toBeGreaterThan(0);
   });
@@ -94,17 +94,17 @@ describe("RAILWAY_TABLE (@/lib/monsterThemes/railway)", () => {
     }
   });
 
-  it("nameKana・descriptionKana に漢字・カタカナが残っていないこと", () => {
+  it("nameKana・descriptionKana に漢字が残っていないこと", () => {
     for (const [key, entry] of Object.entries(RAILWAY_TABLE)) {
-      expect(entry.nameKana, `${key}.nameKana`).not.toMatch(KANJI_OR_KATAKANA);
-      expect(entry.descriptionKana, `${key}.descriptionKana`).not.toMatch(KANJI_OR_KATAKANA);
+      expect(entry.nameKana, `${key}.nameKana`).not.toMatch(KANJI);
+      expect(entry.descriptionKana, `${key}.descriptionKana`).not.toMatch(KANJI);
     }
   });
 
-  it("nameKana・descriptionKana にアルファベット・数字が残っていないこと", () => {
+  it("nameKana は name の英字・数字・カタカナ・記号を保持していること（漢字だけをひらがなにする）", () => {
+    const keep = (t: string) => t.replace(/[^A-Za-z0-9ァ-ヺー（）「」・]/g, "");
     for (const [key, entry] of Object.entries(RAILWAY_TABLE)) {
-      expect(entry.nameKana, `${key}.nameKana`).not.toMatch(/[A-Za-z0-9]/);
-      expect(entry.descriptionKana, `${key}.descriptionKana`).not.toMatch(/[A-Za-z0-9]/);
+      expect(keep(entry.nameKana), `${key}.nameKana`).toBe(keep(entry.name));
     }
   });
 
