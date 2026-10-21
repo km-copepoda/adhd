@@ -9,6 +9,7 @@
 import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, EGG_STAGE, EGG_STAGE_LIGHT } from "@/lib/monsters";
 import { MONSTER_TABLE as BUDDHA_TABLE, EGG_STAGE as BUDDHA_EGG_STAGE } from "@/lib/monsterThemes/buddha";
 import { MONSTER_TABLE as YOKAI_TABLE, EGG_STAGE as YOKAI_EGG_STAGE } from "@/lib/monsterThemes/yokai";
+import { MONSTER_TABLE as RAILWAY_TABLE, EGG_STAGE as RAILWAY_EGG_STAGE } from "@/lib/monsterThemes/railway";
 import type { MonsterEntry } from "@/lib/monsterEntry";
 
 export type MonsterThemeDefinition = {
@@ -62,6 +63,15 @@ export const MONSTER_THEMES: Record<string, MonsterThemeDefinition> = {
     thumbnail: YOKAI_TABLE["STUDY"].image,
     eggImage: YOKAI_EGG_STAGE.image,
     table: YOKAI_TABLE,
+    isFree: false,
+  },
+  railway: {
+    id: "railway",
+    label: "電車",
+    description: "日本の鉄道モチーフのモンスターセット。",
+    thumbnail: RAILWAY_TABLE["STUDY"].image,
+    eggImage: RAILWAY_EGG_STAGE.image,
+    table: RAILWAY_TABLE,
     isFree: false,
   },
 };
