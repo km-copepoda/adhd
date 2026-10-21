@@ -16,11 +16,12 @@ import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 import { MONSTER_TABLE } from "@/lib/monsters";
 import { MONSTER_TABLE as BUDDHA_TABLE } from "@/lib/monsterThemes/buddha";
 import { MONSTER_TABLE as YOKAI_TABLE, EGG_STAGE as YOKAI_EGG_STAGE } from "@/lib/monsterThemes/yokai";
+import { MONSTER_TABLE as RAILWAY_TABLE, EGG_STAGE as RAILWAY_EGG_STAGE } from "@/lib/monsterThemes/railway";
 import { getMonsterStage } from "@/lib/monsters";
 
 describe("MONSTER_THEMES registry", () => {
-  it("dark/light/buddha/yokai の4テーマが登録されていること", () => {
-    expect(Object.keys(MONSTER_THEMES).sort()).toEqual(["buddha", "dark", "light", "yokai"]);
+  it("dark/light/buddha/yokai/railway の5テーマが登録されていること", () => {
+    expect(Object.keys(MONSTER_THEMES).sort()).toEqual(["buddha", "dark", "light", "railway", "yokai"]);
   });
 
   it("各テーマに id・label・description・thumbnail・eggImage・table・isFree が定義されていること", () => {
@@ -86,6 +87,33 @@ describe("MONSTER_THEMES registry", () => {
     expect(getMonsterStage(0, "", "yokai").image).toBe(YOKAI_EGG_STAGE.image);
     expect(getMonsterStage(1, "STUDY", "yokai").image).toBe(YOKAI_TABLE["STUDY"].image);
     expect(getMonsterStage(3, "LIFE_LIFE_LIFE", "yokai").image).toBe(YOKAI_TABLE["LIFE_LIFE_LIFE"].image);
+  });
+
+  it("railway は isFree=false であること", () => {
+    expect(MONSTER_THEMES.railway.isFree).toBe(false);
+  });
+
+  it("railway の table が @/lib/monsterThemes/railway の RAILWAY_TABLE と同じ39キーであること", () => {
+    expect(Object.keys(MONSTER_THEMES.railway.table).sort()).toEqual(Object.keys(RAILWAY_TABLE).sort());
+  });
+
+  it("railway の eggImage が /monsters/railway/egg.webp であること", () => {
+    expect(MONSTER_THEMES.railway.eggImage).toBe("/monsters/railway/egg.webp");
+    expect(MONSTER_THEMES.railway.eggImage).toBe(RAILWAY_EGG_STAGE.image);
+  });
+
+  it("railway の thumbnail が STUDY（ステージ1）エントリの画像であること", () => {
+    expect(MONSTER_THEMES.railway.thumbnail).toBe(RAILWAY_TABLE["STUDY"].image);
+  });
+
+  it("railway は rebirthEggImages が未定義であること（既定マップへのフォールバック）", () => {
+    expect(MONSTER_THEMES.railway.rebirthEggImages).toBeUndefined();
+  });
+
+  it("getMonsterStage が railway テーマのテーブルと卵を解決すること（THEME_ENTRIES への登録確認）", () => {
+    expect(getMonsterStage(0, "", "railway").image).toBe(RAILWAY_EGG_STAGE.image);
+    expect(getMonsterStage(1, "STUDY", "railway").image).toBe(RAILWAY_TABLE["STUDY"].image);
+    expect(getMonsterStage(3, "LIFE_LIFE_LIFE", "railway").image).toBe(RAILWAY_TABLE["LIFE_LIFE_LIFE"].image);
   });
 
   it("存在しないテーマidにアクセスした場合は undefined であること", () => {

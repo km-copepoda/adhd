@@ -1,6 +1,7 @@
 import { EVOLUTION_THRESHOLDS } from "@/lib/evolution";
 import { MONSTER_TABLE as BUDDHA_TABLE, EGG_STAGE as BUDDHA_EGG_STAGE } from "@/lib/monsterThemes/buddha";
 import { MONSTER_TABLE as YOKAI_TABLE, EGG_STAGE as YOKAI_EGG_STAGE } from "@/lib/monsterThemes/yokai";
+import { MONSTER_TABLE as RAILWAY_TABLE, EGG_STAGE as RAILWAY_EGG_STAGE } from "@/lib/monsterThemes/railway";
 import type { MonsterEntry, MonsterStage } from "@/lib/monsterEntry";
 
 // ─── たまご ───────────────────────────────────────────
@@ -111,6 +112,7 @@ const THEME_ENTRIES: Record<string, { table: typeof MONSTER_TABLE; egg: typeof E
   light: { table: MONSTER_TABLE_LIGHT, egg: EGG_STAGE_LIGHT },
   buddha: { table: BUDDHA_TABLE, egg: BUDDHA_EGG_STAGE },
   yokai: { table: YOKAI_TABLE, egg: YOKAI_EGG_STAGE },
+  railway: { table: RAILWAY_TABLE, egg: RAILWAY_EGG_STAGE },
 };
 
 // ─── getMonsterStage ──────────────────────────────────
