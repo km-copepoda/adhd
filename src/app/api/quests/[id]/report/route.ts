@@ -8,6 +8,9 @@ import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
 import { resolveTreasureDate } from "@/lib/treasureDate";
+import type { QuestStatus } from "@/types";
+
+const REPORTABLE_STATUSES: QuestStatus[] = ["PENDING", "REJECTED"];
 
 export async function POST(
   request: Request,
@@ -31,6 +34,13 @@ export async function POST(
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
+  // 報告できるのは PENDING（初回）と REJECTED（差し戻し後の再報告）のみ。
+  // それ以外から REPORTED に戻すと、承認済みクエストの再承認で XP が重複付与される
+  if (!REPORTABLE_STATUSES.includes(quest.status)) {
+    rlog.warn("Invalid quest status for report", { questId: id, status: quest.status });
+    return NextResponse.json({ error: "このクエストは報告できません" }, { status: 400 });
+  }
+
   const now = new Date();
 
   // 期限ボーナス: 初回報告（PENDING→REPORTED）時のみ判定・設定（子供単位の期限を参照）
@@ -51,17 +61,26 @@ export async function POST(
   if (quest.template.photoBonus && photoUrl) xp++;
 
   // ステータス更新。再報告時は差し戻し理由をクリア。deadlineBonusEarned は初回のみ設定
-  await prisma.questInstance.update({
-    where: { id },
-    data: {
-      status: "REPORTED",
-      comment,
-      photoUrl: photoUrl ?? null,
-      reportedAt: now,
-      rejectionReason: null,
-      ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
-    },
-  });
+  // where に status を含め、上の検証後に別リクエストで状態が変わった場合は更新を空振りさせる
+  try {
+    await prisma.questInstance.update({
+      where: { id, status: { in: REPORTABLE_STATUSES } },
+      data: {
+        status: "REPORTED",
+        comment,
+        photoUrl: photoUrl ?? null,
+        reportedAt: now,
+        rejectionReason: null,
+        ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
+      },
+    });
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2025") {
+      rlog.warn("Quest status changed concurrently on report", { questId: id });
+      return NextResponse.json({ error: "このクエストは報告できません" }, { status: 400 });
+    }
+    throw e;
+  }
 
   // 親に通知
   if (user.familyId) {
