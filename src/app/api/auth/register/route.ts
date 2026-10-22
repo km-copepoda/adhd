@@ -6,21 +6,40 @@ import { routeLogger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/auth/register");
-  const { email, supabaseId } = await request.json();
 
-  // supabaseIdはクライアント側signUp()のレスポンスから渡される
-  // セッションcookieが間に合わない場合のフォールバックとしてリクエストbodyから取得
-  let userId = supabaseId;
-  if (!userId) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    userId = user?.id;
+  // body は任意（空 body は許容）だが、JSON として不正なものは 400。
+  // body の内容（supabaseId / email）は信用しないため、値としては使わない。
+  const text = await request.text();
+  if (text.trim() !== "") {
+    try {
+      JSON.parse(text);
+    } catch {
+      return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
+    }
   }
 
-  if (!userId) {
-    rlog.warn("Registration failed: no userId");
+  // ユーザーはサーバーで JWT 検証した結果のみを使う
+  const supabase = await createClient();
+  // signUp 直後は cookie が未反映のことがあるため、Authorization の Bearer トークンがあれば
+  // それを Supabase に検証させて使う（検証はサーバー側 getUser(jwt) で行う）
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const { data: { user } } = bearer
+    ? await supabase.auth.getUser(bearer)
+    : await supabase.auth.getUser();
+
+  if (!user) {
+    rlog.warn("Registration failed: unauthenticated");
     return NextResponse.json({ error: "認証に失敗しました" }, { status: 401 });
   }
+
+  // email のない匿名ユーザー（子供セッション）は親として登録させない
+  if (!user.email) {
+    rlog.warn("Registration rejected: anonymous user", { userId: user.id });
+    return NextResponse.json({ error: "メールアドレス登録が必要です" }, { status: 403 });
+  }
+
+  const userId = user.id;
 
   // Check if user already exists in DB
   const existing = await prisma.user.findUnique({ where: { supabaseId: userId } });
@@ -37,7 +56,7 @@ export async function POST(request: Request) {
         create: {
           supabaseId: userId,
           role: "PARENT",
-          name: email?.split("@")[0] || "parent",
+          name: user.email.split("@")[0] || "parent",
         },
       },
     },

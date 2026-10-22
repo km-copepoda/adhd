@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     const supabase = createClient();
     await supabase.auth.signOut({ scope: "local" });
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
       setError(authError.message);
@@ -30,7 +30,7 @@ export default function LoginPage() {
     await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, supabaseId: data.user?.id }),
+      body: JSON.stringify({ email }),
     });
 
     window.location.href = "/app/parent/tasks";
