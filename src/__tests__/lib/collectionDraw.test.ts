@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { drawCollectionItem } from "@/lib/collectionDraw";
+import { drawCollectionItem, UNOWNED_WEIGHT } from "@/lib/collectionDraw";
 import type { CollectionItem } from "@/lib/collectionItems";
 
 const pool: CollectionItem[] = [
@@ -104,5 +104,134 @@ describe("drawCollectionItem", () => {
     expect(Math.abs(common - 3000)).toBeLessThan(150);
     expect(Math.abs(uncommon - 1500)).toBeLessThan(120);
     expect(Math.abs(rare - 500)).toBeLessThan(80);
+  });
+});
+
+// ─── 未所持優先 (ゆるめ): 未所持の重み UNOWNED_WEIGHT(=3) / 所持済み 1 ─────────────
+function mk(id: string, rarity: CollectionItem["rarity"]): CollectionItem {
+  return { id, season: "summer", category: "creature", rarity, name: id, nameKana: id, description: "", descriptionKana: "", image: "/x.png" };
+}
+
+// 1回目=tier用, 2回目=階層内選択用
+function seq(first: number, second: number) {
+  let calls = 0;
+  return () => (calls++ === 0 ? first : second);
+}
+
+describe("drawCollectionItem 未所持優先", () => {
+  const commons = [mk("c1", "COMMON"), mk("c2", "COMMON")];
+
+  it("UNOWNED_WEIGHT は 3", () => {
+    expect(UNOWNED_WEIGHT).toBe(3);
+  });
+
+  it("ownedIds 省略と空 Set は従来結果と同じ (階層内一様)", () => {
+    for (const second of [0, 0.49, 0.5, 0.99]) {
+      const base = drawCollectionItem(commons, seq(0.5, second));
+      expect(drawCollectionItem(commons, seq(0.5, second), new Set())?.id).toBe(base?.id);
+      expect(drawCollectionItem(commons, seq(0.5, second), undefined)?.id).toBe(base?.id);
+    }
+    expect(drawCollectionItem(commons, seq(0.5, 0.49), new Set())?.id).toBe("c1");
+    expect(drawCollectionItem(commons, seq(0.5, 0.5), new Set())?.id).toBe("c2");
+  });
+
+  it("未所持1・所持済み1 (1:3): 所持済みが先頭なら 2回目 0.0 / 0.24 → 所持済み, 0.25 / 0.999 → 未所持", () => {
+    const owned = new Set(["c1"]); // c2 が未所持
+    expect(drawCollectionItem(commons, seq(0.5, 0.0), owned)?.id).toBe("c1");
+    expect(drawCollectionItem(commons, seq(0.5, 0.24), owned)?.id).toBe("c1");
+    expect(drawCollectionItem(commons, seq(0.5, 0.25), owned)?.id).toBe("c2");
+    expect(drawCollectionItem(commons, seq(0.5, 0.999), owned)?.id).toBe("c2");
+  });
+
+  it("pool 内の順序で累積: 未所持が先頭でも同じ境界 (0.74/0.75)", () => {
+    const owned = new Set(["c2"]); // c1 が未所持
+    expect(drawCollectionItem(commons, seq(0.5, 0.74), owned)?.id).toBe("c1");
+    expect(drawCollectionItem(commons, seq(0.5, 0.75), owned)?.id).toBe("c2");
+  });
+
+  it("階層内が全て所持済みなら均等 (1:1)", () => {
+    const owned = new Set(["c1", "c2"]);
+    expect(drawCollectionItem(commons, seq(0.5, 0.49), owned)?.id).toBe("c1");
+    expect(drawCollectionItem(commons, seq(0.5, 0.5), owned)?.id).toBe("c2");
+  });
+
+  it("未所持が複数のとき各重みに従う (所持1 + 未所持2: 重み 1/3/3, 総和7)", () => {
+    const three = [mk("c1", "COMMON"), mk("c2", "COMMON"), mk("c3", "COMMON")];
+    const owned = new Set(["c1"]);
+    // 境界: 1/7 (~0.1429), 4/7 (~0.5714)
+    expect(drawCollectionItem(three, seq(0.5, 0.14), owned)?.id).toBe("c1");
+    expect(drawCollectionItem(three, seq(0.5, 0.15), owned)?.id).toBe("c2");
+    expect(drawCollectionItem(three, seq(0.5, 0.57), owned)?.id).toBe("c2");
+    expect(drawCollectionItem(three, seq(0.5, 0.58), owned)?.id).toBe("c3");
+    expect(drawCollectionItem(three, seq(0.5, 0.999999), owned)?.id).toBe("c3");
+  });
+
+  it("降格: RARE 当選だが RARE なし → UNCOMMON の所持状況で重み付け", () => {
+    const p = [mk("u1", "UNCOMMON"), mk("u2", "UNCOMMON"), mk("c1", "COMMON")];
+    // u1 のみ所持 (u2 未所持) → 重み 1:3、境界 0.25
+    const owned = new Set(["u1"]);
+    expect(drawCollectionItem(p, seq(0.0, 0.24), owned)?.id).toBe("u1");
+    expect(drawCollectionItem(p, seq(0.0, 0.25), owned)?.id).toBe("u2");
+    // COMMON の所持状況は無関係
+    expect(drawCollectionItem(p, seq(0.0, 0.25), new Set(["u1", "c1"]))?.id).toBe("u2");
+  });
+
+  it("降格: UNCOMMON 当選で UNCOMMON なし → COMMON の所持状況で重み付け", () => {
+    const owned = new Set(["c1"]);
+    expect(drawCollectionItem(commons, seq(0.2, 0.24), owned)?.id).toBe("c1");
+    expect(drawCollectionItem(commons, seq(0.2, 0.25), owned)?.id).toBe("c2");
+  });
+
+  it("FREE プール相当 (C2/U2/R1) で全所持でも必ず何かが返る", () => {
+    const free = [mk("c1", "COMMON"), mk("c2", "COMMON"), mk("u1", "UNCOMMON"), mk("u2", "UNCOMMON"), mk("r1", "RARE")];
+    const all = new Set(free.map((i) => i.id));
+    for (const first of [0, 0.09, 0.1, 0.39, 0.4, 0.99]) {
+      for (const second of [0, 0.5, 0.999999]) {
+        expect(drawCollectionItem(free, seq(first, second), all)).not.toBeNull();
+      }
+    }
+  });
+
+  it("空プールは ownedIds があっても null", () => {
+    expect(drawCollectionItem([], () => 0.5, new Set(["x"]))).toBeNull();
+  });
+
+  it("乱数の消費回数は 2 回のまま", () => {
+    let calls = 0;
+    drawCollectionItem(commons, () => { calls++; return 0.5; }, new Set(["c1"]));
+    expect(calls).toBe(2);
+  });
+
+  it("統計: 未所持1:所持済み1 の階層で未所持が約75% (±2%)、レア度比率は ownedIds の有無で不変", () => {
+    const p = [mk("c1", "COMMON"), mk("c2", "COMMON"), mk("u1", "UNCOMMON"), mk("u2", "UNCOMMON"), mk("r1", "RARE")];
+    const owned = new Set(["c1", "u1"]); // c2, u2 が未所持
+    const N = 60000;
+    const makeRng = () => {
+      let s = 987654321;
+      return () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x80000000;
+      };
+    };
+    const rng = makeRng();
+    const rngNo = makeRng();
+    let commonTotal = 0, commonUnowned = 0;
+    const withTier = { COMMON: 0, UNCOMMON: 0, RARE: 0 };
+    const withoutTier = { COMMON: 0, UNCOMMON: 0, RARE: 0 };
+    for (let i = 0; i < N; i++) {
+      const a = drawCollectionItem(p, rng, owned)!;
+      withTier[a.rarity]++;
+      if (a.rarity === "COMMON") {
+        commonTotal++;
+        if (a.id === "c2") commonUnowned++;
+      }
+      withoutTier[drawCollectionItem(p, rngNo)!.rarity]++;
+    }
+    expect(Math.abs(commonUnowned / commonTotal - 0.75)).toBeLessThan(0.02);
+    expect(Math.abs(withTier.COMMON / N - 0.6)).toBeLessThan(0.02);
+    expect(Math.abs(withTier.UNCOMMON / N - 0.3)).toBeLessThan(0.02);
+    expect(Math.abs(withTier.RARE / N - 0.1)).toBeLessThan(0.02);
+    expect(Math.abs(withoutTier.COMMON / N - 0.6)).toBeLessThan(0.02);
+    expect(Math.abs(withTier.COMMON - withoutTier.COMMON) / N).toBeLessThan(0.02);
   });
 });
