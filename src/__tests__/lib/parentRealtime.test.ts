@@ -21,7 +21,7 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
-import { subscribeFamilyRealtime } from "@/lib/parentRealtime";
+import { subscribeFamilyRealtime, notifyFamilyMembersChanged } from "@/lib/parentRealtime";
 import { invalidateDeduped } from "@/lib/fetchDeduped";
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -109,4 +109,59 @@ describe("subscribeFamilyRealtime", () => {
 
     expect(registered).toHaveLength(0);
   });
+
+  it("子供0人で始めても、子供を追加したら（notifyFamilyMembersChanged）購読が始まる", async () => {
+    mockFamily(true, [{ id: "p1", role: "PARENT" }]);
+    const off = subscribeFamilyRealtime("pending", ["QuestInstance"], vi.fn());
+    await flush();
+    await flush();
+    expect(registered).toHaveLength(0);
+
+    mockFamily(true, [
+      { id: "p1", role: "PARENT" },
+      { id: "c1", role: "CHILD" },
+    ]);
+    notifyFamilyMembersChanged();
+    await flush();
+    await flush();
+
+    expect(registered.map((r) => r.filter.filter)).toEqual(["childId=in.(c1)"]);
+    off();
+    expect(removeChannel).toHaveBeenCalledTimes(1);
+  });
+
+  it("子供が増えたら、古い購読を閉じて新しい子供一覧で張り直す", async () => {
+    mockFamily(true, [{ id: "c1", role: "CHILD" }]);
+    const off = subscribeFamilyRealtime("pending", ["QuestInstance"], vi.fn());
+    await flush();
+    await flush();
+
+    mockFamily(true, [
+      { id: "c1", role: "CHILD" },
+      { id: "c2", role: "CHILD" },
+    ]);
+    notifyFamilyMembersChanged();
+    await flush();
+    await flush();
+
+    expect(removeChannel).toHaveBeenCalledTimes(1);
+    expect(registered.map((r) => r.filter.filter)).toEqual(["childId=in.(c1)", "childId=in.(c1,c2)"]);
+    off();
+  });
+
+  it("解除済みの購読は、家族構成が変わっても張り直さない", async () => {
+    mockFamily(true, [{ id: "c1", role: "CHILD" }]);
+    const off = subscribeFamilyRealtime("pending", ["QuestInstance"], vi.fn());
+    await flush();
+    await flush();
+    off();
+    registered = [];
+
+    notifyFamilyMembersChanged();
+    await flush();
+    await flush();
+
+    expect(registered).toHaveLength(0);
+  });
 });
+

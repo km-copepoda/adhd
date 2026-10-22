@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { notifyFamilyMembersChanged } from "@/lib/parentRealtime";
 import Image from "next/image";
 import Link from "next/link";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
@@ -135,6 +136,8 @@ export default function FamilyPage() {
       if (res.ok) {
         setDeleteConfirmId(null);
         fetchFamily();
+        // ナビの承認待ちバッジ等の Realtime 購読を、新しい子供一覧で張り直す
+        notifyFamilyMembersChanged();
       }
     } finally {
       setDeleting(false);
@@ -263,6 +266,8 @@ export default function FamilyPage() {
       setAddForm({ name: "", side: "LIGHT", themeId: "" });
       setAddErrorCode(null);
       fetchFamily();
+      // ナビの承認待ちバッジ等の Realtime 購読を、新しい子供一覧で張り直す
+      notifyFamilyMembersChanged();
     } catch {
       setAddError("通信エラーが発生しました");
       setAddErrorCode(null);
