@@ -126,3 +126,62 @@ describe("recordTaskStreak: 古い日付の後追い承認（#188）", () => {
     );
   });
 });
+
+// Codex指摘: 比較と更新を原子的にする（楽観的並行制御）
+describe("並行承認での楽観ロック（#188 Codex）", () => {
+  const p2025 = () => Object.assign(new Error("not found"), { code: "P2025" });
+
+  it("日次: update の where に読み取った lastAchievedDate を含める", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ minTasksForStreak: 1 }));
+    mockPrisma.questInstance.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ currentStreak: 5, bestStreak: 5, lastAchievedDate: d("2026-10-18") }),
+    );
+    mockPrisma.streak.update.mockResolvedValue(streak());
+    await recordDailyAchievement("child-1", d("2026-10-19"));
+    expect(mockPrisma.streak.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { childId: "child-1", lastAchievedDate: d("2026-10-18") },
+      }),
+    );
+  });
+
+  it("日次: 競合(P2025)したら再読込して古い日付なら巻き戻さない", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ minTasksForStreak: 1 }));
+    mockPrisma.questInstance.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+    mockPrisma.streak.upsert
+      .mockResolvedValueOnce(streak({ currentStreak: 5, bestStreak: 5, lastAchievedDate: d("2026-10-18") }))
+      .mockResolvedValueOnce(streak({ currentStreak: 6, bestStreak: 6, lastAchievedDate: d("2026-10-20") }));
+    mockPrisma.streak.update.mockRejectedValueOnce(p2025());
+    await recordDailyAchievement("child-1", d("2026-10-19"));
+    expect(mockPrisma.streak.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("日次: P2025 以外のエラーは再スローする", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ minTasksForStreak: 1 }));
+    mockPrisma.questInstance.count.mockResolvedValueOnce(1).mockResolvedValueOnce(1);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ currentStreak: 5, bestStreak: 5, lastAchievedDate: d("2026-10-18") }),
+    );
+    mockPrisma.streak.update.mockRejectedValueOnce(new Error("boom"));
+    await expect(recordDailyAchievement("child-1", d("2026-10-19"))).rejects.toThrow("boom");
+  });
+
+  it("タスク別: where に lastAchievedDate を含め、P2025 で再読込して巻き戻さない", async () => {
+    mockPrisma.taskStreak.upsert
+      .mockResolvedValueOnce(
+        taskStreak({ id: "s1", taskId: "t1", childId: "c1", currentStreak: 5, bestStreak: 5, lastAchievedDate: d("2026-10-18") }),
+      )
+      .mockResolvedValueOnce(
+        taskStreak({ id: "s1", taskId: "t1", childId: "c1", currentStreak: 6, bestStreak: 6, lastAchievedDate: d("2026-10-20") }),
+      );
+    mockPrisma.taskStreak.update.mockRejectedValueOnce(p2025());
+    await recordTaskStreak("t1", "c1", d("2026-10-19"), [0, 1, 2, 3, 4, 5, 6]);
+    expect(mockPrisma.taskStreak.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { taskId_childId: { taskId: "t1", childId: "c1" }, lastAchievedDate: d("2026-10-18") },
+      }),
+    );
+  });
+});

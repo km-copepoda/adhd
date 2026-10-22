@@ -36,46 +36,46 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
   // ちょうど必要数に達した瞬間のみ処理（超過=既に記録済み）
   if (achievedCount !== required) return;
 
-  // 既存 Streak レコード取得（なければデフォルト値で作成）
-  const streak = await prisma.streak.upsert({
-    where: { childId },
-    create: { childId, currentStreak: 0, bestStreak: 0 },
-    update: {},
-  });
-
+  // 読み取り→判定→条件付き更新を楽観ロックで行う（並行承認で巻き戻さない）
   const today = normalizeDate(questDate);
   const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-  // 同日処理済み
-  if (lastDate && lastDate.getTime() === today.getTime()) return;
+  let oldStreak = 0;
+  let newStreak = 0;
+  let newBest = 0;
+  let updated = false;
+  for (let attempt = 0; attempt < MAX_OPTIMISTIC_RETRIES && !updated; attempt++) {
+    // 既存 Streak レコード取得（なければデフォルト値で作成）
+    const streak = await prisma.streak.upsert({
+      where: { childId },
+      create: { childId, currentStreak: 0, bestStreak: 0 },
+      update: {},
+    });
+    const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
 
-  // 既により新しい日付が記録済み（古い日付の後追い承認）→ 巻き戻さない
-  if (lastDate && lastDate.getTime() > today.getTime()) return;
+    // 同日処理済み
+    if (lastDate && lastDate.getTime() === today.getTime()) return;
+    // 既により新しい日付が記録済み（古い日付の後追い承認）→ 巻き戻さない
+    if (lastDate && lastDate.getTime() > today.getTime()) return;
 
-  let newStreak: number;
+    const continued = !!lastDate && lastDate.getTime() === yesterday.getTime();
+    newStreak = continued ? streak.currentStreak + 1 : 1;
+    oldStreak = continued ? streak.currentStreak : 0;
+    newBest = Math.max(newStreak, streak.bestStreak);
 
-  if (lastDate && lastDate.getTime() === yesterday.getTime()) {
-    // 昨日も達成 → 連続
-    newStreak = streak.currentStreak + 1;
-  } else {
-    // 途切れた or 初回
-    newStreak = 1;
+    try {
+      await prisma.streak.update({
+        where: { childId, lastAchievedDate: streak.lastAchievedDate },
+        data: { currentStreak: newStreak, bestStreak: newBest, lastAchievedDate: today },
+      });
+      updated = true;
+    } catch (e) {
+      if (!isRecordNotFound(e)) throw e;
+      // 他の承認が先に更新した → 再読込して判定し直す
+    }
   }
-
-  const oldStreak = lastDate && lastDate.getTime() === yesterday.getTime() ? streak.currentStreak : 0;
-  const newBest = Math.max(newStreak, streak.bestStreak);
-
-  // ストリーク更新
-  await prisma.streak.update({
-    where: { childId },
-    data: {
-      currentStreak: newStreak,
-      bestStreak: newBest,
-      lastAchievedDate: today,
-    },
-  });
+  if (!updated) return;
 
   log.info("Streak updated", { childId, oldStreak, newStreak, newBest });
 
@@ -170,38 +170,51 @@ export async function recordTaskStreak(
   questDate: Date,
   repeatDays: number[],
 ) {
-  const streak = await prisma.taskStreak.upsert({
-    where: { taskId_childId: { taskId, childId } },
-    create: { taskId, childId, currentStreak: 0, bestStreak: 0 },
-    update: {},
-  });
-
   const today = normalizeDate(questDate);
-  const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
-
-  // 同日処理済み
-  if (lastDate && lastDate.getTime() === today.getTime()) return;
-
-  // 既により新しい日付が記録済み（古い日付の後追い承認）→ 巻き戻さない
-  if (lastDate && lastDate.getTime() > today.getTime()) return;
-
   const prev = previousScheduledDate(repeatDays, today);
-  const newStreak =
-    lastDate && prev && lastDate.getTime() === prev.getTime()
-      ? streak.currentStreak + 1
-      : 1;
 
-  const newBest = Math.max(newStreak, streak.bestStreak);
-  await prisma.taskStreak.update({
-    where: { taskId_childId: { taskId, childId } },
-    data: {
-      currentStreak: newStreak,
-      bestStreak: newBest,
-      lastAchievedDate: today,
-    },
-  });
+  let newStreak = 0;
+  let newBest = 0;
+  let updated = false;
+  for (let attempt = 0; attempt < MAX_OPTIMISTIC_RETRIES && !updated; attempt++) {
+    const streak = await prisma.taskStreak.upsert({
+      where: { taskId_childId: { taskId, childId } },
+      create: { taskId, childId, currentStreak: 0, bestStreak: 0 },
+      update: {},
+    });
+    const lastDate = streak.lastAchievedDate ? normalizeDate(streak.lastAchievedDate) : null;
+
+    // 同日処理済み
+    if (lastDate && lastDate.getTime() === today.getTime()) return;
+    // 既により新しい日付が記録済み（古い日付の後追い承認）→ 巻き戻さない
+    if (lastDate && lastDate.getTime() > today.getTime()) return;
+
+    newStreak =
+      lastDate && prev && lastDate.getTime() === prev.getTime()
+        ? streak.currentStreak + 1
+        : 1;
+    newBest = Math.max(newStreak, streak.bestStreak);
+
+    try {
+      await prisma.taskStreak.update({
+        where: { taskId_childId: { taskId, childId }, lastAchievedDate: streak.lastAchievedDate },
+        data: { currentStreak: newStreak, bestStreak: newBest, lastAchievedDate: today },
+      });
+      updated = true;
+    } catch (e) {
+      if (!isRecordNotFound(e)) throw e;
+    }
+  }
+  if (!updated) return;
 
   log.info("Task streak updated", { taskId, childId, newStreak, newBest });
+}
+
+const MAX_OPTIMISTIC_RETRIES = 3;
+
+/** 条件付き update が対象 0 件で失敗した（Prisma P2025） */
+function isRecordNotFound(e: unknown): boolean {
+  return typeof e === "object" && e !== null && (e as { code?: string }).code === "P2025";
 }
 
 /** 日付を UTC 0:00:00 に正規化（TZ非依存） */
