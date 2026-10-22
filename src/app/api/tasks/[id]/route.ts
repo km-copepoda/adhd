@@ -111,7 +111,13 @@ export async function DELETE(
       return NextResponse.json({ error: "タスクが見つかりません" }, { status: 404 });
     }
 
-    if (task.createdBy === "CHILD" && task.quests.length > 0) {
+    // 承認 (approve.ts) で createdBy は PARENT に書き換わるため、
+    // 作成者の出自が残る originalCreatedBy も併せて判定する
+    const isChildCreatedTemporary =
+      task.createdBy === "CHILD" ||
+      (task.isTemporary && task.originalCreatedBy === "CHILD");
+
+    if (isChildCreatedTemporary && task.quests.length > 0) {
       const category = task.category;
 
       // APPROVED のクエストのみXPが付与済み（REPORTEDはまだ未付与）
