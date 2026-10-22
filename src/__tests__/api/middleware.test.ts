@@ -69,6 +69,14 @@ describe("updateSession (middleware)", () => {
       expect(res.headers.get("location")).toContain("/app/parent/login");
     });
 
+    it("getClaims() が例外を投げた場合（壊れた JWT クッキー等）も未認証として扱い、ページを落とさないこと", async () => {
+      mockSupabaseAuth(null);
+      mockGetClaims.mockRejectedValue(new Error("Invalid JWT structure"));
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/app/parent/login");
+    });
+
     it("email のないメール登録外ユーザー（is_anonymous=false, email 空）は子として扱うこと", async () => {
       mockSupabaseAuth({ id: "x", email: "", is_anonymous: false });
       const res = await updateSession(makeRequest("/app/parent/tasks"));
