@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +44,8 @@ type RejectModalState = {
   otherComment: string;
 };
 
+const ACTION_ERROR_MESSAGE = "処理に失敗しました。通信状況を確認して、もう一度お試しください";
+
 const getTomorrowStr = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -59,6 +61,12 @@ export default function ApprovePage() {
   const [photoModal, setPhotoModal] = useState<string | null>(null);
   const [stampModal, setStampModal] = useState<PendingQuest | null>(null);
   const [selectedStamp, setSelectedStamp] = useState<string>("");
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const busyRef = useRef<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const bulkBusyRef = useRef(false);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPending();
@@ -93,12 +101,45 @@ export default function ApprovePage() {
     }
   }
 
-  async function handleAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string, stamp?: string) {
-    await fetch(`/api/approve/${quest.id}`, {
+  // 処理中 id の管理。state だけだと同一 tick 内の連打を弾けないため ref を併用する
+  function beginBusy(id: string): boolean {
+    if (busyRef.current.has(id)) return false;
+    busyRef.current.add(id);
+    setBusyIds(new Set(busyRef.current));
+    return true;
+  }
+
+  function endBusy(id: string) {
+    busyRef.current.delete(id);
+    setBusyIds(new Set(busyRef.current));
+  }
+
+  /** 成功したら true。失敗時は actionError を設定して false */
+  async function handleAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string, stamp?: string): Promise<boolean> {
+    if (!beginBusy(quest.id)) return false;
+    try {
+      return await runAction(quest, action, rejectionReason, rejectionComment, stamp);
+    } catch {
+      setActionError(ACTION_ERROR_MESSAGE);
+      return false;
+    } finally {
+      endBusy(quest.id);
+    }
+  }
+
+  async function runAction(quest: PendingQuest, action: "approve" | "reject", rejectionReason?: string, rejectionComment?: string, stamp?: string): Promise<boolean> {
+    setActionError(null);
+    const res = await fetch(`/api/approve/${quest.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "quest", action, rejectionReason, rejectionComment, ...(stamp ? { stamp } : {}) }),
     });
+    if (!res.ok) {
+      setActionError(ACTION_ERROR_MESSAGE);
+      // 他端末で処理済みの場合などに備えて一覧は最新化する
+      fetchPending();
+      return false;
+    }
 
     // スキップ承認 + 一時タスク + コピーオン の場合、翌日にコピー
     let copyRes: Response | null = null;
@@ -127,16 +168,30 @@ export default function ApprovePage() {
     if (copyRes) {
       await confirmPlanLimitOrAlert(copyRes);
     }
+    return true;
   }
 
   async function handleTreasureUseAction(item: PendingTreasureUse, action: "approve" | "reject") {
-    await fetch(`/api/approve/${item.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "treasure_use", action }),
-    });
-    notifyApprovalsUpdated();
-    fetchPending();
+    if (!beginBusy(item.id)) return;
+    try {
+      setActionError(null);
+      const res = await fetch(`/api/approve/${item.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "treasure_use", action }),
+      });
+      if (!res.ok) {
+        setActionError(ACTION_ERROR_MESSAGE);
+        fetchPending();
+        return;
+      }
+      notifyApprovalsUpdated();
+      fetchPending();
+    } catch {
+      setActionError(ACTION_ERROR_MESSAGE);
+    } finally {
+      endBusy(item.id);
+    }
   }
 
   function openRejectModal(quest: PendingQuest) {
@@ -146,19 +201,37 @@ export default function ApprovePage() {
   async function submitReject() {
     if (!rejectModal) return;
     const { quest, selectedReason, otherComment } = rejectModal;
-    await handleAction(quest, "reject", selectedReason, otherComment);
-    setRejectModal(null);
+    // 失敗時はモーダルと入力内容を残す
+    const ok = await handleAction(quest, "reject", selectedReason, otherComment);
+    if (ok) setRejectModal(null);
   }
 
   async function handleBulkApprove() {
-    const bulkItems = items.map((i) => ({ kind: i.kind, id: i.id }));
-    await fetch("/api/approve/bulk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: bulkItems }),
-    });
-    notifyApprovalsUpdated();
-    fetchPending();
+    if (bulkBusy || bulkBusyRef.current) return;
+    bulkBusyRef.current = true;
+    setBulkBusy(true);
+    setActionError(null);
+    try {
+      const bulkItems = items.map((i) => ({ kind: i.kind, id: i.id }));
+      const res = await fetch("/api/approve/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: bulkItems }),
+      });
+      if (!res.ok) {
+        setActionError(ACTION_ERROR_MESSAGE);
+        fetchPending();
+        return;
+      }
+      setBulkConfirm(false);
+      notifyApprovalsUpdated();
+      fetchPending();
+    } catch {
+      setActionError(ACTION_ERROR_MESSAGE);
+    } finally {
+      bulkBusyRef.current = false;
+      setBulkBusy(false);
+    }
   }
 
   const canSubmitReject = rejectModal && rejectModal.selectedReason &&
@@ -179,12 +252,38 @@ export default function ApprovePage() {
             {items.length}件の報告が承認待ちです
           </p>
         </div>
-        {items.length > 0 && (
-          <button onClick={handleBulkApprove} className="btn-gold text-sm">
+        {items.length > 0 && !bulkConfirm && (
+          <button onClick={() => setBulkConfirm(true)} className="btn-gold text-sm">
             ✓ まとめて承認
           </button>
         )}
       </div>
+
+      {bulkConfirm && items.length > 0 && (
+        <div className="mb-6 rounded-xl border border-quest-gold/30 bg-quest-card p-4">
+          <p className="text-sm mb-3">{items.length}件をまとめて承認します。よろしいですか？</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBulkConfirm(false)}
+              disabled={bulkBusy}
+              className="flex-1 text-sm border border-quest-border rounded-xl py-2.5 text-quest-dim disabled:opacity-40"
+            >
+              やめる
+            </button>
+            <button
+              onClick={handleBulkApprove}
+              disabled={bulkBusy}
+              className="flex-1 btn-gold text-sm py-2.5 disabled:opacity-50"
+            >
+              {bulkBusy ? "承認中..." : "承認する"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {actionError && (
+        <p role="alert" className="mb-4 text-sm text-red-400">{actionError}</p>
+      )}
 
       <div className="flex flex-col gap-4">
         {items.length === 0 && (
@@ -218,8 +317,7 @@ export default function ApprovePage() {
           return (
             <div
               key={quest.id}
-              onClick={() => handleAction(quest, "approve")}
-              className={`bg-quest-card border rounded-xl p-5 cursor-pointer transition-colors ${
+              className={`bg-quest-card border rounded-xl p-5 transition-colors ${
                 isSkipRequest
                   ? "border-red-400/20 hover:border-red-400/40"
                   : "border-quest-border hover:border-quest-gold/30"
@@ -285,13 +383,17 @@ export default function ApprovePage() {
                 </div>
               )}
               <div className="flex gap-2">
-                <div className={`flex-1 text-sm py-2 text-center rounded-xl ${
-                  isSkipRequest
-                    ? "bg-red-400/10 text-red-400 border border-red-400/30"
-                    : "btn-gold"
-                }`}>
+                <button
+                  onClick={() => handleAction(quest, "approve")}
+                  disabled={busyIds.has(quest.id)}
+                  className={`flex-1 text-sm py-2 text-center rounded-xl disabled:opacity-50 ${
+                    isSkipRequest
+                      ? "bg-red-400/10 text-red-400 border border-red-400/30"
+                      : "btn-gold"
+                  }`}
+                >
                   {isSkipRequest ? "✓ スキップを承認" : `✓ 承認 (+${calcActualXP(quest.deadlineBonusEarned, quest.template.photoBonus, !!quest.photoUrl, quest.declaredToday)}pt)`}
-                </div>
+                </button>
                 {!isSkipRequest && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setSelectedStamp(""); setStampModal(quest); }}
@@ -377,7 +479,7 @@ export default function ApprovePage() {
               </button>
               <button
                 onClick={submitReject}
-                disabled={!canSubmitReject}
+                disabled={!canSubmitReject || busyIds.has(rejectModal.quest.id)}
                 className="flex-1 text-sm bg-red-400/10 border border-red-400/30 text-red-300 rounded-xl py-2.5 disabled:opacity-40"
               >
                 差し戻す
@@ -427,11 +529,12 @@ export default function ApprovePage() {
                 キャンセル
               </button>
               <button
-                onClick={() => {
-                  handleAction(stampModal, "approve", undefined, undefined, selectedStamp || undefined);
-                  setStampModal(null);
+                onClick={async () => {
+                  const ok = await handleAction(stampModal, "approve", undefined, undefined, selectedStamp || undefined);
+                  if (ok) setStampModal(null);
                 }}
-                className="flex-1 btn-gold text-sm py-2.5"
+                disabled={busyIds.has(stampModal.id)}
+                className="flex-1 btn-gold text-sm py-2.5 disabled:opacity-50"
               >
                 {selectedStamp ? `${selectedStamp} 承認する` : "✓ 承認する"}
               </button>
