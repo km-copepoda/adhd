@@ -4,6 +4,8 @@ import { POST } from "@/app/api/auth/register/route";
 import { makeRequest } from "../../helpers/request";
 import { mockSupabaseUser } from "../../helpers/auth-mock";
 import { prismaMock as mockPrisma } from "../../helpers/prisma-mock";
+import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { family, parentUser } from "../../helpers/fixtures";
 
 const req = (body: Record<string, unknown> = {}) => makeRequest("/api/auth/register", body);
@@ -29,6 +31,22 @@ describe("POST /api/auth/register", () => {
         }),
       }),
     );
+  });
+
+  it("Authorization の Bearer トークンがある場合、そのトークンを getUser で検証して使うこと", async () => {
+    const getUser = vi.fn().mockResolvedValue({ data: { user: { id: "sup-token", email: "tok@gmail.com" } } });
+    vi.mocked(createClient).mockResolvedValue({ auth: { getUser } } as unknown as SupabaseClient);
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    mockPrisma.family.create.mockResolvedValue(family({ id: "fam-3", code: "CODE33" }));
+
+    const r = new NextRequest("http://localhost/api/auth/register", {
+      method: "POST",
+      headers: { Authorization: "Bearer tok-abc" },
+    });
+    const res = await POST(r);
+    expect(res.status).toBe(200);
+    expect(getUser).toHaveBeenCalledWith("tok-abc");
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { supabaseId: "sup-token" } });
   });
 
   it("未認証の場合、401を返し何も作成しないこと", async () => {

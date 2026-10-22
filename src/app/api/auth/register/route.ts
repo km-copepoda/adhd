@@ -20,7 +20,13 @@ export async function POST(request: Request) {
 
   // ユーザーはサーバーで JWT 検証した結果のみを使う
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // signUp 直後は cookie が未反映のことがあるため、Authorization の Bearer トークンがあれば
+  // それを Supabase に検証させて使う（検証はサーバー側 getUser(jwt) で行う）
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const { data: { user } } = bearer
+    ? await supabase.auth.getUser(bearer)
+    : await supabase.auth.getUser();
 
   if (!user) {
     rlog.warn("Registration failed: unauthenticated");

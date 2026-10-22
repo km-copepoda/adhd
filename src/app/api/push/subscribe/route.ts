@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 import { routeLogger } from "@/lib/logger";
 
 function isNonEmptyString(v: unknown): v is string {
@@ -28,18 +29,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "購読情報が不正です" }, { status: 400 });
   }
 
-  // 他ユーザーが所有する endpoint は上書きしない（通知の乗っ取り防止）
-  const existing = await prisma.pushSubscription.findUnique({ where: { endpoint } });
-  if (existing && existing.userId !== user.id) {
-    rlog.warn("Push subscription endpoint owned by another user", { userId: user.id });
-    return NextResponse.json({ error: "この購読は登録できません" }, { status: 409 });
+  // 所有権チェックと登録を atomic に行う。
+  // create が一意制約違反（既存 endpoint）の場合は、自分の購読に限って更新する。
+  // 他ユーザー所有の endpoint は updateMany の where に一致せず 0 件 → 409（通知の乗っ取り防止）
+  try {
+    await prisma.pushSubscription.create({
+      data: { userId: user.id, endpoint, p256dh, auth },
+    });
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    const { count } = await prisma.pushSubscription.updateMany({
+      where: { endpoint, userId: user.id },
+      data: { p256dh, auth },
+    });
+    if (count === 0) {
+      rlog.warn("Push subscription endpoint owned by another user", { userId: user.id });
+      return NextResponse.json({ error: "この購読は登録できません" }, { status: 409 });
+    }
   }
-
-  await prisma.pushSubscription.upsert({
-    where: { endpoint },
-    create: { userId: user.id, endpoint, p256dh, auth },
-    update: { userId: user.id, p256dh, auth },
-  });
 
   rlog.info("Push subscription registered", { userId: user.id, role: user.role });
   return NextResponse.json({ ok: true });
