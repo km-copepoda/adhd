@@ -33,12 +33,13 @@ const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockFamilyCreate = vi.mocked(prisma.family.create);
 
 /** `createClient()` の戻り値は Supabase の `SupabaseClient` 型（巨大なジェネリック型）。
- * テストで使うのは `auth.getClaims` / `auth.getSession` だけなので、必要な形だけを持つオブジェクトを
+ * テストで使うのは `auth.getClaims` / `auth.getSession` / `auth.getUser` だけなので、必要な形だけを持つオブジェクトを
  * `Awaited<ReturnType<typeof createClient>>` に `as unknown as` でキャストする。 */
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
 
 const mockGetClaims = vi.fn();
 const mockGetSession = vi.fn();
+const mockGetUser = vi.fn();
 
 function mockSupabaseUser(user: { id: string; email?: string } | null) {
   mockGetClaims.mockResolvedValue(
@@ -47,7 +48,7 @@ function mockSupabaseUser(user: { id: string; email?: string } | null) {
       : { data: null, error: null },
   );
   mockCreateClient.mockResolvedValue({
-    auth: { getClaims: mockGetClaims, getSession: mockGetSession },
+    auth: { getClaims: mockGetClaims, getSession: mockGetSession, getUser: mockGetUser },
   } as unknown as SupabaseClientLike);
 }
 
@@ -62,7 +63,7 @@ describe("getCurrentUser", () => {
     expect(result).toBeNull();
   });
 
-  it("JWT を検証する getClaims() を使い、検証しない getSession() は直接呼ばないこと", async () => {
+  it("getClaims() で検証し、未検証の getSession() も Auth へ往復する getUser() も直接呼ばないこと", async () => {
     mockSupabaseUser({ id: "sup-123", email: "test@example.com" });
     mockUserFindUnique.mockResolvedValue(parentUserWithFamily({ supabaseId: "sup-123" }));
 
@@ -70,6 +71,7 @@ describe("getCurrentUser", () => {
 
     expect(mockGetClaims).toHaveBeenCalledTimes(1);
     expect(mockGetSession).not.toHaveBeenCalled();
+    expect(mockGetUser).not.toHaveBeenCalled();
   });
 
   it("getClaims() がエラー（署名不正・期限切れ・refresh 失敗）を返したら null を返し DB を引かないこと", async () => {
@@ -144,6 +146,35 @@ describe("getCurrentUser", () => {
     const result = await getCurrentUser();
     expect(result).toBeNull();
     expect(mockFamilyCreate).not.toHaveBeenCalled();
+  });
+
+  it("自動再作成で P2002 (unique 違反) になった場合、findUnique をやり直して返すこと", async () => {
+    mockSupabaseUser({ id: "sup-race", email: "race@example.com" });
+    const created = parentUserWithFamily({ id: "db-race", supabaseId: "sup-race" });
+    mockUserFindUnique.mockResolvedValueOnce(null);
+    mockFamilyCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+    mockUserFindUnique.mockResolvedValueOnce(created);
+
+    const result = await getCurrentUser();
+    expect(result).toEqual(created);
+    expect(mockFamilyCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("P2002 以外のエラーはそのままスローすること", async () => {
+    mockSupabaseUser({ id: "sup-err", email: "err@example.com" });
+    mockUserFindUnique.mockResolvedValueOnce(null);
+    mockFamilyCreate.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(getCurrentUser()).rejects.toThrow("boom");
+  });
+
+  it("P2002 が続いてユーザーも見つからない場合は上限回数でスローすること", async () => {
+    mockSupabaseUser({ id: "sup-loop", email: "loop@example.com" });
+    mockUserFindUnique.mockResolvedValue(null);
+    mockFamilyCreate.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
+
+    await expect(getCurrentUser()).rejects.toThrow();
+    expect(mockFamilyCreate.mock.calls.length).toBeLessThanOrEqual(5);
   });
 
   it("emailからユーザー名を@前で抽出すること", async () => {
