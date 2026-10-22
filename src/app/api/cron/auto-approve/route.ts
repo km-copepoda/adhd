@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       date: { lt: today },
       status: { in: ["REPORTED", "SKIP_REPORTED"] },
     },
+    orderBy: { date: "asc" },
     include: {
       template: {
         select: {

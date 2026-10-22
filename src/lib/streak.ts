@@ -51,6 +51,9 @@ export async function recordDailyAchievement(childId: string, questDate: Date) {
   // 同日処理済み
   if (lastDate && lastDate.getTime() === today.getTime()) return;
 
+  // 既により新しい日付が記録済み（古い日付の後追い承認）→ 巻き戻さない
+  if (lastDate && lastDate.getTime() > today.getTime()) return;
+
   let newStreak: number;
 
   if (lastDate && lastDate.getTime() === yesterday.getTime()) {
@@ -178,6 +181,9 @@ export async function recordTaskStreak(
 
   // 同日処理済み
   if (lastDate && lastDate.getTime() === today.getTime()) return;
+
+  // 既により新しい日付が記録済み（古い日付の後追い承認）→ 巻き戻さない
+  if (lastDate && lastDate.getTime() > today.getTime()) return;
 
   const prev = previousScheduledDate(repeatDays, today);
   const newStreak =
