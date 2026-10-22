@@ -84,6 +84,16 @@ describe("getCurrentUser", () => {
     expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
+  it("getClaims() が例外を投げた場合（壊れた JWT クッキー等）も null を返し DB を引かないこと", async () => {
+    mockSupabaseUser(null);
+    mockGetClaims.mockRejectedValue(new Error("Invalid JWT structure"));
+
+    const result = await getCurrentUser();
+
+    expect(result).toBeNull();
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
+  });
+
   it("claims に sub が無い場合は null を返すこと", async () => {
     mockSupabaseUser(null);
     mockGetClaims.mockResolvedValue({ data: { claims: { role: "anon" } }, error: null });
