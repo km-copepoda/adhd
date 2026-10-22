@@ -256,7 +256,23 @@ describe("recordCheckin", () => {
     expect(result.todayStatus).toBe("success");
     expect(result.justNow).toBe(false);
     expect(result.currentStreak).toBe(1);
-    expect(mockPrisma.streak.update).not.toHaveBeenCalled();
+  });
+
+  it("CheckinLog 作成と Streak 更新を単一の $transaction で原子的に行う (Codex #203)", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ checkinDeadlineTime: "16:00" }));
+    mockPrisma.checkinLog.findUnique.mockResolvedValue(null);
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ checkinCurrentStreak: 0, checkinBestStreak: 0, lastCheckinDate: null }),
+    );
+    mockPrisma.checkinLog.create.mockResolvedValue(checkinLog());
+    mockPrisma.streak.update.mockResolvedValue(streak());
+
+    await recordCheckin("child-1", new Date("2026-06-23T06:30:00Z"));
+
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    const ops = (mockPrisma.$transaction as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0];
+    expect(Array.isArray(ops)).toBe(true);
+    expect((ops as unknown[]).length).toBe(2);
   });
 
   it("P2002 以外のエラーは再スローする", async () => {
