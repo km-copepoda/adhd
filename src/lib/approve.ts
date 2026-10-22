@@ -85,25 +85,22 @@ export async function transitionQuestStatus(
 }
 
 /**
- * クエスト承認。status 遷移（→APPROVED）を最初にアトミックに行い、
- * レースに負けた場合は XP 付与等を一切せず false を返す。
+ * クエスト承認。前提の読み取り（宣言・子データ）を済ませた後に status 遷移（→APPROVED）を
+ * アトミックに行い、レースに負けた場合は XP 付与等を一切せず false を返す。
  */
 export async function approveQuestInstance(
   quest: QuestWithRelations,
   stamp?: string,
-  options?: { fromStatuses?: QuestStatus[] },
+  options?: {
+    fromStatuses?: QuestStatus[];
+    /** 親代理報告など、claim と同一の更新に含めたい追加フィールド（勝者だけが書く） */
+    extraData?: Prisma.QuestInstanceUpdateInput;
+  },
 ): Promise<boolean> {
   const fromStatuses = options?.fromStatuses ?? ["REPORTED"];
-  const won = await transitionQuestStatus(quest.id, fromStatuses, {
-    status: "APPROVED",
-    approvedAt: new Date(),
-    ...(stamp ? { approvalStamp: stamp } : {}),
-  });
-  if (!won) {
-    log.warn("Quest approval skipped: status changed concurrently", { questId: quest.id });
-    return false;
-  }
 
+  // 前提となる読み取りは claim より前に行う。claim 後に失敗すると
+  // APPROVED のまま XP が付かず、リトライも status 検証で弾かれて永久欠落するため。
   const baseXp = calculateQuestXP(quest);
 
   // 「今日やる宣言ボーナス」: 報告日（JST）に対応する宣言があれば +1
@@ -141,6 +138,17 @@ export async function approveQuestInstance(
     },
   }) as FreshChildData | null;
   if (!child) throw new Error(`Child ${quest.childId} not found`);
+
+  const won = await transitionQuestStatus(quest.id, fromStatuses, {
+    ...(options?.extraData ?? {}),
+    status: "APPROVED",
+    approvedAt: new Date(),
+    ...(stamp ? { approvalStamp: stamp } : {}),
+  });
+  if (!won) {
+    log.warn("Quest approval skipped: status changed concurrently", { questId: quest.id });
+    return false;
+  }
 
   const newStudy = child.studyPt + (category === "STUDY" ? xp : 0);
   const newStamina = child.staminaPt + (category === "STAMINA" ? xp : 0);

@@ -134,6 +134,41 @@ describe("approveQuestInstance のレース対策", () => {
   });
 });
 
+describe("approveQuestInstance: 前提読み取りと claim の順序（Codex P1）", () => {
+  it("子ユーザーが取得できない場合、claim（status 更新）より前に失敗し APPROVED にならないこと", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    await expect(approveQuestInstance(baseQuest)).rejects.toThrow();
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("宣言取得が失敗した場合、claim より前に失敗し APPROVED にならないこと", async () => {
+    mockPrisma.questDeclaration.findUnique.mockRejectedValue(new Error("db down"));
+    await expect(approveQuestInstance(baseQuest)).rejects.toThrow("db down");
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    mockPrisma.questDeclaration.findUnique.mockReset();
+  });
+
+  it("options.extraData を claim の data にマージし、1回の update で書くこと", async () => {
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.user.update.mockResolvedValue(childUser());
+    await approveQuestInstance(baseQuest, "🎉", {
+      fromStatuses: ["PENDING", "REPORTED"],
+      extraData: { comment: "c", photoUrl: "p" },
+    });
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "APPROVED",
+          approvalStamp: "🎉",
+          comment: "c",
+          photoUrl: "p",
+        }),
+      }),
+    );
+  });
+});
+
 describe("approveSkipQuestInstance のレース対策", () => {
   const skipQuest = { ...baseQuest, status: "SKIP_REPORTED" as const };
 

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
 import type { QuestStatus } from "@/generated/prisma/client";
-import { approveQuestInstance, transitionQuestStatus } from "@/lib/approve";
+import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
@@ -61,21 +61,18 @@ export async function POST(
       : false;
   }
 
-  // まず報告フィールドを書き込む（コメント・写真・reportedAt）
-  // #183: status 条件付きで書き込み、並行操作で遷移済みなら 400
+  // 報告フィールド（コメント・写真・reportedAt）は approveQuestInstance の status 遷移（claim）と
+  // 同一の更新に含める。並行リクエストの敗者が先に書き込んで勝者の内容を上書きするのを防ぐ（#183）
   const fromStatuses: QuestStatus[] = ["PENDING", "REJECTED", "REPORTED"];
-  const wrote = await transitionQuestStatus(id, fromStatuses, {
+  const reportData = {
     comment: comment ?? null,
     photoUrl: photoUrl ?? quest.photoUrl,
     reportedAt: quest.reportedAt ?? now,
     rejectionReason: null,
     ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
-  });
-  if (!wrote) {
-    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
-  }
+  };
 
-  // 既に書き込み済みの値を反映した quest オブジェクトを approveQuestInstance に渡す
+  // 書き込み予定の値を反映した quest オブジェクトを approveQuestInstance に渡す
   // reportedAt も実際に DB へ書き込んだ値（既存値優先、なければ now）と揃える。
   // approveQuestInstance 内の resolveTreasureDate が quest.reportedAt を基準にするため。
   const updatedQuest = {
@@ -87,7 +84,10 @@ export async function POST(
   };
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
-  const approved = await approveQuestInstance(updatedQuest, stamp ?? undefined, { fromStatuses });
+  const approved = await approveQuestInstance(updatedQuest, stamp ?? undefined, {
+    fromStatuses,
+    extraData: reportData,
+  });
   if (!approved) {
     return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
   }

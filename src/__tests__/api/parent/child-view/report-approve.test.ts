@@ -133,33 +133,20 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     );
     expect(res.status).toBe(200);
 
-    // REPORTED 経由ではなく、まず report フィールドだけ更新してから approveQuestInstance を呼ぶ
-    expect(mockTransition).toHaveBeenCalledWith(
-      "q1",
-      ["PENDING", "REJECTED", "REPORTED"],
-      expect.objectContaining({
-        comment: "代理報告",
-        reportedAt: expect.any(Date),
-      }),
-    );
-    // approveQuestInstance がスタンプ込みで呼ばれる
+    // Codex P1: 報告フィールドは status 遷移（claim）と同一の更新に含め、勝者だけが書く
+    expect(mockTransition).not.toHaveBeenCalled();
     expect(mockApprove).toHaveBeenCalledWith(
       expect.objectContaining({ id: "q1", childId: "child-1" }),
       "🎉",
-      { fromStatuses: ["PENDING", "REJECTED", "REPORTED"] },
+      {
+        fromStatuses: ["PENDING", "REJECTED", "REPORTED"],
+        extraData: expect.objectContaining({
+          comment: "代理報告",
+          reportedAt: expect.any(Date),
+          rejectionReason: null,
+        }),
+      },
     );
-  });
-
-  it("報告フィールド書き込みで遷移に負けたら 400 を返し、承認しない（#183）", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
-    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
-    mockPrisma.questInstance.findUnique.mockResolvedValue(
-      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-12T00:00:00Z") }),
-    );
-    mockTransition.mockResolvedValue(false);
-    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
-    expect(res.status).toBe(400);
-    expect(mockApprove).not.toHaveBeenCalled();
   });
 
   it("approveQuestInstance が false（レース負け）なら 400 を返す（#183）", async () => {
@@ -234,9 +221,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-    expect(mockTransition).toHaveBeenCalledWith(
-      "q1",
-      expect.any(Array),
+    expect(mockApprove.mock.calls[0][2]?.extraData).toEqual(
       expect.objectContaining({ deadlineBonusEarned: true }),
     );
   });
@@ -259,7 +244,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-    const updateData = mockTransition.mock.calls[0][2];
+    const updateData = mockApprove.mock.calls[0][2]?.extraData;
     expect(updateData).not.toHaveProperty("deadlineBonusEarned");
   });
 
