@@ -33,17 +33,21 @@ const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockFamilyCreate = vi.mocked(prisma.family.create);
 
 /** `createClient()` の戻り値は Supabase の `SupabaseClient` 型（巨大なジェネリック型）。
- * テストで使うのは `auth.getSession` だけなので、必要な形だけを持つオブジェクトを
+ * テストで使うのは `auth.getClaims` / `auth.getSession` だけなので、必要な形だけを持つオブジェクトを
  * `Awaited<ReturnType<typeof createClient>>` に `as unknown as` でキャストする。 */
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
 
+const mockGetClaims = vi.fn();
+const mockGetSession = vi.fn();
+
 function mockSupabaseUser(user: { id: string; email?: string } | null) {
+  mockGetClaims.mockResolvedValue(
+    user
+      ? { data: { claims: { sub: user.id, ...(user.email ? { email: user.email } : {}) } }, error: null }
+      : { data: null, error: null },
+  );
   mockCreateClient.mockResolvedValue({
-    auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: user ? { user } : null },
-      }),
-    },
+    auth: { getClaims: mockGetClaims, getSession: mockGetSession },
   } as unknown as SupabaseClientLike);
 }
 
@@ -56,6 +60,36 @@ describe("getCurrentUser", () => {
     mockSupabaseUser(null);
     const result = await getCurrentUser();
     expect(result).toBeNull();
+  });
+
+  it("JWT を検証する getClaims() を使い、検証しない getSession() は直接呼ばないこと", async () => {
+    mockSupabaseUser({ id: "sup-123", email: "test@example.com" });
+    mockUserFindUnique.mockResolvedValue(parentUserWithFamily({ supabaseId: "sup-123" }));
+
+    await getCurrentUser();
+
+    expect(mockGetClaims).toHaveBeenCalledTimes(1);
+    expect(mockGetSession).not.toHaveBeenCalled();
+  });
+
+  it("getClaims() がエラー（署名不正・期限切れ・refresh 失敗）を返したら null を返し DB を引かないこと", async () => {
+    mockSupabaseUser(null);
+    mockGetClaims.mockResolvedValue({ data: null, error: new Error("Invalid JWT signature") });
+
+    const result = await getCurrentUser();
+
+    expect(result).toBeNull();
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("claims に sub が無い場合は null を返すこと", async () => {
+    mockSupabaseUser(null);
+    mockGetClaims.mockResolvedValue({ data: { claims: { role: "anon" } }, error: null });
+
+    const result = await getCurrentUser();
+
+    expect(result).toBeNull();
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
   it("DBユーザーが存在する場合、family付きで返すこと", async () => {

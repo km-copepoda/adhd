@@ -5,11 +5,13 @@ import { log } from "@/lib/logger";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
-  if (!user) return null;
+  // getSession() はクッキーの JWT を検証せずに返すため使わない。getClaims() は署名を検証する
+  // （非対称鍵ならローカル検証、HS256 なら内部で getUser() にフォールバック）。期限切れ時の
+  // トークン更新も内部の getSession() 経由で行われる。
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
+  const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
 
   const dbUser = await prisma.user.findUnique({
     where: { supabaseId: user.id },
