@@ -2,43 +2,53 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { generateFamilyCode } from "@/lib/categories";
 import { log } from "@/lib/logger";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
+  // getSession はサーバーで JWT を検証しないため、認可には getUser を使う
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.id },
-    include: { family: true },
-  });
-
-  // DB リセット後などで Supabase セッションは有効だが DB ユーザーが存在しない場合に再作成
-  if (!dbUser && user.email) {
-    log.warn("DB user missing, auto-recreating", { supabaseId: user.id });
-    await prisma.family.create({
-      data: {
-        code: generateFamilyCode(),
-        users: {
-          create: {
-            supabaseId: user.id,
-            role: "PARENT",
-            name: user.email.split("@")[0],
-          },
-        },
-      },
-    });
-    return prisma.user.findUnique({
+  const find = () =>
+    prisma.user.findUnique({
       where: { supabaseId: user.id },
       include: { family: true },
     });
-  }
 
-  return dbUser;
+  const dbUser = await find();
+  if (dbUser || !user.email) return dbUser;
+
+  // DB リセット後などで Supabase セッションは有効だが DB ユーザーが存在しない場合に再作成
+  log.warn("DB user missing, auto-recreating", { supabaseId: user.id });
+  for (let attempt = 0; attempt < RECREATE_MAX_ATTEMPTS; attempt++) {
+    try {
+      await prisma.family.create({
+        data: {
+          code: generateFamilyCode(),
+          users: {
+            create: {
+              supabaseId: user.id,
+              role: "PARENT",
+              name: user.email.split("@")[0],
+            },
+          },
+        },
+      });
+      return find();
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      // 並列リクエストが先に作成した場合は再取得、家族コード衝突なら再試行
+      const existing = await find();
+      if (existing) return existing;
+    }
+  }
+  throw new Error("Failed to auto-recreate user");
 }
+
+const RECREATE_MAX_ATTEMPTS = 5;
 
 export type AuthUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 

@@ -18,7 +18,7 @@ export default function RegisterPage() {
     setError("");
 
     const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({ email, password });
+    const { error: authError } = await supabase.auth.signUp({ email, password });
 
     if (authError) {
       setError(authError.message);
@@ -27,12 +27,11 @@ export default function RegisterPage() {
     }
 
     // Create family + parent user in DB
-    // signUp直後はセッションcookieが次のリクエストに反映されないことがあるため
-    // supabaseIdを直接渡す
+    // サーバーはセッション cookie の JWT 検証結果のみを使う（body の ID は信用しない）
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, supabaseId: data.user?.id }),
+      body: JSON.stringify({ email }),
     });
 
     if (!res.ok) {
