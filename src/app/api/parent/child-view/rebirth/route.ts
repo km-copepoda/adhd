@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerMonsterRebornLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
+import { activateFamilyTheme } from "@/lib/monsterThemes";
+import { buildRebirthThemeUpdate } from "@/lib/monsterThemes/pendingTheme";
 
 /**
  * 親モードから子供の転生を代理実行する。
@@ -35,6 +37,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
   }
 
+  // 親画面で予約されたモンスターテーマ（Issue #85）があれば、この転生で反映してクリアする（Issue #189）
+  const pendingThemeId = child.pendingMonsterSetId;
+  const themeUpdate = buildRebirthThemeUpdate(pendingThemeId);
+
   // NORMAL 卵はボーナス無し・使用済み記録もしない（usedEggBonuses はそのまま）
   // TOCTOU 回避: rebirthPending=true を WHERE 条件に含めて、別経路（子供本人）で
   // 先に転生済みなら count=0 となり 400 を返す（子供の卵選択を上書きしない）。
@@ -48,10 +54,16 @@ export async function POST(request: Request) {
       studyPt: 0,
       staminaPt: 0,
       lifePt: 0,
+      ...themeUpdate,
     },
   });
   if (result.count === 0) {
     return NextResponse.json({ error: "転生の準備ができていません" }, { status: 400 });
+  }
+
+  if (pendingThemeId && child.familyId) {
+    const familyId = child.familyId;
+    after(() => activateFamilyTheme(familyId, pendingThemeId, "manual").catch(() => {}));
   }
 
   after(() => triggerMonsterRebornLog(child.id, "ふつう").catch(() => {}));
