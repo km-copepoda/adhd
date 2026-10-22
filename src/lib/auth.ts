@@ -6,11 +6,16 @@ import { isUniqueViolation } from "@/lib/prismaErrors";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
-  // getSession はサーバーで JWT を検証しないため、認可には getUser を使う
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // getSession はサーバーで JWT を検証しないため、認可には getClaims を使う。getClaims は署名を
+  // 検証し（非対称鍵ならローカル検証で Auth への往復なし、HS256 なら内部で getUser にフォールバック）、
+  // 期限切れ時のトークン更新も内部の getSession 経由で行う。
+  // 壊れた JWT クッキーなどでは error を返さず例外を投げるため、それも未認証として扱う
+  const { data, error } = await supabase.auth
+    .getClaims()
+    .catch(() => ({ data: null, error: true as const }));
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
+  const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
 
   const find = () =>
     prisma.user.findUnique({
