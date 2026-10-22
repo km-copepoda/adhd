@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { after } from "next/server";
 import { GET } from "@/app/api/approve/pending/route";
 import { getCurrentUser } from "@/lib/auth";
 import { prismaMock } from "../../helpers/prisma-mock";
@@ -70,6 +71,17 @@ describe("GET /api/approve/pending", () => {
         data: expect.objectContaining({ status: "REJECTED" }),
       })
     );
+  });
+
+  it("stale クリーンアップはレスポンスをブロックしないよう after() で実行されること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    prismaMock.user.findMany.mockResolvedValue([childUser({ id: "child-1" })]);
+    prismaMock.taskTemplate.findMany.mockResolvedValue([taskTemplate({ id: "tpl-1", carryOver: true })]);
+    prismaMock.questInstance.findMany.mockResolvedValue([]);
+
+    await GET();
+
+    expect(vi.mocked(after)).toHaveBeenCalledTimes(1);
   });
 
   it("PARENTがREPORTEDとSKIP_REPORTEDのクエストを取得できること", async () => {

@@ -35,6 +35,9 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
+              // 起動時に全ページを先読みすると、ミドルウェアの認証（トークン更新）が並列に衝突して
+              // 白画面・ログイン画面への誤リダイレクトを招くため prefetch しない
+              prefetch={false}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 isActive
                   ? "bg-quest-gold/10 text-quest-gold border border-quest-gold/20"

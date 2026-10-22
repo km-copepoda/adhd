@@ -41,4 +41,29 @@ describe("親 タスク管理ページ: マウント時のfetch回数", () => {
     expect(tasksCalls).toHaveLength(1);
     expect(familyCalls).toHaveLength(1);
   });
+
+  it("プラン上限 (/api/subscription/limits) の応答を待たずにタスク一覧を表示する", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/subscription/limits")) {
+        return new Promise(() => {}); // 応答しない
+      }
+      if (url.includes("/api/tasks")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      if (url.includes("/api/family/code")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ code: "ABC123", members: [] }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    render(<TasksPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("spinner")).toBeNull();
+    });
+  });
 });
