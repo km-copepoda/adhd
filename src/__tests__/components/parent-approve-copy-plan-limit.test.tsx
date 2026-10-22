@@ -85,8 +85,8 @@ describe("親 承認センター: スキップ承認+翌日コピーの上限到
     // 「次の日に送る」を有効化
     fireEvent.click(screen.getByLabelText(/次の日に送る/));
 
-    // カード本体をクリックして承認 (タイトルをクリックしてもバブリングで onClick が発火する)
-    fireEvent.click(screen.getByText("おてつだい"));
+    // 承認ボタンをクリックして承認 (#190: カード本体のタップでは承認されない)
+    fireEvent.click(screen.getByRole("button", { name: /スキップを承認/ }));
 
     await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(1));
 
@@ -116,7 +116,7 @@ describe("親 承認センター: スキップ承認+翌日コピーの上限到
     await waitFor(() => expect(screen.queryByTestId("spinner")).toBeNull());
 
     fireEvent.click(screen.getByLabelText(/次の日に送る/));
-    fireEvent.click(screen.getByText("おてつだい"));
+    fireEvent.click(screen.getByRole("button", { name: /スキップを承認/ }));
 
     await waitFor(() => expect(notifyApprovalsUpdated).toHaveBeenCalledTimes(1));
     expect(confirmSpy).not.toHaveBeenCalled();
