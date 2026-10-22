@@ -6,8 +6,12 @@ const fetchDedupedMock = vi.fn();
 vi.mock("@/lib/fetchDeduped", () => ({
   fetchDeduped: (...args: unknown[]) => fetchDedupedMock(...args),
 }));
+let realtimeCb: (() => void) | null = null;
 vi.mock("@/lib/childRealtime", () => ({
-  subscribeChildRealtime: () => () => {},
+  subscribeChildRealtime: (_t: string, cb: () => void) => {
+    realtimeCb = cb;
+    return () => {};
+  },
 }));
 
 import { useChildQuests } from "@/hooks/useChildQuests";
@@ -47,6 +51,33 @@ describe("useMonsterStatus: visibilitychange で applyStatus (#191)", () => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
     await waitFor(() => expect(result.current.data?.name).toBe("B"));
+  });
+});
+
+describe("useMonsterStatus: 古い応答が新しい状態を上書きしない (#191)", () => {
+  const status = (name: string) => ({
+    name, side: null, monsterSetId: "dark", evolutionStage: 1, evolutionPath: "",
+    collectedPaths: "[]", studyPt: 0, staminaPt: 0, lifePt: 0,
+    pendingStudyPt: 0, pendingStaminaPt: 0, pendingLifePt: 0,
+    currentStreak: 0, bestStreak: 0, monthlyDays: 0, lastAchievedDate: null, currentTitle: null,
+  });
+  it("visibility の遅い応答が、後発の realtime 応答の後に届いても無視される", async () => {
+    fetchDedupedMock.mockResolvedValueOnce({ ok: true, json: async () => status("INIT") });
+    const { result } = renderHook(() => useMonsterStatus());
+    await waitFor(() => expect(result.current.data?.name).toBe("INIT"));
+    let resolveOld!: (v: unknown) => void;
+    fetchDedupedMock.mockReturnValueOnce(new Promise((r) => { resolveOld = r; }));
+    fetchDedupedMock.mockResolvedValueOnce({ ok: true, json: async () => status("NEW") });
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      realtimeCb?.();
+    });
+    await waitFor(() => expect(result.current.data?.name).toBe("NEW"));
+    await act(async () => {
+      resolveOld({ ok: true, json: async () => status("OLD") });
+    });
+    expect(result.current.data?.name).toBe("NEW");
   });
 });
 
