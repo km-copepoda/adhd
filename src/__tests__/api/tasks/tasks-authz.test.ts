@@ -101,17 +101,10 @@ describe("DELETE /api/tasks/[id] - 却下時の XP 回収と宣言ボーナス (
     quests: Array<{ id: string; reportedAt: Date | null; deadline?: boolean }>;
     declarations: Date[];
     studyPt: number;
-    template?: Record<string, unknown>;
   }) {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.taskTemplate.findFirst.mockResolvedValue({
-      ...taskTemplate({
-        id: "t1",
-        createdBy: "CHILD",
-        photoBonus: false,
-        category: "STUDY",
-        ...opts.template,
-      }),
+      ...taskTemplate({ id: "t1", createdBy: "CHILD", photoBonus: false, category: "STUDY" }),
       quests: opts.quests.map((q) => ({
         ...questInstance({
           id: q.id,
@@ -156,31 +149,6 @@ describe("DELETE /api/tasks/[id] - 却下時の XP 回収と宣言ボーナス (
     });
   });
 
-  it("承認で createdBy が PARENT に変わった子供作成の一時タスクも回収対象になること", async () => {
-    setup({
-      quests: [{ id: "q1", reportedAt: new Date("2026-03-12T05:00:00Z") }],
-      declarations: [new Date("2026-03-12T00:00:00Z")],
-      studyPt: 10,
-      template: { createdBy: "PARENT", originalCreatedBy: "CHILD", isTemporary: true },
-    });
-    await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: "child-1" },
-      data: { studyPt: 8, staminaPt: 0, lifePt: 0 },
-    });
-  });
-
-  it("親が作成した通常タスクは承認済みでも回収しないこと", async () => {
-    setup({
-      quests: [{ id: "q1", reportedAt: new Date("2026-03-12T05:00:00Z") }],
-      declarations: [],
-      studyPt: 10,
-      template: { createdBy: "PARENT", originalCreatedBy: "PARENT", isTemporary: false },
-    });
-    await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
-    expect(mockPrisma.user.update).not.toHaveBeenCalled();
-  });
-
   it("宣言なしは従来どおり基本XPのみ差し引くこと", async () => {
     setup({
       quests: [{ id: "q1", reportedAt: new Date("2026-03-12T05:00:00Z") }],
@@ -223,6 +191,34 @@ describe("DELETE /api/tasks/[id] - 却下時の XP 回収と宣言ボーナス (
       where: { id: "child-1" },
       data: { studyPt: 6, staminaPt: 0, lifePt: 0 },
     });
+  });
+
+  it("承認済み（createdBy が PARENT に変わった）タスクの削除ではXPを差し引かないこと", async () => {
+    // docs/decisions.md「仮タスク却下時のXP没収」は SUPERSEDED。
+    // 承認後に親が削除しても、承認時に付与済みのXPは取り上げない
+    setup({
+      quests: [{ id: "q1", reportedAt: new Date("2026-03-12T05:00:00Z") }],
+      declarations: [new Date("2026-03-12T00:00:00Z")],
+      studyPt: 10,
+    });
+    mockPrisma.taskTemplate.findFirst.mockResolvedValue({
+      ...taskTemplate({
+        id: "t1",
+        createdBy: "PARENT",
+        originalCreatedBy: "CHILD",
+        isTemporary: true,
+        category: "STUDY",
+      }),
+      quests: [
+        {
+          ...questInstance({ id: "q1", templateId: "t1", childId: "child-1", status: "APPROVED" }),
+          child: childUser({ id: "child-1" }),
+        },
+      ],
+    } as never);
+    await DELETE(makeRequest("/api/tasks/t1", {}), makeParams("t1"));
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockPrisma.questInstance.updateMany).not.toHaveBeenCalled();
   });
 
   it("回収で 0 未満にならないこと", async () => {
