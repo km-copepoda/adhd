@@ -60,4 +60,37 @@ describe("getDeadlineDisplay", () => {
     expect(result.minutesLeft).toBe(30);
     expect(result.urgency).toBe("danger");
   });
+
+  // 1分未満の境界: isBeforeDeadline（ms 精度）と食い違わないこと。deadline 20:00 JST = 11:00:00 UTC
+  const at = (s: string) => new Date(`2026-03-28T${s}Z`);
+
+  it("残り1秒は期限切れにならず danger（あと1分）", () => {
+    const r = getDeadlineDisplay("20:00", at("10:59:59"));
+    expect(r.urgency).toBe("danger");
+    expect(r.minutesLeft).toBe(1);
+  });
+
+  it("残り59秒は danger", () => {
+    const r = getDeadlineDisplay("20:00", at("10:59:01"));
+    expect(r.urgency).toBe("danger");
+    expect(r.minutesLeft).toBe(1);
+  });
+
+  it("残り60秒ちょうどは danger（1分）", () => {
+    const r = getDeadlineDisplay("20:00", at("10:59:00"));
+    expect(r.urgency).toBe("danger");
+    expect(r.minutesLeft).toBe(1);
+  });
+
+  it("残り0秒は expired", () => {
+    const r = getDeadlineDisplay("20:00", at("11:00:00"));
+    expect(r.urgency).toBe("expired");
+    expect(r.minutesLeft).toBe(0);
+  });
+
+  it("超過1秒は expired", () => {
+    const r = getDeadlineDisplay("20:00", at("11:00:01"));
+    expect(r.urgency).toBe("expired");
+    expect(r.minutesLeft).toBeLessThanOrEqual(0);
+  });
 });

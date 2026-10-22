@@ -64,7 +64,7 @@ export async function POST(
   await prisma.questInstance.update({
     where: { id },
     data: {
-      comment: comment ?? null,
+      comment: comment ?? quest.comment,
       photoUrl: photoUrl ?? quest.photoUrl,
       reportedAt: quest.reportedAt ?? now,
       rejectionReason: null,

@@ -108,6 +108,30 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     expect(res.status).toBe(404);
   });
 
+  it("body に comment が無い場合、子供が書いた既存コメントを上書きしない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({ id: "child-1", reportDeadlineTime: null }),
+    );
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "REPORTED",
+        comment: "ぼくが書いた",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+
+    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+    expect(res.status).toBe(200);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q1" },
+      data: expect.objectContaining({ comment: "ぼくが書いた" }),
+    });
+  });
+
   it("PENDING 状態のクエストは PENDING→REPORTED 経由せず一気に APPROVED まで進める", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(

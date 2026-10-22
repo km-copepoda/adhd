@@ -78,4 +78,45 @@ describe("sendPushToChild", () => {
     expect(mockPrisma.pushSubscription.findMany).not.toHaveBeenCalled();
     expect(webpush.sendNotification).not.toHaveBeenCalled();
   });
+
+  it.each([404, 410])("%i のとき subscription を削除すること", async (statusCode) => {
+    mockPrisma.pushSubscription.findMany.mockResolvedValue([pushSubscription({ id: "sub-1" })]);
+    mockPrisma.pushSubscription.delete.mockResolvedValue(pushSubscription({ id: "sub-1" }));
+    const webpush = (await import("web-push")).default;
+    vi.mocked(webpush.sendNotification).mockRejectedValueOnce({ statusCode });
+
+    await sendPushToChild("child-1", { title: "t", body: "b" });
+
+    expect(mockPrisma.pushSubscription.delete).toHaveBeenCalledWith({ where: { id: "sub-1" } });
+  });
+
+  it("500 のときは削除しないこと", async () => {
+    mockPrisma.pushSubscription.findMany.mockResolvedValue([pushSubscription({ id: "sub-1" })]);
+    const webpush = (await import("web-push")).default;
+    vi.mocked(webpush.sendNotification).mockRejectedValueOnce({ statusCode: 500 });
+
+    await sendPushToChild("child-1", { title: "t", body: "b" });
+
+    expect(mockPrisma.pushSubscription.delete).not.toHaveBeenCalled();
+  });
+
+  it("sent は実際の成功数（失敗分を除く）をログすること", async () => {
+    mockPrisma.pushSubscription.findMany.mockResolvedValue([
+      pushSubscription({ id: "sub-1" }),
+      pushSubscription({ id: "sub-2" }),
+    ]);
+    const webpush = (await import("web-push")).default;
+    vi.mocked(webpush.sendNotification)
+      .mockResolvedValueOnce({} as never)
+      .mockRejectedValueOnce({ statusCode: 500 });
+    const { log } = await import("@/lib/logger");
+    const spy = vi.spyOn(log, "info");
+
+    await sendPushToChild("child-1", { title: "t", body: "b" });
+
+    expect(spy).toHaveBeenCalledWith(
+      "Push sent to child",
+      expect.objectContaining({ subsCount: 2, sent: 1 }),
+    );
+  });
 });

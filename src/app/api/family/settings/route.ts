@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { isValidCheckinDeadlineTime } from "@/lib/checkin.logic";
 
+/** "HH:mm"（00:00〜23:59）の文字列 or null（解除）か */
+function isValidTimeOrNull(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && isValidCheckinDeadlineTime(value));
+}
+
 /** PATCH /api/family/settings — ファミリー設定更新（親のみ）*/
 export async function PATCH(request: Request) {
   const rlog = routeLogger("PATCH", "/api/family/settings");
@@ -13,116 +18,68 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json();
-
-  // reportDeadlineTime: childId で対象の子供を指定し、"HH:mm" 形式 or null で設定
-  if ("reportDeadlineTime" in body && "childId" in body) {
-    const value: string | null = body.reportDeadlineTime;
-    const childId: string = body.childId;
-
-    if (value !== null && !/^\d{2}:\d{2}$/.test(value)) {
-      return NextResponse.json({ error: "reportDeadlineTime は HH:mm 形式で指定してください" }, { status: 400 });
-    }
-
-    // 対象の子供が同じファミリーに属しているか確認
-    const child = await prisma.user.findFirst({
-      where: { id: childId, familyId: user.familyId, role: "CHILD" },
-      select: { id: true },
-    });
-    if (!child) {
-      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
-    }
-
-    await prisma.user.update({
-      where: { id: childId },
-      data: { reportDeadlineTime: value },
-    });
-
-    rlog.info("Child reportDeadlineTime updated", { childId, value });
+  const childId: unknown = body?.childId;
+  if (typeof childId !== "string" || !childId) {
+    return NextResponse.json({ error: "childId を指定してください" }, { status: 400 });
   }
 
-  // checkinDeadlineTime: チェックインカレンダーの締切時刻（子供単位、"HH:mm" or null）
-  if ("checkinDeadlineTime" in body && "childId" in body) {
-    const value: string | null = body.checkinDeadlineTime;
-    const childId: string = body.childId;
+  // 先に全フィールドを検証し、1 つでも不正なら何も更新しない（部分適用の防止）
+  const data: {
+    reportDeadlineTime?: string | null;
+    checkinDeadlineTime?: string | null;
+    questTimeNotifyEnabled?: boolean;
+    rubyEnabled?: boolean;
+  } = {};
 
-    if (value !== null && !isValidCheckinDeadlineTime(value)) {
+  // reportDeadlineTime / checkinDeadlineTime: "HH:mm" 形式 or null で設定（子供単位）
+  if ("reportDeadlineTime" in body) {
+    if (!isValidTimeOrNull(body.reportDeadlineTime)) {
+      return NextResponse.json({ error: "reportDeadlineTime は HH:mm 形式で指定してください" }, { status: 400 });
+    }
+    data.reportDeadlineTime = body.reportDeadlineTime;
+  }
+  if ("checkinDeadlineTime" in body) {
+    if (!isValidTimeOrNull(body.checkinDeadlineTime)) {
       return NextResponse.json(
         { error: "checkinDeadlineTime は HH:mm 形式で指定してください" },
         { status: 400 },
       );
     }
-
-    const child = await prisma.user.findFirst({
-      where: { id: childId, familyId: user.familyId, role: "CHILD" },
-      select: { id: true },
-    });
-    if (!child) {
-      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
-    }
-
-    await prisma.user.update({
-      where: { id: childId },
-      data: { checkinDeadlineTime: value },
-    });
-
-    rlog.info("Child checkinDeadlineTime updated", { childId, value });
+    data.checkinDeadlineTime = body.checkinDeadlineTime;
   }
 
-  // questTimeNotifyEnabled: クエストタイム自動通知の ON/OFF（子供単位）
-  if ("questTimeNotifyEnabled" in body && "childId" in body) {
-    const value = body.questTimeNotifyEnabled;
-    const childId: string = body.childId;
-
-    if (typeof value !== "boolean") {
+  // questTimeNotifyEnabled / rubyEnabled: boolean（子供単位）
+  if ("questTimeNotifyEnabled" in body) {
+    if (typeof body.questTimeNotifyEnabled !== "boolean") {
       return NextResponse.json(
         { error: "questTimeNotifyEnabled は boolean で指定してください" },
         { status: 400 },
       );
     }
-
-    const child = await prisma.user.findFirst({
-      where: { id: childId, familyId: user.familyId, role: "CHILD" },
-      select: { id: true },
-    });
-    if (!child) {
-      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+    data.questTimeNotifyEnabled = body.questTimeNotifyEnabled;
+  }
+  if ("rubyEnabled" in body) {
+    if (typeof body.rubyEnabled !== "boolean") {
+      return NextResponse.json({ error: "rubyEnabled は boolean で指定してください" }, { status: 400 });
     }
-
-    await prisma.user.update({
-      where: { id: childId },
-      data: { questTimeNotifyEnabled: value },
-    });
-
-    rlog.info("Child questTimeNotifyEnabled updated", { childId, value });
+    data.rubyEnabled = body.rubyEnabled;
   }
 
-  // rubyEnabled: ふりがな（ルビ）表示の ON/OFF（子供単位）
-  if ("rubyEnabled" in body && "childId" in body) {
-    const value = body.rubyEnabled;
-    const childId: string = body.childId;
-
-    if (typeof value !== "boolean") {
-      return NextResponse.json(
-        { error: "rubyEnabled は boolean で指定してください" },
-        { status: 400 },
-      );
-    }
-
-    const child = await prisma.user.findFirst({
-      where: { id: childId, familyId: user.familyId, role: "CHILD" },
-      select: { id: true },
-    });
-    if (!child) {
-      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
-    }
-
-    await prisma.user.update({
-      where: { id: childId },
-      data: { rubyEnabled: value },
-    });
-
-    rlog.info("Child rubyEnabled updated", { childId, value });
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "更新する項目がありません" }, { status: 400 });
   }
 
+  // 対象の子供が同じファミリーに属しているか確認
+  const child = await prisma.user.findFirst({
+    where: { id: childId, familyId: user.familyId, role: "CHILD" },
+    select: { id: true },
+  });
+  if (!child) {
+    return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 404 });
+  }
+
+  await prisma.user.update({ where: { id: childId }, data });
+
+  rlog.info("Child settings updated", { childId, fields: Object.keys(data) });
   return NextResponse.json({ ok: true });
 }
