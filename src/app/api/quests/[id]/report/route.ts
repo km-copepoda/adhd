@@ -61,10 +61,12 @@ export async function POST(
   if (quest.template.photoBonus && photoUrl) xp++;
 
   // ステータス更新。再報告時は差し戻し理由をクリア。deadlineBonusEarned は初回のみ設定
-  // where に status を含め、上の検証後に別リクエストで状態が変わった場合は更新を空振りさせる
+  // where に「このリクエストが読んだステータス」を含め、上の検証後に別リクエストで状態が変わった場合は
+  // 更新を空振りさせる。PENDING/REJECTED のどちらでも一致させると、読んだ後に別の報告→親の差し戻しが
+  // 起きた場合に、古い内容で REPORTED に戻して差し戻しを上書きしてしまう
   try {
     await prisma.questInstance.update({
-      where: { id, status: { in: REPORTABLE_STATUSES } },
+      where: { id, status: quest.status },
       data: {
         status: "REPORTED",
         comment,

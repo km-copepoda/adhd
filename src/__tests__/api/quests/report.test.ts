@@ -81,7 +81,7 @@ describe("POST /api/quests/[id]/report", () => {
     expect(json.category).toBe("STUDY");
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1", status: { in: ["PENDING", "REJECTED"] } },
+      where: { id: "q1", status: "PENDING" },
       data: expect.objectContaining({
         status: "REPORTED",
         comment: "がんばった",
@@ -125,7 +125,7 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(json.xpAdded).toBe(2);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1", status: { in: ["PENDING", "REJECTED"] } },
+      where: { id: "q1", status: "PENDING" },
       data: expect.objectContaining({
         deadlineBonusEarned: true,
       }),
@@ -152,7 +152,7 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(json.xpAdded).toBe(1);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1", status: { in: ["PENDING", "REJECTED"] } },
+      where: { id: "q1", status: "PENDING" },
       data: expect.objectContaining({
         deadlineBonusEarned: false,
       }),
@@ -253,7 +253,7 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(json.ok).toBe(true);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q5", status: { in: ["PENDING", "REJECTED"] } },
+      where: { id: "q5", status: "PENDING" },
       data: expect.objectContaining({
         status: "REPORTED",
         comment: "",
@@ -579,6 +579,19 @@ describe("POST /api/quests/[id]/report: ステータス遷移の検証", () => {
     const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
 
     expect(res.status).toBe(200);
+  });
+
+  it("更新条件は「このリクエストが読んだステータス」に限定すること（差し戻しを古い報告で上書きしない）", async () => {
+    // A が REJECTED を読んだ後に別の報告→再差し戻しが起きても、A の更新は読んだ時点の状態にだけ一致させる
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(questWith("REJECTED"));
+    mockPrisma.questInstance.update.mockResolvedValue(questWith("REJECTED"));
+
+    await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
+
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "q1", status: "REJECTED" } }),
+    );
   });
 
   it("検証後に別リクエストでステータスが変わり更新が空振り(P2025)した場合、400を返し宝箱を生成しないこと", async () => {
