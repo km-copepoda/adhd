@@ -1,6 +1,7 @@
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { invalidateDeduped } from "@/lib/fetchDeduped";
+import { fetchDeduped, invalidateDeduped } from "@/lib/fetchDeduped";
+import { childRealtimeFilter, type ChildRealtimeTable } from "@/lib/realtimeFilters";
 
 // 子供画面の Realtime（postgres_changes）購読を、アプリ全体で1チャンネルに共有する（クライアント専用）。
 //
@@ -9,8 +10,12 @@ import { invalidateDeduped } from "@/lib/fetchDeduped";
 // Supabase Realtime は変更1件ごとに購読ぶんの内部クエリを走らせるので、DB 負荷（特に Nano）に響く。
 // ここでは4テーブルを1チャンネルで購読し、アプリ内のリスナーへ振り分ける。
 // リスナーが0になったらチャンネルを破棄し、また誰かが購読したら作り直す。
+//
+// さらに購読を自分の行だけに絞る（フィルタなしだと全家庭の変更ごとに RLS 評価と再取得が走る）。
+// 自分の ID は /api/users/me で取得し、分かるまではフィルタなしで購読して、分かった時点で張り替える。
+// 取得に失敗した場合はフィルタなしのまま購読を続ける。
 
-export type ChildRealtimeTable = "User" | "UserBadge" | "QuestInstance" | "TreasureLog";
+export type { ChildRealtimeTable };
 export type ChildRealtimePayload = RealtimePostgresChangesPayload<Record<string, unknown>>;
 type Handler = (payload: ChildRealtimePayload) => void;
 
@@ -27,6 +32,9 @@ const listeners: Record<ChildRealtimeTable, Set<Entry>> = {
 let active: { removeChannel: () => void } | null = null;
 // removeChannel は非同期のため、全解除→即再購読（StrictMode の二重マウント等）で同名トピックが衝突しないよう連番を付ける
 let channelSeq = 0;
+// 自分（子供）の User.id。取得できたらモジュール内で保持し、以降のチャンネルは最初からフィルタ付きで開く
+let userId: string | null = null;
+let resolvingUserId = false;
 
 function listenerCount(): number {
   return Object.values(listeners).reduce((n, set) => n + set.size, 0);
@@ -46,24 +54,43 @@ function dispatch(table: ChildRealtimeTable, payload: ChildRealtimePayload) {
   }
 }
 
+function on(table: ChildRealtimeTable, event: "*" | "INSERT" | "UPDATE") {
+  const filter = childRealtimeFilter(table, userId);
+  return { event, schema: "public", table, ...(filter ? { filter } : {}) } as const;
+}
+
 function open() {
   const supabase = createClient();
   const channel = supabase
     .channel(`child-realtime-${++channelSeq}`)
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "User" }, (p) =>
-      dispatch("User", p),
-    )
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "UserBadge" }, (p) =>
-      dispatch("UserBadge", p),
-    )
-    .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, (p) =>
-      dispatch("QuestInstance", p),
-    )
-    .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, (p) =>
-      dispatch("TreasureLog", p),
-    )
+    .on("postgres_changes", on("User", "UPDATE"), (p) => dispatch("User", p))
+    .on("postgres_changes", on("UserBadge", "INSERT"), (p) => dispatch("UserBadge", p))
+    .on("postgres_changes", on("QuestInstance", "*"), (p) => dispatch("QuestInstance", p))
+    .on("postgres_changes", on("TreasureLog", "*"), (p) => dispatch("TreasureLog", p))
     .subscribe();
   active = { removeChannel: () => supabase.removeChannel(channel) };
+}
+
+/** 自分の ID を取得し、フィルタなしで開いているチャンネルをフィルタ付きに張り替える */
+function resolveUserId() {
+  if (userId || resolvingUserId) return;
+  resolvingUserId = true;
+  fetchDeduped("/api/users/me")
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data: { id?: unknown } | null) => {
+      if (typeof data?.id !== "string") return;
+      userId = data.id;
+      if (active) {
+        close();
+        open();
+      }
+    })
+    .catch(() => {
+      // 取得失敗時はフィルタなしのまま購読を続ける
+    })
+    .finally(() => {
+      resolvingUserId = false;
+    });
 }
 
 function close() {
@@ -75,7 +102,10 @@ function close() {
 export function subscribeChildRealtime(table: ChildRealtimeTable, handler: Handler): () => void {
   const entry: Entry = { handler };
   listeners[table].add(entry);
-  if (!active) open();
+  if (!active) {
+    open();
+    resolveUserId();
+  }
 
   return () => {
     if (!listeners[table].delete(entry)) return;
