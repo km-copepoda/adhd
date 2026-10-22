@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getDeadlineDisplay, todayStringJST } from "@/lib/date";
 import { fetchDeduped, invalidateDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 import MonsterMiniCard from "@/components/MonsterMiniCard";
@@ -133,8 +134,13 @@ export default function QuestsPage() {
         .catch(() => {});
     }
     fetchTreasureStatus();
+    // 親の承認は別端末で起きるため "treasure-changed" では届かない。TreasureLog の Realtime でも取り直す
+    const offRealtime = subscribeChildRealtime("TreasureLog", fetchTreasureStatus);
     window.addEventListener("treasure-changed", fetchTreasureStatus);
-    return () => window.removeEventListener("treasure-changed", fetchTreasureStatus);
+    return () => {
+      offRealtime();
+      window.removeEventListener("treasure-changed", fetchTreasureStatus);
+    };
   }, []);
 
   // 1分ごとに残り時間を更新
