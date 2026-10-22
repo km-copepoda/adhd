@@ -156,3 +156,17 @@ describe("子 QuestAddForm: タスク追加の preempt チェック (Issue #148)
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith("タスク名は必須です"));
   });
 });
+
+describe("子 QuestAddForm: fetch reject でも submitting 解除 (#191)", () => {
+  it("POST が reject しても追加ボタンが再び押せる", async () => {
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    global.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return Promise.reject(new TypeError("offline"));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ limit: 10, current: 0 }) });
+    }) as unknown as typeof fetch;
+    render(<QuestAddForm onClose={vi.fn()} onAdded={vi.fn()} />);
+    await fillTitleAndSubmit();
+    const btn = screen.getByRole("button", { name: /追加する|追加中/ });
+    await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(false));
+  });
+});

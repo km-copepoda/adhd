@@ -91,7 +91,7 @@ export function useMonsterStatus(): UseMonsterStatusResult {
       fetchStatus().then((d) => { if (d) applyStatus(d); });
     });
 
-    const onVisible = () => { if (document.visibilityState === "visible") fetchStatus(); };
+    const onVisible = () => { if (document.visibilityState === "visible") fetchStatus().then((d) => { if (d) applyStatus(d); }).catch(() => {}); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, QuestStatus } from "@/types";
-import { formatReportedTime } from "@/lib/date";
+import { formatReportedTime, tomorrowStringJST } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { xpRangeLabel, calcActualXP } from "@/lib/xp";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
@@ -44,11 +44,7 @@ type RejectModalState = {
   otherComment: string;
 };
 
-const getTomorrowStr = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
-};
+const getTomorrowStr = () => tomorrowStringJST();
 
 export default function ApprovePage() {
   const [items, setItems] = useState<PendingItem[]>([]);
