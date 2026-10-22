@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import {
   isLocked,
-  recordFailure,
+  recordAttempt,
+  purgeExpiredAttempts,
   resetAttempts,
   USER_MAX_FAILURES,
   FAMILY_MAX_FAILURES,
@@ -33,63 +34,55 @@ describe("isLocked", () => {
   });
 });
 
-describe("recordFailure", () => {
-  it("初回失敗は count=1 でロックしないこと", async () => {
-    mockPrisma.childRejoinAttempt.findUnique.mockResolvedValue(null);
-    await recordFailure("user:a", USER_MAX_FAILURES, NOW);
-    expect(mockPrisma.childRejoinAttempt.upsert).toHaveBeenCalledWith({
-      where: { key: "user:a" },
-      create: { key: "user:a", failCount: 1, lockedUntil: null },
-      update: { failCount: 1, lockedUntil: null },
-    });
+describe("recordAttempt（原子的なカウント）", () => {
+  const row = (failCount: number, lockedUntil: Date | null = null) =>
+    mockPrisma.$queryRaw.mockResolvedValue([{ failCount, lockedUntil }] as never);
+
+  it("read-modify-write せず、単一の raw SQL（upsert）で数えること", async () => {
+    row(1);
+    await recordAttempt("user:a", USER_MAX_FAILURES, NOW);
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.childRejoinAttempt.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.childRejoinAttempt.upsert).not.toHaveBeenCalled();
+    const [strings] = mockPrisma.$queryRaw.mock.calls[0] as unknown as [TemplateStringsArray];
+    expect(strings.join("?")).toContain("ON CONFLICT");
   });
 
-  it("上限-1回目まではロックしないこと", async () => {
-    mockPrisma.childRejoinAttempt.findUnique.mockResolvedValue({
-      key: "user:a", failCount: USER_MAX_FAILURES - 2, lockedUntil: null, updatedAt: NOW,
-    });
-    await recordFailure("user:a", USER_MAX_FAILURES, NOW);
-    expect(mockPrisma.childRejoinAttempt.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: { failCount: USER_MAX_FAILURES - 1, lockedUntil: null },
-      }),
-    );
+  it("戻り値の count が上限以下なら locked=false", async () => {
+    row(FAMILY_MAX_FAILURES);
+    const r = await recordAttempt("family:A", FAMILY_MAX_FAILURES, NOW);
+    expect(r).toMatchObject({ count: FAMILY_MAX_FAILURES, locked: false });
   });
 
-  it("上限ちょうどの失敗でロックすること", async () => {
-    mockPrisma.childRejoinAttempt.findUnique.mockResolvedValue({
-      key: "user:a", failCount: USER_MAX_FAILURES - 1, lockedUntil: null, updatedAt: NOW,
-    });
-    await recordFailure("user:a", USER_MAX_FAILURES, NOW);
-    expect(mockPrisma.childRejoinAttempt.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        update: {
-          failCount: USER_MAX_FAILURES,
-          lockedUntil: new Date(NOW.getTime() + LOCK_MS),
-        },
-      }),
-    );
+  it("戻り値の count が上限+1 なら locked=true（境界）", async () => {
+    row(FAMILY_MAX_FAILURES + 1, new Date(NOW.getTime() + LOCK_MS));
+    const r = await recordAttempt("family:A", FAMILY_MAX_FAILURES, NOW);
+    expect(r.locked).toBe(true);
   });
 
-  it("ウィンドウ経過後は count=1 からやり直すこと", async () => {
-    mockPrisma.childRejoinAttempt.findUnique.mockResolvedValue({
-      key: "family:ABC123", failCount: FAMILY_MAX_FAILURES - 1, lockedUntil: null,
-      updatedAt: new Date(NOW.getTime() - WINDOW_MS - 1),
-    });
-    await recordFailure("family:ABC123", FAMILY_MAX_FAILURES, NOW);
-    expect(mockPrisma.childRejoinAttempt.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { failCount: 1, lockedUntil: null } }),
-    );
+  it("ロック期限・ウィンドウ開始時刻を SQL パラメータに渡すこと", async () => {
+    row(1);
+    await recordAttempt("user:a", USER_MAX_FAILURES, NOW);
+    const flatten = (v: unknown): unknown[] =>
+      v && typeof v === "object" && "values" in v
+        ? (v as { values: unknown[] }).values.flatMap(flatten)
+        : [v];
+    const params = (mockPrisma.$queryRaw.mock.calls[0] as unknown[]).slice(1).flatMap(flatten);
+    expect(params).toContainEqual(new Date(NOW.getTime() + LOCK_MS));
+    expect(params).toContainEqual(new Date(NOW.getTime() - WINDOW_MS));
   });
+});
 
-  it("ロック期限切れ後の失敗は count=1 からやり直すこと", async () => {
-    mockPrisma.childRejoinAttempt.findUnique.mockResolvedValue({
-      key: "user:a", failCount: USER_MAX_FAILURES, lockedUntil: new Date(NOW.getTime() - 1), updatedAt: NOW,
+describe("purgeExpiredAttempts", () => {
+  it("ウィンドウ経過かつロック解除済みの行だけ削除すること", async () => {
+    mockPrisma.childRejoinAttempt.deleteMany.mockResolvedValue({ count: 3 });
+    await purgeExpiredAttempts(NOW);
+    expect(mockPrisma.childRejoinAttempt.deleteMany).toHaveBeenCalledWith({
+      where: {
+        updatedAt: { lt: new Date(NOW.getTime() - WINDOW_MS) },
+        OR: [{ lockedUntil: null }, { lockedUntil: { lte: NOW } }],
+      },
     });
-    await recordFailure("user:a", USER_MAX_FAILURES, NOW);
-    expect(mockPrisma.childRejoinAttempt.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: { failCount: 1, lockedUntil: null } }),
-    );
   });
 });
 

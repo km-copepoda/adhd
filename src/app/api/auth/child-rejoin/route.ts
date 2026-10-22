@@ -4,13 +4,20 @@ import { createClient } from "@/lib/supabase/server";
 import { routeLogger } from "@/lib/logger";
 import {
   isLocked,
-  recordFailure,
+  recordAttempt,
+  purgeExpiredAttempts,
   resetAttempts,
   userKey,
   familyKey,
   USER_MAX_FAILURES,
   FAMILY_MAX_FAILURES,
 } from "@/lib/childRejoinLimit";
+
+const tooMany = () =>
+  NextResponse.json(
+    { error: "試行回数が多すぎます。しばらくしてからもう一度お試しください" },
+    { status: 429 },
+  );
 
 // POST: ファミリーコード + ユーザーコードで子どもを検証し、supabaseIdを紐付ける
 export async function POST(request: Request) {
@@ -61,21 +68,27 @@ export async function POST(request: Request) {
     const uKey = userKey(supabaseUserId);
     const fKey = familyKey(normalizedFamilyCode);
 
-    // 総当たり対策: ロック中は照合せずに 429
-    const [userLocked, familyLocked] = await Promise.all([isLocked(uKey), isLocked(fKey)]);
-    if (userLocked || familyLocked) {
-      rlog.warn("Child rejoin locked", { userLocked, familyLocked });
-      return NextResponse.json(
-        { error: "試行回数が多すぎます。しばらくしてからもう一度お試しください" },
-        { status: 429 },
+    // 総当たり対策:
+    // - ユーザー単位（補助）: ロック中は照合せずに 429
+    // - ファミリー単位: 照合の前に原子的に数え（成功も含む）、戻り値の件数で拒否を判定する。
+    //   並列の総当たりでもカウントを取りこぼさない。成功してもリセットしない
+    if (await isLocked(uKey)) {
+      rlog.warn("Child rejoin locked", { scope: "user" });
+      return tooMany();
+    }
+    const familyAttempt = await recordAttempt(fKey, FAMILY_MAX_FAILURES);
+    if (familyAttempt.locked) {
+      rlog.warn("Child rejoin locked", { scope: "family" });
+      return tooMany();
+    }
+    // 新しいウィンドウの先頭で期限切れの行を掃除する（行が無制限に増えないように）
+    if (familyAttempt.count === 1) {
+      await purgeExpiredAttempts().catch((e) =>
+        rlog.warn("Failed to purge expired rejoin attempts", { error: String(e) }),
       );
     }
 
-    const recordFailures = () =>
-      Promise.all([
-        recordFailure(uKey, USER_MAX_FAILURES),
-        recordFailure(fKey, FAMILY_MAX_FAILURES),
-      ]);
+    const recordFailure = () => recordAttempt(uKey, USER_MAX_FAILURES);
 
     // ファミリーを検索
     const family = await prisma.family.findUnique({
@@ -83,7 +96,7 @@ export async function POST(request: Request) {
     });
     if (!family) {
       rlog.warn("Family not found on rejoin");
-      await recordFailures();
+      await recordFailure();
       return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
     }
 
@@ -98,7 +111,7 @@ export async function POST(request: Request) {
     });
     if (!child || child.role !== "CHILD") {
       rlog.warn("Child not found on rejoin", { familyId: family.id });
-      await recordFailures();
+      await recordFailure();
       return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
     }
 
@@ -114,7 +127,7 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    // ユーザー単位のみリセット。ファミリー単位は成功でリセットしない（総当たりの巻き戻し防止）
+    // ユーザー単位のみリセット。ファミリー単位は成功でもリセットしない（総当たりの巻き戻し防止）
     await resetAttempts(uKey);
 
     rlog.info("Child rejoin success", { childId: child.id, familyId: family.id });

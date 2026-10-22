@@ -477,4 +477,6 @@ model ChildRejoinAttempt {
   failCount   Int       @default(0)
   lockedUntil DateTime?
   updatedAt   DateTime  @updatedAt
+
+  @@index([updatedAt])
 }

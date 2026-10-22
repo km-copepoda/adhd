@@ -13,3 +13,7 @@ CREATE TABLE "ChildRejoinAttempt" (
 );
 
 ALTER TABLE "ChildRejoinAttempt" ENABLE ROW LEVEL SECURITY;
+
+-- 期限切れ行の掃除（updatedAt での範囲削除）用
+-- CreateIndex
+CREATE INDEX "ChildRejoinAttempt_updatedAt_idx" ON "ChildRejoinAttempt"("updatedAt");
