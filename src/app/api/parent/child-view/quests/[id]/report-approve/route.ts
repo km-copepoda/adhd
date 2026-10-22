@@ -2,7 +2,8 @@ import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
-import { approveQuestInstance } from "@/lib/approve";
+import type { QuestStatus } from "@/generated/prisma/client";
+import { approveQuestInstance, transitionQuestStatus } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
@@ -61,16 +62,18 @@ export async function POST(
   }
 
   // まず報告フィールドを書き込む（コメント・写真・reportedAt）
-  await prisma.questInstance.update({
-    where: { id },
-    data: {
-      comment: comment ?? null,
-      photoUrl: photoUrl ?? quest.photoUrl,
-      reportedAt: quest.reportedAt ?? now,
-      rejectionReason: null,
-      ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
-    },
+  // #183: status 条件付きで書き込み、並行操作で遷移済みなら 400
+  const fromStatuses: QuestStatus[] = ["PENDING", "REJECTED", "REPORTED"];
+  const wrote = await transitionQuestStatus(id, fromStatuses, {
+    comment: comment ?? null,
+    photoUrl: photoUrl ?? quest.photoUrl,
+    reportedAt: quest.reportedAt ?? now,
+    rejectionReason: null,
+    ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
   });
+  if (!wrote) {
+    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+  }
 
   // 既に書き込み済みの値を反映した quest オブジェクトを approveQuestInstance に渡す
   // reportedAt も実際に DB へ書き込んだ値（既存値優先、なければ now）と揃える。
@@ -84,7 +87,10 @@ export async function POST(
   };
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
-  await approveQuestInstance(updatedQuest, stamp ?? undefined);
+  const approved = await approveQuestInstance(updatedQuest, stamp ?? undefined, { fromStatuses });
+  if (!approved) {
+    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+  }
 
   // 親代理経路でも PROXY / ALL_COMPLETE 宝箱を即 UNLOCKED で生成する。
   // (2026-07-02) 全完了時に子セルフ経路と同じ ALL_COMPLETE ボーナスも出すように変更。

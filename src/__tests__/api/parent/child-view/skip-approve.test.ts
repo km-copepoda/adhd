@@ -18,6 +18,7 @@ import { makeParams } from "../../../helpers/request";
 vi.mock("@/lib/approve", () => ({
   approveQuestInstance: vi.fn(),
   approveSkipQuestInstance: vi.fn(),
+  transitionQuestStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/bulletinLog", () => ({
@@ -30,6 +31,7 @@ vi.mock("@/lib/treasureService", () => ({
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApproveSkip = vi.mocked(approveModule.approveSkipQuestInstance);
+const mockTransition = vi.mocked(approveModule.transitionQuestStatus);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 const mockGenerateProxyTreasure = vi.mocked(generateProxyTreasure);
@@ -43,6 +45,8 @@ function makeReq(body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTransition.mockResolvedValue(true);
+  mockApproveSkip.mockResolvedValue(true);
   mockPrisma.questInstance.findMany.mockResolvedValue([]);
 });
 
@@ -179,17 +183,31 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     expect(res.status).toBe(200);
 
     // 報告フィールド書き込み: comment と reportedAt が入る
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: expect.objectContaining({
+    expect(mockTransition).toHaveBeenCalledWith(
+      "q1",
+      ["PENDING", "SKIP_REPORTED"],
+      expect.objectContaining({
         comment: "体調不良で休む",
         reportedAt: expect.any(Date),
       }),
-    });
+    );
     // approveSkipQuestInstance が呼ばれて SKIPPED に確定する
     expect(mockApproveSkip).toHaveBeenCalledWith(
       expect.objectContaining({ id: "q1", childId: "child-1" }),
+      { fromStatuses: ["PENDING", "SKIP_REPORTED"] },
     );
+  });
+
+  it("遷移に負けたら 400 を返し、スキップ承認しない（#183）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-12T00:00:00Z") }),
+    );
+    mockTransition.mockResolvedValue(false);
+    const res = await POST(makeReq({ childId: "child-1", comment: "x" }), makeParams("q1"));
+    expect(res.status).toBe(400);
+    expect(mockApproveSkip).not.toHaveBeenCalled();
   });
 
   it("SKIP_REPORTED 状態（子供がスキップ申請済）も親代理で SKIPPED にできる", async () => {

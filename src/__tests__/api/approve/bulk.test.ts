@@ -110,10 +110,10 @@ describe("POST /api/approve/bulk", () => {
     // 2件のクエストが承認されること
     expect(prismaMock.questInstance.update).toHaveBeenCalledTimes(2);
     expect(prismaMock.questInstance.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "q1" }, data: expect.objectContaining({ status: "APPROVED" }) })
+      expect.objectContaining({ where: { id: "q1", status: { in: ["REPORTED"] } }, data: expect.objectContaining({ status: "APPROVED" }) })
     );
     expect(prismaMock.questInstance.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "q2" }, data: expect.objectContaining({ status: "APPROVED" }) })
+      expect.objectContaining({ where: { id: "q2", status: { in: ["REPORTED"] } }, data: expect.objectContaining({ status: "APPROVED" }) })
     );
   });
 
@@ -174,6 +174,22 @@ describe("POST /api/approve/bulk", () => {
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
+  it("並行操作で処理済みのクエストは二重加算せず count に数えないこと（#183）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    const q1 = makeQuest("q1");
+    prismaMock.questInstance.findUnique.mockResolvedValueOnce(q1);
+    prismaMock.user.findUnique.mockResolvedValue(q1.child);
+    // status 条件付き update が P2025（既に遷移済み）
+    prismaMock.questInstance.update.mockRejectedValue({ code: "P2025" });
+
+    const res = await POST(makeRequest("/api/approve/bulk", { ids: ["q1"] }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toEqual({ ok: true, count: 0 });
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
   it("SKIP_REPORTEDクエストもまとめて承認できること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
 
@@ -190,7 +206,7 @@ describe("POST /api/approve/bulk", () => {
 
     expect(json).toEqual({ ok: true, count: 1 });
     expect(prismaMock.questInstance.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "q-skip" }, data: expect.objectContaining({ status: "SKIPPED" }) })
+      expect.objectContaining({ where: { id: "q-skip", status: { in: ["SKIP_REPORTED"] } }, data: expect.objectContaining({ status: "SKIPPED" }) })
     );
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
@@ -223,7 +239,7 @@ describe("POST /api/approve/bulk", () => {
       expect(res.status).toBe(200);
       expect(json).toEqual({ ok: true, count: 2 });
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: "q1" }, data: expect.objectContaining({ status: "APPROVED" }) }),
+        expect.objectContaining({ where: { id: "q1", status: { in: ["REPORTED"] } }, data: expect.objectContaining({ status: "APPROVED" }) }),
       );
       expect(prismaMock.treasureLog.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({

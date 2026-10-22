@@ -29,6 +29,7 @@ function asPrismaPromise<T>(value: T): Prisma.PrismaPromise<T> {
 vi.mock("@/lib/approve", () => ({
   approveQuestInstance: vi.fn(),
   approveSkipQuestInstance: vi.fn(),
+  transitionQuestStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/bulletinLog", () => ({
@@ -41,6 +42,7 @@ vi.mock("@/lib/treasureService", () => ({
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApprove = vi.mocked(approveModule.approveQuestInstance);
+const mockTransition = vi.mocked(approveModule.transitionQuestStatus);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 const mockGenerateProxyTreasure = vi.mocked(generateProxyTreasure);
@@ -54,6 +56,8 @@ function makeReq(body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTransition.mockResolvedValue(true);
+  mockApprove.mockResolvedValue(true);
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-03-12T09:00:00Z")); // JST 18:00
   // 既定では「today のクエストは無い」状態に。AUTO 宝箱生成は minTasks=1 達成しないため発火しない。
@@ -130,18 +134,43 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     expect(res.status).toBe(200);
 
     // REPORTED 経由ではなく、まず report フィールドだけ更新してから approveQuestInstance を呼ぶ
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: expect.objectContaining({
+    expect(mockTransition).toHaveBeenCalledWith(
+      "q1",
+      ["PENDING", "REJECTED", "REPORTED"],
+      expect.objectContaining({
         comment: "代理報告",
         reportedAt: expect.any(Date),
       }),
-    });
+    );
     // approveQuestInstance がスタンプ込みで呼ばれる
     expect(mockApprove).toHaveBeenCalledWith(
       expect.objectContaining({ id: "q1", childId: "child-1" }),
       "🎉",
+      { fromStatuses: ["PENDING", "REJECTED", "REPORTED"] },
     );
+  });
+
+  it("報告フィールド書き込みで遷移に負けたら 400 を返し、承認しない（#183）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-12T00:00:00Z") }),
+    );
+    mockTransition.mockResolvedValue(false);
+    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+    expect(res.status).toBe(400);
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+
+  it("approveQuestInstance が false（レース負け）なら 400 を返す（#183）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-12T00:00:00Z") }),
+    );
+    mockApprove.mockResolvedValue(false);
+    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+    expect(res.status).toBe(400);
   });
 
   it("既に APPROVED 済みのクエストは 400 を返す（二重承認防止）", async () => {
@@ -205,10 +234,11 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: expect.objectContaining({ deadlineBonusEarned: true }),
-    });
+    expect(mockTransition).toHaveBeenCalledWith(
+      "q1",
+      expect.any(Array),
+      expect.objectContaining({ deadlineBonusEarned: true }),
+    );
   });
 
   it("REJECTED 再報告: deadlineBonusEarned は変更しない（既存値保持）", async () => {
@@ -229,8 +259,8 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-    const updateCall = mockPrisma.questInstance.update.mock.calls[0][0];
-    expect(updateCall.data).not.toHaveProperty("deadlineBonusEarned");
+    const updateData = mockTransition.mock.calls[0][2];
+    expect(updateData).not.toHaveProperty("deadlineBonusEarned");
   });
 
   it("掲示板の TASK_* 進捗ログを after() 経由で発火する（子供本人の報告と同等の社会的フィードバックを保つ）", async () => {
@@ -335,6 +365,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       const callOrder: string[] = [];
       mockApprove.mockImplementation(async () => {
         callOrder.push("approve");
+        return true;
       });
       mockPrisma.questInstance.findMany.mockImplementation(() => {
         callOrder.push("findMany");

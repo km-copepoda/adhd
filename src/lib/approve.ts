@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Prisma, QuestStatus } from "@/generated/prisma/client";
 import { checkEvolution } from "@/lib/evolution";
 import { recordDailyAchievement, recordTaskStreak } from "@/lib/streak";
 import { checkAndUnlockBadges } from "@/lib/badges";
@@ -61,7 +62,48 @@ export type FreshChildData = {
   monsterSetId: string;
 };
 
-export async function approveQuestInstance(quest: QuestWithRelations, stamp?: string): Promise<void> {
+/**
+ * #183: status 条件付きの QuestInstance 更新（アトミックな遷移）。
+ * 遷移元 status に一致しなければ P2025 となり false を返す（レース負け）。
+ * それ以外のエラーは再スローする。
+ */
+export async function transitionQuestStatus(
+  id: string,
+  fromStatuses: QuestStatus[],
+  data: Prisma.QuestInstanceUpdateInput,
+): Promise<boolean> {
+  try {
+    await prisma.questInstance.update({
+      where: { id, status: { in: fromStatuses } },
+      data,
+    });
+    return true;
+  } catch (err) {
+    if ((err as { code?: string } | null)?.code === "P2025") return false;
+    throw err;
+  }
+}
+
+/**
+ * クエスト承認。status 遷移（→APPROVED）を最初にアトミックに行い、
+ * レースに負けた場合は XP 付与等を一切せず false を返す。
+ */
+export async function approveQuestInstance(
+  quest: QuestWithRelations,
+  stamp?: string,
+  options?: { fromStatuses?: QuestStatus[] },
+): Promise<boolean> {
+  const fromStatuses = options?.fromStatuses ?? ["REPORTED"];
+  const won = await transitionQuestStatus(quest.id, fromStatuses, {
+    status: "APPROVED",
+    approvedAt: new Date(),
+    ...(stamp ? { approvalStamp: stamp } : {}),
+  });
+  if (!won) {
+    log.warn("Quest approval skipped: status changed concurrently", { questId: quest.id });
+    return false;
+  }
+
   const baseXp = calculateQuestXP(quest);
 
   // 「今日やる宣言ボーナス」: 報告日（JST）に対応する宣言があれば +1
@@ -105,15 +147,6 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
   const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
 
   log.info("Quest approved", { questId: quest.id, childId: quest.childId, xp, category });
-
-  await prisma.questInstance.update({
-    where: { id: quest.id },
-    data: {
-      status: "APPROVED",
-      approvedAt: new Date(),
-      ...(stamp ? { approvalStamp: stamp } : {}),
-    },
-  });
 
   if (child.rebirthPending) {
     // 転生待ち中: XPだけ加算し、進化・転生チェックはスキップ
@@ -212,22 +245,29 @@ export async function approveQuestInstance(quest: QuestWithRelations, stamp?: st
       })
       .catch(err => log.error("Badge check failed", { childId: quest.childId, err })),
   );
+  return true;
 }
 
 export async function approveSkipQuestInstance(
   quest: Pick<QuestWithRelations, "id" | "childId" | "date" | "reportedAt"> & {
     template: Pick<QuestWithRelations["template"], "carryOver">;
   },
-): Promise<void> {
-  await prisma.questInstance.update({
-    where: { id: quest.id },
-    data: { status: "SKIPPED", approvedAt: new Date() },
+  options?: { fromStatuses?: QuestStatus[] },
+): Promise<boolean> {
+  const won = await transitionQuestStatus(quest.id, options?.fromStatuses ?? ["SKIP_REPORTED"], {
+    status: "SKIPPED",
+    approvedAt: new Date(),
   });
+  if (!won) {
+    log.warn("Skip approval skipped: status changed concurrently", { questId: quest.id });
+    return false;
+  }
   await recordDailyAchievement(quest.childId, quest.date);
   await unlockTreasuresOnApprove(
     quest.childId,
     resolveTreasureDate(quest.date, quest.template.carryOver, quest.reportedAt ?? new Date()),
   );
+  return true;
 }
 
 // ─── #151: ごほうび使用申請の親承認フロー ─────────────────────────
