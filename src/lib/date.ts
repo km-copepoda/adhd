@@ -49,8 +49,15 @@ export function daysSinceJST(input: Date | string, now: Date = new Date()): numb
 }
 
 /** JST での今日の曜日（0=Sun ... 6=Sat）*/
-export function dayOfWeekJST(): number {
-  return jstNow().getUTCDay();
+export function dayOfWeekJST(now: Date = new Date()): number {
+  return new Date(now.getTime() + JST_OFFSET_MS).getUTCDay();
+}
+
+/** JST での明日を "YYYY-MM-DD" 文字列で返す（クライアント/サーバー両用） */
+export function tomorrowStringJST(now: Date = new Date()): string {
+  const jst = new Date(now.getTime() + JST_OFFSET_MS);
+  const next = new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate() + 1));
+  return next.toISOString().slice(0, 10);
 }
 
 /** JST での今月の開始日（@db.Date用）*/

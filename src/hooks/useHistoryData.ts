@@ -48,9 +48,11 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
   const [firstLoad, setFirstLoad] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/family/code")
       .then((res) => (res.ok ? res.json() : { members: [] }))
       .then((data) => {
+        if (cancelled) return;
         const kids: Child[] = (data.members ?? [])
           .filter((m: { role: string }) => m.role === "CHILD")
           .map((m: { id: string; name: string; monsterName: string | null }) => ({
@@ -64,7 +66,13 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
         } else {
           setLoadingSummary(false);
         }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadingSummary(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -76,10 +84,16 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingSummary(true);
     setMonthlySummary(null);
+    // 依存変更後に届いた古い応答で上書きしない
+    let cancelled = false;
     fetch(`/api/quests/monthly-summary?year=${year}&month=${month}&childId=${selectedChildId}`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setMonthlySummary(data))
-      .finally(() => setLoadingSummary(false));
+      .then((data) => { if (!cancelled) setMonthlySummary(data); })
+      .catch(() => { if (!cancelled) setMonthlySummary(null); })
+      .finally(() => { if (!cancelled) setLoadingSummary(false); });
+    return () => {
+      cancelled = true;
+    };
   }, [viewMonth, selectedChildId]);
 
   useEffect(() => {
@@ -88,13 +102,19 @@ export function useHistoryData(selectedDate: Date, viewMonth: Date): UseHistoryD
     // fetch自体が外部システムとの同期であり、その開始を示すloading状態の即時反映が必要なため。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingItems(true);
+    let cancelled = false;
     fetch(`/api/quests/history?date=${formatDate(selectedDate)}&childId=${selectedChildId}`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setItems(data))
+      .then((data) => { if (!cancelled) setItems(data); })
+      .catch(() => { if (!cancelled) setItems([]); })
       .finally(() => {
+        if (cancelled) return;
         setFirstLoad(false);
         setLoadingItems(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedDate, selectedChildId]);
 
   return {

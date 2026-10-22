@@ -27,11 +27,16 @@ export default function LoginPage() {
     }
 
     // DB ユーザーが存在しない場合（DB リセット後など）に再作成する
-    await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, supabaseId: data.user?.id }),
-    });
+    // 認証自体は成功済みのため、register の失敗はログ出力のみでホームへ遷移する
+    try {
+      await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, supabaseId: data.user?.id }),
+      });
+    } catch (e) {
+      console.error("register failed", e);
+    }
 
     window.location.href = "/app/parent/tasks";
   }
