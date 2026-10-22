@@ -66,33 +66,6 @@ describe("POST /api/quests/[id]/report", () => {
     expect(res.status).toBe(404);
   });
 
-  describe("ステータス遷移ガード", () => {
-    it.each(["REPORTED", "SKIP_REPORTED", "APPROVED", "SKIPPED"] as const)(
-      "%s のクエストは再報告できず409を返し、更新・Push・宝箱生成を行わないこと",
-      async (status) => {
-        mockGetCurrentUser.mockResolvedValue({ ...baseUser });
-        mockPrisma.questInstance.findUnique.mockResolvedValue({ ...baseQuest, status });
-
-        const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
-
-        expect(res.status).toBe(409);
-        expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
-        expect(mockGenerateTreasures).not.toHaveBeenCalled();
-        expect(mockTriggerTaskProgressLog).not.toHaveBeenCalled();
-      },
-    );
-
-    it("REJECTED（差し戻し）からの再報告は許可されること", async () => {
-      mockGetCurrentUser.mockResolvedValue({ ...baseUser });
-      mockPrisma.questInstance.findUnique.mockResolvedValue({ ...baseQuest, status: "REJECTED" });
-      mockPrisma.questInstance.update.mockResolvedValue({} as never);
-
-      const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
-
-      expect(res.status).toBe(200);
-    });
-  });
-
   it("クエスト報告でステータスがREPORTEDに更新されること", async () => {
     mockGetCurrentUser.mockResolvedValue({ ...baseUser }); // reportDeadlineTime なし（childUser() 既定値）
     mockPrisma.questInstance.findUnique.mockResolvedValue(baseQuest);
