@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     data: {
       rebirthPending: false,
       rebirthEggBonus: eggType === "NORMAL" ? null : eggType,
+      rebirthCount: { increment: 1 },
       evolutionStage: 0,
       evolutionPath: "",
       studyPt: 0,

@@ -237,4 +237,34 @@ describe("recordCheckin", () => {
 
     expect(result.todayStatus).toBe("fail");
   });
+
+  it("create が P2002 (競合) で失敗しても 500 にせず先行記録の結果を返す (#192)", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ checkinDeadlineTime: "16:00" }));
+    mockPrisma.checkinLog.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(checkinLog({ success: true }));
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ checkinCurrentStreak: 0, checkinBestStreak: 0, lastCheckinDate: null }),
+    );
+    mockPrisma.checkinLog.create.mockRejectedValue(Object.assign(new Error("dup"), { code: "P2002" }));
+    mockPrisma.streak.findUnique.mockResolvedValue(
+      streak({ checkinCurrentStreak: 1, checkinBestStreak: 1 }),
+    );
+
+    const result = await recordCheckin("child-1", new Date("2026-06-23T06:30:00Z"));
+
+    expect(result.todayStatus).toBe("success");
+    expect(result.justNow).toBe(false);
+    expect(result.currentStreak).toBe(1);
+    expect(mockPrisma.streak.update).not.toHaveBeenCalled();
+  });
+
+  it("P2002 以外のエラーは再スローする", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(childUser({ checkinDeadlineTime: "16:00" }));
+    mockPrisma.checkinLog.findUnique.mockResolvedValue(null);
+    mockPrisma.streak.upsert.mockResolvedValue(streak());
+    mockPrisma.checkinLog.create.mockRejectedValue(new Error("db down"));
+
+    await expect(recordCheckin("child-1", new Date("2026-06-23T06:30:00Z"))).rejects.toThrow("db down");
+  });
 });

@@ -60,14 +60,34 @@ export async function recordCheckin(childId: string, now: Date): Promise<Checkin
     update: {},
   });
 
-  await prisma.checkinLog.create({
-    data: {
-      childId,
-      date: today,
-      success,
-      checkedInAt: success ? now : null,
-    },
-  });
+  try {
+    await prisma.checkinLog.create({
+      data: {
+        childId,
+        date: today,
+        success,
+        checkedInAt: success ? now : null,
+      },
+    });
+  } catch (err) {
+    // findUnique〜create の間に別リクエストが先に記録した場合（複合ユニーク制約違反 P2002）は
+    // 500 にせず、先に記録された結果を返して冪等にする
+    if ((err as { code?: string } | null)?.code === "P2002") {
+      const raced = await prisma.checkinLog.findUnique({
+        where: { childId_date: { childId, date: today } },
+      });
+      const latest = await prisma.streak.findUnique({ where: { childId } });
+      return {
+        enabled: true,
+        deadline,
+        todayStatus: raced ? (raced.success ? "success" : "fail") : null,
+        justNow: false,
+        currentStreak: latest?.checkinCurrentStreak ?? 0,
+        bestStreak: latest?.checkinBestStreak ?? 0,
+      };
+    }
+    throw err;
+  }
 
   let nextStreak: number;
   let nextBest: number;

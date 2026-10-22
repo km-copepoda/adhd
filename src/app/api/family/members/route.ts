@@ -7,6 +7,13 @@ import { getFamilyPlan } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
 import { themeIdFromSide } from "@/lib/monsters";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
+import {
+  MAX_MIN_TASKS_FOR_STREAK,
+  MAX_MONSTER_NAME_LENGTH,
+  isValidMinTasksForStreak,
+  isValidMonsterName,
+  isValidSide,
+} from "@/lib/memberValidation";
 
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/family/members");
@@ -18,6 +25,15 @@ export async function POST(request: Request) {
   const { monsterName, side, themeId } = await request.json();
   if (!monsterName || !side) {
     return NextResponse.json({ error: "名前とサイドを入力してください" }, { status: 400 });
+  }
+  if (!isValidMonsterName(monsterName)) {
+    return NextResponse.json(
+      { error: `名前は${MAX_MONSTER_NAME_LENGTH}文字以内で入力してください` },
+      { status: 400 },
+    );
+  }
+  if (!isValidSide(side)) {
+    return NextResponse.json({ error: "サイドが不正です" }, { status: 400 });
   }
 
   // themeId は任意。未指定（null/undefined）なら side から決まる無料テーマを使う
@@ -104,8 +120,11 @@ export async function PATCH(request: Request) {
   }
 
   const { childId, minTasksForStreak } = await request.json();
-  if (!childId || typeof minTasksForStreak !== "number" || minTasksForStreak < 1) {
-    return NextResponse.json({ error: "childIdと1以上のminTasksForStreakが必要です" }, { status: 400 });
+  if (!childId || !isValidMinTasksForStreak(minTasksForStreak)) {
+    return NextResponse.json(
+      { error: `childIdと1〜${MAX_MIN_TASKS_FOR_STREAK}の整数のminTasksForStreakが必要です` },
+      { status: 400 },
+    );
   }
 
   // 同じファミリーの子供か確認

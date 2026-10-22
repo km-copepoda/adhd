@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
+import { MAX_MIN_TASKS_FOR_STREAK, MAX_MONSTER_NAME_LENGTH } from "@/lib/memberValidation";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
@@ -334,6 +335,7 @@ export default function FamilyPage() {
               type="text"
               value={addForm.name}
               onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+              maxLength={MAX_MONSTER_NAME_LENGTH}
               placeholder="例: りゅうくん"
               className="w-full bg-quest-card border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-3"
             />
@@ -496,7 +498,7 @@ export default function FamilyPage() {
                       </span>
                       <button
                         onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak + 1)}
-                        disabled={savingStreakId === member.id}
+                        disabled={member.minTasksForStreak >= MAX_MIN_TASKS_FOR_STREAK || savingStreakId === member.id}
                         className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
                       >
                         +

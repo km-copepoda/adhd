@@ -40,6 +40,7 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
           staminaPt: true,
           lifePt: true,
           usedEggBonuses: true,
+          rebirthCount: true,
         },
       }),
       prisma.streak.findUnique({
@@ -121,7 +122,8 @@ export async function loadBadgeContext(childId: string): Promise<BadgeContext> {
   // "themeId:" プレフィックスを取り除いてから startsWith 判定する。
   const collectedPathsList = JSON.parse(user.collectedPaths || "[]") as string[];
   const bareCollectedPaths = collectedPathsList.map(p => p.includes(":") ? p.split(":").slice(1).join(":") : p);
-  const rebirthCount = Math.max(0, Math.floor((collectedPathsList.length - 1) / 3));
+  // 転生回数は DB のカウンタ列を使う（collectedPaths は同系統の周回で増えないため件数から推定できない）
+  const rebirthCount = Math.max(0, user.rebirthCount ?? 0);
   const hasStudyCollection = bareCollectedPaths.some(p => p.startsWith("STUDY"));
   const hasStaminaCollection = bareCollectedPaths.some(p => p.startsWith("STAMINA"));
   const hasLifeCollection = bareCollectedPaths.some(p => p.startsWith("LIFE"));

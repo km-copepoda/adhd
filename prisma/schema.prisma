@@ -74,6 +74,8 @@ model User {
   /// ふりがな（ルビ）表示 ON/OFF。子供のクエスト画面での格言等の表示に使う。
   rubyEnabled            Boolean            @default(true)
   rebirthPending         Boolean            @default(false)
+  /// 転生を実行した累計回数。バッジ判定（rebirth_*）に使う。collectedPaths は同系統の周回で増えないため件数から推定できない。
+  rebirthCount           Int                @default(0)
   rebirthEggBonus        String?
   usedEggBonuses         String             @default("[]")
   familyId               String?

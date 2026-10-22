@@ -42,7 +42,7 @@ describe("POST /api/streak/login-check", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 0, loginBestStreak: 0, lastLoginDate: null }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await POST();
     const json = await res.json();
@@ -62,7 +62,7 @@ describe("POST /api/streak/login-check", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       // stage 1 を使い進化が発動しない範囲に設定
       childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 }),
@@ -82,7 +82,7 @@ describe("POST /api/streak/login-check", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 0, loginBestStreak: 0, lastLoginDate: null }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockCheckAndUnlockBadges.mockResolvedValue([
       { id: "login_14", name: "2週間ログイン", emoji: "🌿", description: "ログインストリーク14日" },
     ]);

@@ -157,24 +157,33 @@ describe("loadBadgeContext: collectedPaths のテーマ名前空間対応", () =
     expect(ctx.hasStudyCollection).toBe(true); // 旧形式 STUDY_STAMINA_LIFE
     expect(ctx.hasLifeCollection).toBe(true); // 新形式 buddha:LIFE_STUDY_STAMINA
     expect(ctx.collectionCount).toBe(2);
-    // rebirthCount = max(0, floor((count-1)/3)) はフォーマットに関わらず件数ベースのまま
+    // rebirthCount は collectedPaths の件数ではなく DB のカウンタ列を使う
     expect(ctx.rebirthCount).toBe(0);
   });
 
-  it("名前空間付きエントリが4件以上でも rebirthCount が件数から正しく計算されること", async () => {
+  it("rebirthCount は collectedPaths 件数に依存せず DB カウンタ列の値を使うこと", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
-        collectedPaths: JSON.stringify([
-          "buddha:STUDY_STUDY_STUDY",
-          "buddha:STAMINA_STAMINA_STAMINA",
-          "buddha:LIFE_LIFE_LIFE",
-          "buddha:STUDY_STAMINA_LIFE",
-        ]),
+        // 同じ系統を繰り返して collectedPaths が 1 件のままでも、転生回数は 3
+        collectedPaths: JSON.stringify(["STUDY_STUDY_STUDY"]),
+        rebirthCount: 3,
       }),
     );
 
     const ctx = await loadBadgeContext("c1");
-    expect(ctx.collectionCount).toBe(4);
-    expect(ctx.rebirthCount).toBe(1); // floor((4-1)/3) = 1
+    expect(ctx.collectionCount).toBe(1);
+    expect(ctx.rebirthCount).toBe(3);
+  });
+
+  it("collectedPaths が 4 件でもカウンタ 0 なら rebirthCount は 0", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      childUser({
+        collectedPaths: JSON.stringify(["a:A", "b:B", "c:C", "d:D"]),
+        rebirthCount: 0,
+      }),
+    );
+
+    const ctx = await loadBadgeContext("c1");
+    expect(ctx.rebirthCount).toBe(0);
   });
 });
