@@ -68,7 +68,11 @@ export function subscribeFamilyRealtime(
           onChange,
         );
       }
-      channel.subscribe();
+      // 購読が確立するまでの間（初回の一覧取得の後〜SUBSCRIBED）に起きた変更は届かないため、
+      // 確立した時点で一度再取得させて補う
+      channel.subscribe((status) => {
+        if (status === "SUBSCRIBED" && !cancelled && current === generation) onChange();
+      });
       removeChannel = () => {
         supabase.removeChannel(channel);
       };

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type Registered = { channel: string; filter: { table: string; event: string; filter?: string } };
 let registered: Registered[] = [];
 let removeChannel = vi.fn();
+let subscribeCallbacks: ((status: string) => void)[] = [];
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
@@ -13,7 +14,10 @@ vi.mock("@/lib/supabase/client", () => ({
           registered.push({ channel: name, filter });
           return channel;
         }),
-        subscribe: vi.fn(() => channel),
+        subscribe: vi.fn((cb?: (status: string) => void) => {
+          if (cb) subscribeCallbacks.push(cb);
+          return channel;
+        }),
       };
       return channel;
     },
@@ -39,6 +43,7 @@ function mockFamily(ok: boolean, members: { id: string; role: string }[] = []) {
 beforeEach(() => {
   registered = [];
   removeChannel = vi.fn();
+  subscribeCallbacks = [];
   invalidateDeduped();
 });
 
@@ -178,6 +183,33 @@ describe("subscribeFamilyRealtime", () => {
     await flush();
 
     expect(onChange).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  it("購読が確立した（SUBSCRIBED）ら onChange を呼び、購読開始前の変更を再取得で補う", async () => {
+    mockFamily(true, [{ id: "c1", role: "CHILD" }]);
+    const onChange = vi.fn();
+    const off = subscribeFamilyRealtime("pending", ["QuestInstance"], onChange);
+    await flush();
+    await flush();
+    expect(onChange).not.toHaveBeenCalled();
+
+    subscribeCallbacks.forEach((cb) => cb("SUBSCRIBED"));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  it("SUBSCRIBED 以外の状態（CHANNEL_ERROR 等）では onChange を呼ばない", async () => {
+    mockFamily(true, [{ id: "c1", role: "CHILD" }]);
+    const onChange = vi.fn();
+    const off = subscribeFamilyRealtime("pending", ["QuestInstance"], onChange);
+    await flush();
+    await flush();
+
+    subscribeCallbacks.forEach((cb) => cb("CHANNEL_ERROR"));
+
+    expect(onChange).not.toHaveBeenCalled();
     off();
   });
 });
