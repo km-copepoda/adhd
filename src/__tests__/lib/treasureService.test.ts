@@ -660,6 +660,8 @@ describe("openOldestTreasure", () => {
     // pity カウンタの既定値 (各テストで上書き可)
     mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 0, familyId: null }));
     mockPrisma.user.update.mockResolvedValue(childUser());
+    // 開封の占有 (UNLOCKED -> OPENED) は既定で成功
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("UNLOCKED 宝箱が無いとき null", async () => {
@@ -682,9 +684,7 @@ describe("openOldestTreasure", () => {
     expect(mockPrisma.treasureLog.update).toHaveBeenCalledWith({
       where: { id: "log-1" },
       data: expect.objectContaining({
-        status: "OPENED",
         itemId: "item-1",
-        openedAt: expect.any(Date),
       }),
     });
     // pityCount=0 → HIT → nextPityCount=0 (変化なし) なので User.update は呼ばれない
@@ -719,7 +719,6 @@ describe("openOldestTreasure", () => {
     expect(mockPrisma.treasureLog.update).toHaveBeenCalledWith({
       where: { id: "log-2" },
       data: expect.objectContaining({
-        status: "OPENED",
         itemId: null,
         // summer-XX (通常) または m07-XX (月限定) のどちらか
         collectionItemId: expect.stringMatching(/^(summer-\d+|m07-\d+)$/),

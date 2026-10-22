@@ -33,6 +33,32 @@ export interface TreasureCondition {
 }
 
 /**
+ * 宝箱を 1 件作成する。同時リクエストの競合で一意制約違反 (P2002) になった場合は
+ * 「別リクエストが同じ宝箱を作成済み」とみなして null を返す（冪等）。
+ *
+ * DB 側には (childId, date, trigger) WHERE status <> 'CANCELLED' の部分ユニークインデックス
+ * がある（prisma/migrations/20261022000001_treasure_log_unique_active）。マイグレーション
+ * 未適用の環境ではインデックスが無く P2002 は起きないだけで、この関数はそのまま動く。
+ */
+async function createTreasureIdempotent(data: {
+  childId: string;
+  date: Date;
+  trigger: TreasureTriggerValue;
+  boosted: boolean;
+  status: "LOCKED" | "UNLOCKED";
+}): Promise<string | null> {
+  try {
+    const t = await prisma.treasureLog.create({ data });
+    return t.id;
+  } catch (e) {
+    if ((e as { code?: unknown } | null)?.code === "P2002") return null;
+    throw e;
+  }
+}
+
+type TreasureTriggerValue = "STREAK" | "ALL_COMPLETE" | "PROXY";
+
+/**
  * 報告時の宝箱生成（LOCKED）。
  *  - isProxy=true → 何もしない（親代理は子供の自発的動機を生まないため）
  *  - 親のプール未設定でも生成する（開封時に必ず季節コレクションアイテムが出るため、
@@ -71,29 +97,25 @@ export async function generateTreasuresOnReport(
   const created: string[] = [];
   // PROXY は STREAK の代替なので、PROXY 既存なら STREAK は新規作成しない
   if (!has.has("STREAK") && !has.has("PROXY")) {
-    const t = await prisma.treasureLog.create({
-      data: {
-        childId: cond.childId,
-        date: cond.date,
-        trigger: "STREAK",
-        boosted: false,
-        status: "LOCKED",
-      },
+    const id = await createTreasureIdempotent({
+      childId: cond.childId,
+      date: cond.date,
+      trigger: "STREAK",
+      boosted: false,
+      status: "LOCKED",
     });
-    created.push(t.id);
+    if (id) created.push(id);
   }
   if (cond.reportedCount >= cond.totalCount && cond.totalCount > 0 && !has.has("ALL_COMPLETE")) {
-    const t = await prisma.treasureLog.create({
-      data: {
-        childId: cond.childId,
-        date: cond.date,
-        trigger: "ALL_COMPLETE",
-        // スキップが 1 件でも混じれば boost を抑止 (純粋完了のみ 1.5倍宝箱)
-        boosted: cond.skippedCount === 0,
-        status: "LOCKED",
-      },
+    const id = await createTreasureIdempotent({
+      childId: cond.childId,
+      date: cond.date,
+      trigger: "ALL_COMPLETE",
+      // スキップが 1 件でも混じれば boost を抑止 (純粋完了のみ 1.5倍宝箱)
+      boosted: cond.skippedCount === 0,
+      status: "LOCKED",
     });
-    created.push(t.id);
+    if (id) created.push(id);
   }
   return created;
 }
@@ -173,32 +195,28 @@ export async function generateProxyTreasure(input: {
 
   const created: string[] = [];
   if (!has.has("STREAK") && !has.has("PROXY")) {
-    const t = await prisma.treasureLog.create({
-      data: {
-        childId: input.childId,
-        date: input.date,
-        trigger: "PROXY",
-        boosted: false,
-        status: "UNLOCKED",
-      },
+    const id = await createTreasureIdempotent({
+      childId: input.childId,
+      date: input.date,
+      trigger: "PROXY",
+      boosted: false,
+      status: "UNLOCKED",
     });
-    created.push(t.id);
+    if (id) created.push(id);
   }
   if (
     input.reportedCount >= input.totalCount &&
     input.totalCount > 0 &&
     !has.has("ALL_COMPLETE")
   ) {
-    const t = await prisma.treasureLog.create({
-      data: {
-        childId: input.childId,
-        date: input.date,
-        trigger: "ALL_COMPLETE",
-        boosted: input.skippedCount === 0,
-        status: "UNLOCKED",
-      },
+    const id = await createTreasureIdempotent({
+      childId: input.childId,
+      date: input.date,
+      trigger: "ALL_COMPLETE",
+      boosted: input.skippedCount === 0,
+      status: "UNLOCKED",
     });
-    created.push(t.id);
+    if (id) created.push(id);
   }
   return created;
 }
@@ -251,73 +269,94 @@ export async function openOldestTreasure(
   });
   if (!log) return null;
 
-  const child = await prisma.user.findUnique({
-    where: { id: childId },
-    select: { treasurePityCount: true, familyId: true },
-  });
-  const pityCount = child?.treasurePityCount ?? 0;
-
-  const items = await prisma.treasureItem.findMany({
-    where: { childId, isActive: true },
-    select: { id: true, title: true, rarity: true },
-  });
-
-  const pool: TreasurePoolItem[] = items.map((i) => ({
-    id: i.id,
-    title: i.title,
-    rarity: i.rarity as TreasureRarity,
-  }));
-
-  const draw = drawTreasure(pool, {
-    boosted: log.boosted,
-    pityCount,
-    rng: options.rng,
-  });
-
-  const drawnItem = draw.itemId ? pool.find((p) => p.id === draw.itemId) ?? null : null;
-
-  // 親ごほうび不当選なら季節/月限定コレクションアイテムを必ず付与。
-  // FREE プランは月限定 5 個のみ / PREMIUM は通常20 + 月限定5 = 25個
-  // 単独モード (familyId=null) は既存挙動と同じ全プール (PREMIUM 相当)
-  // 仕様: monetization-plan.md §2.5 / §4.4
-  let collectionItem: OpenedCollectionItem | null = null;
-  if (drawnItem === null) {
-    const plan = child?.familyId ? await getFamilyPlan(child.familyId) : "PREMIUM";
-    const pool = getDrawPoolForPlan(now, plan);
-    const picked = drawCollectionItem(pool, options.rng);
-    if (picked) {
-      const owned = await awardCollectionItem(childId, picked.id, picked.season, now);
-      collectionItem = {
-        id: picked.id,
-        name: picked.name,
-        nameKana: picked.nameKana,
-        rarity: picked.rarity,
-        season: picked.season,
-        description: picked.description,
-        descriptionKana: picked.descriptionKana,
-        image: picked.image,
-        count: owned.count,
-        month: picked.month,
-      };
-      await triggerCollectionItemLog(childId, picked.id, owned.count);
-    }
-  }
-
-  await prisma.treasureLog.update({
-    where: { id: log.id },
-    data: {
-      status: "OPENED",
-      itemId: draw.itemId,
-      collectionItemId: collectionItem?.id ?? null,
-      openedAt: now,
-    },
-  });
-
-  if (draw.nextPityCount !== pityCount) {
-    await prisma.user.update({
-      where: { id: childId },
-      data: { treasurePityCount: draw.nextPityCount },
+  // 占有〜抽選〜付与〜ログ更新〜pity 更新を 1 トランザクションにまとめる (#187)。
+  //  - 先に status=UNLOCKED 条件付きで OPENED にして占有する。count===0 は同時リクエストに負けた
+  //    ので何もせず null。占有に成功した 1 リクエストだけが以降の付与・pity 更新に進む。
+  //  - 途中で失敗すればトランザクションごとロールバックされ、宝箱は UNLOCKED のまま残る。
+  //  - pity は占有後に読み直した最新値で抽選する (lost update 回避)。
+  const outcome = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.treasureLog.updateMany({
+      where: { id: log.id, status: "UNLOCKED" },
+      data: { status: "OPENED", openedAt: now },
     });
+    if (claimed.count === 0) return null;
+
+    const child = await tx.user.findUnique({
+      where: { id: childId },
+      select: { treasurePityCount: true, familyId: true },
+    });
+    const pityCount = child?.treasurePityCount ?? 0;
+
+    const items = await tx.treasureItem.findMany({
+      where: { childId, isActive: true },
+      select: { id: true, title: true, rarity: true },
+    });
+
+    const pool: TreasurePoolItem[] = items.map((i) => ({
+      id: i.id,
+      title: i.title,
+      rarity: i.rarity as TreasureRarity,
+    }));
+
+    const draw = drawTreasure(pool, {
+      boosted: log.boosted,
+      pityCount,
+      rng: options.rng,
+    });
+
+    const drawnItem = draw.itemId ? pool.find((p) => p.id === draw.itemId) ?? null : null;
+
+    // 親ごほうび不当選なら季節/月限定コレクションアイテムを必ず付与。
+    // FREE プランは月限定 5 個のみ / PREMIUM は通常20 + 月限定5 = 25個
+    // 単独モード (familyId=null) は既存挙動と同じ全プール (PREMIUM 相当)
+    // 仕様: monetization-plan.md §2.5 / §4.4
+    let collectionItem: OpenedCollectionItem | null = null;
+    if (drawnItem === null) {
+      const plan = child?.familyId ? await getFamilyPlan(child.familyId) : "PREMIUM";
+      const drawPool = getDrawPoolForPlan(now, plan);
+      const picked = drawCollectionItem(drawPool, options.rng);
+      if (picked) {
+        const owned = await awardCollectionItem(childId, picked.id, picked.season, now, tx);
+        collectionItem = {
+          id: picked.id,
+          name: picked.name,
+          nameKana: picked.nameKana,
+          rarity: picked.rarity,
+          season: picked.season,
+          description: picked.description,
+          descriptionKana: picked.descriptionKana,
+          image: picked.image,
+          count: owned.count,
+          month: picked.month,
+        };
+      }
+    }
+
+    await tx.treasureLog.update({
+      where: { id: log.id },
+      data: {
+        itemId: draw.itemId,
+        collectionItemId: collectionItem?.id ?? null,
+      },
+    });
+
+    if (draw.nextPityCount !== pityCount) {
+      await tx.user.update({
+        where: { id: childId },
+        data: { treasurePityCount: draw.nextPityCount },
+      });
+    }
+
+    return { drawnItem, collectionItem };
+  });
+
+  // レースに負けた (他リクエストが先に開封した)
+  if (!outcome) return null;
+  const { drawnItem, collectionItem } = outcome;
+
+  // ひろば書き込みなどの副作用ログはコミット後 (トランザクション外) で行う
+  if (collectionItem) {
+    await triggerCollectionItemLog(childId, collectionItem.id, collectionItem.count);
   }
 
   return {

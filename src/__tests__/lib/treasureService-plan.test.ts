@@ -12,6 +12,7 @@ beforeEach(() => {
   mockPrisma.user.update.mockResolvedValue(childUser());
   mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
   mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+  mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
 });
 
 /// FREE プランは季節コレクション (通常 80 種) からのドロップを受けず、月限定 (5 種) のみが対象。
