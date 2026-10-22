@@ -33,16 +33,14 @@ const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockFamilyCreate = vi.mocked(prisma.family.create);
 
 /** `createClient()` の戻り値は Supabase の `SupabaseClient` 型（巨大なジェネリック型）。
- * テストで使うのは `auth.getSession` だけなので、必要な形だけを持つオブジェクトを
+ * テストで使うのは `auth.getUser` だけなので、必要な形だけを持つオブジェクトを
  * `Awaited<ReturnType<typeof createClient>>` に `as unknown as` でキャストする。 */
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>;
 
 function mockSupabaseUser(user: { id: string; email?: string } | null) {
   mockCreateClient.mockResolvedValue({
     auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: user ? { user } : null },
-      }),
+      getUser: vi.fn().mockResolvedValue({ data: { user } }),
     },
   } as unknown as SupabaseClientLike);
 }
@@ -110,6 +108,35 @@ describe("getCurrentUser", () => {
     const result = await getCurrentUser();
     expect(result).toBeNull();
     expect(mockFamilyCreate).not.toHaveBeenCalled();
+  });
+
+  it("自動再作成で P2002 (unique 違反) になった場合、findUnique をやり直して返すこと", async () => {
+    mockSupabaseUser({ id: "sup-race", email: "race@example.com" });
+    const created = parentUserWithFamily({ id: "db-race", supabaseId: "sup-race" });
+    mockUserFindUnique.mockResolvedValueOnce(null);
+    mockFamilyCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
+    mockUserFindUnique.mockResolvedValueOnce(created);
+
+    const result = await getCurrentUser();
+    expect(result).toEqual(created);
+    expect(mockFamilyCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("P2002 以外のエラーはそのままスローすること", async () => {
+    mockSupabaseUser({ id: "sup-err", email: "err@example.com" });
+    mockUserFindUnique.mockResolvedValueOnce(null);
+    mockFamilyCreate.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(getCurrentUser()).rejects.toThrow("boom");
+  });
+
+  it("P2002 が続いてユーザーも見つからない場合は上限回数でスローすること", async () => {
+    mockSupabaseUser({ id: "sup-loop", email: "loop@example.com" });
+    mockUserFindUnique.mockResolvedValue(null);
+    mockFamilyCreate.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
+
+    await expect(getCurrentUser()).rejects.toThrow();
+    expect(mockFamilyCreate.mock.calls.length).toBeLessThanOrEqual(5);
   });
 
   it("emailからユーザー名を@前で抽出すること", async () => {

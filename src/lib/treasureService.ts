@@ -16,7 +16,7 @@ import {
   type CollectionSeason,
 } from "@/lib/collectionItems";
 import { drawCollectionItem } from "@/lib/collectionDraw";
-import { awardCollectionItem } from "@/lib/collectionService";
+import { awardCollectionItem, getOwnedCollection } from "@/lib/collectionService";
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
 import { getFamilyPlan } from "@/lib/subscriptionService";
 
@@ -284,7 +284,8 @@ export async function openOldestTreasure(
   if (drawnItem === null) {
     const plan = child?.familyId ? await getFamilyPlan(child.familyId) : "PREMIUM";
     const pool = getDrawPoolForPlan(now, plan);
-    const picked = drawCollectionItem(pool, options.rng);
+    const ownedIds = new Set((await getOwnedCollection(childId)).map((o) => o.itemId));
+    const picked = drawCollectionItem(pool, options.rng, ownedIds);
     if (picked) {
       const owned = await awardCollectionItem(childId, picked.id, picked.season, now);
       collectionItem = {
