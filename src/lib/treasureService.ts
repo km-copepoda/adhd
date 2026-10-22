@@ -36,7 +36,7 @@ export interface TreasureCondition {
  * 宝箱を 1 件作成する。同時リクエストの競合で一意制約違反 (P2002) になった場合は
  * 「別リクエストが同じ宝箱を作成済み」とみなして null を返す（冪等）。
  *
- * DB 側には (childId, date, trigger) WHERE status <> 'CANCELLED' の部分ユニークインデックス
+ * DB 側には (childId, date, STREAK/PROXY と ALL_COMPLETE のバケット) WHERE status <> 'CANCELLED' の部分ユニークインデックス
  * がある（prisma/migrations/20261022000001_treasure_log_unique_active）。マイグレーション
  * 未適用の環境ではインデックスが無く P2002 は起きないだけで、この関数はそのまま動く。
  */
