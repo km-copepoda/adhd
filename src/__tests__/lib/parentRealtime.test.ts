@@ -163,5 +163,22 @@ describe("subscribeFamilyRealtime", () => {
 
     expect(registered).toHaveLength(0);
   });
+
+  it("家族構成が変わったら onChange も呼んで再取得させる（子供削除の DELETE はフィルタ付き購読に届かないため）", async () => {
+    mockFamily(true, [{ id: "c1", role: "CHILD" }]);
+    const onChange = vi.fn();
+    const off = subscribeFamilyRealtime("pending", ["QuestInstance"], onChange);
+    await flush();
+    await flush();
+    expect(onChange).not.toHaveBeenCalled();
+
+    mockFamily(true, []);
+    notifyFamilyMembersChanged();
+    await flush();
+    await flush();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    off();
+  });
 });
 

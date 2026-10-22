@@ -75,12 +75,19 @@ export function subscribeFamilyRealtime(
     });
   }
 
-  familyChangeListeners.add(connect);
+  // 家族構成が変わったら張り直したうえで再取得させる。子供削除に伴う QuestInstance の DELETE は
+  // フィルタ付き購読には届かない（Supabase の仕様: replica identity FULL が必要）ため、ここで補う
+  function onFamilyChanged() {
+    connect();
+    onChange();
+  }
+
+  familyChangeListeners.add(onFamilyChanged);
   connect();
 
   return () => {
     cancelled = true;
-    familyChangeListeners.delete(connect);
+    familyChangeListeners.delete(onFamilyChanged);
     closeChannel();
   };
 }
