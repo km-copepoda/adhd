@@ -31,6 +31,12 @@ export async function POST(
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
+  // 再報告は PENDING / REJECTED のみ許可。処理が遅いときの連打・二重送信で
+  // REPORTED 以降のクエストが再更新され、Push・宝箱・掲示板が重複するのを防ぐ。
+  if (quest.status !== "PENDING" && quest.status !== "REJECTED") {
+    return NextResponse.json({ error: "PENDINGまたはREJECTEDのクエストのみ報告できます" }, { status: 409 });
+  }
+
   const now = new Date();
 
   // 期限ボーナス: 初回報告（PENDING→REPORTED）時のみ判定・設定（子供単位の期限を参照）
