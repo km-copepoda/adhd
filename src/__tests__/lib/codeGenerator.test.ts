@@ -17,7 +17,7 @@ describe("コード生成の乱数源（#184）", () => {
 
   it("generateChildCode は crypto.randomInt を使い、4桁数字（先頭0も許容）であること", () => {
     const rnd = vi.spyOn(Math, "random");
-    const spy = vi.spyOn(crypto, "randomInt").mockReturnValue(0);
+    const spy = vi.spyOn(crypto, "randomInt").mockReturnValue(0 as never);
     expect(generateChildCode()).toBe("0000");
     expect(spy).toHaveBeenCalledTimes(4);
     expect(spy).toHaveBeenCalledWith(10);
