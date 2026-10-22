@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { generateChildCode } from "@/lib/categories";
+import { generateChildCode } from "@/lib/codeGenerator";
 import { routeLogger } from "@/lib/logger";
 import { getFamilyPlan } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";

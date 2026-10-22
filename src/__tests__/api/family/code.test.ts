@@ -297,6 +297,34 @@ describe("GET /api/family/code", () => {
     });
   });
 
+  describe("CHILDロールへの出力制限（#184）", () => {
+    const rows = () => [
+      legacyMemberRow({ id: "child-1", name: "A", role: "CHILD", monsterName: "m1", side: "DARK", childCode: "1111" }),
+      legacyMemberRow({ id: "child-2", name: "B", role: "CHILD", monsterName: "m2", side: "LIGHT", childCode: "2222" }),
+      legacyMemberRow({ id: "parent-1", name: "P", role: "PARENT", monsterName: null, side: null, childCode: null }),
+    ];
+
+    it("CHILDには家族コードを返さず、自分以外のメンバー（兄弟のchildCode）も含めないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1", familyId: "fam-1" }));
+      mockFamilyFindUnique({ ...family(), users: rows() } as unknown as FamilyWithUsersAndStreak);
+      const res = await GET();
+      const json = await res.json();
+      expect(json.code).toBeNull();
+      expect(json.members.map((m: { id: string }) => m.id)).toEqual(["child-1"]);
+      const text = JSON.stringify(json);
+      expect(text).not.toContain("2222");
+      expect(text).not.toContain(family().code);
+    });
+
+    it("PARENTには従来どおり家族コードと全メンバーのchildCodeを返すこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+      mockFamilyFindUnique({ ...family(), users: rows() } as unknown as FamilyWithUsersAndStreak);
+      const json = await (await GET()).json();
+      expect(json.code).toBe(family().code);
+      expect(json.members.map((m: { childCode: string | null }) => m.childCode)).toEqual(["1111", "2222", null]);
+    });
+  });
+
   it("エラー時に500を返すこと", async () => {
     mockGetCurrentUser.mockRejectedValue(new Error("DB connection failed"));
     const res = await GET();

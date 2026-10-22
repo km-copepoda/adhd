@@ -468,3 +468,13 @@ model BulletinLog {
   @@unique([groupId, childId, type, date, key])
   @@index([groupId, createdAt])
 }
+
+/// 子供の再参加（child-rejoin）の失敗回数ロック。#184
+/// key は "user:<supabaseUserId>" または "family:<ファミリーコード>"。
+/// サーバレスでもインスタンス間で共有できるよう DB に保持する。
+model ChildRejoinAttempt {
+  key         String    @id
+  failCount   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}

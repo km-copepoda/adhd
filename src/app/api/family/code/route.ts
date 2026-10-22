@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { generateFamilyCode } from "@/lib/categories";
+import { generateFamilyCode } from "@/lib/codeGenerator";
 import { log, routeLogger } from "@/lib/logger";
 import { resolveOwnedThemes } from "@/lib/monsterThemes/ownedThemes";
 
@@ -27,7 +27,14 @@ export async function GET() {
       prisma.familyMonsterTheme.findMany({ where: { familyId: user.familyId } }),
     ]);
 
-    const members = (family?.users || []).map((u: Record<string, unknown>) => ({
+    // CHILD には自分の行だけを返す。家族コード・兄弟の childCode を渡すと
+    // child-rejoin でなりすませるため。（#184）
+    const isParent = user.role === "PARENT";
+    const visibleUsers = (family?.users || []).filter(
+      (u: { id: string }) => isParent || u.id === user.id,
+    );
+
+    const members = visibleUsers.map((u: Record<string, unknown>) => ({
       id: u.id,
       name: u.name,
       role: u.role,
@@ -59,7 +66,7 @@ export async function GET() {
     }));
 
     return NextResponse.json({
-      code: family?.code,
+      code: isParent ? family?.code : null,
       members,
       // 子供が0人でも作成フォームで所持テーマを出せるよう、家族単位でも返す
       ownedThemes: resolveOwnedThemes(ownedThemeRecords, null),

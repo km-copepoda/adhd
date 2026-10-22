@@ -2,23 +2,41 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { routeLogger } from "@/lib/logger";
+import {
+  isLocked,
+  recordFailure,
+  resetAttempts,
+  userKey,
+  familyKey,
+  USER_MAX_FAILURES,
+  FAMILY_MAX_FAILURES,
+} from "@/lib/childRejoinLimit";
 
 // POST: ファミリーコード + ユーザーコードで子どもを検証し、supabaseIdを紐付ける
 export async function POST(request: Request) {
   const rlog = routeLogger("POST", "/api/auth/child-rejoin");
-  let familyCode: string, childCode: string;
+  let body: { familyCode?: unknown; childCode?: unknown };
   try {
-    ({ familyCode, childCode } = await request.json());
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
   }
 
+  const { familyCode, childCode } = body ?? {};
+  if (typeof familyCode !== "string" || typeof childCode !== "string") {
+    return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
+  }
   if (!familyCode || !childCode) {
     return NextResponse.json(
       { error: "ファミリーコードとユーザーコードを入力してください" },
       { status: 400 },
     );
   }
+  // 失敗カウンタのキーとして保存するため長さを制限する
+  if (familyCode.length > 32 || childCode.length > 16) {
+    return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
+  }
+  const normalizedFamilyCode = familyCode.toUpperCase();
 
   try {
     // サーバー側でセッションを読み取る（クライアントから ID を受け取らない）
@@ -40,13 +58,32 @@ export async function POST(request: Request) {
     }
 
     const supabaseUserId = user.id;
+    const uKey = userKey(supabaseUserId);
+    const fKey = familyKey(normalizedFamilyCode);
+
+    // 総当たり対策: ロック中は照合せずに 429
+    const [userLocked, familyLocked] = await Promise.all([isLocked(uKey), isLocked(fKey)]);
+    if (userLocked || familyLocked) {
+      rlog.warn("Child rejoin locked", { userLocked, familyLocked });
+      return NextResponse.json(
+        { error: "試行回数が多すぎます。しばらくしてからもう一度お試しください" },
+        { status: 429 },
+      );
+    }
+
+    const recordFailures = () =>
+      Promise.all([
+        recordFailure(uKey, USER_MAX_FAILURES),
+        recordFailure(fKey, FAMILY_MAX_FAILURES),
+      ]);
 
     // ファミリーを検索
     const family = await prisma.family.findUnique({
-      where: { code: familyCode.toUpperCase() },
+      where: { code: normalizedFamilyCode },
     });
     if (!family) {
       rlog.warn("Family not found on rejoin");
+      await recordFailures();
       return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
     }
 
@@ -61,6 +98,7 @@ export async function POST(request: Request) {
     });
     if (!child || child.role !== "CHILD") {
       rlog.warn("Child not found on rejoin", { familyId: family.id });
+      await recordFailures();
       return NextResponse.json({ error: "コードが正しくありません" }, { status: 404 });
     }
 
@@ -75,6 +113,9 @@ export async function POST(request: Request) {
         data: { supabaseId: supabaseUserId },
       }),
     ]);
+
+    // ユーザー単位のみリセット。ファミリー単位は成功でリセットしない（総当たりの巻き戻し防止）
+    await resetAttempts(uKey);
 
     rlog.info("Child rejoin success", { childId: child.id, familyId: family.id });
     return NextResponse.json({
