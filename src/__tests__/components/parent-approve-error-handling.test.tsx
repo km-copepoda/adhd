@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Issue #190: 承認画面の二重送信ガード・res.ok 判定・差し戻し失敗時のモーダル保持・一括承認の確認
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -146,5 +146,32 @@ describe("親 承認センター: エラー処理 (#190)", () => {
     fireEvent.click(screen.getByRole("button", { name: /まとめて承認/ }));
     fireEvent.click(screen.getByRole("button", { name: "承認する" }));
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+  it("確認ダイアログを開いた後に一覧が変わっても、確認した 2 件だけを一括承認する (Codex指摘)", async () => {
+    let current: unknown[] = ITEMS;
+    fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/api/approve/pending")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(current) });
+      }
+      if (init?.method === "POST") return okRes();
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /まとめて承認/ }));
+    // 確認中に新しい報告が届き、一覧が再取得される
+    current = [...ITEMS, quest("q-3", "あたらしい報告")];
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(screen.getByText("あたらしい報告")).toBeTruthy());
+    expect(screen.getByText(/2件をまとめて承認します/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "承認する" }));
+    await waitFor(() => expect(posts().length).toBe(1));
+    const body = JSON.parse((posts()[0][1] as RequestInit).body as string);
+    expect(body.items).toEqual([
+      { kind: "quest", id: "q-1" },
+      { kind: "quest", id: "q-2" },
+    ]);
   });
 });

@@ -65,7 +65,8 @@ export default function ApprovePage() {
   const busyRef = useRef<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const bulkBusyRef = useRef(false);
-  const [bulkConfirm, setBulkConfirm] = useState(false);
+  // 確認ダイアログを開いた時点の対象を固定する。実行時の items ではなく、これを送信する
+  const [bulkTargets, setBulkTargets] = useState<{ kind: PendingItem["kind"]; id: string }[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -212,7 +213,8 @@ export default function ApprovePage() {
     setBulkBusy(true);
     setActionError(null);
     try {
-      const bulkItems = items.map((i) => ({ kind: i.kind, id: i.id }));
+      const bulkItems = bulkTargets ?? [];
+      if (bulkItems.length === 0) return;
       const res = await fetch("/api/approve/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,7 +225,7 @@ export default function ApprovePage() {
         fetchPending();
         return;
       }
-      setBulkConfirm(false);
+      setBulkTargets(null);
       notifyApprovalsUpdated();
       fetchPending();
     } catch {
@@ -252,19 +254,19 @@ export default function ApprovePage() {
             {items.length}件の報告が承認待ちです
           </p>
         </div>
-        {items.length > 0 && !bulkConfirm && (
-          <button onClick={() => setBulkConfirm(true)} className="btn-gold text-sm">
+        {items.length > 0 && !bulkTargets && (
+          <button onClick={() => setBulkTargets(items.map((i) => ({ kind: i.kind, id: i.id })))} className="btn-gold text-sm">
             ✓ まとめて承認
           </button>
         )}
       </div>
 
-      {bulkConfirm && items.length > 0 && (
+      {bulkTargets && bulkTargets.length > 0 && (
         <div className="mb-6 rounded-xl border border-quest-gold/30 bg-quest-card p-4">
-          <p className="text-sm mb-3">{items.length}件をまとめて承認します。よろしいですか？</p>
+          <p className="text-sm mb-3">{bulkTargets.length}件をまとめて承認します。よろしいですか？</p>
           <div className="flex gap-2">
             <button
-              onClick={() => setBulkConfirm(false)}
+              onClick={() => setBulkTargets(null)}
               disabled={bulkBusy}
               className="flex-1 text-sm border border-quest-border rounded-xl py-2.5 text-quest-dim disabled:opacity-40"
             >
