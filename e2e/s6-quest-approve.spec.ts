@@ -26,7 +26,7 @@ test.describe("S6: 親クエスト承認", () => {
   });
 
   test("承認待ちがない場合は「承認待ちの報告はありません」と表示される", async ({ page }) => {
-    const quests = page.locator(".bg-quest-card.border.rounded-xl.cursor-pointer");
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
     const count = await quests.count();
 
     if (count === 0) {
@@ -37,8 +37,8 @@ test.describe("S6: 親クエスト承認", () => {
     }
   });
 
-  test("承認待ちクエストカードをクリックすると承認される", async ({ page }) => {
-    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5.cursor-pointer");
+  test("承認待ちクエストの承認ボタンを押すと承認される", async ({ page }) => {
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
     const count = await quests.count();
 
     if (count === 0) {
@@ -47,15 +47,30 @@ test.describe("S6: 親クエスト承認", () => {
     }
 
     const initialCount = count;
-    // クエストカードをクリック（= 承認）
-    await quests.first().click();
+    // 承認ボタンを押す（通常クエストは「✓ 承認」、スキップ申請は「✓ スキップを承認」）
+    await quests.first().getByRole("button", { name: /^✓ (スキップを)?承認/ }).click();
 
     // カードが減ることを確認
     await expect(quests).toHaveCount(initialCount - 1, { timeout: 10000 });
   });
 
+  test("カード本体をタップしても承認されない（誤タップ防止）", async ({ page }) => {
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
+    const count = await quests.count();
+
+    if (count === 0) {
+      test.skip(true, "承認待ちクエストがないためスキップ");
+      return;
+    }
+
+    // タイトル行（ボタン以外）をタップしても件数は変わらない
+    await quests.first().locator("p.text-base").first().click();
+    await page.waitForTimeout(1000);
+    await expect(quests).toHaveCount(count);
+  });
+
   test("承認待ちが複数ある場合、「まとめて承認」ボタンが表示される", async ({ page }) => {
-    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5.cursor-pointer");
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
     const count = await quests.count();
 
     if (count === 0) {
@@ -67,7 +82,7 @@ test.describe("S6: 親クエスト承認", () => {
   });
 
   test("差し戻しボタンで差し戻しモーダルが開く", async ({ page }) => {
-    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5.cursor-pointer");
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
     const count = await quests.count();
 
     if (count === 0) {
@@ -84,7 +99,7 @@ test.describe("S6: 親クエスト承認", () => {
   });
 
   test("境界値: 差し戻しモーダルで理由未選択は「差し戻す」が無効", async ({ page }) => {
-    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5.cursor-pointer");
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
     const count = await quests.count();
 
     if (count === 0) {
@@ -100,7 +115,7 @@ test.describe("S6: 親クエスト承認", () => {
   });
 
   test("差し戻しモーダルはキャンセルで閉じる", async ({ page }) => {
-    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5.cursor-pointer");
+    const quests = page.locator(".bg-quest-card.border.rounded-xl.p-5");
     const count = await quests.count();
 
     if (count === 0) {
