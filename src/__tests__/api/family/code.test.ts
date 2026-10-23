@@ -101,7 +101,6 @@ describe("GET /api/family/code", () => {
       evolutionPath: "",
       rebirthEggBonus: null,
       rebirthPending: false,
-      childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,
       checkinDeadlineTime: null,
@@ -116,7 +115,10 @@ describe("GET /api/family/code", () => {
       lastLoginDate: null,
       ownedThemes: ["dark", "light"],
     });
-    expect(json.members[1].childCode).toBe("1234");
+    // ユーザーコードは廃止（親にも返さない）
+    expect(json.members[0]).not.toHaveProperty("childCode");
+    expect(json.members[1]).not.toHaveProperty("childCode");
+    expect(JSON.stringify(json)).not.toContain("1234");
   });
 
   it("子供メンバーのXPフィールドを返すこと", async () => {
@@ -316,12 +318,16 @@ describe("GET /api/family/code", () => {
       expect(text).not.toContain(family().code);
     });
 
-    it("PARENTには従来どおり家族コードと全メンバーのchildCodeを返すこと", async () => {
+    it("PARENTには家族コードと全メンバーを返すが、childCode は返さないこと", async () => {
       mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
       mockFamilyFindUnique({ ...family(), users: rows() } as unknown as FamilyWithUsersAndStreak);
       const json = await (await GET()).json();
       expect(json.code).toBe(family().code);
-      expect(json.members.map((m: { childCode: string | null }) => m.childCode)).toEqual(["1111", "2222", null]);
+      expect(json.members.map((m: { id: string }) => m.id)).toEqual(["child-1", "child-2", "parent-1"]);
+      for (const m of json.members) expect(m).not.toHaveProperty("childCode");
+      const text = JSON.stringify(json);
+      expect(text).not.toContain("1111");
+      expect(text).not.toContain("2222");
     });
   });
 

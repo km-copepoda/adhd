@@ -28,8 +28,7 @@ export async function GET() {
       prisma.familyMonsterTheme.findMany({ where: { familyId: user.familyId } }),
     ]);
 
-    // CHILD には自分の行だけを返す。家族コード・兄弟の childCode を渡すと
-    // child-rejoin でなりすませるため。（#184）
+    // CHILD には自分の行だけを返す（家族コード・兄弟の情報を渡さない）。（#184）
     const isParent = user.role === "PARENT";
     const visibleUsers = (family?.users || []).filter(
       (u: { id: string }) => isParent || u.id === user.id,
@@ -45,7 +44,6 @@ export async function GET() {
       evolutionPath: (u.evolutionPath as string) ?? "",
       rebirthEggBonus: (u.rebirthEggBonus as string | null) ?? null,
       rebirthPending: (u.rebirthPending as boolean | undefined) ?? false,
-      childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
       checkinDeadlineTime: (u.checkinDeadlineTime as string | null) ?? null,

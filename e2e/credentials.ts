@@ -5,7 +5,7 @@
  */
 import fs from "fs";
 import path from "path";
-import type { Browser, Page } from "@playwright/test";
+import type { APIRequestContext, Browser, Page } from "@playwright/test";
 import { getE2EBaseUrl, getE2EHostname, getE2ERoutePattern } from "./baseUrl";
 
 export const AUTH_DIR = path.join(process.cwd(), "playwright/.auth");
@@ -13,10 +13,10 @@ export const AUTH_DIR = path.join(process.cwd(), "playwright/.auth");
 export type QACredentials = {
   email: string;
   password: string;
-  familyCode: string;
-  childCodeLight: string;
+  /** 1人目の子供の User.id（ログインコードの発行や家族管理画面の行特定に使う） */
+  childIdLight: string;
   /** PREMIUM 用アカウントのみ: 2人目の子供（子供切替UIの検証用）。FREE 用アカウントには存在しない。 */
-  childCodeLight2?: string;
+  childIdLight2?: string;
 };
 
 export function readCredentials(): QACredentials {
@@ -33,6 +33,31 @@ export function readCredentials(): QACredentials {
 export function readFreeCredentials(): QACredentials {
   const file = path.join(AUTH_DIR, "qa-credentials-free.json");
   return JSON.parse(fs.readFileSync(file, "utf-8"));
+}
+
+/**
+ * 親セッションを持つ request コンテキストで、子供のワンタイムのログインコードを発行する（#184）。
+ * 子供のログインは「親が発行した8文字のコード（10分・1回限り）」を1つの入力欄に入れる方式。
+ */
+export async function issueChildLoginCode(
+  request: APIRequestContext,
+  childId: string,
+): Promise<string> {
+  const res = await request.post(`/api/family/members/${childId}/login-code`, {
+    headers: getBypassHeaders(),
+  });
+  if (!res.ok()) {
+    throw new Error(`ログインコードの発行に失敗しました（status=${res.status()}）`);
+  }
+  const data = (await res.json()) as { code: string };
+  return data.code;
+}
+
+/** 子供ログイン画面でログインコードを入力してログインボタンを押す */
+export async function submitChildLoginCode(page: Page, code: string): Promise<void> {
+  await page.goto("/app/child/login");
+  await page.fill('input[placeholder="ABCD2345"]', code);
+  await page.click('button:has-text("ログイン")');
 }
 
 /** Vercel デプロイ保護 bypass ヘッダーを返す（page.request 直接コール用） */

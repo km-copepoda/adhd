@@ -1,23 +1,41 @@
+import crypto from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // child-rejoin の総当たり対策（#184）。試行回数を DB に保持してサーバレスのインスタンス間で共有する。
 //
-// - ファミリーコード単位（実効的な制限）: 全セッション合算で数える。試行の前に数え（成功も含む）、
-//   成功してもリセットしない。並列の総当たりでも取りこぼさず、自家族のコードを知る攻撃者が
-//   成功でリセットして兄弟分を総当たりするのも防ぐ。上限は正規ユーザーの巻き込みを避けるため緩め。
+// - IP 単位（実効的な制限）: 試行の前に原子的に数え（成功も含む）、成功してもリセットしない。
+//   並列の総当たりでも取りこぼさない。キーは sha256(IP)（生の IP は保存しない）。
+//   家庭や学校の共有 IP を巻き込まないよう上限は緩め。コード自体が8文字・10分・1回限りなので
+//   この制限は補助的な位置づけ。
 // - ユーザー単位（匿名セッションの supabaseUserId）: 失敗のみ数える補助的な制限。
 //   子ども用ログイン画面は試行ごとに signOut + signInAnonymously で ID が変わるため、
 //   画面経由の連続試行ではほぼ効かない（セッションを使い回すクライアントへの保険）。
 
 export const USER_MAX_FAILURES = 5;
-export const FAMILY_MAX_FAILURES = 20;
+export const IP_MAX_FAILURES = 30;
 export const LOCK_MS = 15 * 60 * 1000;
 /** 最後の試行からこの時間が経つとカウントを数え直す */
 export const WINDOW_MS = 15 * 60 * 1000;
 
 export const userKey = (supabaseUserId: string) => `user:${supabaseUserId}`;
-export const familyKey = (familyCode: string) => `family:${familyCode}`;
+
+const IP_MAX_LENGTH = 64;
+
+/** IP 単位のキー。IP が取れない（空）ときは null を返し、共通キーに全員を押し込まない */
+export function ipKey(rawIp: string | null | undefined): string | null {
+  const ip = (rawIp ?? "").trim().slice(0, IP_MAX_LENGTH);
+  if (!ip) return null;
+  return `ip:${crypto.createHash("sha256").update(ip).digest("hex")}`;
+}
+
+/** Vercel が設定する x-real-ip を優先し、なければ x-forwarded-for の先頭を使う */
+export function clientIpFrom(headers: Headers): string | null {
+  const real = headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const first = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return first || null;
+}
 
 export async function isLocked(key: string, now: Date = new Date()): Promise<boolean> {
   const row = await prisma.childRejoinAttempt.findUnique({ where: { key } });

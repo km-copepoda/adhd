@@ -64,16 +64,17 @@ test.describe("S9: 子供ユーザー管理", () => {
     // --- 2. 作成した子供がリストに表示されることを確認 ---
     await expect(page.getByText(childName)).toBeVisible({ timeout: 10000 });
 
-    // --- 3. ユーザーコードを取得 ---
-    // 該当の子供カードを特定し font-mono 要素からコードを取得
+    // --- 3. ログインコードを発行 ---
+    // 該当の子供カードを特定し、「ログインコードを発行」で8文字のワンタイムコードを表示する
     const memberRow = page
       .locator(".bg-quest-bg.rounded-lg")
       .filter({ hasText: childName });
     await expect(memberRow).toBeVisible();
 
-    const childCode = await memberRow.locator(".font-mono").textContent();
-    expect(childCode).toBeTruthy();
-    expect(childCode!.trim()).toMatch(/^\d{4}$/);
+    await memberRow.getByRole("button", { name: "ログインコードを発行" }).click();
+    const loginCode = await memberRow.locator(".font-mono").textContent();
+    expect(loginCode).toBeTruthy();
+    expect(loginCode!.trim()).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
 
     // ログインフローは s3 (S3: 子供ログイン) でカバー済み
 

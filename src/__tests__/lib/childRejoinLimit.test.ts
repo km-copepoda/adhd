@@ -6,7 +6,7 @@ import {
   purgeExpiredAttempts,
   resetAttempts,
   USER_MAX_FAILURES,
-  FAMILY_MAX_FAILURES,
+  IP_MAX_FAILURES,
   LOCK_MS,
   WINDOW_MS,
 } from "@/lib/childRejoinLimit";
@@ -49,14 +49,14 @@ describe("recordAttempt（原子的なカウント）", () => {
   });
 
   it("戻り値の count が上限以下なら locked=false", async () => {
-    row(FAMILY_MAX_FAILURES);
-    const r = await recordAttempt("family:A", FAMILY_MAX_FAILURES, NOW);
-    expect(r).toMatchObject({ count: FAMILY_MAX_FAILURES, locked: false });
+    row(IP_MAX_FAILURES);
+    const r = await recordAttempt("ip:A", IP_MAX_FAILURES, NOW);
+    expect(r).toMatchObject({ count: IP_MAX_FAILURES, locked: false });
   });
 
   it("戻り値の count が上限+1 なら locked=true（境界）", async () => {
-    row(FAMILY_MAX_FAILURES + 1, new Date(NOW.getTime() + LOCK_MS));
-    const r = await recordAttempt("family:A", FAMILY_MAX_FAILURES, NOW);
+    row(IP_MAX_FAILURES + 1, new Date(NOW.getTime() + LOCK_MS));
+    const r = await recordAttempt("ip:A", IP_MAX_FAILURES, NOW);
     expect(r.locked).toBe(true);
   });
 
