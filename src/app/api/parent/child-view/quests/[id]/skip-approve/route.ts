@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import type { QuestStatus } from "@/generated/prisma/client";
-import { approveSkipQuestInstance, transitionQuestStatus } from "@/lib/approve";
+import { approveSkipQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
@@ -54,20 +54,11 @@ export async function POST(
   // reportedAt: SKIP_REPORTED から来た場合は既存値を保つ。PENDING からの即時スキップは now。
   const reportedAt = quest.reportedAt ?? now;
 
-  // 報告フィールドを書き込む。子供本人のスキップ申請と同じく comment（理由）と reportedAt を埋める。
-  // #183: status 条件付きで書き込み、並行操作で遷移済みなら 400
-  const fromStatuses: QuestStatus[] = ["PENDING", "SKIP_REPORTED"];
-  const wrote = await transitionQuestStatus(id, fromStatuses, {
-    comment: commentText,
-    reportedAt,
-  });
-  if (!wrote) {
-    return NextResponse.json({ error: "このクエストはスキップできません" }, { status: 400 });
-  }
-
   // 親代理「即 SKIPPED」: SKIP_REPORTED を経由せず一気に SKIPPED まで確定（report-approve と同じ思想）
-  // reportedAt も実際に DB へ書き込んだ値と揃える（approveSkipQuestInstance 内の
-  // resolveTreasureDate が quest.reportedAt を基準にするため）。
+  // #183: 報告フィールド（comment / reportedAt）は遷移と同一の条件付き update で書き込み、
+  // 並行操作で負けた側が上書きしないようにする。
+  // reportedAt は resolveTreasureDate の基準にもなるため quest にも同じ値を渡す。
+  const fromStatuses: QuestStatus[] = ["PENDING", "SKIP_REPORTED"];
   const skipApproved = await approveSkipQuestInstance(
     {
       id: quest.id,
@@ -76,7 +67,7 @@ export async function POST(
       reportedAt,
       template: { carryOver: !!quest.template?.carryOver },
     },
-    { fromStatuses },
+    { fromStatuses, extraData: { comment: commentText, reportedAt } },
   );
   if (!skipApproved) {
     return NextResponse.json({ error: "このクエストはスキップできません" }, { status: 400 });

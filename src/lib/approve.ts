@@ -278,9 +278,10 @@ export async function approveSkipQuestInstance(
   quest: Pick<QuestWithRelations, "id" | "childId" | "date" | "reportedAt"> & {
     template: Pick<QuestWithRelations["template"], "carryOver">;
   },
-  options?: { fromStatuses?: QuestStatus[] },
+  options?: { fromStatuses?: QuestStatus[]; extraData?: Prisma.QuestInstanceUpdateInput },
 ): Promise<boolean> {
   const won = await transitionQuestStatus(quest.id, options?.fromStatuses ?? ["SKIP_REPORTED"], {
+    ...(options?.extraData ?? {}),
     status: "SKIPPED",
     approvedAt: new Date(),
   });

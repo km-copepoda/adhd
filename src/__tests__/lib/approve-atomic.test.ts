@@ -200,4 +200,42 @@ describe("approveSkipQuestInstance のレース対策", () => {
     mockPrisma.questInstance.update.mockRejectedValue(new Error("db down"));
     await expect(approveSkipQuestInstance(skipQuest)).rejects.toThrow("db down");
   });
+
+  it("options.extraData が status: SKIPPED と同じ1回の条件付き update の data に含まれること", async () => {
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    const reportedAt = new Date("2026-03-21T01:00:00Z");
+    expect(
+      await approveSkipQuestInstance(skipQuest, {
+        fromStatuses: ["PENDING", "SKIP_REPORTED"],
+        extraData: { comment: "体調不良", reportedAt },
+      }),
+    ).toBe(true);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q-1", status: { in: ["PENDING", "SKIP_REPORTED"] } },
+      data: expect.objectContaining({
+        status: "SKIPPED",
+        approvedAt: expect.any(Date),
+        comment: "体調不良",
+        reportedAt,
+      }),
+    });
+  });
+
+  it("extraData があっても status は SKIPPED で上書きされないこと", async () => {
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    await approveSkipQuestInstance(skipQuest, { extraData: { comment: "x" } });
+    const data = mockPrisma.questInstance.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data.status).toBe("SKIPPED");
+  });
+
+  it("遷移に負けたら extraData は書かれず、update は条件付きの1回のみであること", async () => {
+    mockPrisma.questInstance.update.mockRejectedValue(p2025());
+    expect(
+      await approveSkipQuestInstance(skipQuest, { extraData: { comment: "負け側" } }),
+    ).toBe(false);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledTimes(1);
+    expect(mockRecordDailyAchievement).not.toHaveBeenCalled();
+    expect(mockUnlockTreasures).not.toHaveBeenCalled();
+  });
 });

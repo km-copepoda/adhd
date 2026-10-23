@@ -182,32 +182,33 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     );
     expect(res.status).toBe(200);
 
-    // 報告フィールド書き込み: comment と reportedAt が入る
-    expect(mockTransition).toHaveBeenCalledWith(
-      "q1",
-      ["PENDING", "SKIP_REPORTED"],
-      expect.objectContaining({
-        comment: "体調不良で休む",
-        reportedAt: expect.any(Date),
-      }),
-    );
-    // approveSkipQuestInstance が呼ばれて SKIPPED に確定する
+    // 報告フィールドは別 update ではなく approveSkipQuestInstance の extraData として渡す
+    expect(mockTransition).not.toHaveBeenCalled();
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
     expect(mockApproveSkip).toHaveBeenCalledWith(
       expect.objectContaining({ id: "q1", childId: "child-1" }),
-      { fromStatuses: ["PENDING", "SKIP_REPORTED"] },
+      {
+        fromStatuses: ["PENDING", "SKIP_REPORTED"],
+        extraData: expect.objectContaining({
+          comment: "体調不良で休む",
+          reportedAt: expect.any(Date),
+        }),
+      },
     );
   });
 
-  it("遷移に負けたら 400 を返し、スキップ承認しない（#183）", async () => {
+  it("遷移に負けたら 400 を返し、報告欄は route から書かれない（#183）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
     mockPrisma.questInstance.findUnique.mockResolvedValue(
       questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-12T00:00:00Z") }),
     );
-    mockTransition.mockResolvedValue(false);
+    mockApproveSkip.mockResolvedValue(false);
     const res = await POST(makeReq({ childId: "child-1", comment: "x" }), makeParams("q1"));
     expect(res.status).toBe(400);
-    expect(mockApproveSkip).not.toHaveBeenCalled();
+    expect(mockTransition).not.toHaveBeenCalled();
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(mockGenerateProxyTreasure).not.toHaveBeenCalled();
   });
 
   it("SKIP_REPORTED 状態（子供がスキップ申請済）も親代理で SKIPPED にできる", async () => {
