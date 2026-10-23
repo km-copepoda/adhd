@@ -1,8 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { generateFamilyCode } from "@/lib/codeGenerator";
-import { log } from "@/lib/logger";
-import { isUniqueViolation } from "@/lib/prismaErrors";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
@@ -15,45 +12,13 @@ export async function getCurrentUser() {
     .catch(() => ({ data: null, error: true as const }));
   const claims = data?.claims;
   if (error || !claims?.sub) return null;
-  const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
 
-  const find = () =>
-    prisma.user.findUnique({
-      where: { supabaseId: user.id },
-      include: { family: true },
-    });
-
-  const dbUser = await find();
-  if (dbUser || !user.email) return dbUser;
-
-  // DB リセット後などで Supabase セッションは有効だが DB ユーザーが存在しない場合に再作成
-  log.warn("DB user missing, auto-recreating", { supabaseId: user.id });
-  for (let attempt = 0; attempt < RECREATE_MAX_ATTEMPTS; attempt++) {
-    try {
-      await prisma.family.create({
-        data: {
-          code: generateFamilyCode(),
-          users: {
-            create: {
-              supabaseId: user.id,
-              role: "PARENT",
-              name: user.email.split("@")[0],
-            },
-          },
-        },
-      });
-      return find();
-    } catch (e) {
-      if (!isUniqueViolation(e)) throw e;
-      // 並列リクエストが先に作成した場合は再取得、家族コード衝突なら再試行
-      const existing = await find();
-      if (existing) return existing;
-    }
-  }
-  throw new Error("Failed to auto-recreate user");
+  // DB に User が無い（退会済み・DB リセット後）場合は null。ここで自動再作成すると退会者が復活する
+  return prisma.user.findUnique({
+    where: { supabaseId: claims.sub },
+    include: { family: true },
+  });
 }
-
-const RECREATE_MAX_ATTEMPTS = 5;
 
 export type AuthUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 

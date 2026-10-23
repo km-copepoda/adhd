@@ -12,6 +12,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
 import ChildLoginCodeIssuer from "@/components/parent/ChildLoginCodeIssuer";
 import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
+import AccountDeleteSection from "@/components/parent/AccountDeleteSection";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 
 type Member = {
@@ -621,6 +622,9 @@ export default function FamilyPage() {
           <span>ログアウト</span>
         </button>
       </div>
+
+      {/* Account deletion */}
+      <AccountDeleteSection />
     </div>
   );
 }

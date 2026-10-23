@@ -19,14 +19,10 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/codeGenerator", () => ({
-  generateFamilyCode: vi.fn(() => "ABC123"),
-}));
-
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { family, parentUserWithFamily } from "../helpers/fixtures";
+import { parentUserWithFamily } from "../helpers/fixtures";
 
 const mockCreateClient = vi.mocked(createClient);
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
@@ -120,36 +116,26 @@ describe("getCurrentUser", () => {
     });
   });
 
-  it("DBユーザーが存在しない場合、familyを新規作成しユーザーを再取得すること", async () => {
+  it("DBユーザーが存在しない場合（emailあり）、nullを返しfamilyを再作成しないこと（退会者を復活させない）", async () => {
     mockSupabaseUser({ id: "sup-new", email: "new@example.com" });
-    // 1回目のfindUnique → null
-    mockUserFindUnique.mockResolvedValueOnce(null);
-    // familyCreate成功
-    mockFamilyCreate.mockResolvedValue(family({ id: "fam-new", code: "ABC123" }));
-    // 2回目のfindUnique → 作成されたユーザー
-    const newUser = parentUserWithFamily(
-      { id: "db-new", supabaseId: "sup-new" },
-      { id: "fam-new", code: "ABC123" },
-    );
-    mockUserFindUnique.mockResolvedValueOnce(newUser);
+    mockUserFindUnique.mockResolvedValue(null);
 
     const result = await getCurrentUser();
-    expect(result).toEqual(newUser);
-    expect(mockFamilyCreate).toHaveBeenCalledWith({
-      data: {
-        code: "ABC123",
-        users: {
-          create: {
-            supabaseId: "sup-new",
-            role: "PARENT",
-            name: "new",
-          },
-        },
-      },
-    });
+
+    expect(result).toBeNull();
+    expect(mockFamilyCreate).not.toHaveBeenCalled();
   });
 
-  it("DBユーザーが存在せずemailもない場合、再作成しないこと", async () => {
+  it("DBユーザーが存在しない場合、findUniqueのやり直し（再取得）をしないこと", async () => {
+    mockSupabaseUser({ id: "sup-new", email: "new@example.com" });
+    mockUserFindUnique.mockResolvedValue(null);
+
+    await getCurrentUser();
+
+    expect(mockUserFindUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("DBユーザーが存在せずemailもない場合も、nullを返し再作成しないこと", async () => {
     mockSupabaseUser({ id: "sup-anon" });
     mockUserFindUnique.mockResolvedValue(null);
 
@@ -158,50 +144,11 @@ describe("getCurrentUser", () => {
     expect(mockFamilyCreate).not.toHaveBeenCalled();
   });
 
-  it("自動再作成で P2002 (unique 違反) になった場合、findUnique をやり直して返すこと", async () => {
-    mockSupabaseUser({ id: "sup-race", email: "race@example.com" });
-    const created = parentUserWithFamily({ id: "db-race", supabaseId: "sup-race" });
-    mockUserFindUnique.mockResolvedValueOnce(null);
-    mockFamilyCreate.mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }));
-    mockUserFindUnique.mockResolvedValueOnce(created);
-
-    const result = await getCurrentUser();
-    expect(result).toEqual(created);
-    expect(mockFamilyCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it("P2002 以外のエラーはそのままスローすること", async () => {
+  it("findUniqueが例外を投げた場合はそのままスローし、familyを作成しないこと", async () => {
     mockSupabaseUser({ id: "sup-err", email: "err@example.com" });
-    mockUserFindUnique.mockResolvedValueOnce(null);
-    mockFamilyCreate.mockRejectedValueOnce(new Error("boom"));
+    mockUserFindUnique.mockRejectedValueOnce(new Error("boom"));
 
     await expect(getCurrentUser()).rejects.toThrow("boom");
-  });
-
-  it("P2002 が続いてユーザーも見つからない場合は上限回数でスローすること", async () => {
-    mockSupabaseUser({ id: "sup-loop", email: "loop@example.com" });
-    mockUserFindUnique.mockResolvedValue(null);
-    mockFamilyCreate.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
-
-    await expect(getCurrentUser()).rejects.toThrow();
-    expect(mockFamilyCreate.mock.calls.length).toBeLessThanOrEqual(5);
-  });
-
-  it("emailからユーザー名を@前で抽出すること", async () => {
-    mockSupabaseUser({ id: "sup-x", email: "tanaka.taro@company.co.jp" });
-    mockUserFindUnique.mockResolvedValueOnce(null);
-    mockFamilyCreate.mockResolvedValue(family());
-    mockUserFindUnique.mockResolvedValueOnce(parentUserWithFamily());
-
-    await getCurrentUser();
-    expect(mockFamilyCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          users: expect.objectContaining({
-            create: expect.objectContaining({ name: "tanaka.taro" }),
-          }),
-        }),
-      })
-    );
+    expect(mockFamilyCreate).not.toHaveBeenCalled();
   });
 });

@@ -152,7 +152,7 @@ model TaskTemplate {
   isActive          Boolean            @default(true)
   requestedDate     DateTime?          @db.Date
   familyId          String
-  family            Family             @relation(fields: [familyId], references: [id])
+  family            Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
   photoBonus        Boolean            @default(false)
   originalCreatedBy Role               @default(PARENT)
   carryOver         Boolean            @default(false)
@@ -192,7 +192,7 @@ model QuestInstance {
   templateId          String
   template            TaskTemplate @relation(fields: [templateId], references: [id])
   childId             String
-  child               User         @relation(fields: [childId], references: [id])
+  child               User         @relation(fields: [childId], references: [id], onDelete: Cascade)
   reportedAt          DateTime?
   approvedAt          DateTime?
   createdAt           DateTime     @default(now())
@@ -206,7 +206,7 @@ model QuestInstance {
 model Streak {
   id                    String    @id @default(cuid())
   childId               String    @unique
-  child                 User      @relation(fields: [childId], references: [id])
+  child                 User      @relation(fields: [childId], references: [id], onDelete: Cascade)
   currentStreak         Int       @default(0)
   bestStreak            Int       @default(0)
   lastAchievedDate      DateTime? @db.Date
@@ -241,7 +241,7 @@ model TaskStreak {
   taskId           String
   task             TaskTemplate @relation(fields: [taskId], references: [id])
   childId          String
-  child            User         @relation(fields: [childId], references: [id])
+  child            User         @relation(fields: [childId], references: [id], onDelete: Cascade)
   currentStreak    Int          @default(0)
   bestStreak       Int          @default(0)
   lastAchievedDate DateTime?    @db.Date
@@ -494,4 +494,15 @@ model ChildLoginCode {
   expiresAt DateTime
   createdAt DateTime @default(now())
   child     User     @relation(fields: [childId], references: [id], onDelete: Cascade)
+}
+
+/// アカウント削除後の外部削除（Supabase Auth・Storage）の未完了分。削除トランザクション内で作成し、成功したら消す（#235）
+model AccountCleanupJob {
+  id        String   @id @default(cuid())
+  /// ExternalCleanup（supabaseIds / childIds / photoPaths / familyId?）の未完了分
+  payload   Json
+  attempts  Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
