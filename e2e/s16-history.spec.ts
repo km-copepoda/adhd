@@ -1,17 +1,21 @@
 /**
  * S16: 親 - 過去の記録（履歴ヒートマップ）
- * 
+ *
  * 前提: as-parent-premium (parent.json で認証された状態) で実行
  * 対象: /app/parent/history
- * 
+ *
  * テスト内容:
  * - ヒートマップカレンダーの表示
  * - 月ナビゲーション（前月・次月）
  * - 日付クリックで詳細表示
  * - 月次サマリーカード表示
  * - 子供切り替え（複数子供がいる場合）
+ *
+ * 日付クリックの前提データ（今日の APPROVED クエスト）は helpers/testData.ts で用意する（Issue #221）。
+ * 過去日のデータは公開 API では作れないため、今日の日付だけを対象にする。
  */
 import { test, expect } from "./fixtures";
+import { openSessions, seedQuestInStatus, type Sessions } from "./helpers/testData";
 
 test.describe("S16: 履歴ページ", () => {
     test.beforeEach(async ({ page }) => {
@@ -66,18 +70,32 @@ test.describe("S16: 履歴ページ", () => {
         await expect(monthDisplay).toHaveText(currentMonth!);
     });
 
-    test("カレンダーの日付)をクリックすると、その日の詳細が表示されること", async ({ page }) => {
-        // 有効な日付ボタンをクリック　(最初の disabled でない日付をクリック)
-        const dayCells = page.locator(".grid.grid-cols-7 button:not(:disabled)");
-        const count = await dayCells.count();
-        if (count === 0) {
-            test.skip(true, "クリック可能な日付がないためスキップ");
-            return
-        }
+    test.describe("今日の APPROVED クエストがある場合", () => {
+        let sessions: Sessions;
 
-        await dayCells.first().click();
+        test.beforeEach(async ({ page }) => {
+            sessions = await openSessions();
+            await seedQuestInStatus(sessions, "APPROVED", { tag: "s16" });
+            // データ作成後に再取得する
+            await page.reload();
+            await expect(
+                page.getByRole("heading", { name: /過去の記録/ }),
+            ).toBeVisible({ timeout: 15000 });
+        });
 
-        // 日付詳細のモーダルが表示されることを確認
-        await expect(page.getByText(/件完了/).or(page.getByText(/件未完了/))).toBeVisible({ timeout: 5000 });
+        test.afterEach(async () => {
+            await sessions?.dispose();
+        });
+
+        test("カレンダーの日付をクリックすると、その日の詳細が表示されること", async ({ page }) => {
+            // 有効な日付ボタン（履歴のある日 = 今日）をクリックできる
+            const dayCells = page.locator(".grid.grid-cols-7 button:not(:disabled)");
+            await expect(dayCells.first()).toBeVisible({ timeout: 10000 });
+
+            await dayCells.first().click();
+
+            // 日付詳細のモーダルが表示されることを確認
+            await expect(page.getByText(/件完了/).or(page.getByText(/件未完了/))).toBeVisible({ timeout: 5000 });
+        });
     });
 });
