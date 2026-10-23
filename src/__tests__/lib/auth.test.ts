@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/categories", () => ({
+vi.mock("@/lib/codeGenerator", () => ({
   generateFamilyCode: vi.fn(() => "ABC123"),
 }));
 

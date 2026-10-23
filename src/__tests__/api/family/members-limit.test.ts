@@ -38,13 +38,12 @@ describe("POST /api/family/members — FREE プランの子アカウント上限
     mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
     mockPrisma.user.count.mockResolvedValue(0);
-    mockPrisma.user.findUnique.mockResolvedValue(null); // childCode 重複なし
     mockPrisma.user.create.mockResolvedValue(
       childUser({
         id: "db-1",
         monsterName: "1人目",
         side: "LIGHT",
-        childCode: "0001",
+        childCode: null,
       }),
     );
 
@@ -52,6 +51,8 @@ describe("POST /api/family/members — FREE プランの子アカウント上限
       makeRequest("/api/family/members", { monsterName: "1人目", side: "LIGHT" }),
     );
     expect(res.status).toBe(200);
+    // ユーザーコードは廃止（レスポンスに含めない）
+    expect(await res.json()).not.toHaveProperty("childCode");
   });
 
   it("PREMIUM は 5 人目でも追加成功", async () => {
@@ -66,7 +67,7 @@ describe("POST /api/family/members — FREE プランの子アカウント上限
         id: "db-5",
         monsterName: "5人目",
         side: "LIGHT",
-        childCode: "0005",
+        childCode: null,
       }),
     );
 
@@ -86,7 +87,7 @@ describe("POST /api/family/members — FREE プランの子アカウント上限
         id: "db-x",
         monsterName: "x",
         side: "LIGHT",
-        childCode: "1111",
+        childCode: null,
       }),
     );
 

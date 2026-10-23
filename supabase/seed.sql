@@ -25,8 +25,9 @@ BEGIN
 END $$;
 
 -- ============================================================
--- Supabase Realtime 用 RLS ポリシー
--- postgres_changes を正しくクライアントに届けるために必要
+-- Supabase Realtime publication
+-- RLS・ポリシー・SECURITY DEFINER 関数の正本は
+-- prisma/migrations/20261023000001_rls_all_tables（ここでは定義しない）
 -- ============================================================
 
 -- Realtime 未登録テーブルをパブリケーションに追加
@@ -63,95 +64,18 @@ BEGIN
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE "TreasureLog";
   END IF;
-END $$;
-
--- RLS 再帰を避けるための SECURITY DEFINER ヘルパー関数
-CREATE OR REPLACE FUNCTION get_my_family_id()
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT "familyId" FROM "User" WHERE "supabaseId" = auth.uid()::text LIMIT 1;
-$$;
-
-CREATE OR REPLACE FUNCTION get_my_user_id()
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT id FROM "User" WHERE "supabaseId" = auth.uid()::text LIMIT 1;
-$$;
-
-CREATE OR REPLACE FUNCTION is_same_family(other_user_id text)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM "User" u1
-    JOIN "User" u2 ON u1."familyId" = u2."familyId"
-    WHERE u1."supabaseId" = auth.uid()::text
-      AND u2.id = other_user_id
-      AND u1."familyId" IS NOT NULL
-  );
-$$;
-
--- RLS 有効化 + SELECT ポリシー（べき等）
-ALTER TABLE "QuestInstance" ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
+  -- #216: あつまり（掲示板ログ・スタンプ）の Realtime 購読
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'QuestInstance' AND policyname = 'realtime_select_quests'
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'BulletinLog'
   ) THEN
-    CREATE POLICY "realtime_select_quests" ON "QuestInstance" FOR SELECT
-    USING (is_same_family("childId"));
+    ALTER PUBLICATION supabase_realtime ADD TABLE "BulletinLog";
   END IF;
-END $$;
-
-ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'User' AND policyname = 'realtime_select_users'
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'Stamp'
   ) THEN
-    CREATE POLICY "realtime_select_users" ON "User" FOR SELECT
-    USING ("supabaseId" = auth.uid()::text OR is_same_family(id));
-  END IF;
-END $$;
-
-ALTER TABLE "TaskTemplate" ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'TaskTemplate' AND policyname = 'realtime_select_tasks'
-  ) THEN
-    CREATE POLICY "realtime_select_tasks" ON "TaskTemplate" FOR SELECT
-    USING ("familyId" = get_my_family_id());
-  END IF;
-END $$;
-
-ALTER TABLE "UserBadge" ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'UserBadge' AND policyname = 'realtime_select_badges'
-  ) THEN
-    CREATE POLICY "realtime_select_badges" ON "UserBadge" FOR SELECT
-    USING ("userId" = get_my_user_id());
-  END IF;
-END $$;
-
--- #151: ごほうび使用申請の親承認フロー用。役割別に絞る
---   PARENT: 同 family の全 TreasureLog（承認センターで子供全員分を見る）
---   CHILD : 自分の childId の行のみ
-ALTER TABLE "TreasureLog" ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'TreasureLog' AND policyname = 'realtime_select_treasure_logs'
-  ) THEN
-    CREATE POLICY "realtime_select_treasure_logs" ON "TreasureLog" FOR SELECT
-    USING (
-      "childId" = get_my_user_id()
-      OR (
-        is_same_family("childId")
-        AND EXISTS (
-          SELECT 1 FROM "User" u
-          WHERE u."supabaseId" = auth.uid()::text AND u.role = 'PARENT'
-        )
-      )
-    );
+    ALTER PUBLICATION supabase_realtime ADD TABLE "Stamp";
   END IF;
 END $$;
 
