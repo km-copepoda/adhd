@@ -137,6 +137,7 @@
 - [2026-10-22: 宝箱コレクションアイテム抽選を「ゆるめの未所持優先」にする](#2026-10-22-宝箱コレクションアイテム抽選をゆるめの未所持優先にする)
 - [2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る](#2026-10-23-rls-とポリシーの正本を-migration-に一本化し子どもに見せる-user-行を自分だけに絞る)
 - [2026-10-23: 子どものログインを親発行のワンタイムコードに置き換える（#184）](#2026-10-23-子どものログインを親発行のワンタイムコードに置き換える184)
+- [2026-10-23: アカウント削除（親の退会・家族ごとの即時物理削除）と退会者の自動再作成の廃止（#235）](#2026-10-23-アカウント削除親の退会家族ごとの即時物理削除と退会者の自動再作成の廃止235)
 
 <!-- TOC:END -->
 
@@ -3292,3 +3293,34 @@
 - `src/app/api/auth/child-rejoin/route.ts` / `src/app/api/family/members/[id]/login-code/route.ts`
 - `src/components/parent/ChildLoginCodeIssuer.tsx` / `src/app/app/child/login/page.tsx`
 - `prisma/migrations/20261023000002_child_login_code/migration.sql`
+
+## 2026-10-23: アカウント削除（親の退会・家族ごとの即時物理削除）と退会者の自動再作成の廃止（#235）
+
+### 決定
+- `DELETE /api/account`（PARENT 本人のみ、body `{ confirm: "削除します" }` 必須）で即時物理削除する。猶予期間・論理削除は設けない
+- 家族に他の PARENT がいれば本人の User 行だけを削除する。最後の PARENT なら家族の User 全員 → Family の順で削除する（`User.family` は SET NULL のため User を先に消す）。本人の取り直し・Family 行の FOR UPDATE ロック・課金の再検査・他の親の数え上げは同じトランザクション内で行う
+- 本人の Subscription が PREMIUM 有効かつ未解約（canceledAt が null）なら 409 `SUBSCRIPTION_ACTIVE`。ストア課金はアプリから止められないため先に解約させる
+- FK: `QuestInstance.child` / `Streak.child` / `TaskStreak.child` / `TaskTemplate.family` を ON DELETE CASCADE にした。`QuestInstance.template` / `TaskStreak.task` は RESTRICT のまま（タスクは isActive=false の論理削除運用で、テンプレートの物理削除で履歴が消えるのを防ぐ）
+- Supabase Auth ユーザーと quest-photos の写真の削除は、DB 削除のコミット後に `after()` でベストエフォート実行する（`src/lib/accountCleanup.ts`、service role は `src/lib/supabase/admin.ts`）。失敗は `account cleanup failed` のエラーログに対象 ID・パスを残し、手動で再実行する
+- `getCurrentUser()` の「DB User が無ければ Family + PARENT を自動再作成」と、親ログイン画面の `/api/auth/register` 呼び出しを廃止した。DB User を作るのは新規登録画面だけ。ログイン後に DB User が無ければサインアウトして「アカウントが見つかりません」を表示する
+- 子どもの削除（`DELETE /api/family/members/[id]`）も同じ lib に寄せ、Auth ユーザーと写真を後始末する
+
+### 理由
+- ストア審査（Apple 5.1.1(v)・Google Play）と個人情報の消去請求への対応
+- 自動再作成が残っていると、Auth 削除の失敗時や別タブの API 呼び出し・再ログインで、退会した親が空の家族つきで復活する
+- 初期 migration の FK は onDelete 未指定で RESTRICT になっていただけで、意図的な設計ではなかった
+
+### 既知の制約
+- `after()` は永続ジョブではない。タイムアウトや障害で Auth ユーザー・写真が残る可能性がある。件数が増えて問題になったら outbox（再試行キュー）化する
+- 削除後の別タブは JWT 期限まで親画面のシェルが表示される（API は 401/403）
+- 家族プランの課金親判定（findFirst）の不定性は既存の問題で、今回は扱っていない
+
+### やってはいけないこと
+- `getCurrentUser()` や親ログインに DB User の自動作成を戻す（退会者が復活する）
+- 外部削除（Auth・Storage）を DB 削除より先に行う、または DB トランザクション内で行う
+- `src/lib/supabase/admin.ts` を `accountCleanup.ts` 以外、特にクライアントコンポーネントから import する
+
+### 該当箇所
+- `src/lib/accountDeletion.ts` / `src/lib/accountDeletion.data.ts` / `src/lib/accountCleanup.ts` / `src/lib/supabase/admin.ts` / `src/lib/questPhotoUrl.ts` / `src/lib/auth.ts`
+- `src/app/api/account/route.ts` / `src/app/api/family/members/[id]/route.ts` / `src/app/app/parent/login/page.tsx` / `src/components/parent/AccountDeleteSection.tsx`
+- `prisma/migrations/20261023000003_account_deletion_cascade/migration.sql`

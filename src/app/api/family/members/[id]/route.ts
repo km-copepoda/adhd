@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { deleteChildAccount } from "@/lib/accountDeletion";
+import { cleanupExternal } from "@/lib/accountCleanup";
 
 export async function DELETE(
   _request: Request,
@@ -15,23 +16,24 @@ export async function DELETE(
 
   const { id } = await params;
 
-  // 同じファミリーの子供か確認
-  const child = await prisma.user.findFirst({
-    where: { id, familyId: user.familyId, role: "CHILD" },
-  });
-  if (!child) {
+  // 同じファミリーの子供かの確認と削除は tx 内で一体に行う
+  let result;
+  try {
+    result = await deleteChildAccount({ childId: id, familyId: user.familyId });
+  } catch (e) {
+    rlog.error("Family member deletion failed", {
+      deletedChildId: id,
+      familyId: user.familyId,
+      userId: user.id,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
+  }
+  if (!result) {
     return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
   }
 
-  // RESTRICT FK のため手動削除順: QuestInstance → Streak → TaskStreak → TaskTemplate(null化) → User
-  await prisma.$transaction([
-    prisma.questInstance.deleteMany({ where: { childId: id } }),
-    prisma.streak.deleteMany({ where: { childId: id } }),
-    prisma.taskStreak.deleteMany({ where: { childId: id } }),
-    prisma.taskTemplate.updateMany({ where: { assignedChildId: id }, data: { assignedChildId: null } }),
-    prisma.user.delete({ where: { id } }),
-  ]);
-
+  after(() => cleanupExternal(result.cleanup));
   rlog.warn("Family member deleted", { deletedChildId: id, familyId: user.familyId, userId: user.id });
   return NextResponse.json({ ok: true });
 }
