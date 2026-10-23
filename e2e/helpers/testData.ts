@@ -57,9 +57,9 @@ const DEFAULT_REJECTION_REASON = "もう一度やってみよう";
 const TITLE_MAX = 32;
 
 /** 2xx 以外なら status と本文を含めて throw し、2xx なら JSON を返す。 */
-async function callApi<T = unknown>(
+export async function callApi<T = unknown>(
   req: APIRequestContext,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH",
   url: string,
   data?: unknown,
 ): Promise<T> {
