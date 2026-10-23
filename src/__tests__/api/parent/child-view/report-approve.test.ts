@@ -533,11 +533,12 @@ describe("POST report-approve photoUrl 検証 (#218)", () => {
   it("自分のパスの photoUrl は従来どおり成功し保存される", async () => {
     const res = await POST(makeReq({ childId: "child-1", photoUrl: own }), makeParams("q1"));
     expect(res.status).toBe(200);
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: expect.objectContaining({ photoUrl: own }),
-    });
-    expect(mockApprove).toHaveBeenCalled();
+    // 報告欄は承認の status 遷移と同じ更新（extraData）で保存される（#183）
+    expect(mockApprove).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      expect.objectContaining({ extraData: expect.objectContaining({ photoUrl: own }) }),
+    );
   });
 
   it("photoUrl なしは従来どおり成功する", async () => {
