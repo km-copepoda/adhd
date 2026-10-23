@@ -684,6 +684,34 @@ describe("openOldestTreasure", () => {
     expect(result).toBeNull();
   });
 
+  // ─── U5: pity カウンタの lost update 回避 (User 行ロック) ───
+  it("占有成功後、treasurePityCount を読む前に User 行を FOR UPDATE でロックする", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-lock", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.$queryRaw.mockResolvedValue([]);
+
+    await openOldestTreasure("c1", { rng: () => 0.0 });
+
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, ...values] = mockPrisma.$queryRaw.mock.calls[0] as unknown as [TemplateStringsArray, ...unknown[]];
+    expect(strings.join("?")).toMatch(/FOR UPDATE/);
+    expect(values).toEqual(["c1"]);
+    const lockOrder = mockPrisma.$queryRaw.mock.invocationCallOrder[0];
+    expect(mockPrisma.treasureLog.updateMany.mock.invocationCallOrder[0]).toBeLessThan(lockOrder);
+    expect(lockOrder).toBeLessThan(mockPrisma.user.findUnique.mock.invocationCallOrder[0]);
+  });
+
+  it("占有に負けた (updateMany count 0) 場合は User 行をロックしない", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-lost", childId: "c1", boosted: false }));
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await openOldestTreasure("c1");
+
+    expect(result).toBeNull();
+    expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
   it("最古の UNLOCKED を取得し抽選してアイテム確定", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-1", childId: "c1", boosted: false }));
     mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);

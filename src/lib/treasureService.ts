@@ -19,6 +19,7 @@ import { drawCollectionItem } from "@/lib/collectionDraw";
 import { awardCollectionItem, getOwnedCollection } from "@/lib/collectionService";
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
 import { getFamilyPlan } from "@/lib/subscriptionService";
+import { lockUserForUpdate } from "@/lib/rowLock";
 
 export interface TreasureCondition {
   childId: string;
@@ -280,6 +281,10 @@ export async function openOldestTreasure(
       data: { status: "OPENED", openedAt: now },
     });
     if (claimed.count === 0) return null;
+
+    // 別々の宝箱の同時開封（子の画面と親の child-view など）で pity の更新が消えないよう、
+    // User 行をロックしてから最新の pity を読む
+    await lockUserForUpdate(tx, childId);
 
     const child = await tx.user.findUnique({
       where: { id: childId },
