@@ -15,6 +15,7 @@ import { displayRejectionReason } from "@/lib/rejectionReason";
 
 type Quest = {
   id: string;
+  childId: string;
   date: string;
   status: QuestStatus;
   comment: string | null;

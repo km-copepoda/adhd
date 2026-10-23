@@ -9,6 +9,7 @@ import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
 import { resolveTreasureDate } from "@/lib/treasureDate";
+import { isAllowedQuestPhotoUrl } from "@/lib/questPhotoUrl";
 
 export async function POST(
   request: Request,
@@ -37,6 +38,17 @@ export async function POST(
 
   if (!quest || quest.childId !== child.id) {
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
+  }
+
+  // 写真 URL は対象の子どものフォルダ配下の quest-photos 公開 URL のみ許可
+  if (
+    photoUrl !== null &&
+    photoUrl !== undefined &&
+    photoUrl !== "" &&
+    (typeof photoUrl !== "string" ||
+      !isAllowedQuestPhotoUrl(photoUrl, quest.childId, process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""))
+  ) {
+    return NextResponse.json({ error: "写真のURLが不正です" }, { status: 400 });
   }
 
   // 親の代理操作で許可するステータス: PENDING（未報告）/ REJECTED（差し戻し後）/ REPORTED（子供報告済み）

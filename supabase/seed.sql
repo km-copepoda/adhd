@@ -9,21 +9,6 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 認証済みユーザー（子供・親）がアップロード可能にする
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'storage' AND tablename = 'objects'
-      AND policyname = 'authenticated_upload_quest_photos'
-  ) THEN
-    CREATE POLICY "authenticated_upload_quest_photos"
-    ON storage.objects FOR INSERT
-    TO authenticated
-    WITH CHECK (bucket_id = 'quest-photos');
-  END IF;
-END $$;
-
 -- パブリック読み取り（img src で直接表示できるようにする）
 DO $$
 BEGIN
@@ -169,3 +154,15 @@ BEGIN
     );
   END IF;
 END $$;
+
+-- 同じ家族のユーザーID配下のフォルダ（<childId>/<file>）にのみアップロード可能にする (#218)。
+-- seed.sql はデプロイごとに prisma migrate deploy の後で実行される（vercel.json）ため、
+-- DROP → CREATE で毎回この定義に収束させる。is_same_family は RLS 用の SECURITY DEFINER 関数。
+DROP POLICY IF EXISTS "authenticated_upload_quest_photos" ON storage.objects;
+CREATE POLICY "authenticated_upload_quest_photos"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'quest-photos'
+  AND is_same_family((storage.foldername(name))[1])
+);

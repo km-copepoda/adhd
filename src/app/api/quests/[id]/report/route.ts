@@ -8,6 +8,7 @@ import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateTreasuresOnReport } from "@/lib/treasureService";
 import { resolveTreasureDate } from "@/lib/treasureDate";
+import { isAllowedQuestPhotoUrl } from "@/lib/questPhotoUrl";
 import type { QuestStatus } from "@/types";
 
 const REPORTABLE_STATUSES: QuestStatus[] = ["PENDING", "REJECTED"];
@@ -32,6 +33,18 @@ export async function POST(
 
   if (!quest) {
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
+  }
+
+  // 写真 URL は自分のフォルダ配下の quest-photos 公開 URL のみ許可（任意 URL の保存を防ぐ）
+  if (
+    photoUrl !== null &&
+    photoUrl !== undefined &&
+    photoUrl !== "" &&
+    (typeof photoUrl !== "string" ||
+      !isAllowedQuestPhotoUrl(photoUrl, quest.childId, process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""))
+  ) {
+    rlog.warn("Invalid photoUrl on report", { questId: id });
+    return NextResponse.json({ error: "写真のURLが不正です" }, { status: 400 });
   }
 
   // 報告できるのは PENDING（初回）と REJECTED（差し戻し後の再報告）のみ。
