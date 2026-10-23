@@ -477,3 +477,73 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     });
   });
 });
+
+describe("POST report-approve photoUrl 検証 (#218)", () => {
+  const SUPA = "https://abc.supabase.co";
+  const own = `${SUPA}/storage/v1/object/public/quest-photos/child-1/q1_1700000000000.webp`;
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPA);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1", reportDeadlineTime: null }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("他の子どものパスの photoUrl は 400 で、quest 更新も承認もしない", async () => {
+    const res = await POST(
+      makeReq({
+        childId: "child-1",
+        photoUrl: `${SUPA}/storage/v1/object/public/quest-photos/child-2/q1_1.webp`,
+      }),
+      makeParams("q1"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+
+  it("外部 URL の photoUrl は 400 で、quest 更新も承認もしない", async () => {
+    const res = await POST(
+      makeReq({ childId: "child-1", photoUrl: "https://evil.example.com/a.jpg" }),
+      makeParams("q1"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+
+  it("文字列以外の photoUrl は 400", async () => {
+    const res = await POST(makeReq({ childId: "child-1", photoUrl: 123 }), makeParams("q1"));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("自分のパスの photoUrl は従来どおり成功し保存される", async () => {
+    const res = await POST(makeReq({ childId: "child-1", photoUrl: own }), makeParams("q1"));
+    expect(res.status).toBe(200);
+    // 報告欄は承認の status 遷移と同じ更新（extraData）で保存される（#183）
+    expect(mockApprove).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      expect.objectContaining({ extraData: expect.objectContaining({ photoUrl: own }) }),
+    );
+  });
+
+  it("photoUrl なしは従来どおり成功する", async () => {
+    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+    expect(res.status).toBe(200);
+    expect(mockApprove).toHaveBeenCalled();
+  });
+});
