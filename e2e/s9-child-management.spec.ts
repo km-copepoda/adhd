@@ -19,7 +19,9 @@ test.describe("S9: 子供ユーザー管理", () => {
   });
 
   test("ファミリー管理ページが正しく表示される", async ({ page }) => {
-    await expect(page.getByText("ファミリーコード", { exact: true })).toBeVisible();
+    // 子どものログインはワンタイムコード方式（#184）。家族コードは表示せず、発行方法の説明を出す
+    await expect(page.getByText(/ログインコードを発行/).first()).toBeVisible();
+    await expect(page.getByText("ファミリーコード", { exact: true })).toHaveCount(0);
     await expect(page.getByText("メンバー")).toBeVisible();
     await expect(page.getByRole("button", { name: /子どもを追加/ })).toBeVisible();
   });
