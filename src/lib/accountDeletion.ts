@@ -2,14 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { parseQuestPhotoPath } from "@/lib/questPhotoUrl";
 import { hasBlockingSubscription, type ExternalCleanup } from "@/lib/accountDeletion.data";
 
-// DB 操作のみ。Auth / Storage の削除は accountCleanup.ts が担当し、呼び出し側が after() で実行する。
+// DB 操作のみ。Auth / Storage の削除は accountCleanup.ts が担当し、削除トランザクション内で AccountCleanupJob（outbox）に記録し、
+// 呼び出し側がコミット後に runAccountCleanupJob(jobId) を after() で実行する。
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 export type DeleteParentResult =
   | { status: "not_found" }
   | { status: "subscription_active" }
-  | { status: "deleted"; scope: "self" | "family"; cleanup: ExternalCleanup };
+  | { status: "deleted"; scope: "self" | "family"; cleanup: ExternalCleanup; jobId: string };
 
 /** 削除前に子どもたちの quest-photos のパス（旧・新形式）を集める */
 async function collectPhotoPaths(tx: Tx, childIds: string[]): Promise<string[]> {
@@ -27,11 +28,17 @@ async function collectPhotoPaths(tx: Tx, childIds: string[]): Promise<string[]> 
   return [...paths];
 }
 
+/** 外部削除の未完了分を同じ tx 内で outbox に記録する（tx が失敗すればジョブも作られない） */
+async function createCleanupJob(tx: Tx, cleanup: ExternalCleanup): Promise<string> {
+  const job = await tx.accountCleanupJob.create({ data: { payload: { ...cleanup } } });
+  return job.id;
+}
+
 /** 子どもを 1 人削除する。対象は tx 内で familyId・role 付きで取り直す。見つからなければ null */
 export async function deleteChildAccount(params: {
   childId: string;
   familyId: string;
-}): Promise<{ cleanup: ExternalCleanup } | null> {
+}): Promise<{ cleanup: ExternalCleanup; jobId: string } | null> {
   return prisma.$transaction(async (tx) => {
     const child = await tx.user.findFirst({
       where: { id: params.childId, familyId: params.familyId, role: "CHILD" },
@@ -43,14 +50,13 @@ export async function deleteChildAccount(params: {
     // QuestInstance / Streak / TaskStreak 等は Cascade、TaskTemplate.assignedChild は SET NULL
     await tx.user.delete({ where: { id: child.id } });
 
-    return {
-      cleanup: {
-        supabaseIds: [child.supabaseId],
-        childIds: [child.id],
-        photoPaths,
-        familyId: params.familyId,
-      },
+    const cleanup: ExternalCleanup = {
+      supabaseIds: [child.supabaseId],
+      childIds: [child.id],
+      photoPaths,
+      familyId: params.familyId,
     };
+    return { cleanup, jobId: await createCleanupJob(tx, cleanup) };
   });
 }
 
@@ -79,11 +85,8 @@ export async function deleteParentAccount(parentId: string, now: Date): Promise<
 
     if (!familyId || otherParents > 0) {
       await tx.user.delete({ where: { id: self.id } });
-      return {
-        status: "deleted",
-        scope: "self",
-        cleanup: { supabaseIds: [self.supabaseId], childIds: [], photoPaths: [], familyId },
-      };
+      const cleanup: ExternalCleanup = { supabaseIds: [self.supabaseId], childIds: [], photoPaths: [], familyId };
+      return { status: "deleted", scope: "self", cleanup, jobId: await createCleanupJob(tx, cleanup) };
     }
 
     const members = await tx.user.findMany({
@@ -97,10 +100,7 @@ export async function deleteParentAccount(parentId: string, now: Date): Promise<
     await tx.user.deleteMany({ where: { familyId } });
     await tx.family.delete({ where: { id: familyId } });
 
-    return {
-      status: "deleted",
-      scope: "family",
-      cleanup: { supabaseIds: members.map((m) => m.supabaseId), childIds, photoPaths, familyId },
-    };
+    const cleanup: ExternalCleanup = { supabaseIds: members.map((m) => m.supabaseId), childIds, photoPaths, familyId };
+    return { status: "deleted", scope: "family", cleanup, jobId: await createCleanupJob(tx, cleanup) };
   });
 }

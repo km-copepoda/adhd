@@ -59,7 +59,7 @@ describe("cleanupExternal: Auth ユーザー削除", () => {
       return { data: {}, error: null };
     });
 
-    await expect(cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }))).resolves.toBeUndefined();
+    await expect(cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
 
     expect(deleteUser).toHaveBeenCalledTimes(3);
     expect(deleteUser).toHaveBeenCalledWith("s3");
@@ -203,7 +203,7 @@ describe("cleanupExternal: Storage 削除（quest-photos）", () => {
       dir === "c1" ? { data: null, error: { message: "boom" } } : { data: [{ name: "x.webp" }], error: null },
     );
 
-    await expect(cleanupExternal(cleanup({ childIds: ["c1", "c2"] }))).resolves.toBeUndefined();
+    await expect(cleanupExternal(cleanup({ childIds: ["c1", "c2"] }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
 
     expect(removedPaths()).toEqual(["c2/x.webp"]);
     expect(mockLogError).toHaveBeenCalledWith(
@@ -232,7 +232,7 @@ describe("cleanupExternal: Storage 削除（quest-photos）", () => {
       return { data: [{ name: "x.webp" }], error: null };
     });
 
-    await expect(cleanupExternal(cleanup({ childIds: ["c1", "c2"] }))).resolves.toBeUndefined();
+    await expect(cleanupExternal(cleanup({ childIds: ["c1", "c2"] }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
     expect(removedPaths()).toEqual(["c2/x.webp"]);
   });
 
@@ -240,7 +240,7 @@ describe("cleanupExternal: Storage 削除（quest-photos）", () => {
     const paths = Array.from({ length: 1500 }, (_, i) => `c1/p${i}.webp`);
     remove.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
 
-    await expect(cleanupExternal(cleanup({ photoPaths: paths }))).resolves.toBeUndefined();
+    await expect(cleanupExternal(cleanup({ photoPaths: paths }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
 
     expect(remove).toHaveBeenCalledTimes(2);
     const logged = mockLogError.mock.calls.find(
@@ -252,7 +252,7 @@ describe("cleanupExternal: Storage 削除（quest-photos）", () => {
 
   it("remove が例外を投げても cleanupExternal は例外にしないこと", async () => {
     remove.mockRejectedValue(new Error("network"));
-    await expect(cleanupExternal(cleanup({ photoPaths: ["c1/a.webp"] }))).resolves.toBeUndefined();
+    await expect(cleanupExternal(cleanup({ photoPaths: ["c1/a.webp"] }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
     expect(mockLogError).toHaveBeenCalled();
   });
 
@@ -284,10 +284,94 @@ describe("cleanupExternal: admin クライアント生成失敗", () => {
 
     await expect(
       cleanupExternal(cleanup({ supabaseIds: ["s1"], childIds: ["c1"], photoPaths: ["c1/a.webp"] })),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
 
     expect(mockLogError).toHaveBeenCalled();
     expect(deleteUser).not.toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("cleanupExternal: 戻り値は未完了分（outbox 再試行用）", () => {
+  it("全部成功なら空の supabaseIds / childIds / photoPaths を返すこと", async () => {
+    list.mockResolvedValue({ data: [{ name: "a.webp" }], error: null });
+    const r = await cleanupExternal(
+      cleanup({ supabaseIds: ["s1"], childIds: ["c1"], photoPaths: ["c1/b.webp"], familyId: "fam-1" }),
+    );
+    expect(r.supabaseIds).toEqual([]);
+    expect(r.childIds).toEqual([]);
+    expect(r.photoPaths).toEqual([]);
+  });
+
+  it("空の cleanup は空を返すこと", async () => {
+    const r = await cleanupExternal(cleanup());
+    expect(r).toEqual(expect.objectContaining({ supabaseIds: [], childIds: [], photoPaths: [] }));
+  });
+
+  it("Auth 削除に失敗した ID だけが supabaseIds に残ること（例外・{ error } とも）", async () => {
+    deleteUser.mockImplementation(async (id: string) => {
+      if (id === "s2") throw new Error("auth down");
+      if (id === "s3") return { data: null, error: { message: "boom", status: 500 } };
+      return { data: {}, error: null };
+    });
+    const r = await cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }));
+    expect([...r.supabaseIds].sort()).toEqual(["s2", "s3"]);
+  });
+
+  it("user_not_found（code）/ status 404 は完了扱いで残さないこと", async () => {
+    deleteUser.mockImplementation(async (id: string) => {
+      if (id === "s1") return { data: null, error: { code: "user_not_found", message: "x" } };
+      if (id === "s2") return { data: null, error: { status: 404, message: "x" } };
+      return { data: null, error: { status: 500, message: "x" } };
+    });
+    const r = await cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }));
+    expect(r.supabaseIds).toEqual(["s3"]);
+  });
+
+  it("list に失敗した childId だけが childIds に残り、成功分の写真は削除されること", async () => {
+    list.mockImplementation(async (dir: string) =>
+      dir === "c1" ? { data: null, error: { message: "boom" } } : { data: [{ name: "x.webp" }], error: null },
+    );
+    const r = await cleanupExternal(cleanup({ childIds: ["c1", "c2"] }));
+    expect(r.childIds).toEqual(["c1"]);
+    expect(r.photoPaths).toEqual([]);
+    expect(removedPaths()).toEqual(["c2/x.webp"]);
+  });
+
+  it("list が例外 / data=null の childId も残ること", async () => {
+    list.mockImplementation(async (dir: string) => {
+      if (dir === "c1") throw new Error("network");
+      if (dir === "c2") return { data: null, error: null };
+      return { data: [], error: null };
+    });
+    const r = await cleanupExternal(cleanup({ childIds: ["c1", "c2", "c3"] }));
+    expect([...r.childIds].sort()).toEqual(["c1", "c2"]);
+  });
+
+  it("remove に失敗した chunk のパスだけが photoPaths に残ること（1500 件の先頭 1000 件が失敗）", async () => {
+    const paths = Array.from({ length: 1500 }, (_, i) => `c1/p${i}.webp`);
+    remove.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    const r = await cleanupExternal(cleanup({ photoPaths: paths }));
+    expect(r.photoPaths).toHaveLength(1000);
+    expect(r.photoPaths).toContain("c1/p0.webp");
+    expect(r.photoPaths).not.toContain("c1/p1000.webp");
+  });
+
+  it("remove が例外でも該当 chunk のパスが残ること", async () => {
+    remove.mockRejectedValue(new Error("network"));
+    const r = await cleanupExternal(cleanup({ photoPaths: ["c1/a.webp", "c1/b.webp"] }));
+    expect([...r.photoPaths].sort()).toEqual(["c1/a.webp", "c1/b.webp"]);
+  });
+
+  it("admin クライアント生成失敗なら入力を（重複排除して）そのまま返すこと", async () => {
+    mockCreateAdminClient.mockImplementation(() => {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+    });
+    const r = await cleanupExternal(
+      cleanup({ supabaseIds: ["s1", "s1"], childIds: ["c1", "c1"], photoPaths: ["c1/a.webp", "c1/a.webp"], familyId: "fam-1" }),
+    );
+    expect(r.supabaseIds).toEqual(["s1"]);
+    expect(r.childIds).toEqual(["c1"]);
+    expect(r.photoPaths).toEqual(["c1/a.webp"]);
   });
 });

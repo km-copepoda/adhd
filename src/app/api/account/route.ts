@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { isDeleteConfirmed } from "@/lib/accountDeletion.data";
 import { deleteParentAccount } from "@/lib/accountDeletion";
-import { cleanupExternal } from "@/lib/accountCleanup";
+import { runAccountCleanupJob } from "@/lib/accountCleanupJob";
 
 export async function DELETE(request: Request) {
   const rlog = routeLogger("DELETE", "/api/account");
@@ -41,7 +41,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    after(() => cleanupExternal(result.cleanup));
+    after(() => runAccountCleanupJob(result.jobId));
     rlog.warn("Account deleted", { userId: user.id, familyId: user.familyId, scope: result.scope });
     return NextResponse.json({ ok: true, scope: result.scope });
   } catch (e) {

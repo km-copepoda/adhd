@@ -14,6 +14,7 @@ type Tx = {
   family: { delete: Fn };
   questInstance: { findMany: Fn };
   subscription: { findUnique: Fn };
+  accountCleanupJob: { create: Fn };
 };
 let tx: Tx;
 let originalSupabaseUrl: string | undefined;
@@ -36,6 +37,7 @@ beforeEach(() => {
     family: { delete: vi.fn().mockResolvedValue({}) },
     questInstance: { findMany: vi.fn().mockResolvedValue([]) },
     subscription: { findUnique: vi.fn().mockResolvedValue(null) },
+    accountCleanupJob: { create: vi.fn().mockResolvedValue({ id: "job-1" }) },
   };
   mockPrisma.$transaction.mockImplementation((async (fn: (t: Tx) => unknown) => fn(tx)) as never);
 });
@@ -66,6 +68,32 @@ describe("deleteChildAccount", () => {
     expect([...result!.cleanup.photoPaths].sort()).toEqual(["child-1/q1_1.webp", "q2_2.webp"].sort());
   });
 
+  it("tx 内で accountCleanupJob.create({ data: { payload: cleanup } }) を呼び、jobId を返すこと", async () => {
+    tx.user.findFirst.mockResolvedValue({ id: "child-1", supabaseId: "sup-child-1" });
+    tx.questInstance.findMany.mockResolvedValue([{ photoUrl: photoUrl("child-1/q1_1.webp") }]);
+
+    const result = await deleteChildAccount({ childId: "child-1", familyId: "fam-1" });
+
+    expect(tx.accountCleanupJob.create).toHaveBeenCalledTimes(1);
+    expect(tx.accountCleanupJob.create).toHaveBeenCalledWith({ data: { payload: result!.cleanup } });
+    expect(result!.jobId).toBe("job-1");
+  });
+
+  it("ジョブ作成は DB 削除（user.delete）より後で、同じ tx 内で行うこと", async () => {
+    tx.user.findFirst.mockResolvedValue({ id: "child-1", supabaseId: "sup-child-1" });
+    await deleteChildAccount({ childId: "child-1", familyId: "fam-1" });
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.user.delete.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.accountCleanupJob.create.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("ジョブ作成に失敗したら例外を投げること（tx ロールバックで削除も無かったことになる）", async () => {
+    tx.user.findFirst.mockResolvedValue({ id: "child-1", supabaseId: "sup-child-1" });
+    tx.accountCleanupJob.create.mockRejectedValue(new Error("job insert failed"));
+    await expect(deleteChildAccount({ childId: "child-1", familyId: "fam-1" })).rejects.toThrow("job insert failed");
+  });
+
   it("別の家族の childId（tx 内で見つからない）は null を返し、何も削除しないこと", async () => {
     tx.user.findFirst.mockResolvedValue(null);
 
@@ -75,6 +103,7 @@ describe("deleteChildAccount", () => {
     expect(tx.user.delete).not.toHaveBeenCalled();
     expect(tx.user.deleteMany).not.toHaveBeenCalled();
     expect(tx.family.delete).not.toHaveBeenCalled();
+    expect(tx.accountCleanupJob.create).not.toHaveBeenCalled();
   });
 
   it("写真が無い・photoUrl が不正（別ホスト等）な場合は photoPaths に含めないこと", async () => {
@@ -108,6 +137,7 @@ describe("deleteParentAccount", () => {
       const r = await deleteParentAccount("parent-x", NOW);
 
       expect(r).toEqual({ status: "not_found" });
+      expect(tx.accountCleanupJob.create).not.toHaveBeenCalled();
       expect(tx.user.delete).not.toHaveBeenCalled();
       expect(tx.user.deleteMany).not.toHaveBeenCalled();
       expect(tx.family.delete).not.toHaveBeenCalled();
@@ -119,6 +149,7 @@ describe("deleteParentAccount", () => {
       const r = await deleteParentAccount("child-1", NOW);
 
       expect(r).toEqual({ status: "not_found" });
+      expect(tx.accountCleanupJob.create).not.toHaveBeenCalled();
       expect(tx.user.delete).not.toHaveBeenCalled();
       expect(tx.user.deleteMany).not.toHaveBeenCalled();
       expect(tx.family.delete).not.toHaveBeenCalled();
@@ -140,6 +171,7 @@ describe("deleteParentAccount", () => {
       const r = await deleteParentAccount("parent-1", NOW);
 
       expect(r).toEqual({ status: "subscription_active" });
+      expect(tx.accountCleanupJob.create).not.toHaveBeenCalled();
       expect(tx.user.delete).not.toHaveBeenCalled();
       expect(tx.user.deleteMany).not.toHaveBeenCalled();
       expect(tx.family.delete).not.toHaveBeenCalled();
@@ -196,11 +228,20 @@ describe("deleteParentAccount", () => {
       expect(r).toEqual({
         status: "deleted",
         scope: "self",
+        jobId: "job-1",
         cleanup: expect.objectContaining({ supabaseIds: ["sup-parent-1"], childIds: [], photoPaths: [] }),
       });
       expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: "parent-1" } });
       expect(tx.user.deleteMany).not.toHaveBeenCalled();
       expect(tx.family.delete).not.toHaveBeenCalled();
+    });
+
+    it("tx 内で cleanup を payload にジョブを作り、jobId を返すこと", async () => {
+      const r = await deleteParentAccount("parent-1", NOW);
+      if (r.status !== "deleted") throw new Error("unreachable");
+      expect(tx.accountCleanupJob.create).toHaveBeenCalledTimes(1);
+      expect(tx.accountCleanupJob.create).toHaveBeenCalledWith({ data: { payload: r.cleanup } });
+      expect(r.jobId).toBe("job-1");
     });
 
     it("他の親の数は自分を除いた PARENT で数えること", async () => {
@@ -236,6 +277,17 @@ describe("deleteParentAccount", () => {
       expect(r.scope).toBe("family");
       expect(tx.user.deleteMany).toHaveBeenCalledWith({ where: { familyId: "fam-1" } });
       expect(tx.family.delete).toHaveBeenCalledWith({ where: { id: "fam-1" } });
+    });
+
+    it("家族削除でも tx 内でジョブを 1 件作り、payload に全員分の cleanup を入れること", async () => {
+      const r = await deleteParentAccount("parent-1", NOW);
+      if (r.status !== "deleted") throw new Error("unreachable");
+      expect(tx.accountCleanupJob.create).toHaveBeenCalledTimes(1);
+      expect(tx.accountCleanupJob.create).toHaveBeenCalledWith({ data: { payload: r.cleanup } });
+      expect(r.jobId).toBe("job-1");
+      expect(tx.family.delete.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.accountCleanupJob.create.mock.invocationCallOrder[0],
+      );
     });
 
     it("削除順: user.deleteMany が family.delete より前（User.family は SET NULL のため）", async () => {
@@ -308,6 +360,7 @@ describe("deleteParentAccount", () => {
       expect(r).toEqual({
         status: "deleted",
         scope: "self",
+        jobId: "job-1",
         cleanup: expect.objectContaining({ supabaseIds: ["sup-parent-1"], childIds: [], photoPaths: [] }),
       });
       expect(tx.$queryRaw).not.toHaveBeenCalled();

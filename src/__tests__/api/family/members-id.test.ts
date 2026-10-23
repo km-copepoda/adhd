@@ -5,27 +5,27 @@ vi.mock("@/lib/accountDeletion", () => ({
   deleteChildAccount: vi.fn(),
   deleteParentAccount: vi.fn(),
 }));
-vi.mock("@/lib/accountCleanup", () => ({
-  cleanupExternal: vi.fn(),
+vi.mock("@/lib/accountCleanupJob", () => ({
+  runAccountCleanupJob: vi.fn(),
 }));
 
 import { DELETE } from "@/app/api/family/members/[id]/route";
 import { getCurrentUser } from "@/lib/auth";
 import { deleteChildAccount } from "@/lib/accountDeletion";
-import { cleanupExternal } from "@/lib/accountCleanup";
+import { runAccountCleanupJob } from "@/lib/accountCleanupJob";
 import { makeParams } from "../../helpers/request";
 import { parentUserWithFamily, childUserWithFamily } from "../../helpers/fixtures";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockDeleteChild = vi.mocked(deleteChildAccount);
-const mockCleanup = vi.mocked(cleanupExternal);
+const mockCleanup = vi.mocked(runAccountCleanupJob);
 const mockAfter = vi.mocked(after);
 
 const cleanup = { supabaseIds: ["sup-child-1"], childIds: ["child-1"], photoPaths: ["child-1/a.webp"] };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockDeleteChild.mockResolvedValue({ cleanup });
+  mockDeleteChild.mockResolvedValue({ cleanup, jobId: "job-1" });
 });
 
 afterEach(() => {
@@ -78,7 +78,7 @@ describe("DELETE /api/family/members/[id]", () => {
     expect(mockDeleteChild).toHaveBeenCalledWith({ childId: "child-1", familyId: "fam-7" });
   });
 
-  it("成功時は after() に cleanupExternal を登録し、応答前には実行しないこと", async () => {
+  it("成功時は after() に runAccountCleanupJob(jobId) を登録し、応答前には実行しないこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     let registered: (() => unknown) | undefined;
     mockAfter.mockImplementation(((fn: () => unknown) => {
@@ -91,7 +91,7 @@ describe("DELETE /api/family/members/[id]", () => {
     expect(mockAfter).toHaveBeenCalledTimes(1);
     expect(mockCleanup).not.toHaveBeenCalled();
     await registered!();
-    expect(mockCleanup).toHaveBeenCalledWith(cleanup);
+    expect(mockCleanup).toHaveBeenCalledWith("job-1");
   });
 
   it("DB 削除が例外なら after を登録しないこと", async () => {

@@ -5,19 +5,19 @@ vi.mock("@/lib/accountDeletion", () => ({
   deleteParentAccount: vi.fn(),
   deleteChildAccount: vi.fn(),
 }));
-vi.mock("@/lib/accountCleanup", () => ({
-  cleanupExternal: vi.fn(),
+vi.mock("@/lib/accountCleanupJob", () => ({
+  runAccountCleanupJob: vi.fn(),
 }));
 
 import { DELETE } from "@/app/api/account/route";
 import { getCurrentUser } from "@/lib/auth";
 import { deleteParentAccount } from "@/lib/accountDeletion";
-import { cleanupExternal } from "@/lib/accountCleanup";
+import { runAccountCleanupJob } from "@/lib/accountCleanupJob";
 import { parentUserWithFamily, childUserWithFamily } from "../../helpers/fixtures";
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockDeleteParent = vi.mocked(deleteParentAccount);
-const mockCleanup = vi.mocked(cleanupExternal);
+const mockCleanup = vi.mocked(runAccountCleanupJob);
 const mockAfter = vi.mocked(after);
 
 const cleanup = { supabaseIds: ["sup-parent-1"], childIds: [], photoPaths: [] };
@@ -31,7 +31,7 @@ const req = (body: unknown, raw?: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
-  mockDeleteParent.mockResolvedValue({ status: "deleted", scope: "family", cleanup });
+  mockDeleteParent.mockResolvedValue({ status: "deleted", scope: "family", cleanup, jobId: "job-1" });
 });
 
 afterEach(() => {
@@ -129,12 +129,12 @@ describe("DELETE /api/account", () => {
     });
 
     it("scope=self も そのまま返す", async () => {
-      mockDeleteParent.mockResolvedValue({ status: "deleted", scope: "self", cleanup });
+      mockDeleteParent.mockResolvedValue({ status: "deleted", scope: "self", cleanup, jobId: "job-1" });
       const res = await DELETE(req({ confirm: "削除します" }));
       expect((await res.json()).scope).toBe("self");
     });
 
-    it("成功時は after() に外部削除を登録し、応答前には cleanupExternal を実行しない", async () => {
+    it("成功時は after() に runAccountCleanupJob(jobId) を登録し、応答前には実行しない", async () => {
       let registered: (() => unknown) | undefined;
       mockAfter.mockImplementation(((fn: () => unknown) => {
         registered = fn;
@@ -147,7 +147,7 @@ describe("DELETE /api/account", () => {
       expect(mockCleanup).not.toHaveBeenCalled();
 
       await registered!();
-      expect(mockCleanup).toHaveBeenCalledWith(cleanup);
+      expect(mockCleanup).toHaveBeenCalledWith("job-1");
     });
   });
 });

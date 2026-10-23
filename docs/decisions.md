@@ -3301,7 +3301,7 @@
 - 家族に他の PARENT がいれば本人の User 行だけを削除する。最後の PARENT なら家族の User 全員 → Family の順で削除する（`User.family` は SET NULL のため User を先に消す）。本人の取り直し・Family 行の FOR UPDATE ロック・課金の再検査・他の親の数え上げは同じトランザクション内で行う
 - 本人の Subscription が PREMIUM 有効かつ未解約（canceledAt が null）なら 409 `SUBSCRIPTION_ACTIVE`。ストア課金はアプリから止められないため先に解約させる
 - FK: `QuestInstance.child` / `Streak.child` / `TaskStreak.child` / `TaskTemplate.family` を ON DELETE CASCADE にした。`QuestInstance.template` / `TaskStreak.task` は RESTRICT のまま（タスクは isActive=false の論理削除運用で、テンプレートの物理削除で履歴が消えるのを防ぐ）
-- Supabase Auth ユーザーと quest-photos の写真の削除は、DB 削除のコミット後に `after()` でベストエフォート実行する（`src/lib/accountCleanup.ts`、service role は `src/lib/supabase/admin.ts`）。失敗は `account cleanup failed` のエラーログに対象 ID・パスを残し、手動で再実行する
+- Supabase Auth ユーザーと quest-photos の写真の削除は、削除トランザクション内で `AccountCleanupJob`（outbox）に記録 → コミット後に `after()` で `runAccountCleanupJob(jobId)` を実行 → 未完了分は日次 cron（`/api/cron/account-cleanup`、JST 3:00）で成功するまで再試行する（`src/lib/accountCleanup.ts` が未完了分を返し、`src/lib/accountCleanupJob.ts` がジョブを更新/削除。service role は `src/lib/supabase/admin.ts`）。失敗は `account cleanup failed` のエラーログに対象 ID・パスを残す
 - `getCurrentUser()` の「DB User が無ければ Family + PARENT を自動再作成」と、親ログイン画面の `/api/auth/register` 呼び出しを廃止した。DB User を作るのは新規登録画面だけ。ログイン後に DB User が無ければサインアウトして「アカウントが見つかりません」を表示する
 - 子どもの削除（`DELETE /api/family/members/[id]`）も同じ lib に寄せ、Auth ユーザーと写真を後始末する
 
@@ -3311,7 +3311,7 @@
 - 初期 migration の FK は onDelete 未指定で RESTRICT になっていただけで、意図的な設計ではなかった
 
 ### 既知の制約
-- `after()` は永続ジョブではない。タイムアウトや障害で Auth ユーザー・写真が残る可能性がある。件数が増えて問題になったら outbox（再試行キュー）化する
+- cron は日次のため、`after()` で失敗した外部削除は最長約 1 日残り得る。attempts が 10 以上になったジョブは `account cleanup job keeps failing` のエラーログを出す（再試行は続ける）
 - 削除後の別タブは JWT 期限まで親画面のシェルが表示される（API は 401/403）
 - 家族プランの課金親判定（findFirst）の不定性は既存の問題で、今回は扱っていない
 
@@ -3319,8 +3319,10 @@
 - `getCurrentUser()` や親ログインに DB User の自動作成を戻す（退会者が復活する）
 - 外部削除（Auth・Storage）を DB 削除より先に行う、または DB トランザクション内で行う
 - `src/lib/supabase/admin.ts` を `accountCleanup.ts` 以外、特にクライアントコンポーネントから import する
+- ジョブ作成（`AccountCleanupJob` の create）を削除トランザクションの外に出す（DB 行が消えた後に対象を再収集できず、公開バケットの写真が残る）
 
 ### 該当箇所
 - `src/lib/accountDeletion.ts` / `src/lib/accountDeletion.data.ts` / `src/lib/accountCleanup.ts` / `src/lib/supabase/admin.ts` / `src/lib/questPhotoUrl.ts` / `src/lib/auth.ts`
 - `src/app/api/account/route.ts` / `src/app/api/family/members/[id]/route.ts` / `src/app/app/parent/login/page.tsx` / `src/components/parent/AccountDeleteSection.tsx`
-- `prisma/migrations/20261023000003_account_deletion_cascade/migration.sql`
+- `src/lib/accountCleanupJob.ts` / `src/app/api/cron/account-cleanup/route.ts` / `vercel.json`（cron）
+- `prisma/migrations/20261023000003_account_deletion_cascade/migration.sql` / `prisma/migrations/20261023000004_account_cleanup_job/migration.sql`

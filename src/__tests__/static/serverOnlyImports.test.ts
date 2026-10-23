@@ -45,6 +45,18 @@ describe("クライアントバンドルに入れてはいけないモジュー�
     expect(bad.map((f) => f.rel)).toEqual([]);
   });
 
+  it('"use client" のファイルが @/lib/accountCleanupJob を import していない', () => {
+    const bad = files.filter((f) => isClient(f.text) && importsModule(f.text, "@/lib/accountCleanupJob"));
+    expect(bad.map((f) => f.rel)).toEqual([]);
+  });
+
+  it("src/lib/accountCleanupJob.ts は admin クライアントを直接 import せず、accountCleanup 経由で使う", () => {
+    const f = files.find((x) => x.rel === "src/lib/accountCleanupJob.ts");
+    expect(f, "src/lib/accountCleanupJob.ts が無い").toBeDefined();
+    expect(importsModule(f!.text, "@/lib/supabase/admin")).toBe(false);
+    expect(importsModule(f!.text, "@/lib/accountCleanup")).toBe(true);
+  });
+
   it("@/lib/supabase/admin を import するのは src/lib/accountCleanup.ts だけ", () => {
     const importers = files
       .filter((f) => f.rel !== "src/lib/supabase/admin.ts" && importsModule(f.text, "@/lib/supabase/admin"))

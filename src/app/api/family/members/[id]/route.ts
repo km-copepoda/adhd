@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
 import { deleteChildAccount } from "@/lib/accountDeletion";
-import { cleanupExternal } from "@/lib/accountCleanup";
+import { runAccountCleanupJob } from "@/lib/accountCleanupJob";
 
 export async function DELETE(
   _request: Request,
@@ -33,7 +33,7 @@ export async function DELETE(
     return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
   }
 
-  after(() => cleanupExternal(result.cleanup));
+  after(() => runAccountCleanupJob(result.jobId));
   rlog.warn("Family member deleted", { deletedChildId: id, familyId: user.familyId, userId: user.id });
   return NextResponse.json({ ok: true });
 }

@@ -495,3 +495,14 @@ model ChildLoginCode {
   createdAt DateTime @default(now())
   child     User     @relation(fields: [childId], references: [id], onDelete: Cascade)
 }
+
+/// アカウント削除後の外部削除（Supabase Auth・Storage）の未完了分。削除トランザクション内で作成し、成功したら消す（#235）
+model AccountCleanupJob {
+  id        String   @id @default(cuid())
+  /// ExternalCleanup（supabaseIds / childIds / photoPaths / familyId?）の未完了分
+  payload   Json
+  attempts  Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
