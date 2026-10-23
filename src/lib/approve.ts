@@ -14,6 +14,7 @@ import { DECLARATION_BONUS_XP } from "@/lib/declaration";
 import { todayJST, jstDateOf } from "@/lib/date";
 import { unlockTreasuresOnApprove } from "@/lib/treasureService";
 import { resolveTreasureDate } from "@/lib/treasureDate";
+import { lockUserForUpdate } from "@/lib/rowLock";
 
 export type QuestWithRelations = {
   id: string;
@@ -71,9 +72,10 @@ export async function transitionQuestStatus(
   id: string,
   fromStatuses: QuestStatus[],
   data: Prisma.QuestInstanceUpdateInput,
+  client: Prisma.TransactionClient = prisma,
 ): Promise<boolean> {
   try {
-    await prisma.questInstance.update({
+    await client.questInstance.update({
       where: { id, status: { in: fromStatuses } },
       data,
     });
@@ -85,8 +87,8 @@ export async function transitionQuestStatus(
 }
 
 /**
- * クエスト承認。前提の読み取り（宣言・子データ）を済ませた後に status 遷移（→APPROVED）を
- * アトミックに行い、レースに負けた場合は XP 付与等を一切せず false を返す。
+ * クエスト承認。宣言ボーナスの読み取りを済ませた後、status 遷移（→APPROVED）と XP 付与等を
+ * 単一トランザクションで行い、レースに負けた場合は XP 付与等を一切せず false を返す。
  */
 export async function approveQuestInstance(
   quest: QuestWithRelations,
@@ -99,8 +101,7 @@ export async function approveQuestInstance(
 ): Promise<boolean> {
   const fromStatuses = options?.fromStatuses ?? ["REPORTED"];
 
-  // 前提となる読み取りは claim より前に行う。claim 後に失敗すると
-  // APPROVED のまま XP が付かず、リトライも status 検証で弾かれて永久欠落するため。
+  // 宣言ボーナスの読み取りはトランザクション前に行う（tx を短く保つ）。
   const baseXp = calculateQuestXP(quest);
 
   // 「今日やる宣言ボーナス」: 報告日（JST）に対応する宣言があれば +1
@@ -119,115 +120,132 @@ export async function approveQuestInstance(
   const xp = baseXp + declarationBonus;
   const category = quest.snapshotCategory ?? quest.template.category;
 
-  // 最新のchildデータをDBから取得（stale dataによるポイント上書きを防ぐ）
-  const child = await prisma.user.findUnique({
-    where: { id: quest.childId },
-    select: {
-      id: true,
-      evolutionStage: true,
-      evolutionPath: true,
-      collectedPaths: true,
-      monsterLevels: true,
-      studyPt: true,
-      staminaPt: true,
-      lifePt: true,
-      rebirthPending: true,
-      rebirthEggBonus: true,
-      side: true,
-      monsterSetId: true,
-    },
-  }) as FreshChildData | null;
-  if (!child) throw new Error(`Child ${quest.childId} not found`);
+  // 遷移・User 行ロック・XP 更新を 1 トランザクションで行う。
+  // 行ロックする理由: 同じ子の別クエストを同時承認すると、両方が同じ XP を読んで
+  // 絶対値で書き戻し、片方の加算が消える（ロスト更新）。ロック後に最新値を読み直して直列化する。
+  // また遷移後に XP 更新が失敗しても全体がロールバックされ、APPROVED のまま XP 欠落しない。
+  let evolvedName: string | null = null;
+  const won = await prisma.$transaction(async (tx) => {
+    const claimed = await transitionQuestStatus(
+      quest.id,
+      fromStatuses,
+      {
+        ...(options?.extraData ?? {}),
+        status: "APPROVED",
+        approvedAt: new Date(),
+        ...(stamp ? { approvalStamp: stamp } : {}),
+      },
+      tx,
+    );
+    if (!claimed) return false;
 
-  const won = await transitionQuestStatus(quest.id, fromStatuses, {
-    ...(options?.extraData ?? {}),
-    status: "APPROVED",
-    approvedAt: new Date(),
-    ...(stamp ? { approvalStamp: stamp } : {}),
+    await lockUserForUpdate(tx, quest.childId);
+
+    // ロック取得後の最新 child（stale data によるポイント上書きを防ぐ）
+    const child = await tx.user.findUnique({
+      where: { id: quest.childId },
+      select: {
+        id: true,
+        evolutionStage: true,
+        evolutionPath: true,
+        collectedPaths: true,
+        monsterLevels: true,
+        studyPt: true,
+        staminaPt: true,
+        lifePt: true,
+        rebirthPending: true,
+        rebirthEggBonus: true,
+        side: true,
+        monsterSetId: true,
+      },
+    }) as FreshChildData | null;
+    if (!child) throw new Error(`Child ${quest.childId} not found`);
+
+    const newStudy = child.studyPt + (category === "STUDY" ? xp : 0);
+    const newStamina = child.staminaPt + (category === "STAMINA" ? xp : 0);
+    const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
+
+    log.info("Quest approved", { questId: quest.id, childId: quest.childId, xp, category });
+
+    if (child.rebirthPending) {
+      // 転生待ち中: XPだけ加算し、進化・転生チェックはスキップ
+      await tx.user.update({
+        where: { id: quest.childId },
+        data: { studyPt: newStudy, staminaPt: newStamina, lifePt: newLife },
+      });
+    } else {
+      const isReborn = (JSON.parse(child.collectedPaths) as string[]).length > 0;
+      const evolution = checkEvolution(
+        child.evolutionStage,
+        child.evolutionPath,
+        newStudy,
+        newStamina,
+        newLife,
+        isReborn,
+        child.rebirthEggBonus,
+      );
+
+      let collectedPaths = JSON.parse(child.collectedPaths) as string[];
+      let monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
+
+      if (evolution.reborn) {
+        // 転生閾値到達: pendingフラグをセット（実際のリセットはユーザー操作後）
+        await tx.user.update({
+          where: { id: quest.childId },
+          data: {
+            studyPt: newStudy,
+            staminaPt: newStamina,
+            lifePt: newLife,
+            rebirthPending: true,
+          },
+        });
+      } else {
+        // 通常の進化またはポイント加算
+        if (evolution.evolved) {
+          collectedPaths = addCollectedPath(collectedPaths, child.monsterSetId, evolution.newPath);
+          if (evolution.newStage === 3) {
+            monsterLevels = incrementMonsterLevel(monsterLevels, child.monsterSetId, evolution.newPath);
+          }
+          log.info("Monster evolved", {
+            childId: quest.childId,
+            stage: evolution.newStage,
+            path: evolution.newPath,
+          });
+          const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.monsterSetId);
+          evolvedName = evolvedMonster?.name ?? evolution.newPath;
+        }
+        await tx.user.update({
+          where: { id: quest.childId },
+          data: {
+            studyPt: evolution.resetStudy,
+            staminaPt: evolution.resetStamina,
+            lifePt: evolution.resetLife,
+            evolutionStage: evolution.newStage,
+            evolutionPath: evolution.newPath,
+            collectedPaths: JSON.stringify(collectedPaths),
+            monsterLevels: JSON.stringify(monsterLevels),
+          },
+        });
+      }
+    }
+
+    if (quest.template.createdBy === "CHILD") {
+      await tx.taskTemplate.update({
+        where: { id: quest.templateId },
+        data: { createdBy: "PARENT" },
+      });
+    }
+    return true;
   });
   if (!won) {
     log.warn("Quest approval skipped: status changed concurrently", { questId: quest.id });
     return false;
   }
 
-  const newStudy = child.studyPt + (category === "STUDY" ? xp : 0);
-  const newStamina = child.staminaPt + (category === "STAMINA" ? xp : 0);
-  const newLife = child.lifePt + (category === "LIFE" ? xp : 0);
-
-  log.info("Quest approved", { questId: quest.id, childId: quest.childId, xp, category });
-
-  if (child.rebirthPending) {
-    // 転生待ち中: XPだけ加算し、進化・転生チェックはスキップ
-    await prisma.user.update({
-      where: { id: quest.childId },
-      data: {
-        studyPt: newStudy,
-        staminaPt: newStamina,
-        lifePt: newLife,
-      },
-    });
-  } else {
-    const isReborn = (JSON.parse(child.collectedPaths) as string[]).length > 0;
-    const evolution = checkEvolution(
-      child.evolutionStage,
-      child.evolutionPath,
-      newStudy,
-      newStamina,
-      newLife,
-      isReborn,
-      child.rebirthEggBonus,
-    );
-
-    let collectedPaths = JSON.parse(child.collectedPaths) as string[];
-    let monsterLevels = JSON.parse(child.monsterLevels ?? "{}") as Record<string, number>;
-
-    if (evolution.reborn) {
-      // 転生閾値到達: pendingフラグをセット（実際のリセットはユーザー操作後）
-      await prisma.user.update({
-        where: { id: quest.childId },
-        data: {
-          studyPt: newStudy,
-          staminaPt: newStamina,
-          lifePt: newLife,
-          rebirthPending: true,
-        },
-      });
-    } else {
-      // 通常の進化またはポイント加算
-      if (evolution.evolved) {
-        collectedPaths = addCollectedPath(collectedPaths, child.monsterSetId, evolution.newPath);
-        if (evolution.newStage === 3) {
-          monsterLevels = incrementMonsterLevel(monsterLevels, child.monsterSetId, evolution.newPath);
-        }
-        log.info("Monster evolved", {
-          childId: quest.childId,
-          stage: evolution.newStage,
-          path: evolution.newPath,
-        });
-        const evolvedMonster = getMonsterStage(evolution.newStage, evolution.newPath, child.monsterSetId);
-        const evolvedName = evolvedMonster?.name ?? evolution.newPath;
-        after(() => triggerMonsterEvolvedLog(quest.childId, evolvedName).catch(() => {}));
-      }
-      await prisma.user.update({
-        where: { id: quest.childId },
-        data: {
-          studyPt: evolution.resetStudy,
-          staminaPt: evolution.resetStamina,
-          lifePt: evolution.resetLife,
-          evolutionStage: evolution.newStage,
-          evolutionPath: evolution.newPath,
-          collectedPaths: JSON.stringify(collectedPaths),
-          monsterLevels: JSON.stringify(monsterLevels),
-        },
-      });
-    }
-  }
-
-  if (quest.template.createdBy === "CHILD") {
-    await prisma.taskTemplate.update({
-      where: { id: quest.templateId },
-      data: { createdBy: "PARENT" },
-    });
+  // 進化ログはコミット後（ロールバックされた場合に残さない）
+  if (evolvedName) {
+    const name: string = evolvedName;
+    after(() => triggerMonsterEvolvedLog(quest.childId, name).catch(() => {}));
   }
 
   await recordDailyAchievement(quest.childId, quest.date);

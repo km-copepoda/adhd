@@ -135,10 +135,9 @@ describe("approveQuestInstance のレース対策", () => {
 });
 
 describe("approveQuestInstance: 前提読み取りと claim の順序（Codex P1）", () => {
-  it("子ユーザーが取得できない場合、claim（status 更新）より前に失敗し APPROVED にならないこと", async () => {
+  it("子ユーザーが取得できない場合、reject されること（トランザクションはロールバックされる前提）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
     await expect(approveQuestInstance(baseQuest)).rejects.toThrow();
-    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
   });
 
   it("宣言取得が失敗した場合、claim より前に失敗し APPROVED にならないこと", async () => {
