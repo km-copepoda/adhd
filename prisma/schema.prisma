@@ -83,6 +83,7 @@ model User {
   taskStreaks            TaskStreak[]
   assignedTasks          TaskTemplate[]     @relation("AssignedTasks")
   pushSubscriptions      PushSubscription[]
+  childLoginCode         ChildLoginCode?
   badges                 UserBadge[]
   gatheringMember        GatheringMember?
   bulletinLogs           BulletinLog[]
@@ -400,6 +401,10 @@ model TreasureLog {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
+  // NOTE (#187): DB には (childId, date, STREAK/PROXY と ALL_COMPLETE のバケット) WHERE status <> 'CANCELLED' の
+  // 部分ユニークインデックス "TreasureLog_childId_date_trigger_active_key" がある。
+  // Prisma schema では WHERE 付きインデックスを表現できないため raw SQL マイグレーション
+  // (20261022000001_treasure_log_unique_active で作成、20261022000002_treasure_log_unique_active_bucket でバケット化) でのみ管理している。
   @@index([childId, status])
   @@index([childId, date])
   @@index([childId, useStatus])
@@ -467,4 +472,26 @@ model BulletinLog {
 
   @@unique([groupId, childId, type, date, key])
   @@index([groupId, createdAt])
+}
+
+/// 子供の再参加（child-rejoin）の失敗回数ロック。#184
+/// key は "user:<supabaseUserId>" または "ip:<sha256(IP)>"。
+/// サーバレスでもインスタンス間で共有できるよう DB に保持する。
+model ChildRejoinAttempt {
+  key         String    @id
+  failCount   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// 子どものログインコード（親が発行するワンタイム・8文字・10分）。#184
+/// 平文は保存せず sha256 のみ。子ども1人につき有効なコードは1つ。
+model ChildLoginCode {
+  childId   String   @id
+  codeHash  String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  child     User     @relation(fields: [childId], references: [id], onDelete: Cascade)
 }
