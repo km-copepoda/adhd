@@ -3220,3 +3220,22 @@
 
 ### 該当箇所
 - `src/components/child/BottomNav.tsx` / `src/components/child/ChildLogoutButton.tsx` / `src/lib/idleNudge.ts` / `src/app/globals.css`
+
+## 2026-10-22: 宝箱コレクションアイテム抽選を「ゆるめの未所持優先」にする
+
+### 決定
+- `drawCollectionItem` の階層内選択を均等から重み付きに変更する。当選レア度内で未所持アイテムの重みを `UNOWNED_WEIGHT`（3）、所持済みを 1 とする
+- レア度の確率（COMMON 60 / UNCOMMON 30 / RARE 10）と降格規則は不変。降格時は降格先の階層の所持状況で重み付けする
+- 所持 ID は `openOldestTreasure` が親ごほうび不当選時のみ `getOwnedCollection` から取得して渡す（純粋関数に DB 依存は入れない）。全て所持済み、または全て未所持の階層は従来の均等抽選と同じ結果になる
+
+### 理由
+- 子供から「30回開けたがレアが多く、出ていないものが出ない」と報告があった。実データ（35回）はレア度分布が仕様どおり（60.0 / 28.6 / 11.4%）で、重複が体感の原因だった
+- 未所持を完全優先にするとコンプが早まりすぎ、仕様書の「ダブりOK」「季節内コンプの動機」の意図を損なうため、ゆるめの優先にとどめた
+
+### やってはいけないこと
+- 未所持優先のためにレア度の確率を変える（確率は階層内の選択でのみ調整する）
+- 純粋関数 `drawCollectionItem` に DB アクセスを入れる
+
+### 該当箇所
+- `src/lib/collectionDraw.ts` / `src/lib/treasureService.ts`
+- テスト: `src/__tests__/lib/collectionDraw.test.ts` / `src/__tests__/lib/treasureService.test.ts`

@@ -361,6 +361,47 @@ describe("POST /api/family/code", () => {
     });
   });
 
+  it("再生成でコードが重複(P2002)した場合、リトライして成功すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update
+      .mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }))
+      .mockResolvedValueOnce(family({ code: "RETRY2" }));
+
+    const res = await POST();
+    expect(res.status).toBe(200);
+    expect((await res.json()).code).toBe("RETRY2");
+    expect(mockPrisma.family.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("新規作成でもコード重複時にリトライすること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
+    mockPrisma.family.create
+      .mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }))
+      .mockResolvedValueOnce(family({ code: "RETRY3" }));
+
+    const res = await POST();
+    expect((await res.json()).code).toBe("RETRY3");
+    expect(mockPrisma.family.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("重複が上限回数続いた場合、500を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
+
+    const res = await POST();
+    expect(res.status).toBe(500);
+    expect(mockPrisma.family.update).toHaveBeenCalledTimes(5);
+  });
+
+  it("P2002 以外のエラーはリトライせず500を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update.mockRejectedValue(new Error("db down"));
+
+    const res = await POST();
+    expect(res.status).toBe(500);
+    expect(mockPrisma.family.update).toHaveBeenCalledTimes(1);
+  });
+
   it("ファミリーがない場合、新規作成すること", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
     mockPrisma.family.create.mockResolvedValue(family({ id: "fam-new", code: "CREAT1" }));

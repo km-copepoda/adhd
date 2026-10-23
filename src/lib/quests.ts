@@ -124,9 +124,20 @@ export async function ensureTodayQuests(params: {
   // carryOver タスクの stale データを先にクリーンアップしてから 1 インスタンス保証ロジックに進む
   await cleanupStaleCarryOverInstances({ childId, templates });
 
+  // 今日分を生成済みのテンプレートは以降の確認・upsert を丸ごと省く。
+  // この関数は子供画面・親タスク画面の GET ごとに呼ばれるため、毎回テンプレート数ぶんの
+  // upsert（SELECT + INSERT）が走ると DB 負荷と応答遅延の主因になる。
+  const existingToday = await prisma.questInstance.findMany({
+    where: { childId, date: today, templateId: { in: templates.map((t) => t.id) } },
+    select: { templateId: true },
+  });
+  const materialized = new Set(existingToday.map((q) => q.templateId));
+  const missingTemplates = templates.filter((t) => !materialized.has(t.id));
+  if (missingTemplates.length === 0) return;
+
   // carryOver タスクは既存 PENDING がある場合 upsert をスキップ（1インスタンス保証）
-  const carryOverTemplates = templates.filter((t) => t.carryOver);
-  const normalTemplates = templates.filter((t) => !t.carryOver);
+  const carryOverTemplates = missingTemplates.filter((t) => t.carryOver);
+  const normalTemplates = missingTemplates.filter((t) => !t.carryOver);
 
   // PENDING だけでなく REPORTED / SKIP_REPORTED も「親の承認待ちで残っているアクティブ」として扱う。
   // ここで REPORTED を見落とすと、昨日の PENDING を今日報告した直後に新しい今日 PENDING が upsert され、
