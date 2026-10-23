@@ -219,6 +219,13 @@ export async function generateProxyTreasure(input: {
     });
     if (id) created.push(id);
   }
+
+  // 親の代理承認は承認そのもの。子どもの同時報告で先に作られた LOCKED の宝箱が
+  // STREAK/PROXY のバケットを取っていても、ここで解放する (Codex 指摘)。
+  await prisma.treasureLog.updateMany({
+    where: { childId: input.childId, date: input.date, status: "LOCKED" },
+    data: { status: "UNLOCKED" },
+  });
   return created;
 }
 
@@ -317,7 +324,7 @@ export async function openOldestTreasure(
     // 仕様: monetization-plan.md §2.5 / §4.4
     let collectionItem: OpenedCollectionItem | null = null;
     if (drawnItem === null) {
-      const plan = child?.familyId ? await getFamilyPlan(child.familyId) : "PREMIUM";
+      const plan = child?.familyId ? await getFamilyPlan(child.familyId, now, tx) : "PREMIUM";
       const drawPool = getDrawPoolForPlan(now, plan);
       const ownedIds = new Set((await getOwnedCollection(childId, tx)).map((o) => o.itemId));
       const picked = drawCollectionItem(drawPool, options.rng, ownedIds);
