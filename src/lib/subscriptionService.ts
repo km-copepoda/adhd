@@ -1,24 +1,38 @@
 /// Subscription テーブルへの DB アクセス。純粋関数は @/lib/subscription を参照。
 /// 仕様: docs/未実装仕様書/monetization-plan.md
 
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolvePlan, type SubscriptionPlan } from "@/lib/subscription";
 import { todayJST } from "@/lib/date";
 
-export async function getSubscription(userId: string) {
-  return prisma.subscription.findUnique({ where: { userId } });
+/// プラン判定に使うデリゲートだけを要求する client 型 (prisma / トランザクション tx の両方を受ける)。
+export type PlanClient = {
+  user: Pick<Prisma.TransactionClient["user"], "findFirst">;
+  subscription: Pick<Prisma.TransactionClient["subscription"], "findUnique">;
+};
+
+export async function getSubscription(userId: string, client: PlanClient = prisma) {
+  return client.subscription.findUnique({ where: { userId } });
 }
 
 /// ユーザーの実効プランを返す。レコード無し or 期限切れ PREMIUM は FREE。
-export async function getUserPlan(userId: string, now: Date = new Date()): Promise<SubscriptionPlan> {
-  const sub = await getSubscription(userId);
+export async function getUserPlan(
+  userId: string,
+  now: Date = new Date(),
+  client: PlanClient = prisma,
+): Promise<SubscriptionPlan> {
+  const sub = await getSubscription(userId, client);
   return resolvePlan(sub, now);
 }
 
 /// Family 内の課金主体 (PARENT) の id を返す。見つからなければ null。
 /// `getFamilyPlan` / `/api/subscription/status` の両方で同じ規則 (findFirst) を使うための共通処理。
-async function findFamilyBillingParentId(familyId: string): Promise<string | null> {
-  const parent = await prisma.user.findFirst({
+async function findFamilyBillingParentId(
+  familyId: string,
+  client: PlanClient = prisma,
+): Promise<string | null> {
+  const parent = await client.user.findFirst({
     where: { familyId, role: "PARENT" },
     select: { id: true },
   });
@@ -30,10 +44,11 @@ async function findFamilyBillingParentId(familyId: string): Promise<string | nul
 export async function getFamilyPlan(
   familyId: string,
   now: Date = new Date(),
+  client: PlanClient = prisma,
 ): Promise<SubscriptionPlan> {
-  const parentId = await findFamilyBillingParentId(familyId);
+  const parentId = await findFamilyBillingParentId(familyId, client);
   if (!parentId) return "FREE";
-  return getUserPlan(parentId, now);
+  return getUserPlan(parentId, now, client);
 }
 
 /// Family の課金主体 (PARENT) の Subscription レコードをそのまま返す (実効プラン判定前の生データ)。
