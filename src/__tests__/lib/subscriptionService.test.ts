@@ -131,6 +131,38 @@ describe("getFamilyPlan", () => {
     const plan = await getFamilyPlan("fam-1", now);
     expect(plan).toBe("FREE");
   });
+
+  it("client 引数を省略すると従来どおりルート prisma を使う", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+
+    await getFamilyPlan("fam-1");
+
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.subscription.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("client 引数 (tx) を渡すとルート prisma ではなく tx を使う", async () => {
+    const client = {
+      user: { findFirst: vi.fn().mockResolvedValue({ id: "parent-1" }) },
+      subscription: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue(subscription({ plan: "PREMIUM", currentPeriodEnd: new Date("2026-09-06") })),
+      },
+    };
+
+    const plan = await getFamilyPlan("fam-1", now, client);
+
+    expect(plan).toBe("PREMIUM");
+    expect(client.user.findFirst).toHaveBeenCalledWith({
+      where: { familyId: "fam-1", role: "PARENT" },
+      select: { id: true },
+    });
+    expect(client.subscription.findUnique).toHaveBeenCalledWith({ where: { userId: "parent-1" } });
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.findUnique).not.toHaveBeenCalled();
+  });
 });
 
 /// FREE プラン上限用の「有効な (幽霊でない) タスク数」カウント。

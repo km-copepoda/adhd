@@ -400,6 +400,10 @@ model TreasureLog {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
+  // NOTE (#187): DB には (childId, date, STREAK/PROXY と ALL_COMPLETE のバケット) WHERE status <> 'CANCELLED' の
+  // 部分ユニークインデックス "TreasureLog_childId_date_trigger_active_key" がある。
+  // Prisma schema では WHERE 付きインデックスを表現できないため raw SQL マイグレーション
+  // (20261022000001_treasure_log_unique_active で作成、20261022000002_treasure_log_unique_active_bucket でバケット化) でのみ管理している。
   @@index([childId, status])
   @@index([childId, date])
   @@index([childId, useStatus])
