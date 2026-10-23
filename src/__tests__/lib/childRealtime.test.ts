@@ -204,7 +204,9 @@ describe("subscribeChildRealtime", () => {
 
       emit("QuestInstance");
       // 同じイベントを受けた2つのリスナーは、新しい1本の fetch を共有する（古い fetch + 新しい1本 = 計2回）
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // （購読開始時のフィルタ用 /api/users/me の取得は数えない）
+      const questCalls = fetchMock.mock.calls.filter((c) => String(c[0]) === "/api/quests/today");
+      expect(questCalls).toHaveLength(2);
       await vi.waitFor(() => expect(results).toHaveLength(2));
       expect(results).toEqual([{ v: "new" }, { v: "new" }]);
 

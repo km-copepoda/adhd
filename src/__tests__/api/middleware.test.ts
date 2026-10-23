@@ -15,16 +15,31 @@ function makeRequest(pathname: string): NextRequest {
   return new NextRequest(new URL(`http://localhost${pathname}`));
 }
 
+const mockGetClaims = vi.fn();
+const mockGetUser = vi.fn();
+
 function mockSupabaseAuth(
   user: { id: string; email?: string; is_anonymous?: boolean } | null
 ) {
-  // updateSession は supabase クライアントの `auth.getUser()` しか呼ばないため、
-  // テスト用モックは SupabaseClient のごく一部（auth.getUser）のみを実装する。
+  // updateSession は supabase クライアントの `auth.getClaims()` を呼ぶ。
+  // テスト用モックは SupabaseClient のごく一部（auth.getClaims / getUser）のみを実装する。
   // 完全な SupabaseClient 型を満たせないため `as unknown as ReturnType<...>` で明示する。
+  mockGetClaims.mockResolvedValue(
+    user
+      ? {
+          data: {
+            claims: {
+              sub: user.id,
+              ...(user.email !== undefined ? { email: user.email } : {}),
+              is_anonymous: user.is_anonymous ?? false,
+            },
+          },
+          error: null,
+        }
+      : { data: null, error: null },
+  );
   mockCreateServerClient.mockReturnValue({
-    auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user } }),
-    },
+    auth: { getClaims: mockGetClaims, getUser: mockGetUser },
   } as unknown as ReturnType<typeof createServerClient>);
 }
 
@@ -38,11 +53,35 @@ beforeEach(() => {
 });
 
 describe("updateSession (middleware)", () => {
-  describe("API routes", () => {
-    it("APIルートは認証チェックをスキップすること", async () => {
+  describe("認証 API の呼び方", () => {
+    it("getUser() ではなく getClaims() で認証すること（非対称鍵なら往復なしで検証できる）", async () => {
+      mockSupabaseAuth(parentUser);
+      await updateSession(makeRequest("/app/parent/tasks"));
+      expect(mockGetClaims).toHaveBeenCalledTimes(1);
+      expect(mockGetUser).not.toHaveBeenCalled();
+    });
+
+    it("getClaims() がエラーを返したら未認証として扱うこと", async () => {
       mockSupabaseAuth(null);
-      const res = await updateSession(makeRequest("/api/tasks"));
-      expect(res.status).not.toBe(307);
+      mockGetClaims.mockResolvedValue({ data: null, error: new Error("refresh failed") });
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/app/parent/login");
+    });
+
+    it("getClaims() が例外を投げた場合（壊れた JWT クッキー等）も未認証として扱い、ページを落とさないこと", async () => {
+      mockSupabaseAuth(null);
+      mockGetClaims.mockRejectedValue(new Error("Invalid JWT structure"));
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/app/parent/login");
+    });
+
+    it("email のないメール登録外ユーザー（is_anonymous=false, email 空）は子として扱うこと", async () => {
+      mockSupabaseAuth({ id: "x", email: "", is_anonymous: false });
+      const res = await updateSession(makeRequest("/app/parent/tasks"));
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toContain("/app/child/quests");
     });
   });
 

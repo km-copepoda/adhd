@@ -7,12 +7,26 @@ import {
   openOldestTreasure,
 } from "@/lib/treasureService";
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
+import { drawCollectionItem } from "@/lib/collectionDraw";
+import { getOwnedCollection } from "@/lib/collectionService";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { treasureLog, treasureItem, childUser, userCollectionItem } from "../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerCollectionItemLog: vi.fn(),
 }));
+
+// drawCollectionItem は実物を呼びつつ引数を検証できるようラップ
+vi.mock("@/lib/collectionDraw", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/collectionDraw")>();
+  return { ...actual, drawCollectionItem: vi.fn(actual.drawCollectionItem) };
+});
+
+// getOwnedCollection のみ差し替え (既定は所持なし)。awardCollectionItem は実物 (prisma モック経由)
+vi.mock("@/lib/collectionService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/collectionService")>();
+  return { ...actual, getOwnedCollection: vi.fn(async () => []) };
+});
 
 const mockTriggerCollectionLog = vi.mocked(triggerCollectionItemLog);
 
@@ -752,6 +766,37 @@ describe("openOldestTreasure", () => {
     expect(result!.collectionItem!.nameKana.length).toBeGreaterThan(0);
     expect(typeof result!.collectionItem!.descriptionKana).toBe("string");
     expect(result!.collectionItem!.descriptionKana.length).toBeGreaterThan(0);
+  });
+
+  it("現在の所持IDを getOwnedCollection で取得し drawCollectionItem の第3引数 (Set) に渡す", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-owned", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
+    vi.mocked(getOwnedCollection).mockResolvedValueOnce([
+      { id: "o1", childId: "c1", itemId: "summer-01", season: "summer", count: 2, firstAcquiredAt: new Date(), lastAcquiredAt: new Date() },
+      { id: "o2", childId: "c1", itemId: "summer-02", season: "summer", count: 1, firstAcquiredAt: new Date(), lastAcquiredAt: new Date() },
+    ]);
+
+    await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+
+    expect(getOwnedCollection).toHaveBeenCalledWith("c1");
+    const args = vi.mocked(drawCollectionItem).mock.calls[0];
+    expect(args[2]).toBeInstanceOf(Set);
+    expect([...(args[2] as ReadonlySet<string>)].sort()).toEqual(["summer-01", "summer-02"]);
+  });
+
+  it("所持が0件でも空 Set を第3引数に渡す", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-owned0", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
+
+    await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+
+    const args = vi.mocked(drawCollectionItem).mock.calls[0];
+    expect(args[2]).toBeInstanceOf(Set);
+    expect((args[2] as ReadonlySet<string>).size).toBe(0);
   });
 
   it("親プールがあっても抽選結果が無アイテムならコレクションを付与", async () => {
