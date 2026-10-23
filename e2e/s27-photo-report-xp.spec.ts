@@ -84,7 +84,7 @@ async function reportWithRealPhoto(browser: Browser, parentPage: Page, title: st
 test.describe("S27: 写真付き報告と XP", () => {
   test("写真を選ぶとプレビューが出て +1pt の案内が消える", async ({ browser }) => {
     const { title } = await prepareQuest(true, "s27prev");
-    const { context, page } = await createBrowserContext(browser, CHILD_AUTH);
+    const { context, page } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
     try {
       await openQuestSheet(page, title);
       await expect(page.getByText("写真を添付すると +1pt")).toBeVisible();
@@ -134,7 +134,7 @@ test.describe("S27: 写真付き報告と XP", () => {
       await expectImageLoaded(c.getByAltText("報告写真"));
     });
     await test.step("子の一覧の XP 表示が +2", async () => {
-      const { context, page: childPage } = await createBrowserContext(browser, CHILD_AUTH);
+      const { context, page: childPage } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
       try {
         await childPage.goto("/app/child/quests");
         const c = childPage.locator(".bg-quest-card.border").filter({ hasText: title });
@@ -159,7 +159,7 @@ test.describe("S27: 写真付き報告と XP", () => {
   test("photoBonus OFF のタスクには添付 UI が出ず、承認で +1", async ({ browser }) => {
     const { title, questId } = await prepareQuest(false, "s27off");
     const before = await studyPt();
-    const { context, page } = await createBrowserContext(browser, CHILD_AUTH);
+    const { context, page } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
     try {
       await openQuestSheet(page, title);
       await expect(page.getByText("カメラで撮る")).toHaveCount(0);
@@ -194,7 +194,7 @@ test.describe("S27: 異常系・境界値（ファイル）", () => {
     browser,
   }) => {
     const { title } = await prepareQuest(true, "s27txt");
-    const { context, page } = await createBrowserContext(browser, CHILD_AUTH);
+    const { context, page } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
     let reportCalls = 0;
     page.on("request", (r) => {
       if (/\/api\/quests\/[^/]+\/report$/.test(new URL(r.url()).pathname)) reportCalls++;
@@ -223,7 +223,7 @@ test.describe("S27: 異常系・境界値（ファイル）", () => {
 
   test("Storage が 500 を返してもエラー表示になり PENDING のまま", async ({ browser }) => {
     const { title } = await prepareQuest(true, "s27s500");
-    const { context, page } = await createBrowserContext(browser, CHILD_AUTH);
+    const { context, page } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
     try {
       await page.route("**/storage/v1/object/quest-photos/**", (route) =>
         route.fulfill({ status: 500, contentType: "application/json", body: '{"message":"boom"}' }),

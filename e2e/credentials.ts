@@ -82,6 +82,16 @@ export async function setupBypassRoute(page: Page): Promise<void> {
   });
 }
 
+export type CreateBrowserContextOptions = {
+  /**
+   * bypass ヘッダーの付与方式。
+   * - "header"（既定）: extraHTTPHeaders で全オリジンに付与
+   * - "route": page.route で Vercel ホストにだけ付与。Supabase Storage など
+   *   外部オリジンへのアップロード（CORS プリフライト）を壊したくない経路で使う
+   */
+  bypass?: "header" | "route";
+};
+
 /**
  * 新しい Browser Context を作成し Vercel bypass を設定する。
  * storageStatePath を渡すとログイン済みコンテキストになる。
@@ -93,12 +103,14 @@ export async function setupBypassRoute(page: Page): Promise<void> {
 export async function createBrowserContext(
   browser: Browser,
   storageStatePath?: string,
+  options: CreateBrowserContextOptions = {},
 ) {
   const secret = process.env.VERCEL_BYPASS_SECRET;
+  const useRoute = options.bypass === "route";
   const context = await browser.newContext({
     baseURL: getE2EBaseUrl(),
     ...(storageStatePath ? { storageState: storageStatePath } : {}),
-    ...(secret ? { extraHTTPHeaders: { "x-vercel-protection-bypass": secret } } : {}),
+    ...(secret && !useRoute ? { extraHTTPHeaders: { "x-vercel-protection-bypass": secret } } : {}),
   });
 
   // storageState なし（未認証コンテキスト）の場合、parent.json から
@@ -134,5 +146,8 @@ export async function createBrowserContext(
   }
 
   const page = await context.newPage();
+  if (useRoute) {
+    await setupBypassRoute(page);
+  }
   return { context, page };
 }

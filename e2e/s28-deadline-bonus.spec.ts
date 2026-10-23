@@ -107,7 +107,7 @@ test.describe("S28: XP の範囲表示", () => {
       await setReportDeadline(s.parentReq, s.childId, c.deadline);
       const { title, questId } = await prepareQuest(c.photoBonus, "s28rng");
 
-      const { context, page: childPage } = await createBrowserContext(browser, CHILD_AUTH);
+      const { context, page: childPage } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
       try {
         await openQuestSheet(childPage, title);
         await expect(childPage.getByText(c.label, { exact: true })).toBeVisible();

@@ -47,7 +47,7 @@ export async function reportViaChildUi(
   title: string,
   file?: UploadFile,
 ): Promise<void> {
-  const { context, page } = await createBrowserContext(browser, CHILD_AUTH);
+  const { context, page } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
   try {
     await openQuestSheet(page, title);
     if (file) {
