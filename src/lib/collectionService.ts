@@ -52,8 +52,11 @@ export async function awardCollectionItem(
 /**
  * 子供の所持コレクション一覧を取得する。最終獲得日時の新しい順。
  */
-export async function getOwnedCollection(childId: string): Promise<OwnedCollectionRecord[]> {
-  const list = await prisma.userCollectionItem.findMany({
+export async function getOwnedCollection(
+  childId: string,
+  client: Pick<Prisma.TransactionClient, "userCollectionItem"> = prisma,
+): Promise<OwnedCollectionRecord[]> {
+  const list = await client.userCollectionItem.findMany({
     where: { childId },
     orderBy: { lastAcquiredAt: "desc" },
   });

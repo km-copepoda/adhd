@@ -233,4 +233,25 @@ describe("親 タスク管理ページ: 追加ボタンの preempt チェック 
     expect(screen.getByPlaceholderText(TITLE_PLACEHOLDER)).toBeTruthy();
     expect(confirmSpy).not.toHaveBeenCalled();
   });
+
+  it("上限の取得より先に「+ タスク追加」を押しても、上限到達ならフォームが開かず confirm が呼ばれる", async () => {
+    const tasks = Array.from({ length: 10 }, (_, i) => makeTask({}, i));
+    const fetchMock = setupFetch({ tasks });
+    let resolveLimits: (v: unknown) => void = () => {};
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/api/subscription/limits")) {
+        return new Promise((r) => { resolveLimits = r; });
+      }
+      return base(url);
+    });
+    await renderReady();
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ タスク追加/ }));
+    resolveLimits({ ok: true, json: () => Promise.resolve({ child: 1, task: 10, treasure_item: 5 }) });
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(screen.queryByPlaceholderText(TITLE_PLACEHOLDER)).toBeNull();
+  });
 });
+

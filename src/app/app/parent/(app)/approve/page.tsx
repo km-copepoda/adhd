@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CATEGORY_LABEL, REJECTION_REASONS, APPROVAL_STAMPS } from "@/lib/categories";
-import { createClient } from "@/lib/supabase/client";
+import { subscribeFamilyRealtime } from "@/lib/parentRealtime";
 import type { Category, QuestStatus } from "@/types";
 import { formatReportedTime } from "@/lib/date";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -63,18 +63,18 @@ export default function ApprovePage() {
   useEffect(() => {
     fetchPending();
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel("approve-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, refreshPending)
-      .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, refreshPending)
-      .subscribe();
+    // 自分の家族の子供の行だけを購読する（全家庭の変更で再取得しない）
+    const unsubRealtime = subscribeFamilyRealtime(
+      "approve-changes",
+      ["QuestInstance", "TreasureLog"],
+      refreshPending,
+    );
 
     const onVisible = () => { if (document.visibilityState === "visible") refreshPending(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubRealtime();
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
