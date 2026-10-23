@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
+import type { QuestStatus } from "@/generated/prisma/client";
 import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
@@ -72,19 +73,18 @@ export async function POST(
       : false;
   }
 
-  // まず報告フィールドを書き込む（コメント・写真・reportedAt）
-  await prisma.questInstance.update({
-    where: { id },
-    data: {
-      comment: comment ?? null,
-      photoUrl: photoUrl ?? quest.photoUrl,
-      reportedAt: quest.reportedAt ?? now,
-      rejectionReason: null,
-      ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
-    },
-  });
+  // 報告フィールド（コメント・写真・reportedAt）は approveQuestInstance の status 遷移（claim）と
+  // 同一の更新に含める。並行リクエストの敗者が先に書き込んで勝者の内容を上書きするのを防ぐ（#183）
+  const fromStatuses: QuestStatus[] = ["PENDING", "REJECTED", "REPORTED"];
+  const reportData = {
+    comment: comment ?? null,
+    photoUrl: photoUrl ?? quest.photoUrl,
+    reportedAt: quest.reportedAt ?? now,
+    rejectionReason: null,
+    ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
+  };
 
-  // 既に書き込み済みの値を反映した quest オブジェクトを approveQuestInstance に渡す
+  // 書き込み予定の値を反映した quest オブジェクトを approveQuestInstance に渡す
   // reportedAt も実際に DB へ書き込んだ値（既存値優先、なければ now）と揃える。
   // approveQuestInstance 内の resolveTreasureDate が quest.reportedAt を基準にするため。
   const updatedQuest = {
@@ -96,7 +96,13 @@ export async function POST(
   };
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
-  await approveQuestInstance(updatedQuest, stamp ?? undefined);
+  const approved = await approveQuestInstance(updatedQuest, stamp ?? undefined, {
+    fromStatuses,
+    extraData: reportData,
+  });
+  if (!approved) {
+    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+  }
 
   // 親代理経路でも PROXY / ALL_COMPLETE 宝箱を即 UNLOCKED で生成する。
   // (2026-07-02) 全完了時に子セルフ経路と同じ ALL_COMPLETE ボーナスも出すように変更。
