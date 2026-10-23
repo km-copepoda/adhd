@@ -6,9 +6,11 @@ import path from "path";
 // DB には接続せず、schema.prisma / migration / seed.sql のテキストだけを検査する。
 
 const ROOT = path.resolve(__dirname, "../../..");
+// Windows の作業コピー（CRLF）でも `--` コメントを除去できるよう \r\n でも分割する
+// （`.` は \r にマッチしないため、CRLF の行では /--.*$/ が一致しない）
 const stripSqlComments = (sql: string) =>
   sql
-    .split("\n")
+    .split(/\r?\n/)
     .map((line) => line.replace(/--.*$/, ""))
     .join("\n");
 

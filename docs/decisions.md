@@ -136,6 +136,7 @@
 - [2026-10-08: 子ナビからログアウトを外し育成画面下部へ移す／文字コントラストを引き上げる（Issue #173）](#2026-10-08-子ナビからログアウトを外し育成画面下部へ移す文字コントラストを引き上げるissue-173)
 - [2026-10-22: 宝箱コレクションアイテム抽選を「ゆるめの未所持優先」にする](#2026-10-22-宝箱コレクションアイテム抽選をゆるめの未所持優先にする)
 - [2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る](#2026-10-23-rls-とポリシーの正本を-migration-に一本化し子どもに見せる-user-行を自分だけに絞る)
+- [2026-10-23: 子どものログインを親発行のワンタイムコードに置き換える（#184）](#2026-10-23-子どものログインを親発行のワンタイムコードに置き換える184)
 
 <!-- TOC:END -->
 
@@ -3266,3 +3267,28 @@
 ### 該当箇所
 - `prisma/migrations/20261023000001_rls_all_tables/migration.sql` / `supabase/seed.sql` / `CLAUDE.md`
 - テスト: `src/__tests__/db/rlsCoverage.test.ts`
+
+## 2026-10-23: 子どものログインを親発行のワンタイムコードに置き換える（#184）
+
+### 決定
+- 子どものログイン資格を、恒久的な「ファミリーコード + 4桁ユーザーコード」から **親が発行するワンタイムのログインコード**（8文字・10分有効・1回限り）に置き換える。`POST /api/family/members/[id]/login-code`（PARENT のみ・同じ家族の CHILD のみ）で発行し、`POST /api/auth/child-rejoin` は `{ loginCode }` だけを受け付ける
+- DB（`ChildLoginCode`）には sha256 のみ保存し、子ども1人につき有効なコードは1つ（再発行で上書き）。消費は `DELETE ... WHERE codeHash = ? AND expiresAt > now() RETURNING childId` の1文で行い、supabaseId の付け替えと同じトランザクションに入れる（付け替えが失敗したらコードも復活する）
+- 失敗ロックはユーザー単位（匿名セッション）を残し、家族単位は廃止して IP 単位（`x-real-ip` 優先、なければ `x-forwarded-for` 先頭を sha256 したキー）に置き換える。IP 単位は照合前に原子的に数え、成功してもリセットしない。IP が取れないときは IP 単位を使わない
+- コード使用時、同じ家族の全 PARENT に Push 通知する（失敗しても rejoin は成功）
+- 2026-08-06 の「親が子を事前作成 → 子ども端末が匿名認証 → 紐付け」フロー自体は維持する。`User.childCode` 列と `familyId_childCode` の unique は残し（削除は別タスク）、新規の子どもには生成しない（null）。`GET /api/family/code` / `POST /api/family/members` は childCode を返さない。親の画面から家族コードの表示も外す（再生成 API は残す）
+
+### 理由
+- 4桁のユーザーコードは総当たりできる（家族単位の失敗上限があっても平均約2.6日）。兄弟間でコードを取得してなりすませる
+- 失敗ロックを家族単位にすると、攻撃者の失敗で本物の子どもがログインできなくなる（DoS）
+- 資格を短命・1回限りにすれば、総当たりの空間が実質的に使えなくなり、コードが漏れても被害が限定される
+
+### やってはいけないこと
+- ログインコードの平文を DB・ログ・レスポンス（発行時以外）に残す
+- コード消費を「検索 → 削除」の複数文にする（1回限りが破れる）
+- 家族コード単位の失敗ロックを復活させる
+
+### 該当箇所
+- `src/lib/childLoginCode.ts` / `src/lib/childLoginCodeService.ts` / `src/lib/childRejoinLimit.ts`
+- `src/app/api/auth/child-rejoin/route.ts` / `src/app/api/family/members/[id]/login-code/route.ts`
+- `src/components/parent/ChildLoginCodeIssuer.tsx` / `src/app/app/child/login/page.tsx`
+- `prisma/migrations/20261023000002_child_login_code/migration.sql`

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { generateFamilyCode } from "@/lib/categories";
+import { generateFamilyCode } from "@/lib/codeGenerator";
 import { log } from "@/lib/logger";
 import { isUniqueViolation } from "@/lib/prismaErrors";
 

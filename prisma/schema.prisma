@@ -83,6 +83,7 @@ model User {
   taskStreaks            TaskStreak[]
   assignedTasks          TaskTemplate[]     @relation("AssignedTasks")
   pushSubscriptions      PushSubscription[]
+  childLoginCode         ChildLoginCode?
   badges                 UserBadge[]
   gatheringMember        GatheringMember?
   bulletinLogs           BulletinLog[]
@@ -471,4 +472,26 @@ model BulletinLog {
 
   @@unique([groupId, childId, type, date, key])
   @@index([groupId, createdAt])
+}
+
+/// 子供の再参加（child-rejoin）の失敗回数ロック。#184
+/// key は "user:<supabaseUserId>" または "ip:<sha256(IP)>"。
+/// サーバレスでもインスタンス間で共有できるよう DB に保持する。
+model ChildRejoinAttempt {
+  key         String    @id
+  failCount   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// 子どものログインコード（親が発行するワンタイム・8文字・10分）。#184
+/// 平文は保存せず sha256 のみ。子ども1人につき有効なコードは1つ。
+model ChildLoginCode {
+  childId   String   @id
+  codeHash  String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  child     User     @relation(fields: [childId], references: [id], onDelete: Cascade)
 }
