@@ -133,6 +133,9 @@
 - [2026-09-25: ごほうび使用を親承認フロー化する（Issue #151）](#2026-09-25-ごほうび使用を親承認フロー化するissue-151) ⚠️ partial
 - [2026-10-06: 親が承認なしでごほうびを直接「使用済み」にできるようにする（Issue #164）](#2026-10-06-親が承認なしでごほうびを直接使用済みにできるようにするissue-164)
 - [2026-10-07: 保持期間（30日）を過ぎた使用済みごほうびの「使用を取り消す」を不可にする（Issue #171）](#2026-10-07-保持期間30日を過ぎた使用済みごほうびの使用を取り消すを不可にするissue-171)
+- [2026-10-08: 子ナビからログアウトを外し育成画面下部へ移す／文字コントラストを引き上げる（Issue #173）](#2026-10-08-子ナビからログアウトを外し育成画面下部へ移す文字コントラストを引き上げるissue-173)
+- [2026-10-22: 宝箱コレクションアイテム抽選を「ゆるめの未所持優先」にする](#2026-10-22-宝箱コレクションアイテム抽選をゆるめの未所持優先にする)
+- [2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る](#2026-10-23-rls-とポリシーの正本を-migration-に一本化し子どもに見せる-user-行を自分だけに絞る)
 
 <!-- TOC:END -->
 
@@ -3239,3 +3242,27 @@
 ### 該当箇所
 - `src/lib/collectionDraw.ts` / `src/lib/treasureService.ts`
 - テスト: `src/__tests__/lib/collectionDraw.test.ts` / `src/__tests__/lib/treasureService.test.ts`
+
+## 2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る
+
+### 決定
+- RLS 有効化・SELECT ポリシー・SECURITY DEFINER ヘルパー関数の正本を `prisma/migrations/20261023000001_rls_all_tables` に一本化する。`supabase/seed.sql` には storage と Realtime publication の設定だけを残す
+- 全19モデルと `_prisma_migrations` を ENABLE ROW LEVEL SECURITY にする。`src/__tests__/db/rlsCoverage.test.ts` が新規テーブルの有効化漏れを検出する
+- `realtime_select_users` は `"supabaseId" = auth.uid()::text OR (is_same_family(id) AND is_parent())` にする。子どもは自分の行しか読めず、同じ家族の他メンバーの行は親だけが読める
+- BulletinLog / Stamp に SELECT ポリシー（`can_view_gathering_group`）を追加する
+- 管理対象ポリシーは DROP POLICY IF EXISTS -> CREATE POLICY で定義を収束させる。SECURITY DEFINER 関数は `SET search_path = public` を付け、PUBLIC の実行権限を REVOKE して anon / authenticated にだけ GRANT する
+- Prisma の接続ロール（postgres）は RLS をバイパスする前提。FORCE ROW LEVEL SECURITY は使わない
+
+### 理由
+- 旧 User ポリシーは同じ家族なら誰でも読めたため、子どもが Realtime 経由で兄弟の childCode を読めた（#184 の API 対策の回り込み、#215）
+- 本番の RLS 設定が手動適用でリポジトリと乖離していた。seed.sql と migration の二重管理も定義ずれの原因だった（#217）
+- BulletinLog / Stamp はポリシーがなく、あつまりの Realtime が配信されていなかった（#216）
+
+### やってはいけないこと
+- seed.sql に RLS・ポリシー・関数定義を戻す（二重管理になる）
+- 新しいテーブルを追加する migration で ENABLE ROW LEVEL SECURITY を忘れる
+- 子どもが同じ家族の他メンバーの User 行を読めるポリシーに戻す
+
+### 該当箇所
+- `prisma/migrations/20261023000001_rls_all_tables/migration.sql` / `supabase/seed.sql` / `CLAUDE.md`
+- テスト: `src/__tests__/db/rlsCoverage.test.ts`
