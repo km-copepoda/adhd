@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { triggerMonsterRebornLog, triggerBadgeLog } from "@/lib/bulletinLog";
 import { checkAndUnlockBadges } from "@/lib/badges";
 import { activateFamilyTheme } from "@/lib/monsterThemes";
+import { buildRebirthThemeUpdate } from "@/lib/monsterThemes/pendingTheme";
 
 const VALID_EGG_TYPES = ["NORMAL", "STUDY", "STAMINA", "LIFE"] as const;
 
@@ -39,9 +40,7 @@ export async function POST(request: Request) {
 
   // 親画面で予約されたモンスターテーマ（Issue #85）があれば、この転生で反映してクリアする
   const pendingThemeId = child.pendingMonsterSetId;
-  const themeUpdate = pendingThemeId
-    ? { monsterSetId: pendingThemeId, pendingMonsterSetId: null }
-    : {};
+  const themeUpdate = buildRebirthThemeUpdate(pendingThemeId);
 
   // TOCTOU 回避: rebirthPending=true を WHERE 条件に含めて、別経路（親代理転生・別端末）で
   // 先に転生済みなら count=0 となり 400 を返す。
