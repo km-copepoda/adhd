@@ -172,7 +172,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 0. **対象判定（Step 5.0 と同じ判定を先に行う）**: `$approvedIssueBody` の影響範囲が `src/` のロジック変更・Prisma スキーマ（`prisma/schema.prisma`）変更を含むか判定する。含まない場合（ドキュメント/設定ファイルのみ、`.claude/` 配下のみ、1行バグ修正）は**このステップ全体をスキップして Step 5 へ**。判定に迷う場合は「含む」側に倒す
 1. **`codex` CLI が使えない環境**（`codex` コマンドが見つからない）→ このステップをスキップし、`gh issue comment <N>` で「`codex` CLI 未導入のため設計レビューをスキップして実装へ進む」と記録して **Step 5 へ**（パイプライン全体は止めない）
 2. **設計ドキュメントを用意**する（目的 / 背景 / 変更対象ファイル / 実装方針 / 影響範囲 / 代替案検討）。`gh issue comment <N> --body-file <設計ドキュメント>` で対象 Issue に投稿して記録を残す
-3. `.claude/commands/codex-design-review.md` の手順2に従い、ローカルの `codex exec --cd <repo> "<設計ドキュメント本文＋レビュー観点>"` を実行してレビュー結果を得る
+3. `.claude/commands/codex-design-review.md` の手順2の起動コマンド例に従ってローカルの `codex exec` を実行し、レビュー結果を得る（プロンプトはファイルに書き出して標準入力から渡す。Windows PowerShell 5.1 ではプロンプトをコマンドライン引数で渡すと壊れるため、引数渡しはしない）
 4. レビュー結果を `gh issue comment <N> --body-file <レビュー結果>` で Issue に記録する
 5. 指摘を分類する:
    - **実現可能・軽微な調整のみ** → 設計を確定し **Step 5 へ**
