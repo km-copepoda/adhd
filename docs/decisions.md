@@ -138,6 +138,7 @@
 - [2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る](#2026-10-23-rls-とポリシーの正本を-migration-に一本化し子どもに見せる-user-行を自分だけに絞る)
 - [2026-10-23: 子どものログインを親発行のワンタイムコードに置き換える（#184）](#2026-10-23-子どものログインを親発行のワンタイムコードに置き換える184)
 - [2026-10-23: アカウント削除（親の退会・家族ごとの即時物理削除）と退会者の自動再作成の廃止（#235）](#2026-10-23-アカウント削除親の退会家族ごとの即時物理削除と退会者の自動再作成の廃止235)
+- [2026-10-24: E2E は使い捨ての家族で行い、E2E 専用の解約 API を追加する（#240）](#2026-10-24-e2e-は使い捨ての家族で行いe2e-専用の解約-api-を追加する240)
 
 <!-- TOC:END -->
 
@@ -3326,3 +3327,29 @@
 - `src/app/api/account/route.ts` / `src/app/api/family/members/[id]/route.ts` / `src/app/app/parent/login/page.tsx` / `src/components/parent/AccountDeleteSection.tsx`
 - `src/lib/accountCleanupJob.ts` / `src/app/api/cron/account-cleanup/route.ts` / `vercel.json`（cron）
 - `prisma/migrations/20261023000003_account_deletion_cascade/migration.sql` / `prisma/migrations/20261023000004_account_cleanup_job/migration.sql`
+
+## 2026-10-24: E2E は使い捨ての家族で行い、E2E 専用の解約 API を追加する（#240）
+
+### 決定
+- 共有の QA アカウントの状態（進化ステージなど）を spec が進めて他の spec が失敗したため、破壊的・状態を進める spec は専用の家族（`e2e/helpers/disposableFamily.ts` の `createDisposableFamily`）で行い、終了時に `disposeFamily()` で家族ごと削除する
+- `/api/dev/subscription` に DELETE（E2E 専用の解約）を追加した。PREMIUM の家族は `DELETE /api/account` の課金ガードで 409 になるため。安全条件は次の 4 つ
+  - 二重ガード（`ALLOW_E2E_SETUP=1` と `x-e2e-setup-secret`。POST と共通の `src/lib/e2eSetupGuard.ts`）
+  - PARENT 本人の行だけを対象にする
+  - `platform = "E2E"` の印がある行だけを対象にする（`grantPremiumForE2E` が付与時に印を付ける）
+  - PREMIUM・無期限・未解約の行を条件付き（`updateMany`）で更新する
+- POST も PARENT に限定し、本人を対象にし、印のない一般の行（ストア課金など）は書き換えず 409 を返す
+- `hasBlockingSubscription` と `DELETE /api/account` は変更していない
+
+### 理由
+- 共有アカウントを使い回すと spec 間で状態が干渉する。FREE のままでは s32/s33 のタスク数が上限を超える
+- `DELETE /api/account` に E2E 用の抜け道を作ると本番の課金ガードに条件分岐が入る
+
+### やってはいけないこと
+- 本番に `ALLOW_E2E_SETUP` を設定しない
+- `/api/dev/*` のガードを緩めない
+- 印のない行（ストア課金など）を対象にしない
+- 共有の QA アカウントに `disposeFamily` を使わない
+
+### 該当箇所
+- `src/lib/e2eSetupGuard.ts` / `src/lib/subscriptionService.ts` / `src/app/api/dev/subscription/route.ts`
+- `e2e/helpers/disposableFamily.ts` / `e2e/s34-disposable-family.spec.ts`

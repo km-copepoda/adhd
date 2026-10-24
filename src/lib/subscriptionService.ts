@@ -5,6 +5,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolvePlan, type SubscriptionPlan } from "@/lib/subscription";
 import { todayJST } from "@/lib/date";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 /// プラン判定に使うデリゲートだけを要求する client 型 (prisma / トランザクション tx の両方を受ける)。
 export type PlanClient = {
@@ -154,20 +155,54 @@ export async function getFamilyUsage(
   return { child: children.length, perChild };
 }
 
-/// e2eテストセットアップ専用。Family内のPARENTユーザーにPREMIUMプランを無期限で付与する。
-/// `Subscription.userId` が @unique のため、Family単位ではなくPARENTユーザー単位でupsertする。
-/// PARENTが見つからない場合は呼び出し側で500として扱えるよう null を返す。
-export async function grantPremiumForE2E(familyId: string) {
-  const parent = await prisma.user.findFirst({
-    where: { familyId, role: "PARENT" },
-    select: { id: true },
-  });
-  if (!parent) return null;
+const E2E_PLATFORM = "E2E";
 
-  const sub = await prisma.subscription.upsert({
-    where: { userId: parent.id },
-    update: { plan: "PREMIUM", currentPeriodEnd: null },
-    create: { userId: parent.id, plan: "PREMIUM", currentPeriodEnd: null },
+/// e2eテストセットアップ専用。認証した本人 (PARENT) に PREMIUM を無期限で付与する。
+/// 付与した行には platform="E2E" の印を付け、印のある行だけを付け直す。
+/// 印のない行 (ストア課金など) は書き換えず "not_eligible" を返す。
+export async function grantPremiumForE2E(
+  userId: string,
+): Promise<{ status: "granted" | "not_eligible" }> {
+  const reapply = () =>
+    prisma.subscription.updateMany({
+      where: { userId, platform: E2E_PLATFORM },
+      data: { plan: "PREMIUM", currentPeriodEnd: null, canceledAt: null },
+    });
+
+  if ((await reapply()).count > 0) return { status: "granted" };
+
+  try {
+    await prisma.subscription.create({
+      data: { userId, plan: "PREMIUM", currentPeriodEnd: null, platform: E2E_PLATFORM },
+    });
+    return { status: "granted" };
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    // 同時実行で E2E 行が先に作られた場合は付け直しで成功する。印のない行なら 0 件のまま。
+    return (await reapply()).count > 0 ? { status: "granted" } : { status: "not_eligible" };
+  }
+}
+
+/// e2eテスト専用。grantPremiumForE2E で付与した行 (platform="E2E" / PREMIUM / 無期限 / 未解約) だけを
+/// 条件付きで解約済み (canceledAt=now) にする。DELETE /api/account の課金ガードを通すために使う。
+export async function cancelE2ePremium(
+  userId: string,
+  now: Date,
+): Promise<{ status: "canceled" | "already_canceled" | "not_found" | "not_eligible" }> {
+  const res = await prisma.subscription.updateMany({
+    where: {
+      userId,
+      plan: "PREMIUM",
+      currentPeriodEnd: null,
+      platform: E2E_PLATFORM,
+      canceledAt: null,
+    },
+    data: { canceledAt: now },
   });
-  return sub;
+  if (res.count > 0) return { status: "canceled" };
+
+  const row = await prisma.subscription.findUnique({ where: { userId } });
+  if (!row) return { status: "not_found" };
+  if (row.canceledAt) return { status: "already_canceled" };
+  return { status: "not_eligible" };
 }
