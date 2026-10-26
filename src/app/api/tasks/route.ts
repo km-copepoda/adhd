@@ -54,6 +54,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "assignedChildId は必須です" }, { status: 400 });
     }
     assignedChildId = body.assignedChildId;
+
+    // IDOR 防止: assignedChildId が自分の family に属する CHILD であることを確認する。
+    // これが無いと親A が他 family の子供 ID を指定してタスクを付与できてしまう。
+    const child = await prisma.user.findFirst({
+      where: { id: assignedChildId, familyId: user.familyId, role: "CHILD" },
+      select: { id: true },
+    });
+    if (!child) {
+      return NextResponse.json({ error: "対象の子供が見つかりません" }, { status: 403 });
+    }
   }
 
   // FREE プランのタスク上限を enforce (仕様: monetization-plan.md §2.2 / §4.4)

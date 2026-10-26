@@ -442,6 +442,11 @@ describe("GET /api/tasks", () => {
 });
 
 describe("POST /api/tasks", () => {
+  beforeEach(() => {
+    // assignedChildId の family 検証 (#186) を通過させる
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+  });
+
   it("タスク名が空の場合、400を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     const res = await POST(makeRequest("/api/tasks", { title: "", assignedChildId: "child-1" }));
