@@ -61,37 +61,24 @@ describe("POST /api/family/members", () => {
     expect(json.id).toBe("child-new");
     expect(json.monsterName).toBe("リュウ");
     expect(json.side).toBe("DARK");
-    expect(json.childCode).toBe("5678");
+    // ユーザーコードは廃止。レスポンスに含めない（#184）
+    expect(json).not.toHaveProperty("childCode");
+    expect(JSON.stringify(json)).not.toContain("5678");
   });
 
-  it("childCodeが重複する場合、リトライすること", async () => {
+  it("新しい子どもには childCode を生成しない（null で作成し、重複確認の検索もしない）", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
-    // 1回目: 既存あり, 2回目: なし
-    mockPrisma.user.findUnique
-      .mockResolvedValueOnce(childUser({ id: "existing" }))
-      .mockResolvedValueOnce(null);
     mockPrisma.user.create.mockResolvedValue(
-      childUser({
-        id: "child-x",
-        monsterName: "テスト",
-        side: "LIGHT",
-        childCode: "9999",
-      }),
+      childUser({ id: "child-x", monsterName: "テスト", side: "LIGHT", childCode: null }),
     );
 
     const res = await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "LIGHT" }));
+
     expect(res.status).toBe(200);
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(2);
-  });
-
-  it("10回リトライしてもchildCodeが生成できない場合、500を返すこと", async () => {
-    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
-    // 全10回とも既存あり
-    mockPrisma.user.findUnique.mockResolvedValue(childUser({ id: "existing" }));
-
-    const res = await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "LIGHT" }));
-    expect(res.status).toBe(500);
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(10);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    const data = mockPrisma.user.create.mock.calls[0][0].data as { childCode?: string | null };
+    expect(data.childCode ?? null).toBeNull();
+    expect(await res.json()).not.toHaveProperty("childCode");
   });
 
   it("作成されるユーザーがplaceholder supabaseIdを持つこと", async () => {

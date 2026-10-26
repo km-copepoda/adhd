@@ -58,11 +58,17 @@ export async function GET(request: Request) {
     // 1 件の例外でループ全体を止めない（残りの承認を継続する）
     try {
       if (quest.status === "SKIP_REPORTED") {
-        await approveSkipQuestInstance(quest);
-        skipped++;
+        if (await approveSkipQuestInstance(quest)) {
+          skipped++;
+        } else {
+          rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+        }
       } else {
-        await approveQuestInstance(quest);
-        approved++;
+        if (await approveQuestInstance(quest)) {
+          approved++;
+        } else {
+          rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+        }
       }
     } catch (err) {
       failed++;

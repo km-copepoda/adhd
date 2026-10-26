@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { notifyFamilyMembersChanged } from "@/lib/parentRealtime";
 import Image from "next/image";
 import Link from "next/link";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
@@ -10,7 +11,9 @@ import { MAX_MIN_TASKS_FOR_STREAK, MAX_MONSTER_NAME_LENGTH } from "@/lib/memberV
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
+import ChildLoginCodeIssuer from "@/components/parent/ChildLoginCodeIssuer";
 import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
+import AccountDeleteSection from "@/components/parent/AccountDeleteSection";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 
 type Member = {
@@ -23,7 +26,6 @@ type Member = {
   evolutionPath: string;
   rebirthEggBonus: string | null;
   rebirthPending: boolean;
-  childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
   checkinDeadlineTime: string | null;
@@ -47,7 +49,6 @@ type FamilyData = {
 export default function FamilyPage() {
   const [family, setFamily] = useState<FamilyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", side: "LIGHT" as Side, themeId: "" });
   const [adding, setAdding] = useState(false);
@@ -96,13 +97,6 @@ export default function FamilyPage() {
     fetchFamily();
   }, []);
 
-  async function handleCopy() {
-    if (!family) return;
-    await navigator.clipboard.writeText(family.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
   async function handleUpdateMinTasks(childId: string, value: number) {
     if (value < 1) return;
     setSavingStreakId(childId);
@@ -136,6 +130,8 @@ export default function FamilyPage() {
       if (res.ok) {
         setDeleteConfirmId(null);
         fetchFamily();
+        // ナビの承認待ちバッジ等の Realtime 購読を、新しい子供一覧で張り直す
+        notifyFamilyMembersChanged();
       }
     } finally {
       setDeleting(false);
@@ -264,6 +260,8 @@ export default function FamilyPage() {
       setAddForm({ name: "", side: "LIGHT", themeId: "" });
       setAddErrorCode(null);
       fetchFamily();
+      // ナビの承認待ちバッジ等の Realtime 購読を、新しい子供一覧で張り直す
+      notifyFamilyMembersChanged();
     } catch {
       setAddError("通信エラーが発生しました");
       setAddErrorCode(null);
@@ -287,31 +285,9 @@ export default function FamilyPage() {
         👨‍👩‍👧‍👦 ファミリー管理
       </h1>
 
-      {/* Family code */}
-      <div className="bg-quest-card border border-quest-border rounded-xl p-6 mb-8">
-        <p className="text-quest-dim text-xs tracking-wider mb-3">ファミリーコード</p>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1 min-w-0">
-            {(family?.code || "------").split("").map((char, i) => (
-              <div
-                key={i}
-                className="w-8 h-11 sm:w-10 sm:h-12 bg-quest-bg border border-quest-border rounded-lg flex items-center justify-center text-quest-gold font-serif text-lg tracking-wider"
-              >
-                {char}
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={handleCopy}
-            className="shrink-0 whitespace-nowrap text-sm text-quest-dim hover:text-quest-gold border border-quest-border rounded-lg px-3 py-2 min-h-10 transition-colors"
-          >
-            {copied ? "✓ コピー済み" : "コピー"}
-          </button>
-        </div>
-        <p className="text-quest-dim text-xs mt-3">
-          子どものデバイスで「ファミリーコード」＋「ユーザーコード」を入力するとログインできます
-        </p>
-      </div>
+      <p className="text-quest-dim text-xs mb-6">
+        子どもがログインするときは、子どもごとに「ログインコードを発行」を押して、表示された8文字のコードを子どものデバイスに入力します（10分間・1回だけ使えます）
+      </p>
 
       {/* Members */}
       <div className="bg-quest-card border border-quest-border rounded-xl p-6">
@@ -415,6 +391,7 @@ export default function FamilyPage() {
           {family?.members.map((member) => (
             <div
               key={member.id}
+              data-testid={`member-${member.id}`}
               className="bg-quest-bg rounded-lg"
             >
             <div className="flex items-center gap-3 p-3">
@@ -470,15 +447,10 @@ export default function FamilyPage() {
                   );
                 })()}
               </div>
-              {member.role === "CHILD" && member.childCode && (
-                <div className="text-right">
-                  <p className="text-[10px] text-quest-dim">ユーザーコード</p>
-                  <p className="text-quest-gold font-mono text-sm tracking-widest">{member.childCode}</p>
-                </div>
-              )}
             </div>
             {member.role === "CHILD" && (
               <div className="flex flex-col gap-2 mt-2 px-3 pb-3">
+                <ChildLoginCodeIssuer childId={member.id} />
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div>
@@ -652,6 +624,9 @@ export default function FamilyPage() {
           <span>ログアウト</span>
         </button>
       </div>
+
+      {/* Account deletion */}
+      <AccountDeleteSection />
     </div>
   );
 }

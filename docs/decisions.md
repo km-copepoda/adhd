@@ -133,6 +133,12 @@
 - [2026-09-25: ごほうび使用を親承認フロー化する（Issue #151）](#2026-09-25-ごほうび使用を親承認フロー化するissue-151) ⚠️ partial
 - [2026-10-06: 親が承認なしでごほうびを直接「使用済み」にできるようにする（Issue #164）](#2026-10-06-親が承認なしでごほうびを直接使用済みにできるようにするissue-164)
 - [2026-10-07: 保持期間（30日）を過ぎた使用済みごほうびの「使用を取り消す」を不可にする（Issue #171）](#2026-10-07-保持期間30日を過ぎた使用済みごほうびの使用を取り消すを不可にするissue-171)
+- [2026-10-08: 子ナビからログアウトを外し育成画面下部へ移す／文字コントラストを引き上げる（Issue #173）](#2026-10-08-子ナビからログアウトを外し育成画面下部へ移す文字コントラストを引き上げるissue-173)
+- [2026-10-22: 宝箱コレクションアイテム抽選を「ゆるめの未所持優先」にする](#2026-10-22-宝箱コレクションアイテム抽選をゆるめの未所持優先にする)
+- [2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る](#2026-10-23-rls-とポリシーの正本を-migration-に一本化し子どもに見せる-user-行を自分だけに絞る)
+- [2026-10-23: 子どものログインを親発行のワンタイムコードに置き換える（#184）](#2026-10-23-子どものログインを親発行のワンタイムコードに置き換える184)
+- [2026-10-23: アカウント削除（親の退会・家族ごとの即時物理削除）と退会者の自動再作成の廃止（#235）](#2026-10-23-アカウント削除親の退会家族ごとの即時物理削除と退会者の自動再作成の廃止235)
+- [2026-10-24: E2E は使い捨ての家族で行い、E2E 専用の解約 API を追加する（#240）](#2026-10-24-e2e-は使い捨ての家族で行いe2e-専用の解約-api-を追加する240)
 
 <!-- TOC:END -->
 
@@ -3220,3 +3226,130 @@
 
 ### 該当箇所
 - `src/components/child/BottomNav.tsx` / `src/components/child/ChildLogoutButton.tsx` / `src/lib/idleNudge.ts` / `src/app/globals.css`
+
+## 2026-10-22: 宝箱コレクションアイテム抽選を「ゆるめの未所持優先」にする
+
+### 決定
+- `drawCollectionItem` の階層内選択を均等から重み付きに変更する。当選レア度内で未所持アイテムの重みを `UNOWNED_WEIGHT`（3）、所持済みを 1 とする
+- レア度の確率（COMMON 60 / UNCOMMON 30 / RARE 10）と降格規則は不変。降格時は降格先の階層の所持状況で重み付けする
+- 所持 ID は `openOldestTreasure` が親ごほうび不当選時のみ `getOwnedCollection` から取得して渡す（純粋関数に DB 依存は入れない）。全て所持済み、または全て未所持の階層は従来の均等抽選と同じ結果になる
+
+### 理由
+- 子供から「30回開けたがレアが多く、出ていないものが出ない」と報告があった。実データ（35回）はレア度分布が仕様どおり（60.0 / 28.6 / 11.4%）で、重複が体感の原因だった
+- 未所持を完全優先にするとコンプが早まりすぎ、仕様書の「ダブりOK」「季節内コンプの動機」の意図を損なうため、ゆるめの優先にとどめた
+
+### やってはいけないこと
+- 未所持優先のためにレア度の確率を変える（確率は階層内の選択でのみ調整する）
+- 純粋関数 `drawCollectionItem` に DB アクセスを入れる
+
+### 該当箇所
+- `src/lib/collectionDraw.ts` / `src/lib/treasureService.ts`
+- テスト: `src/__tests__/lib/collectionDraw.test.ts` / `src/__tests__/lib/treasureService.test.ts`
+
+## 2026-10-23: RLS とポリシーの正本を migration に一本化し、子どもに見せる User 行を自分だけに絞る
+
+### 決定
+- RLS 有効化・SELECT ポリシー・SECURITY DEFINER ヘルパー関数の正本を `prisma/migrations/20261023000001_rls_all_tables` に一本化する。`supabase/seed.sql` には storage と Realtime publication の設定だけを残す
+- 全19モデルと `_prisma_migrations` を ENABLE ROW LEVEL SECURITY にする。`src/__tests__/db/rlsCoverage.test.ts` が新規テーブルの有効化漏れを検出する
+- `realtime_select_users` は `"supabaseId" = auth.uid()::text OR (is_same_family(id) AND is_parent())` にする。子どもは自分の行しか読めず、同じ家族の他メンバーの行は親だけが読める
+- BulletinLog / Stamp に SELECT ポリシー（`can_view_gathering_group`）を追加する
+- 管理対象ポリシーは DROP POLICY IF EXISTS -> CREATE POLICY で定義を収束させる。SECURITY DEFINER 関数は `SET search_path = public` を付け、PUBLIC の実行権限を REVOKE して anon / authenticated にだけ GRANT する
+- Prisma の接続ロール（postgres）は RLS をバイパスする前提。FORCE ROW LEVEL SECURITY は使わない
+
+### 理由
+- 旧 User ポリシーは同じ家族なら誰でも読めたため、子どもが Realtime 経由で兄弟の childCode を読めた（#184 の API 対策の回り込み、#215）
+- 本番の RLS 設定が手動適用でリポジトリと乖離していた。seed.sql と migration の二重管理も定義ずれの原因だった（#217）
+- BulletinLog / Stamp はポリシーがなく、あつまりの Realtime が配信されていなかった（#216）
+
+### やってはいけないこと
+- seed.sql に RLS・ポリシー・関数定義を戻す（二重管理になる）
+- 新しいテーブルを追加する migration で ENABLE ROW LEVEL SECURITY を忘れる
+- 子どもが同じ家族の他メンバーの User 行を読めるポリシーに戻す
+
+### 該当箇所
+- `prisma/migrations/20261023000001_rls_all_tables/migration.sql` / `supabase/seed.sql` / `CLAUDE.md`
+- テスト: `src/__tests__/db/rlsCoverage.test.ts`
+
+## 2026-10-23: 子どものログインを親発行のワンタイムコードに置き換える（#184）
+
+### 決定
+- 子どものログイン資格を、恒久的な「ファミリーコード + 4桁ユーザーコード」から **親が発行するワンタイムのログインコード**（8文字・10分有効・1回限り）に置き換える。`POST /api/family/members/[id]/login-code`（PARENT のみ・同じ家族の CHILD のみ）で発行し、`POST /api/auth/child-rejoin` は `{ loginCode }` だけを受け付ける
+- DB（`ChildLoginCode`）には sha256 のみ保存し、子ども1人につき有効なコードは1つ（再発行で上書き）。消費は `DELETE ... WHERE codeHash = ? AND expiresAt > now() RETURNING childId` の1文で行い、supabaseId の付け替えと同じトランザクションに入れる（付け替えが失敗したらコードも復活する）
+- 失敗ロックはユーザー単位（匿名セッション）を残し、家族単位は廃止して IP 単位（`x-real-ip` 優先、なければ `x-forwarded-for` 先頭を sha256 したキー）に置き換える。IP 単位は照合前に原子的に数え、成功してもリセットしない。IP が取れないときは IP 単位を使わない
+- コード使用時、同じ家族の全 PARENT に Push 通知する（失敗しても rejoin は成功）
+- 2026-08-06 の「親が子を事前作成 → 子ども端末が匿名認証 → 紐付け」フロー自体は維持する。`User.childCode` 列と `familyId_childCode` の unique は残し（削除は別タスク）、新規の子どもには生成しない（null）。`GET /api/family/code` / `POST /api/family/members` は childCode を返さない。親の画面から家族コードの表示も外す（再生成 API は残す）
+
+### 理由
+- 4桁のユーザーコードは総当たりできる（家族単位の失敗上限があっても平均約2.6日）。兄弟間でコードを取得してなりすませる
+- 失敗ロックを家族単位にすると、攻撃者の失敗で本物の子どもがログインできなくなる（DoS）
+- 資格を短命・1回限りにすれば、総当たりの空間が実質的に使えなくなり、コードが漏れても被害が限定される
+
+### やってはいけないこと
+- ログインコードの平文を DB・ログ・レスポンス（発行時以外）に残す
+- コード消費を「検索 → 削除」の複数文にする（1回限りが破れる）
+- 家族コード単位の失敗ロックを復活させる
+
+### 該当箇所
+- `src/lib/childLoginCode.ts` / `src/lib/childLoginCodeService.ts` / `src/lib/childRejoinLimit.ts`
+- `src/app/api/auth/child-rejoin/route.ts` / `src/app/api/family/members/[id]/login-code/route.ts`
+- `src/components/parent/ChildLoginCodeIssuer.tsx` / `src/app/app/child/login/page.tsx`
+- `prisma/migrations/20261023000002_child_login_code/migration.sql`
+
+## 2026-10-23: アカウント削除（親の退会・家族ごとの即時物理削除）と退会者の自動再作成の廃止（#235）
+
+### 決定
+- `DELETE /api/account`（PARENT 本人のみ、body `{ confirm: "削除します" }` 必須）で即時物理削除する。猶予期間・論理削除は設けない
+- 家族に他の PARENT がいれば本人の User 行だけを削除する。最後の PARENT なら家族の User 全員 → Family の順で削除する（`User.family` は SET NULL のため User を先に消す）。本人の取り直し・Family 行の FOR UPDATE ロック・課金の再検査・他の親の数え上げは同じトランザクション内で行う
+- 本人の Subscription が PREMIUM 有効かつ未解約（canceledAt が null）なら 409 `SUBSCRIPTION_ACTIVE`。ストア課金はアプリから止められないため先に解約させる
+- FK: `QuestInstance.child` / `Streak.child` / `TaskStreak.child` / `TaskTemplate.family` を ON DELETE CASCADE にした。`QuestInstance.template` / `TaskStreak.task` は RESTRICT のまま（タスクは isActive=false の論理削除運用で、テンプレートの物理削除で履歴が消えるのを防ぐ）
+- Supabase Auth ユーザーと quest-photos の写真の削除は、削除トランザクション内で `AccountCleanupJob`（outbox）に記録 → コミット後に `after()` で `runAccountCleanupJob(jobId)` を実行 → 未完了分は日次 cron（`/api/cron/account-cleanup`、JST 3:00）で成功するまで再試行する（`src/lib/accountCleanup.ts` が未完了分を返し、`src/lib/accountCleanupJob.ts` がジョブを更新/削除。service role は `src/lib/supabase/admin.ts`）。失敗は `account cleanup failed` のエラーログに対象 ID・パスを残す
+- `getCurrentUser()` の「DB User が無ければ Family + PARENT を自動再作成」と、親ログイン画面の `/api/auth/register` 呼び出しを廃止した。DB User を作るのは新規登録画面だけ。ログイン後に DB User が無ければサインアウトして「アカウントが見つかりません」を表示する
+- 子どもの削除（`DELETE /api/family/members/[id]`）も同じ lib に寄せ、Auth ユーザーと写真を後始末する
+
+### 理由
+- ストア審査（Apple 5.1.1(v)・Google Play）と個人情報の消去請求への対応
+- 自動再作成が残っていると、Auth 削除の失敗時や別タブの API 呼び出し・再ログインで、退会した親が空の家族つきで復活する
+- 初期 migration の FK は onDelete 未指定で RESTRICT になっていただけで、意図的な設計ではなかった
+
+### 既知の制約
+- cron は日次のため、`after()` で失敗した外部削除は最長約 1 日残り得る。attempts が 10 以上になったジョブは `account cleanup job keeps failing` のエラーログを出す（再試行は続ける）
+- 削除後の別タブは JWT 期限まで親画面のシェルが表示される（API は 401/403）
+- 家族プランの課金親判定（findFirst）の不定性は既存の問題で、今回は扱っていない
+
+### やってはいけないこと
+- `getCurrentUser()` や親ログインに DB User の自動作成を戻す（退会者が復活する）
+- 外部削除（Auth・Storage）を DB 削除より先に行う、または DB トランザクション内で行う
+- `src/lib/supabase/admin.ts` を `accountCleanup.ts` 以外、特にクライアントコンポーネントから import する
+- ジョブ作成（`AccountCleanupJob` の create）を削除トランザクションの外に出す（DB 行が消えた後に対象を再収集できず、公開バケットの写真が残る）
+
+### 該当箇所
+- `src/lib/accountDeletion.ts` / `src/lib/accountDeletion.data.ts` / `src/lib/accountCleanup.ts` / `src/lib/supabase/admin.ts` / `src/lib/questPhotoUrl.ts` / `src/lib/auth.ts`
+- `src/app/api/account/route.ts` / `src/app/api/family/members/[id]/route.ts` / `src/app/app/parent/login/page.tsx` / `src/components/parent/AccountDeleteSection.tsx`
+- `src/lib/accountCleanupJob.ts` / `src/app/api/cron/account-cleanup/route.ts` / `vercel.json`（cron）
+- `prisma/migrations/20261023000003_account_deletion_cascade/migration.sql` / `prisma/migrations/20261023000004_account_cleanup_job/migration.sql`
+
+## 2026-10-24: E2E は使い捨ての家族で行い、E2E 専用の解約 API を追加する（#240）
+
+### 決定
+- 共有の QA アカウントの状態（進化ステージなど）を spec が進めて他の spec が失敗したため、破壊的・状態を進める spec は専用の家族（`e2e/helpers/disposableFamily.ts` の `createDisposableFamily`）で行い、終了時に `disposeFamily()` で家族ごと削除する
+- `/api/dev/subscription` に DELETE（E2E 専用の解約）を追加した。PREMIUM の家族は `DELETE /api/account` の課金ガードで 409 になるため。安全条件は次の 4 つ
+  - 二重ガード（`ALLOW_E2E_SETUP=1` と `x-e2e-setup-secret`。POST と共通の `src/lib/e2eSetupGuard.ts`）
+  - PARENT 本人の行だけを対象にする
+  - `platform = "E2E"` の印がある行だけを対象にする（`grantPremiumForE2E` が付与時に印を付ける）
+  - PREMIUM・無期限・未解約の行を条件付き（`updateMany`）で更新する
+- POST も PARENT に限定し、本人を対象にし、印のない一般の行（ストア課金など）は書き換えず 409 を返す
+- `hasBlockingSubscription` と `DELETE /api/account` は変更していない
+
+### 理由
+- 共有アカウントを使い回すと spec 間で状態が干渉する。FREE のままでは s32/s33 のタスク数が上限を超える
+- `DELETE /api/account` に E2E 用の抜け道を作ると本番の課金ガードに条件分岐が入る
+
+### やってはいけないこと
+- 本番に `ALLOW_E2E_SETUP` を設定しない
+- `/api/dev/*` のガードを緩めない
+- 印のない行（ストア課金など）を対象にしない
+- 共有の QA アカウントに `disposeFamily` を使わない
+
+### 該当箇所
+- `src/lib/e2eSetupGuard.ts` / `src/lib/subscriptionService.ts` / `src/app/api/dev/subscription/route.ts`
+- `e2e/helpers/disposableFamily.ts` / `e2e/s34-disposable-family.spec.ts`

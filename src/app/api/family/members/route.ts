@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { generateChildCode } from "@/lib/categories";
 import { routeLogger } from "@/lib/logger";
 import { getFamilyPlan } from "@/lib/subscriptionService";
 import { checkLimit } from "@/lib/subscription";
@@ -74,22 +73,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Generate unique child code within the family
-  let childCode: string | null = null;
-  for (let i = 0; i < 10; i++) {
-    const candidate = generateChildCode();
-    const existing = await prisma.user.findUnique({
-      where: { familyId_childCode: { familyId: user.familyId, childCode: candidate } },
-    });
-    if (!existing) {
-      childCode = candidate;
-      break;
-    }
-  }
-  if (!childCode) {
-    return NextResponse.json({ error: "コード生成に失敗しました。再度お試しください" }, { status: 500 });
-  }
-
   // Create child user with a placeholder supabaseId (will be updated on first login)
   const child = await prisma.user.create({
     data: {
@@ -99,7 +82,6 @@ export async function POST(request: Request) {
       side,
       monsterSetId,
       familyId: user.familyId,
-      childCode,
     },
   });
 
@@ -108,7 +90,6 @@ export async function POST(request: Request) {
     id: child.id,
     monsterName: child.monsterName,
     side: child.side,
-    childCode: child.childCode,
   });
 }
 

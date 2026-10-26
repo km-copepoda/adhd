@@ -9,6 +9,11 @@ vi.mock("next/image", () => ({
   ),
 }));
 
+// Realtime 購読の挙動は treasure-stock-realtime.test.tsx で検証する
+vi.mock("@/lib/childRealtime", () => ({
+  subscribeChildRealtime: () => () => {},
+}));
+
 import TreasureStock from "@/components/child/TreasureStock";
 
 beforeEach(() => {
