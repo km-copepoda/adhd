@@ -151,8 +151,9 @@ export async function approveViaParentUi(s: Sessions, page: Page, title: string,
   await ensureXpHeadroom(s.parentReq, s.childReq, s.childId);
   const before = await getMonsterSnapshot(s.childReq);
   const card = await gotoApproveCard(page, title);
-  await expect(card.getByText("✓ 承認 (+1pt)"), PREMISE_MESSAGE).toBeVisible();
-  await clickAndExpect2xx(page, card, new RegExp(`^/api/approve/${questId}$`));
+  const approveButton = card.getByRole("button", { name: "✓ 承認 (+1pt)" });
+  await expect(approveButton, PREMISE_MESSAGE).toBeVisible();
+  await clickAndExpect2xx(page, approveButton, new RegExp(`^/api/approve/${questId}$`));
   await expect(card).toHaveCount(0, { timeout: 10000 });
   const after = await getMonsterSnapshot(s.childReq);
   expectApprovedDelta(before, after, 1, label);

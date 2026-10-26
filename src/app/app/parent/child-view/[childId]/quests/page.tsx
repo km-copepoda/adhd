@@ -104,7 +104,12 @@ export default function ChildViewQuestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId]);
 
-  async function handleReport(questId: string, comment: string | null, photoUrl: string | null) {
+  /** 一覧とモンスター表示の再取得。ベストエフォートで、失敗しても呼び出し元に伝播させない */
+  async function syncAfterMutation() {
+    await Promise.allSettled([refreshQuests(), fetchChildName()]);
+  }
+
+  async function handleReport(questId: string, comment: string | null, photoUrl: string | null): Promise<boolean> {
     const res = await fetch(`/api/parent/child-view/quests/${questId}/report-approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,7 +118,7 @@ export default function ChildViewQuestsPage() {
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? `報告に失敗しました（${res.status}）`);
-      return;
+      return false;
     }
     try {
       const data = (await res.json()) as { treasureIds?: string[] };
@@ -125,10 +130,12 @@ export default function ChildViewQuestsPage() {
     // 代理操作で進化が走った可能性を ChildViewMonsterCutsceneListener に知らせる（Realtime 不使用のため明示通知）
     window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
     // クエスト一覧に加え、モンスターの EXP 表示（MonsterMiniCard）も再取得する（Issue #96）
-    await Promise.all([refreshQuests(), fetchChildName()]);
+    // POST は成功済みなので、再取得の失敗（通信エラー等）は報告の失敗として扱わない
+    await syncAfterMutation();
+    return true;
   }
 
-  async function handleSkip(questId: string, reason: string) {
+  async function handleSkip(questId: string, reason: string): Promise<boolean> {
     const res = await fetch(`/api/parent/child-view/quests/${questId}/skip-approve`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -137,7 +144,7 @@ export default function ChildViewQuestsPage() {
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? `スキップに失敗しました（${res.status}）`);
-      return;
+      return false;
     }
     try {
       const data = (await res.json()) as { treasureIds?: string[] };
@@ -148,7 +155,9 @@ export default function ChildViewQuestsPage() {
     }
     window.dispatchEvent(new CustomEvent("child-view-monster-refresh"));
     // クエスト一覧に加え、モンスターの EXP 表示（MonsterMiniCard）も再取得する（Issue #96）
-    await Promise.all([refreshQuests(), fetchChildName()]);
+    // POST は成功済みなので、再取得の失敗（通信エラー等）は報告の失敗として扱わない
+    await syncAfterMutation();
+    return true;
   }
 
   const completedCount = computeCompletedCount(quests);

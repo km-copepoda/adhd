@@ -94,7 +94,7 @@ describe("QuestActionSheet 自動クローズのタイマー (#191)", () => {
           hasDeadline={false}
           questsCompleted={0}
           questsTotal={1}
-          onReport={vi.fn().mockResolvedValue(undefined)}
+          onReport={vi.fn().mockResolvedValue(true)}
           onSkip={vi.fn()}
           onClose={onClose}
         />

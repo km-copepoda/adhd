@@ -193,14 +193,16 @@ test.describe("S32-A: UI の通しフロー", () => {
 
     const firstCard = await gotoApproveCard(page, r1.title);
     await expect(firstCard.getByText("✓ 承認 (+1pt)"), PREMISE_MESSAGE).toBeVisible();
+    // 「まとめて承認」は確認欄を出すだけで、「承認する」で送信する（#190）
+    await page.getByRole("button", { name: /まとめて承認/ }).click();
     await clickAndExpect2xx(
       page,
-      page.getByRole("button", { name: /まとめて承認/ }),
+      page.getByRole("button", { name: "承認する", exact: true }),
       /^\/api\/approve\/bulk$/,
     );
     for (const t of [r1.title, r2.title, sk.title]) {
       await expect(
-        page.locator(".bg-quest-card.border.rounded-xl.cursor-pointer").filter({ hasText: t }),
+        page.locator(".bg-quest-card.border.rounded-xl.p-5").filter({ hasText: t }),
         `「${t}」が承認センターに残っています`,
       ).toHaveCount(0, { timeout: 10000 });
     }

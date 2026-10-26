@@ -68,7 +68,7 @@ export async function gotoApproveCard(parentPage: Page, title: string): Promise<
     timeout: 15000,
   });
   const card = parentPage
-    .locator(".bg-quest-card.border.rounded-xl.cursor-pointer")
+    .locator(".bg-quest-card.border.rounded-xl.p-5")
     .filter({ hasText: title });
   await expect(card).toBeVisible({ timeout: 10000 });
   return card;

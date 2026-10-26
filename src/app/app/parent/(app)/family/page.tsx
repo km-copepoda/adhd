@@ -56,6 +56,8 @@ export default function FamilyPage() {
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
   const [deadlineTimes, setDeadlineTimes] = useState<Record<string, string>>({});
   const [savingDeadlineId, setSavingDeadlineId] = useState<string | null>(null);
+  const [deadlineError, setDeadlineError] = useState<{ id: string; message: string } | null>(null);
+  const [checkinError, setCheckinError] = useState<{ id: string; message: string } | null>(null);
   const [checkinTimes, setCheckinTimes] = useState<Record<string, string>>({});
   const [savingCheckinId, setSavingCheckinId] = useState<string | null>(null);
   const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null);
@@ -189,12 +191,30 @@ export default function FamilyPage() {
 
   async function handleSaveDeadline(childId: string) {
     setSavingDeadlineId(childId);
+    setDeadlineError(null);
     try {
-      await fetch("/api/family/settings", {
+      const res = await fetch("/api/family/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ childId, reportDeadlineTime: deadlineTimes[childId]?.trim() || null }),
       });
+      if (!res.ok) {
+        setDeadlineError({ id: childId, message: "報告期限を保存できませんでした。もう一度お試しください" });
+        return;
+      }
+      const value = deadlineTimes[childId]?.trim() || null;
+      setFamily((prev) =>
+        prev
+          ? {
+              ...prev,
+              members: prev.members.map((m) =>
+                m.id === childId ? { ...m, reportDeadlineTime: value } : m,
+              ),
+            }
+          : prev,
+      );
+    } catch {
+      setDeadlineError({ id: childId, message: "報告期限を保存できませんでした。通信状況を確認してください" });
     } finally {
       setSavingDeadlineId(null);
     }
@@ -202,13 +222,18 @@ export default function FamilyPage() {
 
   async function handleSaveCheckinDeadline(childId: string) {
     setSavingCheckinId(childId);
+    setCheckinError(null);
     try {
       const value = checkinTimes[childId]?.trim() || null;
-      await fetch("/api/family/settings", {
+      const res = await fetch("/api/family/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ childId, checkinDeadlineTime: value }),
       });
+      if (!res.ok) {
+        setCheckinError({ id: childId, message: "チェックイン締切を保存できませんでした。もう一度お試しください" });
+        return;
+      }
       setFamily((prev) =>
         prev
           ? {
@@ -219,6 +244,8 @@ export default function FamilyPage() {
             }
           : prev,
       );
+    } catch {
+      setCheckinError({ id: childId, message: "チェックイン締切を保存できませんでした。通信状況を確認してください" });
     } finally {
       setSavingCheckinId(null);
     }
@@ -501,6 +528,9 @@ export default function FamilyPage() {
                     </button>
                   )}
                 </div>
+                {deadlineError?.id === member.id && (
+                  <p role="alert" className="text-[10px] text-red-400">{deadlineError.message}</p>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] text-quest-dim/60">📅 チェックイン締切（JST）— この時刻までにクエスト画面を開くとチェックイン成功。未設定で機能OFF</p>
@@ -527,6 +557,9 @@ export default function FamilyPage() {
                     </button>
                   )}
                 </div>
+                {checkinError?.id === member.id && (
+                  <p role="alert" className="text-[10px] text-red-400">{checkinError.message}</p>
+                )}
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div>

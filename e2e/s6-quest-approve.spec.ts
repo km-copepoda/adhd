@@ -4,7 +4,7 @@
  *
  * - /app/parent/approve が表示される
  * - 承認待ちのクエストカードが表示される
- * - クエストカードクリック（= 承認）でリストから消える
+ * - 承認ボタンで承認され、リストから消える（カード本体のタップでは承認されない。#190）
  * - 「まとめて承認」ボタンが動作する
  * - 差し戻しモーダルが開く
  * - 境界値: 理由未選択では「差し戻す」ボタンが無効
@@ -22,7 +22,7 @@ import {
   type Sessions,
 } from "./helpers/testData";
 
-const CARD = ".bg-quest-card.border.rounded-xl.p-5.cursor-pointer";
+const CARD = ".bg-quest-card.border.rounded-xl.p-5";
 
 async function gotoApprove(page: Page) {
   await page.goto("/app/parent/approve");
@@ -68,13 +68,21 @@ test.describe("S6: 親クエスト承認", () => {
       await expect(page.locator(CARD).filter({ hasText: quest.title })).toBeVisible();
     });
 
-    test("承認待ちクエストカードをクリックすると承認される", async ({ page }) => {
+    test("承認ボタンを押すと承認される", async ({ page }) => {
       const card = page.locator(CARD).filter({ hasText: quest.title });
       await expect(card).toBeVisible();
-      // クエストカードをクリック（= 承認）
-      await card.click();
+      await card.getByRole("button", { name: /^✓ 承認/ }).click();
       // 自分のカードが消えることを確認
       await expect(card).toHaveCount(0, { timeout: 10000 });
+    });
+
+    test("カード本体をタップしても承認されない（誤タップ防止）", async ({ page }) => {
+      const card = page.locator(CARD).filter({ hasText: quest.title });
+      await expect(card).toBeVisible();
+      // タイトル行（ボタン以外）をタップしてもカードは残る
+      await card.getByText(quest.title).click();
+      await page.waitForTimeout(1000);
+      await expect(card).toBeVisible();
     });
 
     test("承認待ちが複数ある場合、「まとめて承認」ボタンが表示される", async ({ page }) => {
