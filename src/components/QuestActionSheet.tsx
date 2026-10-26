@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
@@ -48,6 +48,14 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // アンマウント時に自動クローズのタイマーを破棄する（別クエストを開いた後に閉じるのを防ぐ）
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   const cat = CATEGORY_LABEL[quest.template.category];
   const streak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
@@ -90,7 +98,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
     }
     await onReport(quest.id, comment || null, photoUrl);
     setSheetState("success-complete");
-    setTimeout(() => onClose(), 3000);
+    closeTimerRef.current = setTimeout(() => onClose(), 3000);
   }
 
   async function handleSkip() {
@@ -98,7 +106,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
     setSheetState("submitting");
     await onSkip(quest.id, skipReason);
     setSheetState("success-skip");
-    setTimeout(() => onClose(), 3000);
+    closeTimerRef.current = setTimeout(() => onClose(), 3000);
   }
 
   const isSubmitting = sheetState === "submitting";
