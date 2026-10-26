@@ -50,14 +50,30 @@ export async function recordLoginActivity(
   const newLoginStreak = prevStreak + 1;
   const newBest = Math.max(newLoginStreak, streak.loginBestStreak);
 
-  await prisma.streak.update({
-    where: { childId },
+  // 競合対策: lastLoginDate が今日より前（または未設定）の行だけを更新対象にし、
+  // 更新できた（count=1）リクエストだけがボーナス付与の権利を得る。
+  // 2 タブ同時呼び出しで両方が同じ日数を判定しても、片方は count=0 で何もしない。
+  const claimed = await prisma.streak.updateMany({
+    where: {
+      childId,
+      OR: [{ lastLoginDate: null }, { lastLoginDate: { lt: todayNorm } }],
+    },
     data: {
       loginCurrentStreak: newLoginStreak,
       loginBestStreak: newBest,
       lastLoginDate: todayNorm,
     },
   });
+
+  if (claimed.count === 0) {
+    // 別リクエストが先に今日分を記録済み。最新値を返してボーナスは付与しない
+    const latest = await prisma.streak.findUnique({ where: { childId } });
+    return {
+      loginStreak: latest?.loginCurrentStreak ?? streak.loginCurrentStreak,
+      loginBestStreak: latest?.loginBestStreak ?? streak.loginBestStreak,
+      bonusGranted: 0,
+    };
+  }
 
   log.info("Login streak updated", { childId, prevStreak, newLoginStreak, newBest });
 

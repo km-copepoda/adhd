@@ -53,19 +53,27 @@ export async function GET(request: Request) {
   let approved = 0;
   let skipped = 0;
 
+  let failed = 0;
+
   for (const quest of pendingQuests) {
-    if (quest.status === "SKIP_REPORTED") {
-      if (await approveSkipQuestInstance(quest)) {
-        skipped++;
+    // 1 件の例外でループ全体を止めない（残りの承認を継続する）
+    try {
+      if (quest.status === "SKIP_REPORTED") {
+        if (await approveSkipQuestInstance(quest)) {
+          skipped++;
+        } else {
+          rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+        }
       } else {
-        rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+        if (await approveQuestInstance(quest)) {
+          approved++;
+        } else {
+          rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+        }
       }
-    } else {
-      if (await approveQuestInstance(quest)) {
-        approved++;
-      } else {
-        rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
-      }
+    } catch (err) {
+      failed++;
+      rlog.error("Auto-approve failed for quest", { questId: quest.id, error: String(err) });
     }
   }
 
@@ -81,6 +89,6 @@ export async function GET(request: Request) {
   const cutoff = todayRangeJST().start;
   const { count: treasureUsesApproved } = await autoApproveStaleTreasureUses(cutoff);
 
-  rlog.done("Auto-approve cron completed", { approved, skipped, treasureUsesApproved });
-  return NextResponse.json({ ok: true, approved, skipped, treasureUsesApproved });
+  rlog.done("Auto-approve cron completed", { approved, skipped, failed, treasureUsesApproved });
+  return NextResponse.json({ ok: true, approved, skipped, failed, treasureUsesApproved });
 }

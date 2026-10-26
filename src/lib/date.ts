@@ -105,8 +105,8 @@ export type DeadlineUrgency = "normal" | "warning" | "danger" | "expired";
  * 今日の期限（JST "HH:mm"）までの残り時間と緊急度を返す（クライアント用）。
  * - normal: 61分以上
  * - warning: 31〜60分
- * - danger: 1〜30分
- * - expired: 0分以下（ちょうど0分=期限切れ）
+ * - danger: 1〜30分（残り秒は切り上げ。残り1秒でも「あと1分」）
+ * - expired: 残り0ミリ秒以下（ちょうど期限=期限切れ。isBeforeDeadline と一致）
  */
 export function getDeadlineDisplay(
   deadlineTime: string,
@@ -119,10 +119,13 @@ export function getDeadlineDisplay(
   const startOfJstDayUTC =
     Date.UTC(refJST.getUTCFullYear(), refJST.getUTCMonth(), refJST.getUTCDate()) - JST_OFFSET_MS;
   const deadlineUTC = startOfJstDayUTC + hh * 3600000 + mm * 60000;
-  const minutesLeft = Math.floor((deadlineUTC - ref.getTime()) / 60000);
+  // isBeforeDeadline（ms 精度・ちょうどは期限切れ）と判定を揃えるため、
+  // 期限切れは ms 差で判定し、表示用の分は切り上げる（残り1〜60秒は「あと1分」）
+  const msLeft = deadlineUTC - ref.getTime();
+  const minutesLeft = Math.ceil(msLeft / 60000) || 0; // -0 を 0 に正規化
 
   let urgency: DeadlineUrgency;
-  if (minutesLeft <= 0) urgency = "expired";
+  if (msLeft <= 0) urgency = "expired";
   else if (minutesLeft <= 30) urgency = "danger";
   else if (minutesLeft <= 60) urgency = "warning";
   else urgency = "normal";

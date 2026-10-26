@@ -77,7 +77,7 @@ export async function POST(
   // 同一の更新に含める。並行リクエストの敗者が先に書き込んで勝者の内容を上書きするのを防ぐ（#183）
   const fromStatuses: QuestStatus[] = ["PENDING", "REJECTED", "REPORTED"];
   const reportData = {
-    comment: comment ?? null,
+    comment: comment ?? quest.comment,
     photoUrl: photoUrl ?? quest.photoUrl,
     reportedAt: quest.reportedAt ?? now,
     rejectionReason: null,

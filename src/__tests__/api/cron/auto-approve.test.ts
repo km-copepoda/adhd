@@ -371,4 +371,22 @@ describe("GET /api/cron/auto-approve", () => {
       });
     });
   });
+
+  it("1件の承認が例外でも残りの承認を継続する (#192)", async () => {
+    const d = new Date("2026-03-01");
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      pendingQuest({ id: "q1", status: "REPORTED", date: d, childId: "c1", templateId: "t1" }),
+      pendingQuest({ id: "q2", status: "REPORTED", date: d, childId: "c1", templateId: "t1" }),
+      pendingQuest({ id: "q3", status: "SKIP_REPORTED", date: d, childId: "c1", templateId: "t1" }),
+    ] as never);
+    mockApproveQuest.mockRejectedValueOnce(new Error("boom"));
+
+    const res = await GET(makeRequest("test-secret"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockApproveQuest).toHaveBeenCalledTimes(2);
+    expect(mockApproveSkip).toHaveBeenCalledTimes(1);
+    expect(body).toMatchObject({ ok: true, approved: 1, skipped: 1, failed: 1 });
+  });
 });

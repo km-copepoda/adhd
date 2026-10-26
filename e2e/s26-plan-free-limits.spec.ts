@@ -54,7 +54,7 @@ test.describe("S26: FREE プラン上限", () => {
       timeout: 15000,
     });
 
-    const childName = `E2E_FREE_over_${Date.now()}`;
+    const childName = `FREEov${Date.now()}`; // 名前は20文字以内（memberValidation）
     await page.getByRole("button", { name: /子どもを追加/ }).click();
     await expect(page.locator('input[placeholder="例: りゅうくん"]')).toBeVisible();
     await page.fill('input[placeholder="例: りゅうくん"]', childName);

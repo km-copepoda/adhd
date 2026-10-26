@@ -90,6 +90,7 @@ describe("POST /api/parent/child-view/rebirth", () => {
       data: expect.objectContaining({
         rebirthPending: false,
         rebirthEggBonus: null, // NORMAL 卵はボーナス無し
+        rebirthCount: { increment: 1 },
         evolutionStage: 0,
         evolutionPath: "",
         studyPt: 0,
