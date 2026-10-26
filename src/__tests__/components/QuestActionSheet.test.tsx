@@ -18,6 +18,7 @@ vi.mock("@/lib/imageUtils", () => ({
 function makeQuest(overrides: Partial<SheetQuest["template"]> = {}): SheetQuest {
   return {
     id: "q1",
+    childId: "child-1",
     status: "PENDING",
     declaredToday: false,
     template: {
@@ -107,5 +108,43 @@ describe("QuestActionSheet 自動クローズのタイマー (#191)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("QuestActionSheet アップロードパス (#218)", () => {
+  it("写真は <childId>/<questId>_<ts>.<ext> のパスでアップロードされる", async () => {
+    const { fireEvent, waitFor } = await import("@testing-library/react");
+    const { createClient } = await import("@/lib/supabase/client");
+    const { compressImage } = await import("@/lib/imageUtils");
+
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    const getPublicUrl = vi.fn((p: string) => ({ data: { publicUrl: `https://x.supabase.co/${p}` } }));
+    vi.mocked(createClient).mockReturnValue({
+      storage: { from: () => ({ upload, getPublicUrl }) },
+    } as unknown as ReturnType<typeof createClient>);
+    vi.mocked(compressImage).mockResolvedValue(new File(["x"], "a.webp", { type: "image/webp" }));
+    URL.createObjectURL = vi.fn(() => "blob:preview");
+
+    const onReport = vi.fn().mockResolvedValue(undefined);
+    const quest = { ...makeQuest(), childId: "child-1" } as SheetQuest;
+    const { container } = render(
+      <QuestActionSheet
+        quest={quest}
+        hasDeadline={false}
+        questsCompleted={0}
+        questsTotal={1}
+        onReport={onReport}
+        onSkip={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "a.png", { type: "image/png" })] } });
+    fireEvent.click(screen.getByText("⚔ クエスト完了！"));
+
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    expect(upload.mock.calls[0][0]).toMatch(/^child-1\/q1_\d+\.webp$/);
+    await waitFor(() => expect(onReport).toHaveBeenCalled());
+    expect(onReport.mock.calls[0][2]).toMatch(/\/child-1\/q1_\d+\.webp$/);
   });
 });

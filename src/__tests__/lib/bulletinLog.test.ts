@@ -10,7 +10,6 @@ import {
 } from "@/lib/bulletinLog";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import {
-  bulletinLog as bulletinLogFixture,
   childUser,
   gatheringMember,
 } from "../helpers/fixtures";
@@ -35,7 +34,7 @@ describe("triggerTaskProgressLog", () => {
   it("グループ未参加なら何も書き込まない", async () => {
     mockPrisma.gatheringMember.findUnique.mockResolvedValue(null);
     await triggerTaskProgressLog("child-1");
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("name が null でも monsterName があれば monsterName で書き込む", async () => {
@@ -44,12 +43,12 @@ describe("triggerTaskProgressLog", () => {
     mockPrisma.questInstance.count
       .mockResolvedValueOnce(2) // total
       .mockResolvedValueOnce(2); // done
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
 
     await triggerTaskProgressLog("child-1");
 
-    expect(mockPrisma.bulletinLog.create).toHaveBeenCalled();
-    const firstCall = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { message: string } };
+    expect(mockPrisma.bulletinLog.createMany).toHaveBeenCalled();
+    const firstCall = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { message: string } };
     expect(firstCall.data.message).toContain("ドラゴン");
   });
 
@@ -59,7 +58,7 @@ describe("triggerTaskProgressLog", () => {
 
     await triggerTaskProgressLog("child-1");
 
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("monsterName が優先される（プライバシー: 本名はグループ内に晒さない）", async () => {
@@ -68,11 +67,11 @@ describe("triggerTaskProgressLog", () => {
     mockPrisma.questInstance.count
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(1);
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
 
     await triggerTaskProgressLog("child-1");
 
-    const firstCall = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { message: string } };
+    const firstCall = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { message: string } };
     expect(firstCall.data.message).toContain("ドラゴン");
     expect(firstCall.data.message).not.toContain("鈴木太郎");
   });
@@ -84,7 +83,7 @@ describe("triggerTaskProgressLog", () => {
 
     await triggerTaskProgressLog("child-1");
 
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("達成率に応じて複数のマイルストーンを書き込む", async () => {
@@ -93,26 +92,26 @@ describe("triggerTaskProgressLog", () => {
     mockPrisma.questInstance.count
       .mockResolvedValueOnce(4) // total
       .mockResolvedValueOnce(4); // done = 100%
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
 
     await triggerTaskProgressLog("child-1");
 
     // 100%達成時はSTART/25/50/75/100の5マイルストーンが書き込まれる
-    expect(mockPrisma.bulletinLog.create).toHaveBeenCalledTimes(5);
+    expect(mockPrisma.bulletinLog.createMany).toHaveBeenCalledTimes(5);
   });
 });
 
 describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / triggerMonsterRebornLog", () => {
   beforeEach(() => {
     mockPrisma.gatheringMember.findUnique.mockResolvedValue(groupIdOnly("g-1"));
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
   });
 
   it("triggerBadgeLog: monsterName fallback で書き込む", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerBadgeLog("child-1", "はじめの一歩");
 
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { message: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { message: string } };
     expect(call.data.message).toContain("ドラゴン");
     expect(call.data.message).toContain("はじめの一歩");
   });
@@ -121,7 +120,7 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerStreakTitleLog("child-1", "一週間の戦士");
 
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { message: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { message: string } };
     expect(call.data.message).toContain("ドラゴン");
     expect(call.data.message).toContain("一週間の戦士");
   });
@@ -130,7 +129,7 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerMonsterEvolvedLog("child-1", "フレアドラゴン");
 
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { message: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { message: string } };
     expect(call.data.message).toContain("ドラゴン");
     expect(call.data.message).toContain("フレアドラゴン");
   });
@@ -139,7 +138,7 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerMonsterRebornLog("child-1", "べんきょう");
 
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { message: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { message: string } };
     expect(call.data.message).toContain("ドラゴン");
     expect(call.data.message).toContain("べんきょう");
   });
@@ -151,34 +150,34 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
     await triggerMonsterEvolvedLog("child-1", "ドラゴン");
     await triggerMonsterRebornLog("child-1", "べんきょう");
 
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("triggerBadgeLog: data.key にバッジ名をセット（同日に別バッジ複数件を許可するため）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerBadgeLog("child-1", "はじめの一歩");
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { key: string } };
     expect(call.data.key).toBe("はじめの一歩");
   });
 
   it("triggerStreakTitleLog: data.key に称号名をセット", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerStreakTitleLog("child-1", "一週間の戦士");
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { key: string } };
     expect(call.data.key).toBe("一週間の戦士");
   });
 
   it("triggerMonsterEvolvedLog: data.key に進化先モンスター名をセット", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerMonsterEvolvedLog("child-1", "フレアドラゴン");
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { key: string } };
     expect(call.data.key).toBe("フレアドラゴン");
   });
 
   it("triggerMonsterRebornLog: data.key に卵タイプをセット", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerMonsterRebornLog("child-1", "べんきょう");
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { key: string } };
     expect(call.data.key).toBe("べんきょう");
   });
 });
@@ -186,26 +185,26 @@ describe("triggerBadgeLog / triggerStreakTitleLog / triggerMonsterEvolvedLog / t
 describe("triggerStampSentLog", () => {
   beforeEach(() => {
     mockPrisma.gatheringMember.findUnique.mockResolvedValue(groupIdOnly("g-1"));
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
   });
 
   it("グループ未参加なら何も書き込まない", async () => {
     mockPrisma.gatheringMember.findUnique.mockResolvedValue(null);
     await triggerStampSentLog("child-1");
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("name と monsterName が両方 null なら書き込まない", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, null));
     await triggerStampSentLog("child-1");
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("monsterName を優先して STAMP_SENT を書き込む", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly("鈴木太郎", "ドラゴン"));
     await triggerStampSentLog("child-1");
-    expect(mockPrisma.bulletinLog.create).toHaveBeenCalledTimes(1);
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as {
+    expect(mockPrisma.bulletinLog.createMany).toHaveBeenCalledTimes(1);
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as {
       data: { type: string; message: string; key: string };
     };
     expect(call.data.type).toBe("STAMP_SENT");
@@ -217,13 +216,13 @@ describe("triggerStampSentLog", () => {
   it("data.key は \"エール\" 固定（同日1回制約は Stamp 側で担保済みなので key で衝突は起きない）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerStampSentLog("child-1");
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as { data: { key: string } };
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as { data: { key: string } };
     expect(call.data.key).toBe("エール");
   });
 
   it("unique 違反は握りつぶす（同日に2回 trigger されても例外を投げない）", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
-    mockPrisma.bulletinLog.create.mockRejectedValueOnce(
+    mockPrisma.bulletinLog.createMany.mockRejectedValueOnce(
       Object.assign(new Error("Unique constraint failed"), { code: "P2002" }),
     );
     await expect(triggerStampSentLog("child-1")).resolves.not.toThrow();
@@ -237,12 +236,12 @@ describe("triggerTaskProgressLog: key", () => {
     mockPrisma.questInstance.count
       .mockResolvedValueOnce(4) // total
       .mockResolvedValueOnce(1); // done (TASK_STARTED only)
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
 
     await triggerTaskProgressLog("child-1");
 
-    expect(mockPrisma.bulletinLog.create).toHaveBeenCalled();
-    const calls = mockPrisma.bulletinLog.create.mock.calls as Array<[{ data: { key: string } }]>;
+    expect(mockPrisma.bulletinLog.createMany).toHaveBeenCalled();
+    const calls = mockPrisma.bulletinLog.createMany.mock.calls as unknown as Array<[{ data: { key: string } }]>;
     for (const [arg] of calls) {
       expect(arg.data.key).toBe("");
     }
@@ -252,26 +251,26 @@ describe("triggerTaskProgressLog: key", () => {
 describe("triggerCollectionItemLog", () => {
   beforeEach(() => {
     mockPrisma.gatheringMember.findUnique.mockResolvedValue(groupIdOnly("g-1"));
-    mockPrisma.bulletinLog.create.mockResolvedValue(bulletinLogFixture());
+    mockPrisma.bulletinLog.createMany.mockResolvedValue({ count: 1 });
   });
 
   it("グループ未参加なら何も書き込まない", async () => {
     mockPrisma.gatheringMember.findUnique.mockResolvedValue(null);
     await triggerCollectionItemLog("child-1", "summer-01", 1);
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("name も monsterName も null なら書き込まない", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, null));
     await triggerCollectionItemLog("child-1", "summer-01", 1);
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 
   it("monsterName 優先で type=COLLECTION_ITEM_OBTAINED + アイテム名+季節+★ を含むメッセージを書き込む", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly("鈴木太郎", "ドラゴン"));
     await triggerCollectionItemLog("child-1", "summer-04", 1); // リュウグウノツカイ (RARE)
-    expect(mockPrisma.bulletinLog.create).toHaveBeenCalledTimes(1);
-    const call = mockPrisma.bulletinLog.create.mock.calls[0][0] as {
+    expect(mockPrisma.bulletinLog.createMany).toHaveBeenCalledTimes(1);
+    const call = mockPrisma.bulletinLog.createMany.mock.calls[0][0] as {
       data: { type: string; message: string; key: string };
     };
     expect(call.data.type).toBe("COLLECTION_ITEM_OBTAINED");
@@ -287,7 +286,7 @@ describe("triggerCollectionItemLog", () => {
     await triggerCollectionItemLog("child-1", "fall-04", 1);
     await triggerCollectionItemLog("child-1", "fall-04", 2);
     await triggerCollectionItemLog("child-1", "fall-04", 3);
-    const keys = mockPrisma.bulletinLog.create.mock.calls.map(
+    const keys = mockPrisma.bulletinLog.createMany.mock.calls.map(
       (c) => (c[0] as { data: { key: string } }).data.key,
     );
     expect(keys).toEqual(["fall-04#1", "fall-04#2", "fall-04#3"]);
@@ -296,6 +295,6 @@ describe("triggerCollectionItemLog", () => {
   it("未知の id は書き込みスキップ (message が空文字列なので writeBulletinLog が早期 return)", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(nameOnly(null, "ドラゴン"));
     await triggerCollectionItemLog("child-1", "bogus-99", 1);
-    expect(mockPrisma.bulletinLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.bulletinLog.createMany).not.toHaveBeenCalled();
   });
 });

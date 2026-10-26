@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -47,6 +47,9 @@ type Child = {
   lastLoginDate: string | null;
 };
 
+// 追加ボタン押下時に、未取得のプラン上限を待つ最大時間
+const LIMIT_WAIT_MS = 3000;
+
 const defaultForm = (childId: string): FormData => ({
   title: "",
   category: "STUDY" as Category,
@@ -72,6 +75,9 @@ export default function TasksPage() {
   const [form, setForm] = useState(defaultForm(""));
   // 親タスク画面の preempt 用上限 (null = 未取得/取得失敗/無制限 = フェイルオープン)。
   const [taskLimit, setTaskLimit] = useState<number | null>(null);
+  // 上限の取得中に追加ボタンが押されたとき、その結果を待つための Promise
+  const taskLimitPromiseRef = useRef<Promise<number | null> | null>(null);
+  const taskLimitSettledRef = useRef(false);
 
   async function fetchTasks() {
     const res = await fetch("/api/tasks");
@@ -88,33 +94,55 @@ export default function TasksPage() {
     }
   }
 
-  async function fetchTaskLimit() {
+  async function fetchTaskLimit(): Promise<number | null> {
     try {
       const res = await fetch("/api/subscription/limits");
       if (res.ok) {
         const data = await res.json();
-        setTaskLimit(typeof data.task === "number" ? data.task : null);
+        const limit = typeof data.task === "number" ? data.task : null;
+        setTaskLimit(limit);
+        return limit;
       }
     } catch {
       // フェイルオープン: 取得失敗時は taskLimit=null (無制限扱い) のまま。サーバ403が最終ガード。
+    } finally {
+      taskLimitSettledRef.current = true;
     }
+    return null;
+  }
+
+  // 一覧は上限の取得を待たずに表示するため、取得前に追加ボタンが押された場合はここで待つ。
+  // 応答が来ない場合に操作が止まらないよう、待つのは最大 LIMIT_WAIT_MS（超えたらフェイルオープン）。
+  // 取得済みなら同期的に処理し、取得中のときだけ結果を待ってから action を呼ぶ。
+  function withTaskLimit(action: (limit: number | null) => void) {
+    if (taskLimitSettledRef.current || !taskLimitPromiseRef.current) {
+      action(taskLimit);
+      return;
+    }
+    const timeout = new Promise<null>((r) => setTimeout(() => r(null), LIMIT_WAIT_MS));
+    void Promise.race([taskLimitPromiseRef.current, timeout]).then(action);
   }
 
   useEffect(() => {
     // マウント時に一度だけタスク・子供一覧・プラン上限を取得する。fetchTasks/fetchChildren内部でsetState系を呼ぶが、
     // 外部API（サーバー）との同期が目的でありレンダー時算出はできないためuseEffect内が正しい。
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    Promise.all([fetchTasks(), fetchChildren(), fetchTaskLimit()]).finally(() => setLoading(false));
+    // プラン上限は preempt 用（未取得ならフェイルオープン）なので、一覧の表示はその応答を待たない。
+    Promise.all([fetchTasks(), fetchChildren()]).finally(() => setLoading(false));
+    taskLimitPromiseRef.current = fetchTaskLimit();
   }, []);
 
   // 新規タスク追加ボタンの preempt チェック。編集フォーム (startEdit) は対象外
   // (Issue #148 v2差分5番: 既存タスク編集・停止中タスクの再開はサーバ403後のconfirmに任せる)。
   function openFormForChild(childId: string) {
-    if (taskLimit !== null) {
+    withTaskLimit((limit) => openFormWithLimit(childId, limit));
+  }
+
+  function openFormWithLimit(childId: string, limit: number | null) {
+    if (limit !== null) {
       const activeCount = countActiveTasksForChildClient(tasks, childId, todayStringJST());
-      if (activeCount >= taskLimit) {
+      if (activeCount >= limit) {
         promptPlanLimit(
-          `無料プランではタスクは${taskLimit}個までです。プレミアムプランで無制限になります。`,
+          `無料プランではタスクは${limit}個までです。プレミアムプランで無制限になります。`,
         );
         return;
       }
@@ -127,16 +155,20 @@ export default function TasksPage() {
   }
 
   // 無料プランのタスク上限に対する子供ごとの残り枠。null = 無制限/未取得 (フェイルオープン)。
-  function remainingTaskSlots(childId: string): number | null {
-    if (taskLimit === null) return null;
+  function remainingTaskSlots(childId: string, limit: number | null = taskLimit): number | null {
+    if (limit === null) return null;
     const activeCount = countActiveTasksForChildClient(tasks, childId, todayStringJST());
-    return Math.max(0, taskLimit - activeCount);
+    return Math.max(0, limit - activeCount);
   }
 
   function openImportForChild(childId: string) {
-    if (remainingTaskSlots(childId) === 0) {
+    withTaskLimit((limit) => openImportWithLimit(childId, limit));
+  }
+
+  function openImportWithLimit(childId: string, limit: number | null) {
+    if (remainingTaskSlots(childId, limit) === 0) {
       promptPlanLimit(
-        `無料プランではタスクは${taskLimit}個までです。プレミアムプランで無制限になります。`,
+        `無料プランではタスクは${limit}個までです。プレミアムプランで無制限になります。`,
       );
       return;
     }

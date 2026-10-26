@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchDeduped, invalidateDeduped } from "@/lib/fetchDeduped";
+import { subscribeChildRealtime } from "@/lib/childRealtime";
 import TreasureOpenCutscene from "./TreasureOpenCutscene";
 
 interface TreasureOpenResult {
@@ -52,6 +53,17 @@ export default function TreasureStock({ variant = "pill" }: Props = {}) {
 
   useEffect(() => {
     void refresh();
+    // 親の承認（LOCKED → UNLOCKED）は別端末で起きるため、TreasureLog の Realtime で取り直す
+    const offRealtime = subscribeChildRealtime("TreasureLog", () => void refresh());
+    // Realtime 取りこぼし時の冗長経路
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      offRealtime();
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [refresh]);
 
   const handleOpen = async () => {

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mockDeep } from "vitest-mock-extended";
+import type { PrismaClient } from "@/generated/prisma/client";
 import { openOldestTreasure } from "@/lib/treasureService";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { treasureLog, childUser, parentUser, subscription, userCollectionItem } from "../helpers/fixtures";
@@ -12,6 +14,7 @@ beforeEach(() => {
   mockPrisma.user.update.mockResolvedValue(childUser());
   mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
   mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+  mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
 });
 
 /// FREE プランは季節コレクション (通常 80 種) からのドロップを受けず、月限定 (5 種) のみが対象。
@@ -94,5 +97,38 @@ describe("openOldestTreasure — FREE プランのコレクションプール制
       const result = await openOldestTreasure("c1", { now: jstJul15, rng: () => rng });
       expect(result?.collectionItem?.id).toMatch(/^m07-\d+$/);
     }
+  });
+});
+
+/// Codex 指摘: openOldestTreasure の interactive transaction 内で getFamilyPlan がルートの prisma を使うと
+/// 接続プール枯渇時に開封がタイムアウトしうる。tx を渡して同一コネクションで読む。
+describe("openOldestTreasure — getFamilyPlan は tx 経由", () => {
+  it("プール未当選かつ familyId ありのとき、親/Subscription の読み取りは tx 経由でルート prisma は使わない", async () => {
+    const tx = mockDeep<PrismaClient>();
+    tx.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+    tx.treasureLog.update.mockResolvedValue(treasureLog());
+    tx.treasureItem.findMany.mockResolvedValue([]); // 親プール空 → MISS
+    tx.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 0, familyId: "fam-1" }));
+    tx.user.update.mockResolvedValue(childUser());
+    tx.user.findFirst.mockResolvedValue(parentUser({ id: "parent-1" }));
+    tx.subscription.findUnique.mockResolvedValue(null);
+    tx.userCollectionItem.findMany.mockResolvedValue([]);
+    tx.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
+
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(
+      treasureLog({ id: "log-1", childId: "c1", boosted: false }),
+    );
+    (mockPrisma.$transaction as unknown as { mockImplementationOnce: (fn: (cb: unknown) => unknown) => void })
+      .mockImplementationOnce((cb) => (cb as (t: unknown) => Promise<unknown>)(tx));
+
+    await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+
+    expect(tx.user.findFirst).toHaveBeenCalledWith({
+      where: { familyId: "fam-1", role: "PARENT" },
+      select: { id: true },
+    });
+    expect(tx.subscription.findUnique).toHaveBeenCalled();
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.findUnique).not.toHaveBeenCalled();
   });
 });
