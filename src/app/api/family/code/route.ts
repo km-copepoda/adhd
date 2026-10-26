@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { generateFamilyCode } from "@/lib/categories";
+import { generateFamilyCode } from "@/lib/codeGenerator";
 import { log, routeLogger } from "@/lib/logger";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 import { resolveOwnedThemes } from "@/lib/monsterThemes/ownedThemes";
 
 export async function GET() {
@@ -27,7 +28,13 @@ export async function GET() {
       prisma.familyMonsterTheme.findMany({ where: { familyId: user.familyId } }),
     ]);
 
-    const members = (family?.users || []).map((u: Record<string, unknown>) => ({
+    // CHILD には自分の行だけを返す（家族コード・兄弟の情報を渡さない）。（#184）
+    const isParent = user.role === "PARENT";
+    const visibleUsers = (family?.users || []).filter(
+      (u: { id: string }) => isParent || u.id === user.id,
+    );
+
+    const members = visibleUsers.map((u: Record<string, unknown>) => ({
       id: u.id,
       name: u.name,
       role: u.role,
@@ -37,7 +44,6 @@ export async function GET() {
       evolutionPath: (u.evolutionPath as string) ?? "",
       rebirthEggBonus: (u.rebirthEggBonus as string | null) ?? null,
       rebirthPending: (u.rebirthPending as boolean | undefined) ?? false,
-      childCode: u.childCode ?? null,
       minTasksForStreak: u.minTasksForStreak ?? 1,
       reportDeadlineTime: (u.reportDeadlineTime as string | null) ?? null,
       checkinDeadlineTime: (u.checkinDeadlineTime as string | null) ?? null,
@@ -59,7 +65,7 @@ export async function GET() {
     }));
 
     return NextResponse.json({
-      code: family?.code,
+      code: isParent ? family?.code : null,
       members,
       // 子供が0人でも作成フォームで所持テーマを出せるよう、家族単位でも返す
       ownedThemes: resolveOwnedThemes(ownedThemeRecords, null),
@@ -78,23 +84,46 @@ export async function POST() {
     return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
-  if (user.familyId) {
-    // Regenerate code
-    const family = await prisma.family.update({
-      where: { id: user.familyId },
-      data: { code: generateFamilyCode() },
-    });
-    rlog.info("Family code regenerated", { familyId: user.familyId });
+  const familyId = user.familyId;
+  try {
+    if (familyId) {
+      // Regenerate code（コード重複時はリトライ）
+      const family = await withCodeRetry(() =>
+        prisma.family.update({
+          where: { id: familyId },
+          data: { code: generateFamilyCode() },
+        }),
+      );
+      rlog.info("Family code regenerated", { familyId });
+      return NextResponse.json({ code: family.code });
+    }
+
+    // Create new family
+    const family = await withCodeRetry(() =>
+      prisma.family.create({
+        data: {
+          code: generateFamilyCode(),
+          users: { connect: { id: user.id } },
+        },
+      }),
+    );
     return NextResponse.json({ code: family.code });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    log.error("Family code update failed", { route: "POST /api/family/code", error: message });
+    return NextResponse.json({ error: "家族コードの発行に失敗しました" }, { status: 500 });
   }
+}
 
-  // Create new family
-  const family = await prisma.family.create({
-    data: {
-      code: generateFamilyCode(),
-      users: { connect: { id: user.id } },
-    },
-  });
+const CODE_MAX_ATTEMPTS = 5;
 
-  return NextResponse.json({ code: family.code });
+/** 家族コードの unique 違反 (P2002) の場合のみ、コードを引き直して再試行する */
+async function withCodeRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!isUniqueViolation(e) || attempt >= CODE_MAX_ATTEMPTS) throw e;
+    }
+  }
 }

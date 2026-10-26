@@ -1,36 +1,30 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { grantPremiumForE2E } from "@/lib/subscriptionService";
+import { checkE2eSetupGuard } from "@/lib/e2eSetupGuard";
+import { grantPremiumForE2E, cancelE2ePremium } from "@/lib/subscriptionService";
 import { routeLogger } from "@/lib/logger";
 
-/**
- * e2eテスト専用: 自分の家族のPARENTユーザーにPREMIUMプランを無期限で付与する。
- *
- * 本番環境で誤って有効化されると課金回避の穴になるため、二重にガードする。
- * 1. ALLOW_E2E_SETUP !== "1" の場合は 404 を返し、エンドポイントの存在自体を隠す
- * 2. x-e2e-setup-secret ヘッダーが E2E_SETUP_SECRET と一致しない場合は 401
- */
-export async function POST(request: NextRequest) {
-  const rlog = routeLogger("POST", "/api/dev/subscription");
+type Rlog = ReturnType<typeof routeLogger>;
 
-  if (process.env.ALLOW_E2E_SETUP !== "1") {
-    return NextResponse.json({ error: "Not Found" }, { status: 404 });
-  }
-
-  const expectedSecret = process.env.E2E_SETUP_SECRET;
-  const providedSecret = request.headers.get("x-e2e-setup-secret");
-  if (!expectedSecret || providedSecret !== expectedSecret) {
-    rlog.warn("Invalid or missing e2e setup secret");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+/// POST/DELETE 共通: ガード → PARENT 本人の確認 → familyId 検証。
+/// 通過すれば本人の userId を、弾く場合はレスポンスを返す。
+async function authorize(
+  request: NextRequest,
+  rlog: Rlog,
+): Promise<{ userId: string } | { response: NextResponse }> {
+  const guard = checkE2eSetupGuard(request);
+  if (guard) {
+    if (guard.status === 401) rlog.warn("Invalid or missing e2e setup secret");
+    return { response: guard };
   }
 
   const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
+  if (!user || user.role !== "PARENT") {
+    return { response: NextResponse.json({ error: "権限がありません" }, { status: 403 }) };
   }
   if (!user.familyId) {
-    return NextResponse.json({ error: "familyIdが必要です" }, { status: 400 });
+    return { response: NextResponse.json({ error: "familyIdが必要です" }, { status: 400 }) };
   }
 
   const body = await request.json().catch(() => ({}) as Record<string, unknown>);
@@ -41,18 +35,60 @@ export async function POST(request: NextRequest) {
     body.familyId !== undefined &&
     body.familyId !== user.familyId
   ) {
-    rlog.warn("Attempted to grant premium for a different family", {
-      familyId: user.familyId,
-    });
-    return NextResponse.json({ error: "他の家族のプランは変更できません" }, { status: 403 });
+    rlog.warn("Attempted to change plan for a different family", { familyId: user.familyId });
+    return {
+      response: NextResponse.json({ error: "他の家族のプランは変更できません" }, { status: 403 }),
+    };
   }
 
-  const sub = await grantPremiumForE2E(user.familyId);
-  if (!sub) {
-    rlog.error("PARENT user not found for family", { familyId: user.familyId });
-    return NextResponse.json({ error: "家族にPARENTユーザーが見つかりません" }, { status: 500 });
+  return { userId: user.id };
+}
+
+/**
+ * e2eテスト専用: 認証した PARENT 本人に PREMIUM プランを無期限で付与する。
+ * 付与した行には platform="E2E" の印を付ける。印のない既存行は書き換えず 409。
+ *
+ * 本番環境で誤って有効化されると課金回避の穴になるため、二重にガードする (@/lib/e2eSetupGuard)。
+ */
+export async function POST(request: NextRequest) {
+  const rlog = routeLogger("POST", "/api/dev/subscription");
+  const auth = await authorize(request, rlog);
+  if ("response" in auth) return auth.response;
+
+  const result = await grantPremiumForE2E(auth.userId);
+  if (result.status === "not_eligible") {
+    rlog.warn("Existing non-E2E subscription row; refusing to overwrite");
+    return NextResponse.json(
+      { error: "E2E以外のサブスクリプションがあるため付与できません" },
+      { status: 409 },
+    );
   }
 
-  rlog.done("E2E premium plan granted", { familyId: user.familyId });
+  rlog.done("E2E premium plan granted");
   return NextResponse.json({ ok: true, plan: "PREMIUM", currentPeriodEnd: null });
+}
+
+/**
+ * e2eテスト専用: POST で付与した E2E の PREMIUM を解約済みにする (DELETE /api/account の課金ガードを通すため)。
+ * 対象は認証した PARENT 本人の platform="E2E" の行だけ。
+ */
+export async function DELETE(request: NextRequest) {
+  const rlog = routeLogger("DELETE", "/api/dev/subscription");
+  const auth = await authorize(request, rlog);
+  if ("response" in auth) return auth.response;
+
+  const result = await cancelE2ePremium(auth.userId, new Date());
+  if (result.status === "not_found") {
+    return NextResponse.json({ error: "サブスクリプションが見つかりません" }, { status: 404 });
+  }
+  if (result.status === "not_eligible") {
+    rlog.warn("Subscription is not an E2E-granted row; refusing to cancel");
+    return NextResponse.json(
+      { error: "E2Eで付与したサブスクリプションではないため解約できません" },
+      { status: 409 },
+    );
+  }
+
+  rlog.done("E2E premium plan canceled", { status: result.status });
+  return NextResponse.json({ ok: true, status: result.status });
 }

@@ -8,6 +8,7 @@ import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCel
 
 export type Quest = {
   id: string;
+  childId: string;
   date: string;
   status: QuestStatus;
   comment: string | null;

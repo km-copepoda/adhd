@@ -31,6 +31,8 @@ function asFindFirstImpl(
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
+  // 今日分の既存インスタンス確認・settled 取得などの findMany のデフォルト
+  mockPrisma.questInstance.findMany.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -235,6 +237,64 @@ describe("ensureTodayQuests", () => {
 
     // carryOver テンプレートに対して updateMany が呼ばれていること（stale クリーンアップ）
     expect(mockPrisma.questInstance.updateMany).toHaveBeenCalled();
+  });
+});
+
+describe("ensureTodayQuests: 生成済みの今日分はスキップする", () => {
+  it("今日のインスタンスが既にあるテンプレートは upsert しないこと", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00")); // 木曜(4)
+    const templates = [
+      taskTemplate({ id: "tpl-1", repeatDays: [4], isTemporary: false, carryOver: false }),
+      taskTemplate({ id: "tpl-2", title: "運動", emoji: "💪", category: "STAMINA", repeatDays: [4], isTemporary: false, carryOver: false }),
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    // 今日分の既存インスタンスは tpl-1 のみ
+    mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ templateId: "tpl-1" })]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.questInstance.upsert).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.questInstance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ templateId: "tpl-2" }) }),
+    );
+  });
+
+  it("全テンプレートの今日分が生成済みなら upsert も carryOver の findFirst も呼ばないこと", async () => {
+    vi.setSystemTime(new Date("2026-03-13T09:00:00")); // 金曜(5)
+    const templates = [
+      taskTemplate({ id: "tpl-1", repeatDays: [5], isTemporary: false, carryOver: false }),
+      taskTemplate({ id: "tpl-2", repeatDays: [5], isTemporary: false, carryOver: true }),
+    ];
+    mockPrisma.taskTemplate.findMany.mockResolvedValue(templates);
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      questInstance({ templateId: "tpl-1" }),
+      questInstance({ templateId: "tpl-2" }),
+    ]);
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.questInstance.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.questInstance.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("今日分の確認は今日の日付・子供・対象テンプレートで絞り込むこと", async () => {
+    vi.setSystemTime(new Date("2026-03-12T09:00:00")); // 木曜(4) JST
+    mockPrisma.taskTemplate.findMany.mockResolvedValue([
+      taskTemplate({ id: "tpl-1", repeatDays: [4], isTemporary: false, carryOver: false }),
+    ]);
+    mockPrisma.questInstance.upsert.mockResolvedValue(questInstance());
+
+    await ensureTodayQuests({ childId: "child-1", familyId: "fam-1" });
+
+    expect(mockPrisma.questInstance.findMany).toHaveBeenCalledWith({
+      where: {
+        childId: "child-1",
+        date: new Date("2026-03-12T00:00:00.000Z"),
+        templateId: { in: ["tpl-1"] },
+      },
+      select: { templateId: true },
+    });
   });
 });
 

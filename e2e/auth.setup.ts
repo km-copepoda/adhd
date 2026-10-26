@@ -13,7 +13,13 @@
 import { test as setup, expect } from "./fixtures";
 import path from "path";
 import fs from "fs";
-import { AUTH_DIR, createBrowserContext, getBypassHeaders } from "./credentials";
+import {
+  AUTH_DIR,
+  createBrowserContext,
+  getBypassHeaders,
+  issueChildLoginCode,
+  submitChildLoginCode,
+} from "./credentials";
 
 const CREDENTIALS_FILE = path.join(AUTH_DIR, "qa-credentials.json");
 
@@ -45,21 +51,16 @@ setup("create QA account and child", async ({ page, browser }) => {
   await page.click('button:has-text("アカウントを作成")');
   await page.waitForURL("**/app/parent/tasks", { timeout: 30000 });
 
-  // 2. ファミリーコードを API から取得
+  // 2. 子供ユーザーを API で作成（UIでの子供作成は s9 でテスト済み）
   // page.request は Node.js 直接コールのため page.route() を通らず
   // Vercel bypass ヘッダーを明示的に付与する必要がある
   const bypassHeaders = getBypassHeaders();
-  const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
-  const familyData = await familyRes.json();
-  const familyCode: string = familyData.code;
-
-  // 3. 子供ユーザーを API で作成（UIでの子供作成は s9 でテスト済み）
   const childRes = await page.request.post("/api/family/members", {
     data: { monsterName: "QA_child", side: "LIGHT" },
     headers: bypassHeaders,
   });
   const childData = await childRes.json();
-  const childCodeLight: string = childData.childCode;
+  const childIdLight: string = childData.id;
 
   // 4. このアカウントを PREMIUM 化する（フェーズ1で追加した e2e 専用エンドポイント）
   //    Vercel 側に ALLOW_E2E_SETUP / E2E_SETUP_SECRET が未設定の場合は 404/401 になるが、
@@ -91,13 +92,13 @@ setup("create QA account and child", async ({ page, browser }) => {
     );
   }
   const child2Data = await child2Res.json();
-  const childCodeLight2: string = child2Data.childCode;
+  const childIdLight2: string = child2Data.id;
 
   // 6. qa-credentials.json に保存
   fs.writeFileSync(
     CREDENTIALS_FILE,
     JSON.stringify(
-      { email, password, familyCode, childCodeLight, childCodeLight2 },
+      { email, password, childIdLight, childIdLight2 },
       null,
       2,
     ),
@@ -109,10 +110,9 @@ setup("create QA account and child", async ({ page, browser }) => {
   // 8. 子供ログイン（1人目）→ child-light.json に保存
   const { context: childCtx, page: childPage } = await createBrowserContext(browser);
   try {
-    await childPage.goto("/app/child/login");
-    await childPage.fill('input[placeholder="ABC123"]', familyCode);
-    await childPage.fill('input[placeholder="1234"]', childCodeLight);
-    await childPage.click('button:has-text("ログイン")');
+    // 親セッション（page.request）で1回限りのログインコードを発行し、1つの入力欄に入れる
+    const loginCode = await issueChildLoginCode(page.request, childIdLight);
+    await submitChildLoginCode(childPage, loginCode);
     await childPage.waitForURL("**/app/child/quests", { timeout: 15000 });
     await childCtx.storageState({ path: path.join(AUTH_DIR, "child-light.json") });
   } finally {

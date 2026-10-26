@@ -24,7 +24,7 @@ async function getDisplayName(childId: string): Promise<string | null> {
   return child?.monsterName ?? child?.name ?? null;
 }
 
-/** 掲示板ログを1件書き込む（unique制約で重複は無視） */
+/** 掲示板ログを1件書き込む（重複は skipDuplicates で ON CONFLICT DO NOTHING。unique 違反エラーを出さない） */
 async function writeBulletinLog(
   groupId: string,
   childId: string,
@@ -43,11 +43,12 @@ async function writeBulletinLog(
   // のダブり獲得を許すため `${itemId}#${count}` を渡す）。
   const key = customKey ?? extra ?? "";
   try {
-    await prisma.bulletinLog.create({
+    await prisma.bulletinLog.createMany({
       data: { groupId, childId, type, message, key, date },
+      skipDuplicates: true,
     });
   } catch {
-    // unique制約違反（重複）は無視
+    // 書き込み失敗は報告・承認の本処理に影響させない
   }
 }
 

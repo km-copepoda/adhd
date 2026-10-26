@@ -29,16 +29,17 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() は JWT の署名を検証する（非対称鍵ならローカル検証で Auth への往復なし、
+  // HS256 なら内部で getUser() にフォールバック）。期限切れ時のトークン更新も行う。
+  // 壊れた JWT クッキーなどでは error を返さず例外を投げるため、それも未認証として扱う
+  // （ここで例外が出るとページ全体が 500 になる）
+  const { data, error } = await supabase.auth
+    .getClaims()
+    .catch(() => ({ data: null, error: true as const }));
+  const claims = error ? null : (data?.claims ?? null);
+  const user = claims?.sub ? claims : null;
 
   const pathname = request.nextUrl.pathname;
-
-  // Skip auth check for API routes
-  if (pathname.startsWith("/api/")) {
-    return supabaseResponse;
-  }
 
   // Determine role from Supabase user:
   // - Anonymous users (signInAnonymously) → CHILD
