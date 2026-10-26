@@ -2,13 +2,15 @@
  * クエスト状態遷移 E2E（s32 / s33）の共通ヘルパー（Issue #222）。
  * - 差分アサーション: スナップショット（monsterSnapshot.ts）の前後比較
  * - UI 操作: 子・親の画面操作。waitForResponse で API が 2xx を返したことも確認する（#190 で誤って緑にならないように）
- * - 子の XP は共有の家族のため「前後の差分」で検証する。LIFE カテゴリ（seedQuestInStatus の既定）前提。
+ * - 共有の QA_child の XP を動かすと他の spec（s11 の育成画面など）が壊れるため、使い捨ての家族（#240）で実行する。
+ *   同じ spec 内では前のテストの XP が残るので「前後の差分」で検証する。LIFE カテゴリ（seedQuestInStatus の既定）前提。
  */
 import { expect } from "@playwright/test";
-import type { Browser, Locator, Page } from "@playwright/test";
-import { createBrowserContext } from "../credentials";
+import type { Browser, BrowserContext, Locator, Page } from "@playwright/test";
+import { setupBypassRoute } from "../credentials";
 import { approveQuest, callApi, getTodayQuestByTitle, type QuestStatus, type Sessions } from "./testData";
-import { CHILD_AUTH, gotoApproveCard } from "./photoReportUi";
+import { gotoApproveCard } from "./photoReportUi";
+import { createDisposableFamily, type DisposableFamily } from "./disposableFamily";
 import { ensureXpHeadroom } from "./photoXp";
 import { getMonsterSnapshot, type MonsterSnapshot } from "./monsterSnapshot";
 
@@ -172,7 +174,7 @@ export async function childRejectionReason(s: Sessions, title: string): Promise<
   return q.rejectionReason ?? null;
 }
 
-/** 承認待ちを API で空にする（「まとめて承認」は承認待ち全件を処理するため、他 spec の残りを先に片付ける） */
+/** 承認待ちを API で空にする（「まとめて承認」は承認待ち全件を処理するため、同じ spec の前のテストの残りを先に片付ける） */
 export async function drainPending(s: Sessions) {
   const items = await callApi<{ kind: "quest" | "treasure_use"; id: string }[]>(
     s.parentReq,
@@ -186,12 +188,33 @@ export async function drainPending(s: Sessions) {
   }
 }
 
-/** 子の別ブラウザコンテキストでページを開き、fn の後に必ず閉じる */
-export async function withChildPage(browser: Browser, fn: (childPage: Page) => Promise<void>) {
-  const { context, page } = await createBrowserContext(browser, CHILD_AUTH, { bypass: "route" });
+// ---------- 使い捨ての家族（#240） ----------
+
+/** PREMIUM の使い捨て家族を作り、s32 / s33 の Sessions として返す。s.dispose() で家族ごと削除する */
+export async function openFamilySessions(browser: Browser): Promise<{ s: Sessions; family: DisposableFamily }> {
+  const family = await createDisposableFamily(browser, { premium: true });
+  const s: Sessions = {
+    parentReq: family.parent.request,
+    childReq: family.child.request,
+    childId: family.childId,
+    dispose: family.disposeFamily,
+  };
+  return { s, family };
+}
+
+/** 使い捨て家族の親のページを開く（createDisposableFamily の context には bypass の route が張られていない） */
+export async function newParentPage(family: DisposableFamily): Promise<Page> {
+  const page = await family.parent.context.newPage();
+  await setupBypassRoute(page);
+  return page;
+}
+
+/** 子のブラウザコンテキストでページを開き、fn の後に必ず閉じる */
+export async function withChildPage(childContext: BrowserContext, fn: (childPage: Page) => Promise<void>) {
+  const page = await childContext.newPage();
   try {
     await fn(page);
   } finally {
-    await context.close();
+    await page.close();
   }
 }

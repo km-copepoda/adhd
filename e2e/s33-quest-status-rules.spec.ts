@@ -1,6 +1,7 @@
 /**
  * S33: クエストのステータス遷移ルール（HTTP レベル。UI は使わない）（Issue #222）
- * 前提: as-parent-premium プロジェクトで実行（親と子の APIRequestContext だけを使う）
+ * 前提: as-parent-premium プロジェクトで実行（親と子の APIRequestContext だけを使う）。
+ *   共有の QA アカウントは使わず、使い捨ての家族（#240）で実行する（共有の QA_child の XP を動かさないため）。
  *
  * 許可されていない遷移は 4xx で拒否され、クエストの状態と子の XP が変わらないことを確認する。
  * 各ケースで (1) ステータスコード (2) 操作後のクエストの状態（子の GET /api/quests/today）
@@ -15,7 +16,6 @@
 import { test, expect } from "./fixtures";
 import {
   approveQuest,
-  openSessions,
   seedQuestInStatus,
   type QuestStatus,
   type Sessions,
@@ -28,14 +28,16 @@ import {
   childStatus,
   expectApprovedDelta,
   expectPtUnchanged,
+  openFamilySessions,
 } from "./helpers/questFlow";
 
 const NOT_FOUND_ID = "00000000-0000-4000-8000-000000000000";
 
 let s: Sessions;
 
-test.beforeAll(async () => {
-  s = await openSessions();
+test.beforeAll(async ({ browser }) => {
+  test.setTimeout(120_000);
+  ({ s } = await openFamilySessions(browser));
 });
 test.afterAll(async () => {
   await s?.dispose();

@@ -1,8 +1,9 @@
 /**
  * S32: クエストのステータス遷移フロー（子と親をまたぐ UI の通しフロー）（Issue #222）
- * 前提: as-parent-premium プロジェクト（親は page、子は別ブラウザコンテキスト）で実行
+ * 前提: as-parent-premium プロジェクトで実行。共有の QA アカウントは使わず、使い捨ての家族（#240）の親・子で操作する
+ *   （共有の QA_child の XP を動かすと s11 の育成画面などが壊れるため）。
  *
- * 対象の子は QA_child（child-light.json）。XP・ストリークは共有の家族のため「前後の差分」で検証する。
+ * XP・ストリークは同じ spec の前のテストの分が残るため「前後の差分」で検証する。
  * - 承認のたびに直前で ensureXpHeadroom を呼び、進化（pt リセット）が起きない状態にしておく。
  *   承認後に evolutionStage が変わっていたら fail（「進化したら検証しない」という分岐は作らない）。
  * - 期限ボーナスなし（reportDeadlineTime=null）・写真なし・宣言なしの前提で XP は 1。
@@ -10,13 +11,13 @@
  * - 画面操作は waitForResponse で API が 2xx を返したことも確認する（#190 で誤って緑にならないように）。
  * - ストリークの「今日」はサーバ応答（タスクの targetDate）と比べる。クライアントで日付を計算しない。
  */
+import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { REJECTION_REASONS } from "../src/lib/categories";
 import {
   approveQuest,
   createTodayTask,
   getTodayQuestByTitle,
-  openSessions,
   reportQuest,
   seedQuestInStatus,
   type Sessions,
@@ -25,6 +26,7 @@ import { ensureXpHeadroom, setReportDeadline } from "./helpers/photoXp";
 import { gotoApproveCard } from "./helpers/photoReportUi";
 import { readQuestStatus } from "./helpers/authzAssert";
 import { getMonsterSnapshot } from "./helpers/monsterSnapshot";
+import type { DisposableFamily } from "./helpers/disposableFamily";
 import {
   PREMISE_MESSAGE,
   approveAndExpectDelta,
@@ -39,6 +41,8 @@ import {
   expectPendingUnchanged,
   expectPtUnchanged,
   gotoChildQuests,
+  newParentPage,
+  openFamilySessions,
   rejectViaParentUi,
   reportViaChildUi,
   skipViaChildUi,
@@ -50,24 +54,31 @@ const REASON = REJECTION_REASONS.LIFE[0];
 const SEED_REJECTION_REASON = "もう一度やってみよう"; // seedQuestInStatus("REJECTED") が付ける固定の理由
 
 let s: Sessions;
+let family: DisposableFamily;
+let page: Page;
 
 test.describe.configure({ timeout: 180_000 });
 
-test.beforeAll(async () => {
-  s = await openSessions();
+test.beforeAll(async ({ browser }) => {
+  test.setTimeout(120_000);
+  ({ s, family } = await openFamilySessions(browser));
 });
 test.afterAll(async () => {
   await s?.dispose();
 });
 test.beforeEach(async () => {
+  page = await newParentPage(family);
   await setReportDeadline(s.parentReq, s.childId, null);
   await ensureXpHeadroom(s.parentReq, s.childReq, s.childId);
+});
+test.afterEach(async () => {
+  await page?.close();
 });
 
 // ---------- A. UI の通しフロー ----------
 
 test.describe("S32-A: UI の通しフロー", () => {
-  test("差し戻し → 理由表示 → 再報告 → 承認（T4 → T5 → T3）", async ({ page, browser }) => {
+  test("差し戻し → 理由表示 → 再報告 → 承認（T4 → T5 → T3）", async () => {
     const { title, questId } = await seedQuestInStatus(s, "REPORTED", { tag: "s32a1" });
     const beforeReject = await getMonsterSnapshot(s.childReq);
 
@@ -75,7 +86,7 @@ test.describe("S32-A: UI の通しフロー", () => {
     expectPtUnchanged(beforeReject, await getMonsterSnapshot(s.childReq), "差し戻しの前後");
     expect(await childStatus(s, title)).toBe("REJECTED");
 
-    await withChildPage(browser, async (childPage) => {
+    await withChildPage(family.child.context, async (childPage) => {
     await gotoChildQuests(childPage);
     const card = childCard(childPage, title);
     await expect(card).toBeVisible({ timeout: 15000 });
@@ -92,10 +103,7 @@ test.describe("S32-A: UI の通しフロー", () => {
     expect(await childStatus(s, title)).toBe("APPROVED");
   });
 
-  test("差し戻し（「その他」＋前後に空白のある自由入力）→ 子の画面に trim されたコメントが出る", async ({
-    page,
-    browser,
-  }) => {
+  test("差し戻し（「その他」＋前後に空白のある自由入力）→ 子の画面に trim されたコメントが出る", async () => {
     const { title, questId } = await seedQuestInStatus(s, "REPORTED", { tag: "s32a2" });
     const comment = `E2E理由${Date.now()}`;
 
@@ -103,7 +111,7 @@ test.describe("S32-A: UI の通しフロー", () => {
     // 保存された理由は trim 済み（画面の空白は正規化されるため API でも確認する）
     expect(await childRejectionReason(s, title)).toBe(comment);
 
-    await withChildPage(browser, async (childPage) => {
+    await withChildPage(family.child.context, async (childPage) => {
     await gotoChildQuests(childPage);
     const card = childCard(childPage, title);
     await expect(card).toBeVisible({ timeout: 15000 });
@@ -111,14 +119,11 @@ test.describe("S32-A: UI の通しフロー", () => {
     });
   });
 
-  test("差し戻し → スキップ申請（T4 → T6）: 理由の表示が消え、親にスキップ申請として出る", async ({
-    page,
-    browser,
-  }) => {
+  test("差し戻し → スキップ申請（T4 → T6）: 理由の表示が消え、親にスキップ申請として出る", async () => {
     const { title, questId } = await seedQuestInStatus(s, "REJECTED", { tag: "s32a3" });
     expect(await childRejectionReason(s, title)).toBe(SEED_REJECTION_REASON);
 
-    await withChildPage(browser, async (childPage) => {
+    await withChildPage(family.child.context, async (childPage) => {
     await gotoChildQuests(childPage);
     const card = childCard(childPage, title);
     await expect(card).toBeVisible({ timeout: 15000 });
@@ -139,10 +144,7 @@ test.describe("S32-A: UI の通しフロー", () => {
     await expect(approveCard, "スキップ申請は赤系のカード").toHaveClass(/border-red-400/);
   });
 
-  test("スキップ却下で PENDING に戻る（T8）: 報告とスキップの両方が選べて XP は変わらない", async ({
-    page,
-    browser,
-  }) => {
+  test("スキップ却下で PENDING に戻る（T8）: 報告とスキップの両方が選べて XP は変わらない", async () => {
     const { title, questId } = await seedQuestInStatus(s, "SKIP_REPORTED", { tag: "s32a4" });
     const before = await getMonsterSnapshot(s.childReq);
 
@@ -152,7 +154,7 @@ test.describe("S32-A: UI の通しフロー", () => {
     expectPtUnchanged(before, after, "スキップ却下の前後");
     expectPendingUnchanged(before, after, "スキップ却下の前後");
 
-    await withChildPage(browser, async (childPage) => {
+    await withChildPage(family.child.context, async (childPage) => {
     await gotoChildQuests(childPage);
     const card = childCard(childPage, title);
     await expect(card).toBeVisible({ timeout: 15000 });
@@ -163,12 +165,12 @@ test.describe("S32-A: UI の通しフロー", () => {
     });
   });
 
-  test("スキップ却下のあと再報告して承認できる（T8 → T1 → T3）", async ({ page, browser }) => {
+  test("スキップ却下のあと再報告して承認できる（T8 → T1 → T3）", async () => {
     const { title, questId } = await seedQuestInStatus(s, "SKIP_REPORTED", { tag: "s32a5" });
     await approveQuest(s.parentReq, questId, { action: "reject" });
     expect(await childStatus(s, title)).toBe("PENDING");
 
-    await withChildPage(browser, async (childPage) => {
+    await withChildPage(family.child.context, async (childPage) => {
     await gotoChildQuests(childPage);
     await expect(childCard(childPage, title)).toBeVisible({ timeout: 15000 });
     await reportViaChildUi(childPage, title, questId);
@@ -179,8 +181,8 @@ test.describe("S32-A: UI の通しフロー", () => {
     expect(await childStatus(s, title)).toBe("APPROVED");
   });
 
-  test("まとめて承認: 報告2件とスキップ申請1件が処理され、XP は報告2件分だけ増える", async ({ page }) => {
-    // 「まとめて承認」はその時点の承認待ち全件を処理するため、他 spec の残りを先に片付けて XP を確定的にする
+  test("まとめて承認: 報告2件とスキップ申請1件が処理され、XP は報告2件分だけ増える", async () => {
+    // 「まとめて承認」はその時点の承認待ち全件を処理するため、前のテストの残りを先に片付けて XP を確定的にする
     await drainPending(s);
     await ensureXpHeadroom(s.parentReq, s.childReq, s.childId);
 
@@ -209,10 +211,10 @@ test.describe("S32-A: UI の通しフロー", () => {
     expectApprovedDelta(before, await getMonsterSnapshot(s.childReq), 2, "まとめて承認（報告2件）");
   });
 
-  test("承認後の子の画面: 完了表示になり、タップしても報告シートが開かない", async ({ browser }) => {
+  test("承認後の子の画面: 完了表示になり、タップしても報告シートが開かない", async () => {
     const { title } = await seedQuestInStatus(s, "APPROVED", { tag: "s32a7" });
 
-    await withChildPage(browser, async (childPage) => {
+    await withChildPage(family.child.context, async (childPage) => {
     await gotoChildQuests(childPage);
     const card = childCard(childPage, title);
     await expect(card).toBeVisible({ timeout: 15000 });

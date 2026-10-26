@@ -39,7 +39,7 @@ export type ChildMember = {
 export type Sessions = {
   parentReq: APIRequestContext;
   childReq: APIRequestContext;
-  /** child-light.json のセッションに対応する子（qa-credentials.json の childIdLight） */
+  /** childReq のセッションに対応する子（openSessions では qa-credentials.json の childIdLight） */
   childId: string;
   dispose: () => Promise<void>;
 };
