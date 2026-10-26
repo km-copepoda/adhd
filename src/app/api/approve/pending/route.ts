@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
@@ -12,23 +12,33 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
-  // carryOver を後から ON にした際の stale REPORTED/PENDING を遅延クリーンアップ
-  const children = await prisma.user.findMany({
-    where: { familyId: user.familyId, role: "CHILD" },
-    select: { id: true },
+  // carryOver を後から ON にした際の stale REPORTED/PENDING を遅延クリーンアップ。
+  // 読み取り API の応答を数秒ブロックしていたため after() に移した（結果は次回のポーリングで反映）
+  const familyId = user.familyId;
+  after(async () => {
+    try {
+      const children = await prisma.user.findMany({
+        where: { familyId, role: "CHILD" },
+        select: { id: true },
+      });
+      await Promise.all(
+        children.map(async (child) => {
+          const carryOverTemplates = await prisma.taskTemplate.findMany({
+            where: {
+              familyId,
+              assignedChildId: child.id,
+              isActive: true,
+              carryOver: true,
+            },
+            select: { id: true, carryOver: true },
+          });
+          await cleanupStaleCarryOverInstances({ childId: child.id, templates: carryOverTemplates });
+        }),
+      );
+    } catch (err) {
+      rlog.error("Stale carryOver cleanup failed", { familyId, err });
+    }
   });
-  for (const child of children) {
-    const carryOverTemplates = await prisma.taskTemplate.findMany({
-      where: {
-        familyId: user.familyId,
-        assignedChildId: child.id,
-        isActive: true,
-        carryOver: true,
-      },
-      select: { id: true, carryOver: true },
-    });
-    await cleanupStaleCarryOverInstances({ childId: child.id, templates: carryOverTemplates });
-  }
 
   const quests = await prisma.questInstance.findMany({
     where: {

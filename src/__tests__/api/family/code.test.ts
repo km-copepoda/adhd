@@ -101,7 +101,6 @@ describe("GET /api/family/code", () => {
       evolutionPath: "",
       rebirthEggBonus: null,
       rebirthPending: false,
-      childCode: null,
       minTasksForStreak: 1,
       reportDeadlineTime: null,
       checkinDeadlineTime: null,
@@ -116,7 +115,10 @@ describe("GET /api/family/code", () => {
       lastLoginDate: null,
       ownedThemes: ["dark", "light"],
     });
-    expect(json.members[1].childCode).toBe("1234");
+    // ユーザーコードは廃止（親にも返さない）
+    expect(json.members[0]).not.toHaveProperty("childCode");
+    expect(json.members[1]).not.toHaveProperty("childCode");
+    expect(JSON.stringify(json)).not.toContain("1234");
   });
 
   it("子供メンバーのXPフィールドを返すこと", async () => {
@@ -297,6 +299,38 @@ describe("GET /api/family/code", () => {
     });
   });
 
+  describe("CHILDロールへの出力制限（#184）", () => {
+    const rows = () => [
+      legacyMemberRow({ id: "child-1", name: "A", role: "CHILD", monsterName: "m1", side: "DARK", childCode: "1111" }),
+      legacyMemberRow({ id: "child-2", name: "B", role: "CHILD", monsterName: "m2", side: "LIGHT", childCode: "2222" }),
+      legacyMemberRow({ id: "parent-1", name: "P", role: "PARENT", monsterName: null, side: null, childCode: null }),
+    ];
+
+    it("CHILDには家族コードを返さず、自分以外のメンバー（兄弟のchildCode）も含めないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(childUserWithFamily({ id: "child-1", familyId: "fam-1" }));
+      mockFamilyFindUnique({ ...family(), users: rows() } as unknown as FamilyWithUsersAndStreak);
+      const res = await GET();
+      const json = await res.json();
+      expect(json.code).toBeNull();
+      expect(json.members.map((m: { id: string }) => m.id)).toEqual(["child-1"]);
+      const text = JSON.stringify(json);
+      expect(text).not.toContain("2222");
+      expect(text).not.toContain(family().code);
+    });
+
+    it("PARENTには家族コードと全メンバーを返すが、childCode は返さないこと", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: "fam-1" }));
+      mockFamilyFindUnique({ ...family(), users: rows() } as unknown as FamilyWithUsersAndStreak);
+      const json = await (await GET()).json();
+      expect(json.code).toBe(family().code);
+      expect(json.members.map((m: { id: string }) => m.id)).toEqual(["child-1", "child-2", "parent-1"]);
+      for (const m of json.members) expect(m).not.toHaveProperty("childCode");
+      const text = JSON.stringify(json);
+      expect(text).not.toContain("1111");
+      expect(text).not.toContain("2222");
+    });
+  });
+
   it("エラー時に500を返すこと", async () => {
     mockGetCurrentUser.mockRejectedValue(new Error("DB connection failed"));
     const res = await GET();
@@ -331,6 +365,47 @@ describe("POST /api/family/code", () => {
       where: { id: "fam-1" },
       data: { code: expect.any(String) },
     });
+  });
+
+  it("再生成でコードが重複(P2002)した場合、リトライして成功すること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update
+      .mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }))
+      .mockResolvedValueOnce(family({ code: "RETRY2" }));
+
+    const res = await POST();
+    expect(res.status).toBe(200);
+    expect((await res.json()).code).toBe("RETRY2");
+    expect(mockPrisma.family.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("新規作成でもコード重複時にリトライすること", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily({ familyId: null }, null));
+    mockPrisma.family.create
+      .mockRejectedValueOnce(Object.assign(new Error("unique"), { code: "P2002" }))
+      .mockResolvedValueOnce(family({ code: "RETRY3" }));
+
+    const res = await POST();
+    expect((await res.json()).code).toBe("RETRY3");
+    expect(mockPrisma.family.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("重複が上限回数続いた場合、500を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update.mockRejectedValue(Object.assign(new Error("unique"), { code: "P2002" }));
+
+    const res = await POST();
+    expect(res.status).toBe(500);
+    expect(mockPrisma.family.update).toHaveBeenCalledTimes(5);
+  });
+
+  it("P2002 以外のエラーはリトライせず500を返すこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.family.update.mockRejectedValue(new Error("db down"));
+
+    const res = await POST();
+    expect(res.status).toBe(500);
+    expect(mockPrisma.family.update).toHaveBeenCalledTimes(1);
   });
 
   it("ファミリーがない場合、新規作成すること", async () => {

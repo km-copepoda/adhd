@@ -10,6 +10,14 @@ function urlBase64ToUint8Array(base64String: string) {
 
 const VAPID_KEY_STORAGE = "vapid_pub_key";
 
+async function postSubscription(sub: PushSubscription) {
+  return fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub),
+  });
+}
+
 async function registerSubscription() {
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidKey) return;
@@ -22,20 +30,23 @@ async function registerSubscription() {
     await existing.unsubscribe();
   }
 
-  const sub =
-    (storedKey === vapidKey ? existing : null) ??
-    (await reg.pushManager.subscribe({
+  const subscribe = () =>
+    reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(vapidKey),
-    }));
+    });
+
+  const current = (storedKey === vapidKey ? existing : null) ?? (await subscribe());
 
   localStorage.setItem(VAPID_KEY_STORAGE, vapidKey);
 
-  await fetch("/api/push/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(sub),
-  });
+  const res = await postSubscription(current);
+  // 別アカウントが所有する購読が同じブラウザに残っている場合（アカウント切替）は、
+  // 購読を破棄して新規作成し直す
+  if (res.status === 409) {
+    await current.unsubscribe();
+    await postSubscription(await subscribe());
+  }
 }
 
 export default function PushSubscriber({

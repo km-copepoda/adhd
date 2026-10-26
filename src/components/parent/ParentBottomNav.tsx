@@ -30,6 +30,9 @@ export default function ParentBottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
+              // 起動時に全ページを先読みすると、ミドルウェアの認証（トークン更新）が並列に衝突して
+              // 白画面・ログイン画面への誤リダイレクトを招くため prefetch しない
+              prefetch={false}
               className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg transition-colors ${
                 isActive ? "text-quest-gold" : hasBadge ? "text-orange-400 hover:text-orange-300" : "text-quest-dim hover:text-quest-text"
               }`}

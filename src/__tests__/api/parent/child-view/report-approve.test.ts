@@ -29,6 +29,7 @@ function asPrismaPromise<T>(value: T): Prisma.PrismaPromise<T> {
 vi.mock("@/lib/approve", () => ({
   approveQuestInstance: vi.fn(),
   approveSkipQuestInstance: vi.fn(),
+  transitionQuestStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/bulletinLog", () => ({
@@ -41,6 +42,7 @@ vi.mock("@/lib/treasureService", () => ({
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockApprove = vi.mocked(approveModule.approveQuestInstance);
+const mockTransition = vi.mocked(approveModule.transitionQuestStatus);
 const mockAfter = vi.mocked(after);
 const mockTriggerTaskProgressLog = vi.mocked(triggerTaskProgressLog);
 const mockGenerateProxyTreasure = vi.mocked(generateProxyTreasure);
@@ -54,6 +56,8 @@ function makeReq(body: Record<string, unknown>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTransition.mockResolvedValue(true);
+  mockApprove.mockResolvedValue(true);
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-03-12T09:00:00Z")); // JST 18:00
   // 既定では「today のクエストは無い」状態に。AUTO 宝箱生成は minTasks=1 達成しないため発火しない。
@@ -129,19 +133,31 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
     );
     expect(res.status).toBe(200);
 
-    // REPORTED 経由ではなく、まず report フィールドだけ更新してから approveQuestInstance を呼ぶ
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: expect.objectContaining({
-        comment: "代理報告",
-        reportedAt: expect.any(Date),
-      }),
-    });
-    // approveQuestInstance がスタンプ込みで呼ばれる
+    // Codex P1: 報告フィールドは status 遷移（claim）と同一の更新に含め、勝者だけが書く
+    expect(mockTransition).not.toHaveBeenCalled();
     expect(mockApprove).toHaveBeenCalledWith(
       expect.objectContaining({ id: "q1", childId: "child-1" }),
       "🎉",
+      {
+        fromStatuses: ["PENDING", "REJECTED", "REPORTED"],
+        extraData: expect.objectContaining({
+          comment: "代理報告",
+          reportedAt: expect.any(Date),
+          rejectionReason: null,
+        }),
+      },
     );
+  });
+
+  it("approveQuestInstance が false（レース負け）なら 400 を返す（#183）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1" }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({ id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-12T00:00:00Z") }),
+    );
+    mockApprove.mockResolvedValue(false);
+    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+    expect(res.status).toBe(400);
   });
 
   it("既に APPROVED 済みのクエストは 400 を返す（二重承認防止）", async () => {
@@ -205,10 +221,9 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
-      data: expect.objectContaining({ deadlineBonusEarned: true }),
-    });
+    expect(mockApprove.mock.calls[0][2]?.extraData).toEqual(
+      expect.objectContaining({ deadlineBonusEarned: true }),
+    );
   });
 
   it("REJECTED 再報告: deadlineBonusEarned は変更しない（既存値保持）", async () => {
@@ -229,8 +244,8 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
 
     await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
 
-    const updateCall = mockPrisma.questInstance.update.mock.calls[0][0];
-    expect(updateCall.data).not.toHaveProperty("deadlineBonusEarned");
+    const updateData = mockApprove.mock.calls[0][2]?.extraData;
+    expect(updateData).not.toHaveProperty("deadlineBonusEarned");
   });
 
   it("掲示板の TASK_* 進捗ログを after() 経由で発火する（子供本人の報告と同等の社会的フィードバックを保つ）", async () => {
@@ -335,6 +350,7 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       const callOrder: string[] = [];
       mockApprove.mockImplementation(async () => {
         callOrder.push("approve");
+        return true;
       });
       mockPrisma.questInstance.findMany.mockImplementation(() => {
         callOrder.push("findMany");
@@ -459,5 +475,75 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
         });
       });
     });
+  });
+});
+
+describe("POST report-approve photoUrl 検証 (#218)", () => {
+  const SUPA = "https://abc.supabase.co";
+  const own = `${SUPA}/storage/v1/object/public/quest-photos/child-1/q1_1700000000000.webp`;
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPA);
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(childUser({ id: "child-1", reportDeadlineTime: null }));
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("他の子どものパスの photoUrl は 400 で、quest 更新も承認もしない", async () => {
+    const res = await POST(
+      makeReq({
+        childId: "child-1",
+        photoUrl: `${SUPA}/storage/v1/object/public/quest-photos/child-2/q1_1.webp`,
+      }),
+      makeParams("q1"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+
+  it("外部 URL の photoUrl は 400 で、quest 更新も承認もしない", async () => {
+    const res = await POST(
+      makeReq({ childId: "child-1", photoUrl: "https://evil.example.com/a.jpg" }),
+      makeParams("q1"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+    expect(mockApprove).not.toHaveBeenCalled();
+  });
+
+  it("文字列以外の photoUrl は 400", async () => {
+    const res = await POST(makeReq({ childId: "child-1", photoUrl: 123 }), makeParams("q1"));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("自分のパスの photoUrl は従来どおり成功し保存される", async () => {
+    const res = await POST(makeReq({ childId: "child-1", photoUrl: own }), makeParams("q1"));
+    expect(res.status).toBe(200);
+    // 報告欄は承認の status 遷移と同じ更新（extraData）で保存される（#183）
+    expect(mockApprove).toHaveBeenCalledWith(
+      expect.anything(),
+      undefined,
+      expect.objectContaining({ extraData: expect.objectContaining({ photoUrl: own }) }),
+    );
+  });
+
+  it("photoUrl なしは従来どおり成功する", async () => {
+    const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+    expect(res.status).toBe(200);
+    expect(mockApprove).toHaveBeenCalled();
   });
 });

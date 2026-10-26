@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isBeforeDeadline } from "@/lib/date";
+import type { QuestStatus } from "@/generated/prisma/client";
 import { approveQuestInstance } from "@/lib/approve";
 import { resolveTargetChild } from "@/lib/parentChildView";
 import { triggerTaskProgressLog } from "@/lib/bulletinLog";
@@ -9,6 +10,7 @@ import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
 import { resolveTreasureDate } from "@/lib/treasureDate";
+import { isAllowedQuestPhotoUrl } from "@/lib/questPhotoUrl";
 
 export async function POST(
   request: Request,
@@ -39,6 +41,17 @@ export async function POST(
     return NextResponse.json({ error: "クエストが見つかりません" }, { status: 404 });
   }
 
+  // 写真 URL は対象の子どものフォルダ配下の quest-photos 公開 URL のみ許可
+  if (
+    photoUrl !== null &&
+    photoUrl !== undefined &&
+    photoUrl !== "" &&
+    (typeof photoUrl !== "string" ||
+      !isAllowedQuestPhotoUrl(photoUrl, quest.childId, process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""))
+  ) {
+    return NextResponse.json({ error: "写真のURLが不正です" }, { status: 400 });
+  }
+
   // 親の代理操作で許可するステータス: PENDING（未報告）/ REJECTED（差し戻し後）/ REPORTED（子供報告済み）
   // 既に APPROVED / SKIPPED / SKIP_REPORTED は対象外（不正な遷移）
   if (
@@ -60,19 +73,18 @@ export async function POST(
       : false;
   }
 
-  // まず報告フィールドを書き込む（コメント・写真・reportedAt）
-  await prisma.questInstance.update({
-    where: { id },
-    data: {
-      comment: comment ?? null,
-      photoUrl: photoUrl ?? quest.photoUrl,
-      reportedAt: quest.reportedAt ?? now,
-      rejectionReason: null,
-      ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
-    },
-  });
+  // 報告フィールド（コメント・写真・reportedAt）は approveQuestInstance の status 遷移（claim）と
+  // 同一の更新に含める。並行リクエストの敗者が先に書き込んで勝者の内容を上書きするのを防ぐ（#183）
+  const fromStatuses: QuestStatus[] = ["PENDING", "REJECTED", "REPORTED"];
+  const reportData = {
+    comment: comment ?? null,
+    photoUrl: photoUrl ?? quest.photoUrl,
+    reportedAt: quest.reportedAt ?? now,
+    rejectionReason: null,
+    ...(deadlineBonusEarned !== undefined ? { deadlineBonusEarned } : {}),
+  };
 
-  // 既に書き込み済みの値を反映した quest オブジェクトを approveQuestInstance に渡す
+  // 書き込み予定の値を反映した quest オブジェクトを approveQuestInstance に渡す
   // reportedAt も実際に DB へ書き込んだ値（既存値優先、なければ now）と揃える。
   // approveQuestInstance 内の resolveTreasureDate が quest.reportedAt を基準にするため。
   const updatedQuest = {
@@ -84,7 +96,13 @@ export async function POST(
   };
 
   // approveQuestInstance が status=APPROVED への更新・XP付与・進化・バッジ・掲示板ログ（EVOLVED/BADGE）を一気に処理する
-  await approveQuestInstance(updatedQuest, stamp ?? undefined);
+  const approved = await approveQuestInstance(updatedQuest, stamp ?? undefined, {
+    fromStatuses,
+    extraData: reportData,
+  });
+  if (!approved) {
+    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+  }
 
   // 親代理経路でも PROXY / ALL_COMPLETE 宝箱を即 UNLOCKED で生成する。
   // (2026-07-02) 全完了時に子セルフ経路と同じ ALL_COMPLETE ボーナスも出すように変更。
