@@ -11,6 +11,7 @@ vi.mock("@/lib/imageUtils", () => ({ compressImage: vi.fn() }));
 
 const QUEST: SheetQuest = {
   id: "q1",
+  childId: "child-1",
   status: "PENDING",
   declaredToday: false,
   template: { title: "テスト", emoji: "📚", category: "STUDY", photoBonus: false, taskStreaks: [] },

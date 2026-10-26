@@ -83,6 +83,7 @@ model User {
   taskStreaks            TaskStreak[]
   assignedTasks          TaskTemplate[]     @relation("AssignedTasks")
   pushSubscriptions      PushSubscription[]
+  childLoginCode         ChildLoginCode?
   badges                 UserBadge[]
   gatheringMember        GatheringMember?
   bulletinLogs           BulletinLog[]
@@ -151,7 +152,7 @@ model TaskTemplate {
   isActive          Boolean            @default(true)
   requestedDate     DateTime?          @db.Date
   familyId          String
-  family            Family             @relation(fields: [familyId], references: [id])
+  family            Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
   photoBonus        Boolean            @default(false)
   originalCreatedBy Role               @default(PARENT)
   carryOver         Boolean            @default(false)
@@ -191,7 +192,7 @@ model QuestInstance {
   templateId          String
   template            TaskTemplate @relation(fields: [templateId], references: [id])
   childId             String
-  child               User         @relation(fields: [childId], references: [id])
+  child               User         @relation(fields: [childId], references: [id], onDelete: Cascade)
   reportedAt          DateTime?
   approvedAt          DateTime?
   createdAt           DateTime     @default(now())
@@ -205,7 +206,7 @@ model QuestInstance {
 model Streak {
   id                    String    @id @default(cuid())
   childId               String    @unique
-  child                 User      @relation(fields: [childId], references: [id])
+  child                 User      @relation(fields: [childId], references: [id], onDelete: Cascade)
   currentStreak         Int       @default(0)
   bestStreak            Int       @default(0)
   lastAchievedDate      DateTime? @db.Date
@@ -240,7 +241,7 @@ model TaskStreak {
   taskId           String
   task             TaskTemplate @relation(fields: [taskId], references: [id])
   childId          String
-  child            User         @relation(fields: [childId], references: [id])
+  child            User         @relation(fields: [childId], references: [id], onDelete: Cascade)
   currentStreak    Int          @default(0)
   bestStreak       Int          @default(0)
   lastAchievedDate DateTime?    @db.Date
@@ -400,6 +401,10 @@ model TreasureLog {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
+  // NOTE (#187): DB には (childId, date, STREAK/PROXY と ALL_COMPLETE のバケット) WHERE status <> 'CANCELLED' の
+  // 部分ユニークインデックス "TreasureLog_childId_date_trigger_active_key" がある。
+  // Prisma schema では WHERE 付きインデックスを表現できないため raw SQL マイグレーション
+  // (20261022000001_treasure_log_unique_active で作成、20261022000002_treasure_log_unique_active_bucket でバケット化) でのみ管理している。
   @@index([childId, status])
   @@index([childId, date])
   @@index([childId, useStatus])
@@ -467,4 +472,37 @@ model BulletinLog {
 
   @@unique([groupId, childId, type, date, key])
   @@index([groupId, createdAt])
+}
+
+/// 子供の再参加（child-rejoin）の失敗回数ロック。#184
+/// key は "user:<supabaseUserId>" または "ip:<sha256(IP)>"。
+/// サーバレスでもインスタンス間で共有できるよう DB に保持する。
+model ChildRejoinAttempt {
+  key         String    @id
+  failCount   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// 子どものログインコード（親が発行するワンタイム・8文字・10分）。#184
+/// 平文は保存せず sha256 のみ。子ども1人につき有効なコードは1つ。
+model ChildLoginCode {
+  childId   String   @id
+  codeHash  String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  child     User     @relation(fields: [childId], references: [id], onDelete: Cascade)
+}
+
+/// アカウント削除後の外部削除（Supabase Auth・Storage）の未完了分。削除トランザクション内で作成し、成功したら消す（#235）
+model AccountCleanupJob {
+  id        String   @id @default(cuid())
+  /// ExternalCleanup（supabaseIds / childIds / photoPaths / familyId?）の未完了分
+  payload   Json
+  attempts  Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

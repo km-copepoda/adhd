@@ -10,10 +10,12 @@ import { fireCompletionConfetti } from "@/lib/confetti";
 import QuestActionSuccess from "@/components/questAction/QuestActionSuccess";
 import QuestPhotoUpload from "@/components/questAction/QuestPhotoUpload";
 import QuestSkipFooter from "@/components/questAction/QuestSkipFooter";
+import { buildQuestPhotoPath } from "@/lib/questPhotoUrl";
 import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
   id: string;
+  childId: string;
   status: QuestStatus;
   declaredToday?: boolean;
   template: {
@@ -96,7 +98,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
     const supabase = createClient();
     const compressed = await compressImage(photoFile);
     const ext = compressed.type === "image/webp" ? "webp" : "jpg";
-    const path = `${quest.id}_${Date.now()}.${ext}`;
+    const path = buildQuestPhotoPath(quest.childId, quest.id, new Date(), ext);
     const { error } = await supabase.storage.from("quest-photos").upload(path, compressed, {
       contentType: compressed.type,
     });

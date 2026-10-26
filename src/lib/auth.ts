@@ -1,43 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { generateFamilyCode } from "@/lib/categories";
-import { log } from "@/lib/logger";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
-  if (!user) return null;
+  // getSession はサーバーで JWT を検証しないため、認可には getClaims を使う。getClaims は署名を
+  // 検証し（非対称鍵ならローカル検証で Auth への往復なし、HS256 なら内部で getUser にフォールバック）、
+  // 期限切れ時のトークン更新も内部の getSession 経由で行う。
+  // 壊れた JWT クッキーなどでは error を返さず例外を投げるため、それも未認証として扱う
+  const { data, error } = await supabase.auth
+    .getClaims()
+    .catch(() => ({ data: null, error: true as const }));
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
 
-  const dbUser = await prisma.user.findUnique({
-    where: { supabaseId: user.id },
+  // DB に User が無い（退会済み・DB リセット後）場合は null。ここで自動再作成すると退会者が復活する
+  return prisma.user.findUnique({
+    where: { supabaseId: claims.sub },
     include: { family: true },
   });
-
-  // DB リセット後などで Supabase セッションは有効だが DB ユーザーが存在しない場合に再作成
-  if (!dbUser && user.email) {
-    log.warn("DB user missing, auto-recreating", { supabaseId: user.id });
-    await prisma.family.create({
-      data: {
-        code: generateFamilyCode(),
-        users: {
-          create: {
-            supabaseId: user.id,
-            role: "PARENT",
-            name: user.email.split("@")[0],
-          },
-        },
-      },
-    });
-    return prisma.user.findUnique({
-      where: { supabaseId: user.id },
-      include: { family: true },
-    });
-  }
-
-  return dbUser;
 }
 
 export type AuthUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { after } from "next/server";
 import { POST } from "@/app/api/quests/[id]/report/route";
 import { getCurrentUser } from "@/lib/auth";
@@ -81,7 +81,7 @@ describe("POST /api/quests/[id]/report", () => {
     expect(json.category).toBe("STUDY");
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
+      where: { id: "q1", status: "PENDING" },
       data: expect.objectContaining({
         status: "REPORTED",
         comment: "がんばった",
@@ -125,7 +125,7 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(json.xpAdded).toBe(2);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
+      where: { id: "q1", status: "PENDING" },
       data: expect.objectContaining({
         deadlineBonusEarned: true,
       }),
@@ -152,7 +152,7 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(json.xpAdded).toBe(1);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q1" },
+      where: { id: "q1", status: "PENDING" },
       data: expect.objectContaining({
         deadlineBonusEarned: false,
       }),
@@ -185,13 +185,22 @@ describe("POST /api/quests/[id]/report", () => {
     vi.useRealTimers();
   });
 
+  // #218: photoUrl は自分のフォルダ配下の quest-photos 公開 URL のみ許可される
+  const VALID_PHOTO_URL = "https://abc.supabase.co/storage/v1/object/public/quest-photos/child-1/q1_1700000000000.webp";
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("photoBonus=true かつ写真あり、xpAdded=2", async () => {
     mockGetCurrentUser.mockResolvedValue({ ...baseUser, reportDeadlineTime: null });
     const quest = { ...baseQuest, template: { ...baseQuest.template, photoBonus: true } };
     mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
     mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
-    const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
+    const photoUrl = VALID_PHOTO_URL;
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "", photoUrl }),
       makeParams("q1"),
@@ -213,7 +222,7 @@ describe("POST /api/quests/[id]/report", () => {
     vi.setSystemTime(new Date("2026-03-28T09:30:00Z")); // 18:30 JST (期限前)
     mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
-    const photoUrl = "https://example.com/storage/quest-photos/q1.jpg";
+    const photoUrl = VALID_PHOTO_URL;
     const res = await POST(
       makeRequest("/api/quests/q1/report", { comment: "", photoUrl }),
       makeParams("q1"),
@@ -231,7 +240,7 @@ describe("POST /api/quests/[id]/report", () => {
     mockPrisma.questInstance.update.mockResolvedValue(baseQuest);
 
     const res = await POST(
-      makeRequest("/api/quests/q1/report", { comment: "", photoUrl: "https://example.com/photo.jpg" }),
+      makeRequest("/api/quests/q1/report", { comment: "", photoUrl: VALID_PHOTO_URL }),
       makeParams("q1"),
     );
     const json = await res.json();
@@ -253,7 +262,7 @@ describe("POST /api/quests/[id]/report", () => {
 
     expect(json.ok).toBe(true);
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
-      where: { id: "q5" },
+      where: { id: "q5", status: "PENDING" },
       data: expect.objectContaining({
         status: "REPORTED",
         comment: "",
@@ -543,6 +552,145 @@ describe("POST /api/quests/[id]/report", () => {
         });
         vi.useRealTimers();
       });
+    });
+  });
+});
+
+describe("POST /api/quests/[id]/report: ステータス遷移の検証", () => {
+  const user = childUserWithFamily();
+  const questWith = (
+    status: "PENDING" | "REPORTED" | "APPROVED" | "REJECTED" | "SKIP_REPORTED" | "SKIPPED",
+  ) =>
+    questWithTemplate(
+      { id: "q1", childId: "child-1", status, date: new Date("2026-03-28T00:00:00.000Z") },
+      { category: "STUDY", photoBonus: false },
+    );
+
+  it.each(["REPORTED", "APPROVED", "SKIP_REPORTED", "SKIPPED"] as const)(
+    "%s のクエストは報告できず400を返し、更新も宝箱生成もしないこと",
+    async (status) => {
+      mockGetCurrentUser.mockResolvedValue(user);
+      mockPrisma.questInstance.findUnique.mockResolvedValue(questWith(status));
+
+      const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
+
+      expect(res.status).toBe(400);
+      expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+      expect(mockGenerateTreasures).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["PENDING", "REJECTED"] as const)("%s のクエストは報告できること", async (status) => {
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(questWith(status));
+    mockPrisma.questInstance.update.mockResolvedValue(questWith(status));
+
+    const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
+
+    expect(res.status).toBe(200);
+  });
+
+  it("更新条件は「このリクエストが読んだステータス」に限定すること（差し戻しを古い報告で上書きしない）", async () => {
+    // A が REJECTED を読んだ後に別の報告→再差し戻しが起きても、A の更新は読んだ時点の状態にだけ一致させる
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(questWith("REJECTED"));
+    mockPrisma.questInstance.update.mockResolvedValue(questWith("REJECTED"));
+
+    await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
+
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "q1", status: "REJECTED" } }),
+    );
+  });
+
+  it("検証後に別リクエストでステータスが変わり更新が空振り(P2025)した場合、400を返し宝箱を生成しないこと", async () => {
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(questWith("PENDING"));
+    mockPrisma.questInstance.update.mockRejectedValue(
+      Object.assign(new Error("Record to update not found."), { code: "P2025" }),
+    );
+
+    const res = await POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1"));
+
+    expect(res.status).toBe(400);
+    expect(mockGenerateTreasures).not.toHaveBeenCalled();
+  });
+
+  it("P2025以外のDBエラーは握りつぶさず再スローすること", async () => {
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(questWith("PENDING"));
+    mockPrisma.questInstance.update.mockRejectedValue(new Error("connection lost"));
+
+    await expect(
+      POST(makeRequest("/api/quests/q1/report", { comment: "" }), makeParams("q1")),
+    ).rejects.toThrow("connection lost");
+  });
+});
+
+describe("POST /api/quests/[id]/report photoUrl 検証 (#218)", () => {
+  const SUPA = "https://abc.supabase.co";
+  const own = `${SUPA}/storage/v1/object/public/quest-photos/child-1/q1_1700000000000.webp`;
+  const user = childUserWithFamily({ studyPt: 5, staminaPt: 3, lifePt: 1 });
+  const quest = questWithTemplate(
+    { id: "q1", childId: "child-1", status: "PENDING", date: new Date("2026-03-28T00:00:00.000Z") },
+    { category: "STUDY", photoBonus: true },
+  );
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPA);
+    mockGetCurrentUser.mockResolvedValue(user);
+    mockPrisma.questInstance.findUnique.mockResolvedValue(quest);
+    mockPrisma.questInstance.update.mockResolvedValue(quest);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const call = (photoUrl?: unknown) =>
+    POST(makeRequest("/api/quests/q1/report", { comment: "", photoUrl }), makeParams("q1"));
+
+  it("他の子どものパスの photoUrl は 400 で、quest を更新しない", async () => {
+    const res = await call(`${SUPA}/storage/v1/object/public/quest-photos/child-2/q1_1.webp`);
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("外部 URL の photoUrl は 400 で、quest を更新しない", async () => {
+    const res = await call("https://evil.example.com/a.jpg");
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("旧パス（フォルダなし）の photoUrl は 400", async () => {
+    const res = await call(`${SUPA}/storage/v1/object/public/quest-photos/q1_1.webp`);
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("文字列以外の photoUrl は 400", async () => {
+    const res = await call(123);
+    expect(res.status).toBe(400);
+    expect(mockPrisma.questInstance.update).not.toHaveBeenCalled();
+  });
+
+  it("自分のパスの photoUrl は従来どおり成功し保存される", async () => {
+    const res = await call(own);
+    expect(res.status).toBe(200);
+    expect(mockPrisma.questInstance.update).toHaveBeenCalledWith({
+      where: { id: "q1", status: "PENDING" },
+      data: expect.objectContaining({ photoUrl: own }),
+    });
+  });
+
+  it("photoUrl なし / null は従来どおり成功し null で保存される", async () => {
+    const res1 = await call(undefined);
+    expect(res1.status).toBe(200);
+    const res2 = await call(null);
+    expect(res2.status).toBe(200);
+    expect(mockPrisma.questInstance.update).toHaveBeenLastCalledWith({
+      where: { id: "q1", status: "PENDING" },
+      data: expect.objectContaining({ photoUrl: null }),
     });
   });
 });

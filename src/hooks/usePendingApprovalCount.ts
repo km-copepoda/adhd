@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { subscribeFamilyRealtime } from "@/lib/parentRealtime";
 import { onApprovalsUpdated } from "@/lib/approval-events";
 import {
   createPendingCountsStore,
@@ -28,14 +28,13 @@ function getStore(): Store {
       onActive: () => {
         const unsubApproval = onApprovalsUpdated(() => created.refreshNow());
 
-        const supabase = createClient();
         const refresh = () => created.refresh();
-        const channel = supabase
-          .channel("pending-counts")
-          .on("postgres_changes", { event: "*", schema: "public", table: "QuestInstance" }, refresh)
-          .on("postgres_changes", { event: "*", schema: "public", table: "TaskTemplate" }, refresh)
-          .on("postgres_changes", { event: "*", schema: "public", table: "TreasureLog" }, refresh)
-          .subscribe();
+        // 自分の家族の子供の行だけを購読する（全家庭の変更で再取得しない）
+        const unsubRealtime = subscribeFamilyRealtime(
+          "pending-counts",
+          ["QuestInstance", "TaskTemplate", "TreasureLog"],
+          refresh,
+        );
 
         const onVisible = () => {
           if (document.visibilityState === "visible") created.refresh();
@@ -44,7 +43,7 @@ function getStore(): Store {
 
         return () => {
           unsubApproval();
-          supabase.removeChannel(channel);
+          unsubRealtime();
           document.removeEventListener("visibilitychange", onVisible);
         };
       },
