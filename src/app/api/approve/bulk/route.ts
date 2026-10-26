@@ -112,6 +112,20 @@ export async function POST(request: Request) {
     }
   }
 
+  // クエストは date 昇順に並べ替える（古い日付を後から承認するとストリークの連続判定が崩れるため, #188）。
+  // ごほうび申請の位置は変えず、クエストが占めていたスロットにだけ昇順で再配置する。
+  const questSlots = fetched.flatMap((f, i) => (f.kind === "quest" ? [i] : []));
+  const sortedQuests = questSlots
+    .map((i) => fetched[i])
+    .sort((a, b) => {
+      const da = a.kind === "quest" ? a.quest!.date.getTime() : 0;
+      const db = b.kind === "quest" ? b.quest!.date.getTime() : 0;
+      return da - db;
+    });
+  questSlots.forEach((slot, n) => {
+    fetched[slot] = sortedQuests[n];
+  });
+
   // ── Step 3: 全件処理。並列処理するとXPのread-modify-writeがレース状態になるため、順次処理する
   let count = 0;
   for (const f of fetched) {
