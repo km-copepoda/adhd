@@ -20,9 +20,9 @@ test.describe("S13: 報告期限設定", () => {
 
   test("子供の報告期限時刻を設定して保存できる", async ({ page }) => {
     // モンスター名（"QA_child"）は develop 共有DBの過去実行分と重複しうるため、
-    // このテスト実行が作成した子供固有のユーザーコードで行を特定する
-    const { childCodeLight } = readCredentials();
-    const memberRow = page.locator(".bg-quest-bg.rounded-lg").filter({ hasText: childCodeLight });
+    // このテスト実行が作成した子供固有の id で行を特定する
+    const { childIdLight } = readCredentials();
+    const memberRow = page.getByTestId(`member-${childIdLight}`);
     await expect(memberRow).toBeVisible();
 
     // 行内には「報告期限」と「チェックイン締切」の2つの time input / 保存ボタンが並んでいるため、
@@ -39,8 +39,8 @@ test.describe("S13: 報告期限設定", () => {
   });
 
   test("子供の報告期限時刻をクリアできる", async ({ page }) => {
-    const { childCodeLight } = readCredentials();
-    const memberRow = page.locator(".bg-quest-bg.rounded-lg").filter({ hasText: childCodeLight });
+    const { childIdLight } = readCredentials();
+    const memberRow = page.getByTestId(`member-${childIdLight}`);
 
     // まず時刻を設定（報告期限側 = .first()。チェックイン締切側と2組並んでいるため）
     const timeInput = memberRow.locator('input[type="time"]').first();
@@ -57,8 +57,8 @@ test.describe("S13: 報告期限設定", () => {
   });
 
   test("ストリーク最低タスク数を増やせる", async ({ page }) => {
-    const { childCodeLight } = readCredentials();
-    const memberRow = page.locator(".bg-quest-bg.rounded-lg").filter({ hasText: childCodeLight });
+    const { childIdLight } = readCredentials();
+    const memberRow = page.getByTestId(`member-${childIdLight}`);
     await expect(memberRow).toBeVisible();
 
     // 現在の値を取得

@@ -55,11 +55,17 @@ export async function GET(request: Request) {
 
   for (const quest of pendingQuests) {
     if (quest.status === "SKIP_REPORTED") {
-      await approveSkipQuestInstance(quest);
-      skipped++;
+      if (await approveSkipQuestInstance(quest)) {
+        skipped++;
+      } else {
+        rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+      }
     } else {
-      await approveQuestInstance(quest);
-      approved++;
+      if (await approveQuestInstance(quest)) {
+        approved++;
+      } else {
+        rlog.info("Auto-approve skipped: already handled", { questId: quest.id });
+      }
     }
   }
 

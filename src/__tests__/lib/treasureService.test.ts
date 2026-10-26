@@ -7,12 +7,26 @@ import {
   openOldestTreasure,
 } from "@/lib/treasureService";
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
+import { drawCollectionItem } from "@/lib/collectionDraw";
+import { getOwnedCollection } from "@/lib/collectionService";
 import { prismaMock as mockPrisma } from "../helpers/prisma-mock";
 import { treasureLog, treasureItem, childUser, userCollectionItem } from "../helpers/fixtures";
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerCollectionItemLog: vi.fn(),
 }));
+
+// drawCollectionItem は実物を呼びつつ引数を検証できるようラップ
+vi.mock("@/lib/collectionDraw", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/collectionDraw")>();
+  return { ...actual, drawCollectionItem: vi.fn(actual.drawCollectionItem) };
+});
+
+// getOwnedCollection のみ差し替え (既定は所持なし)。awardCollectionItem は実物 (prisma モック経由)
+vi.mock("@/lib/collectionService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/collectionService")>();
+  return { ...actual, getOwnedCollection: vi.fn(async () => []) };
+});
 
 const mockTriggerCollectionLog = vi.mocked(triggerCollectionItemLog);
 
@@ -654,18 +668,126 @@ describe("generateProxyTreasure", () => {
   });
 });
 
+// ─── generateProxyTreasure: 子供の LOCKED 行との競合 (Codex 指摘) ─────────
+describe("generateProxyTreasure — 競合した LOCKED 行の解放", () => {
+  const base = {
+    childId: "c1",
+    date: dateJST,
+    reportedCount: 3,
+    totalCount: 3,
+    skippedCount: 0,
+    minTasks: 1,
+  };
+
+  beforeEach(() => {
+    mockPrisma.treasureItem.count.mockResolvedValue(1);
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  function expectUnlockCall() {
+    const calls = mockPrisma.treasureLog.updateMany.mock.calls;
+    const unlock = calls.find((c) => (c[0] as { data?: { status?: string } }).data?.status === "UNLOCKED");
+    expect(unlock).toBeDefined();
+    return unlock![0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+  }
+
+  it("子供の STREAK(LOCKED) を見て作成をスキップした場合も、最後に LOCKED -> UNLOCKED の updateMany を呼ぶ", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([
+      treasureLog({ trigger: "STREAK", status: "LOCKED" }),
+      treasureLog({ trigger: "ALL_COMPLETE", status: "LOCKED" }),
+    ]);
+    const ids = await generateProxyTreasure(base);
+    expect(ids).toEqual([]);
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+    expectUnlockCall();
+  });
+
+  it("create が P2002 の場合も LOCKED -> UNLOCKED の updateMany を呼ぶ", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockRejectedValue({ code: "P2002" });
+    const ids = await generateProxyTreasure(base);
+    expect(ids).toEqual([]);
+    expectUnlockCall();
+  });
+
+  it("updateMany の where に childId / date / status: LOCKED を含み、data は status: UNLOCKED", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "x" }));
+    await generateProxyTreasure(base);
+    const arg = expectUnlockCall();
+    expect(arg.where).toEqual(
+      expect.objectContaining({ childId: "c1", date: dateJST, status: "LOCKED" }),
+    );
+    expect(arg.data).toEqual({ status: "UNLOCKED" });
+    // 作成処理の後に実行される
+    const lastCreate = Math.max(...mockPrisma.treasureLog.create.mock.invocationCallOrder);
+    const unlockIdx = mockPrisma.treasureLog.updateMany.mock.calls.findIndex(
+      (c) => (c[0] as { data?: { status?: string } }).data?.status === "UNLOCKED",
+    );
+    expect(mockPrisma.treasureLog.updateMany.mock.invocationCallOrder[unlockIdx]).toBeGreaterThan(lastCreate);
+  });
+
+  it("境界: reportedCount === required ちょうどなら updateMany を呼ぶ", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "x" }));
+    await generateProxyTreasure({ ...base, reportedCount: 2, totalCount: 5, minTasks: 2 });
+    expectUnlockCall();
+  });
+
+  it("境界: reportedCount が required 未満 (required - 1) なら早期 return し updateMany を呼ばない", async () => {
+    const ids = await generateProxyTreasure({ ...base, reportedCount: 1, totalCount: 5, minTasks: 2 });
+    expect(ids).toEqual([]);
+    expect(mockPrisma.treasureLog.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("境界: reportedCount が 0 (1 未満) なら updateMany を呼ばない", async () => {
+    await generateProxyTreasure({ ...base, reportedCount: 0, totalCount: 3, minTasks: 1 });
+    expect(mockPrisma.treasureLog.updateMany).not.toHaveBeenCalled();
+  });
+});
+
 // ─── openOldestTreasure ─────────────────────────────────────────────────────
 describe("openOldestTreasure", () => {
   beforeEach(() => {
     // pity カウンタの既定値 (各テストで上書き可)
     mockPrisma.user.findUnique.mockResolvedValue(childUser({ treasurePityCount: 0, familyId: null }));
     mockPrisma.user.update.mockResolvedValue(childUser());
+    // 開封の占有 (UNLOCKED -> OPENED) は既定で成功
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("UNLOCKED 宝箱が無いとき null", async () => {
     mockPrisma.treasureLog.findFirst.mockResolvedValue(null);
     const result = await openOldestTreasure("c1");
     expect(result).toBeNull();
+  });
+
+  // ─── U5: pity カウンタの lost update 回避 (User 行ロック) ───
+  it("占有成功後、treasurePityCount を読む前に User 行を FOR UPDATE でロックする", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-lock", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([treasureItemPoolRow()]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.$queryRaw.mockResolvedValue([]);
+
+    await openOldestTreasure("c1", { rng: () => 0.0 });
+
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings, ...values] = mockPrisma.$queryRaw.mock.calls[0] as unknown as [TemplateStringsArray, ...unknown[]];
+    expect(strings.join("?")).toMatch(/FOR UPDATE/);
+    expect(values).toEqual(["c1"]);
+    const lockOrder = mockPrisma.$queryRaw.mock.invocationCallOrder[0];
+    expect(mockPrisma.treasureLog.updateMany.mock.invocationCallOrder[0]).toBeLessThan(lockOrder);
+    expect(lockOrder).toBeLessThan(mockPrisma.user.findUnique.mock.invocationCallOrder[0]);
+  });
+
+  it("占有に負けた (updateMany count 0) 場合は User 行をロックしない", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-lost", childId: "c1", boosted: false }));
+    mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await openOldestTreasure("c1");
+
+    expect(result).toBeNull();
+    expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
   });
 
   it("最古の UNLOCKED を取得し抽選してアイテム確定", async () => {
@@ -682,9 +804,7 @@ describe("openOldestTreasure", () => {
     expect(mockPrisma.treasureLog.update).toHaveBeenCalledWith({
       where: { id: "log-1" },
       data: expect.objectContaining({
-        status: "OPENED",
         itemId: "item-1",
-        openedAt: expect.any(Date),
       }),
     });
     // pityCount=0 → HIT → nextPityCount=0 (変化なし) なので User.update は呼ばれない
@@ -719,7 +839,6 @@ describe("openOldestTreasure", () => {
     expect(mockPrisma.treasureLog.update).toHaveBeenCalledWith({
       where: { id: "log-2" },
       data: expect.objectContaining({
-        status: "OPENED",
         itemId: null,
         // summer-XX (通常) または m07-XX (月限定) のどちらか
         collectionItemId: expect.stringMatching(/^(summer-\d+|m07-\d+)$/),
@@ -752,6 +871,37 @@ describe("openOldestTreasure", () => {
     expect(result!.collectionItem!.nameKana.length).toBeGreaterThan(0);
     expect(typeof result!.collectionItem!.descriptionKana).toBe("string");
     expect(result!.collectionItem!.descriptionKana.length).toBeGreaterThan(0);
+  });
+
+  it("現在の所持IDを getOwnedCollection で取得し drawCollectionItem の第3引数 (Set) に渡す", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-owned", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
+    vi.mocked(getOwnedCollection).mockResolvedValueOnce([
+      { id: "o1", childId: "c1", itemId: "summer-01", season: "summer", count: 2, firstAcquiredAt: new Date(), lastAcquiredAt: new Date() },
+      { id: "o2", childId: "c1", itemId: "summer-02", season: "summer", count: 1, firstAcquiredAt: new Date(), lastAcquiredAt: new Date() },
+    ]);
+
+    await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+
+    expect(getOwnedCollection).toHaveBeenCalledWith("c1", expect.anything());
+    const args = vi.mocked(drawCollectionItem).mock.calls[0];
+    expect(args[2]).toBeInstanceOf(Set);
+    expect([...(args[2] as ReadonlySet<string>)].sort()).toEqual(["summer-01", "summer-02"]);
+  });
+
+  it("所持が0件でも空 Set を第3引数に渡す", async () => {
+    mockPrisma.treasureLog.findFirst.mockResolvedValue(treasureLog({ id: "log-owned0", childId: "c1", boosted: false }));
+    mockPrisma.treasureItem.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.update.mockResolvedValue(treasureLog());
+    mockPrisma.userCollectionItem.upsert.mockResolvedValue(userCollectionItem({ count: 1 }));
+
+    await openOldestTreasure("c1", { now: new Date("2026-07-15T03:00:00Z") });
+
+    const args = vi.mocked(drawCollectionItem).mock.calls[0];
+    expect(args[2]).toBeInstanceOf(Set);
+    expect((args[2] as ReadonlySet<string>).size).toBe(0);
   });
 
   it("親プールがあっても抽選結果が無アイテムならコレクションを付与", async () => {

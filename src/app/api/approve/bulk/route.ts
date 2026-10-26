@@ -131,10 +131,14 @@ export async function POST(request: Request) {
   for (const f of fetched) {
     if (f.kind === "quest") {
       const quest = f.quest!;
-      if (quest.status === "SKIP_REPORTED") {
-        await approveSkipQuestInstance(quest);
-      } else {
-        await approveQuestInstance(quest);
+      const won =
+        quest.status === "SKIP_REPORTED"
+          ? await approveSkipQuestInstance(quest)
+          : await approveQuestInstance(quest);
+      if (!won) {
+        // 並行操作で既に処理済み（#183）。二重加算を避けて数えない
+        rlog.warn("Bulk approve skipped: status changed concurrently", { questId: f.id });
+        continue;
       }
     } else {
       await approveTreasureUse(f.id);
