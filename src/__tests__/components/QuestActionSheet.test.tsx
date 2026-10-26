@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import QuestActionSheet, { type SheetQuest } from "@/components/QuestActionSheet";
 
@@ -80,6 +80,34 @@ describe("QuestActionSheet 写真添付UI（カメラ/ギャラリー分離）",
     const inputs = container.querySelectorAll('input[type="file"]');
     expect(inputs.length).toBe(0);
     expect(screen.queryByRole("button", { name: /カメラ/ })).toBeNull();
+  });
+});
+
+describe("QuestActionSheet 自動クローズのタイマー (#191)", () => {
+  it("成功後 3 秒以内にアンマウントされたら onClose は呼ばれない", async () => {
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      const { unmount } = render(
+        <QuestActionSheet
+          quest={makeQuest({ photoBonus: false })}
+          hasDeadline={false}
+          questsCompleted={0}
+          questsTotal={1}
+          onReport={vi.fn().mockResolvedValue(true)}
+          onSkip={vi.fn()}
+          onClose={onClose}
+        />
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /報告|完了|やった/ }));
+      });
+      unmount();
+      vi.advanceTimersByTime(3500);
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

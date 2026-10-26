@@ -3,8 +3,13 @@ import { after } from "next/server";
 import { POST } from "@/app/api/parent/child-view/rebirth/route";
 import { getCurrentUser } from "@/lib/auth";
 import { triggerMonsterRebornLog } from "@/lib/bulletinLog";
+import { activateFamilyTheme } from "@/lib/monsterThemes";
 import { prismaMock as mockPrisma } from "../../../helpers/prisma-mock";
 import { parentUserWithFamily, childUserWithFamily, childUser } from "../../../helpers/fixtures";
+
+vi.mock("@/lib/monsterThemes", () => ({
+  activateFamilyTheme: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/lib/bulletinLog", () => ({
   triggerMonsterRebornLog: vi.fn().mockResolvedValue(undefined),
@@ -12,6 +17,7 @@ vi.mock("@/lib/bulletinLog", () => ({
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockAfter = vi.mocked(after);
+const mockActivateFamilyTheme = vi.mocked(activateFamilyTheme);
 const mockTriggerRebornLog = vi.mocked(triggerMonsterRebornLog);
 
 function makeReq(body: Record<string, unknown>) {
@@ -134,5 +140,63 @@ describe("POST /api/parent/child-view/rebirth", () => {
 
     expect(mockAfter).toHaveBeenCalled();
     expect(mockTriggerRebornLog).toHaveBeenCalledWith("child-1", expect.any(String));
+  });
+
+  it("pendingMonsterSetId があれば monsterSetId に反映してクリアし、activateFamilyTheme を呼ぶ", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({
+        id: "child-1",
+        familyId: "fam-1",
+        rebirthPending: true,
+        usedEggBonuses: "[]",
+        pendingMonsterSetId: "yokai",
+      }),
+    );
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await POST(makeReq({ childId: "child-1" }));
+    expect(res.status).toBe(200);
+
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: "child-1", rebirthPending: true },
+      data: expect.objectContaining({
+        monsterSetId: "yokai",
+        pendingMonsterSetId: null,
+      }),
+    });
+    expect(mockActivateFamilyTheme).toHaveBeenCalledWith("fam-1", "yokai", "manual");
+  });
+
+  it("pendingMonsterSetId が null なら monsterSetId を変更せず activateFamilyTheme も呼ばない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({
+        id: "child-1",
+        rebirthPending: true,
+        usedEggBonuses: "[]",
+        pendingMonsterSetId: null,
+      }),
+    );
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+    await POST(makeReq({ childId: "child-1" }));
+
+    const call = mockPrisma.user.updateMany.mock.calls[0][0];
+    expect(call.data).not.toHaveProperty("monsterSetId");
+    expect(call.data).not.toHaveProperty("pendingMonsterSetId");
+    expect(mockActivateFamilyTheme).not.toHaveBeenCalled();
+  });
+
+  it("TOCTOU で count=0 の場合は activateFamilyTheme を呼ばない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({ id: "child-1", rebirthPending: true, pendingMonsterSetId: "yokai" }),
+    );
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+    const res = await POST(makeReq({ childId: "child-1" }));
+    expect(res.status).toBe(400);
+    expect(mockActivateFamilyTheme).not.toHaveBeenCalled();
   });
 });

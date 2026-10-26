@@ -51,10 +51,10 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-
   const [submitError, setSubmitError] = useState<string | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // アンマウント時に自動クローズのタイマーを破棄する（別クエストを開いた後に閉じるのを防ぐ）
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
