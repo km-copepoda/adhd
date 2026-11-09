@@ -30,10 +30,18 @@ function isUserNotFound(error: unknown): boolean {
   return e.status === 404 || e.code === "user_not_found";
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 /** 削除に失敗した（未完了の）supabaseId を返す。存在しないユーザーは完了扱い */
 async function deleteAuthUsers(admin: AdminClient, ids: string[], fail: FailLogger): Promise<string[]> {
   const remaining: string[] = [];
   for (const id of ids) {
+    // pending_ / detached_ 等の仮 ID は Auth 上に存在せず、deleteUser が UUID 検証で例外を投げて
+    // outbox で永遠に再試行されるため、呼ばずに完了扱いにする
+    if (!isUuid(id)) continue;
     try {
       const { error } = await admin.auth.admin.deleteUser(id);
       if (error && !isUserNotFound(error)) {

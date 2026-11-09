@@ -13,6 +13,9 @@ import { log } from "@/lib/logger";
 const mockCreateAdminClient = vi.mocked(createAdminClient);
 const mockLogError = vi.mocked(log.error);
 
+const U1 = "11111111-1111-4111-8111-111111111111";
+const U2 = "22222222-2222-4222-8222-222222222222";
+const U3 = "33333333-3333-4333-8333-333333333333";
 type Fn = ReturnType<typeof vi.fn>;
 let deleteUser: Fn;
 let list: Fn;
@@ -42,44 +45,44 @@ beforeEach(() => {
 
 describe("cleanupExternal: Auth ユーザー削除", () => {
   it("supabaseId ごとに auth.admin.deleteUser を呼ぶこと", async () => {
-    await cleanupExternal(cleanup({ supabaseIds: ["s1", "s2"] }));
+    await cleanupExternal(cleanup({ supabaseIds: [U1, U2] }));
     expect(deleteUser).toHaveBeenCalledTimes(2);
-    expect(deleteUser).toHaveBeenCalledWith("s1");
-    expect(deleteUser).toHaveBeenCalledWith("s2");
+    expect(deleteUser).toHaveBeenCalledWith(U1);
+    expect(deleteUser).toHaveBeenCalledWith(U2);
   });
 
   it("supabaseIds の重複は 1 回にまとめること", async () => {
-    await cleanupExternal(cleanup({ supabaseIds: ["s1", "s1", "s2", "s1"] }));
+    await cleanupExternal(cleanup({ supabaseIds: [U1, U1, U2, U1] }));
     expect(deleteUser).toHaveBeenCalledTimes(2);
   });
 
   it("途中の 1 件が例外で失敗しても残りを続行し、例外を投げず、対象 ID をログに残すこと", async () => {
     deleteUser.mockImplementation(async (id: string) => {
-      if (id === "s2") throw new Error("auth down");
+      if (id === U2) throw new Error("auth down");
       return { data: {}, error: null };
     });
 
-    await expect(cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
+    await expect(cleanupExternal(cleanup({ supabaseIds: [U1, U2, U3] }))).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
 
     expect(deleteUser).toHaveBeenCalledTimes(3);
-    expect(deleteUser).toHaveBeenCalledWith("s3");
+    expect(deleteUser).toHaveBeenCalledWith(U3);
     expect(mockLogError).toHaveBeenCalledWith(
       "account cleanup failed",
-      expect.objectContaining({ kind: "auth_user", id: "s2" }),
+      expect.objectContaining({ kind: "auth_user", id: U2 }),
     );
   });
 
   it("deleteUser が { error } を返した場合も失敗としてログに残し、続行すること", async () => {
     deleteUser.mockImplementation(async (id: string) =>
-      id === "s1" ? { data: null, error: { message: "user not found" } } : { data: {}, error: null },
+      id === U1 ? { data: null, error: { message: "user not found" } } : { data: {}, error: null },
     );
 
-    await cleanupExternal(cleanup({ supabaseIds: ["s1", "s2"] }));
+    await cleanupExternal(cleanup({ supabaseIds: [U1, U2] }));
 
-    expect(deleteUser).toHaveBeenCalledWith("s2");
+    expect(deleteUser).toHaveBeenCalledWith(U2);
     expect(mockLogError).toHaveBeenCalledWith(
       "account cleanup failed",
-      expect.objectContaining({ kind: "auth_user", id: "s1" }),
+      expect.objectContaining({ kind: "auth_user", id: U1 }),
     );
   });
 
@@ -88,6 +91,53 @@ describe("cleanupExternal: Auth ユーザー削除", () => {
     expect(deleteUser).not.toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
     expect(mockLogError).not.toHaveBeenCalled();
+  });
+});
+
+describe("cleanupExternal: UUID でない仮 ID（pending_ / detached_）", () => {
+  it("pending_ / detached_ の ID では deleteUser を呼ばず、未完了として返さず、失敗ログも出さないこと", async () => {
+    const ids = ["pending_1700000000000_abc123", "detached_1700000000000"];
+    const r = await cleanupExternal(cleanup({ supabaseIds: ids }));
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(r.supabaseIds).toEqual([]);
+    expect(mockLogError).not.toHaveBeenCalled();
+  });
+
+  it("UUID と仮 ID の混在では UUID だけ deleteUser が呼ばれること", async () => {
+    const r = await cleanupExternal(
+      cleanup({ supabaseIds: ["pending_1_x", U1, "detached_2", U2] }),
+    );
+    expect(deleteUser).toHaveBeenCalledTimes(2);
+    expect(deleteUser).toHaveBeenCalledWith(U1);
+    expect(deleteUser).toHaveBeenCalledWith(U2);
+    expect(r.supabaseIds).toEqual([]);
+  });
+
+  it("UUID の削除に失敗した場合は仮 ID と混在していても UUID だけ remaining に残ること", async () => {
+    deleteUser.mockRejectedValue(new Error("auth down"));
+    const r = await cleanupExternal(cleanup({ supabaseIds: ["pending_1_x", U1] }));
+    expect(r.supabaseIds).toEqual([U1]);
+  });
+
+  it("空文字は deleteUser を呼ばず、未完了にも残さないこと（境界）", async () => {
+    const r = await cleanupExternal(cleanup({ supabaseIds: [""] }));
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(r.supabaseIds).toEqual([]);
+  });
+
+  it("UUID より 1 文字短い / 1 文字長い文字列は UUID 扱いせず deleteUser を呼ばないこと（境界）", async () => {
+    const short = U1.slice(0, -1);
+    const long = U1 + "1";
+    const r = await cleanupExternal(cleanup({ supabaseIds: [short, long] }));
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(r.supabaseIds).toEqual([]);
+  });
+
+  it("大文字 UUID は削除対象として deleteUser を呼ぶこと", async () => {
+    const upper = "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE";
+    await cleanupExternal(cleanup({ supabaseIds: [upper] }));
+    expect(deleteUser).toHaveBeenCalledTimes(1);
+    expect(deleteUser).toHaveBeenCalledWith(upper);
   });
 });
 
@@ -258,7 +308,7 @@ describe("cleanupExternal: Storage 削除（quest-photos）", () => {
 
   it("Auth 削除と Storage 削除は互いに独立（Auth が全滅しても Storage は実行される）", async () => {
     deleteUser.mockRejectedValue(new Error("auth down"));
-    await cleanupExternal(cleanup({ supabaseIds: ["s1"], photoPaths: ["c1/a.webp"] }));
+    await cleanupExternal(cleanup({ supabaseIds: [U1], photoPaths: ["c1/a.webp"] }));
     expect(removedPaths()).toEqual(["c1/a.webp"]);
   });
 });
@@ -267,7 +317,7 @@ describe("cleanupExternal: ログ文脈", () => {
   it("失敗ログに cleanupId（文字列）が付き、cleanup.familyId があれば familyId も付くこと", async () => {
     deleteUser.mockRejectedValue(new Error("auth down"));
 
-    await cleanupExternal(cleanup({ supabaseIds: ["s1"], familyId: "fam-1" }));
+    await cleanupExternal(cleanup({ supabaseIds: [U1], familyId: "fam-1" }));
 
     expect(mockLogError).toHaveBeenCalledWith(
       "account cleanup failed",
@@ -283,7 +333,7 @@ describe("cleanupExternal: admin クライアント生成失敗", () => {
     });
 
     await expect(
-      cleanupExternal(cleanup({ supabaseIds: ["s1"], childIds: ["c1"], photoPaths: ["c1/a.webp"] })),
+      cleanupExternal(cleanup({ supabaseIds: [U1], childIds: ["c1"], photoPaths: ["c1/a.webp"] })),
     ).resolves.toEqual(expect.objectContaining({ supabaseIds: expect.any(Array), childIds: expect.any(Array), photoPaths: expect.any(Array) }));
 
     expect(mockLogError).toHaveBeenCalled();
@@ -296,7 +346,7 @@ describe("cleanupExternal: 戻り値は未完了分（outbox 再試行用）", (
   it("全部成功なら空の supabaseIds / childIds / photoPaths を返すこと", async () => {
     list.mockResolvedValue({ data: [{ name: "a.webp" }], error: null });
     const r = await cleanupExternal(
-      cleanup({ supabaseIds: ["s1"], childIds: ["c1"], photoPaths: ["c1/b.webp"], familyId: "fam-1" }),
+      cleanup({ supabaseIds: [U1], childIds: ["c1"], photoPaths: ["c1/b.webp"], familyId: "fam-1" }),
     );
     expect(r.supabaseIds).toEqual([]);
     expect(r.childIds).toEqual([]);
@@ -310,22 +360,22 @@ describe("cleanupExternal: 戻り値は未完了分（outbox 再試行用）", (
 
   it("Auth 削除に失敗した ID だけが supabaseIds に残ること（例外・{ error } とも）", async () => {
     deleteUser.mockImplementation(async (id: string) => {
-      if (id === "s2") throw new Error("auth down");
-      if (id === "s3") return { data: null, error: { message: "boom", status: 500 } };
+      if (id === U2) throw new Error("auth down");
+      if (id === U3) return { data: null, error: { message: "boom", status: 500 } };
       return { data: {}, error: null };
     });
-    const r = await cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }));
-    expect([...r.supabaseIds].sort()).toEqual(["s2", "s3"]);
+    const r = await cleanupExternal(cleanup({ supabaseIds: [U1, U2, U3] }));
+    expect([...r.supabaseIds].sort()).toEqual([U2, U3]);
   });
 
   it("user_not_found（code）/ status 404 は完了扱いで残さないこと", async () => {
     deleteUser.mockImplementation(async (id: string) => {
-      if (id === "s1") return { data: null, error: { code: "user_not_found", message: "x" } };
-      if (id === "s2") return { data: null, error: { status: 404, message: "x" } };
+      if (id === U1) return { data: null, error: { code: "user_not_found", message: "x" } };
+      if (id === U2) return { data: null, error: { status: 404, message: "x" } };
       return { data: null, error: { status: 500, message: "x" } };
     });
-    const r = await cleanupExternal(cleanup({ supabaseIds: ["s1", "s2", "s3"] }));
-    expect(r.supabaseIds).toEqual(["s3"]);
+    const r = await cleanupExternal(cleanup({ supabaseIds: [U1, U2, U3] }));
+    expect(r.supabaseIds).toEqual([U3]);
   });
 
   it("list に失敗した childId だけが childIds に残り、成功分の写真は削除されること", async () => {
@@ -368,9 +418,9 @@ describe("cleanupExternal: 戻り値は未完了分（outbox 再試行用）", (
       throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
     });
     const r = await cleanupExternal(
-      cleanup({ supabaseIds: ["s1", "s1"], childIds: ["c1", "c1"], photoPaths: ["c1/a.webp", "c1/a.webp"], familyId: "fam-1" }),
+      cleanup({ supabaseIds: [U1, U1], childIds: ["c1", "c1"], photoPaths: ["c1/a.webp", "c1/a.webp"], familyId: "fam-1" }),
     );
-    expect(r.supabaseIds).toEqual(["s1"]);
+    expect(r.supabaseIds).toEqual([U1]);
     expect(r.childIds).toEqual(["c1"]);
     expect(r.photoPaths).toEqual(["c1/a.webp"]);
   });
