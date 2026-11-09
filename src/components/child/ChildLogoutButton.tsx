@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { signOutSafely } from "@/lib/signOutSafely";
 
 /**
  * 子供用ログアウトボタン。ボトムナビでの押し間違いを避けるため、
@@ -9,8 +10,8 @@ import { createClient } from "@/lib/supabase/client";
 export default function ChildLogoutButton() {
   async function handleLogout() {
     if (!confirm("ログアウトするとさいしょの画面にもどるよ。本当にログアウトする？")) return;
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    // signOut が失敗してセッションが残ると子画面から抜け出せなくなるため、確実に消す
+    await signOutSafely(createClient().auth);
     window.location.href = "/login";
   }
 
