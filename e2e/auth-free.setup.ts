@@ -43,28 +43,23 @@ setup("create FREE QA account and child", async ({ page }) => {
   await page.click('button:has-text("アカウントを作成")');
   await page.waitForURL("**/app/parent/tasks", { timeout: 30000 });
 
-  // 2. ファミリーコードを API から取得
+  // 2. 子供ユーザーを1人だけ API で作成
   const bypassHeaders = getBypassHeaders();
-  const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
-  const familyData = await familyRes.json();
-  const familyCode: string = familyData.code;
-
-  // 3. 子供ユーザーを1人だけ API で作成
   const childRes = await page.request.post("/api/family/members", {
     data: { monsterName: "QA_FREE_child", side: "LIGHT" },
     headers: bypassHeaders,
   });
   const childData = await childRes.json();
-  const childCodeLight: string = childData.childCode;
+  const childIdLight: string = childData.id;
 
-  // 4. PREMIUM 化 API は呼ばない（新規登録直後は自動的に FREE プランのため）
+  // 3. PREMIUM 化 API は呼ばない（新規登録直後は自動的に FREE プランのため）
 
-  // 5. qa-credentials-free.json に保存
+  // 4. qa-credentials-free.json に保存
   fs.writeFileSync(
     CREDENTIALS_FILE,
-    JSON.stringify({ email, password, familyCode, childCodeLight }, null, 2),
+    JSON.stringify({ email, password, childIdLight }, null, 2),
   );
 
-  // 6. 親 storageState を保存
+  // 5. 親 storageState を保存
   await page.context().storageState({ path: path.join(AUTH_DIR, "parent-free.json") });
 });

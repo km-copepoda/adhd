@@ -176,7 +176,7 @@ export default function QuestsPage() {
     fetchMonster();
   }, []);
 
-  async function handleReport(questId: string, comment: string | null, photoUrl: string | null) {
+  async function handleReport(questId: string, comment: string | null, photoUrl: string | null): Promise<boolean> {
     const res = await fetch(`/api/quests/${questId}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -194,9 +194,10 @@ export default function QuestsPage() {
     // 報告/スキップ直後の再取得は、POST 前に始まった進行中の GET に相乗りさせない
     invalidateDeduped("/api/quests/today");
     await refreshQuests();
+    return res.ok;
   }
 
-  async function handleSkip(questId: string, reason: string) {
+  async function handleSkip(questId: string, reason: string): Promise<boolean> {
     const res = await fetch(`/api/quests/${questId}/skip`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -217,6 +218,7 @@ export default function QuestsPage() {
     // 報告/スキップ直後の再取得は、POST 前に始まった進行中の GET に相乗りさせない
     invalidateDeduped("/api/quests/today");
     await refreshQuests();
+    return res.ok;
   }
 
   const completedCount = computeCompletedCount(quests);

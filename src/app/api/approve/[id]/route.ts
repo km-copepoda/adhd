@@ -6,6 +6,7 @@ import {
   approveSkipQuestInstance,
   approveTreasureUse,
   rejectTreasureUse,
+  transitionQuestStatus,
 } from "@/lib/approve";
 import { canApproveUse, canRejectUse } from "@/lib/treasureUse";
 import { routeLogger } from "@/lib/logger";
@@ -46,10 +47,14 @@ export async function POST(
   // スキップ申請の処理
   if (quest.status === "SKIP_REPORTED") {
     if (action === "reject") {
-      await prisma.questInstance.update({
-        where: { id },
-        data: { status: "PENDING", comment: null },
+      const rejectedSkip = await transitionQuestStatus(id, ["SKIP_REPORTED"], {
+        status: "PENDING",
+        comment: null,
       });
+      if (!rejectedSkip) {
+        rlog.warn("Skip reject lost race", { questId: id });
+        return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+      }
       // スキップ却下で「対処済み」が 1 件減り、ALL_COMPLETE 等の LOCKED 宝箱の
       // 前提が崩れる可能性があるので再評価する。
       // - reportedCount が minTasks を割れば LOCKED 全部 CANCELLED
@@ -80,7 +85,11 @@ export async function POST(
       });
       rlog.info("Skip rejected, reset to PENDING", { questId: id, childId: quest.childId });
     } else {
-      await approveSkipQuestInstance(quest);
+      const skipApproved = await approveSkipQuestInstance(quest);
+      if (!skipApproved) {
+        rlog.warn("Skip approve lost race", { questId: id });
+        return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+      }
       rlog.info("Skip approved", { questId: id, childId: quest.childId });
     }
     return NextResponse.json({ ok: true });
@@ -101,10 +110,14 @@ export async function POST(
     }
 
     const reason = rejectionReason === "その他" ? rejectionComment!.trim() : rejectionReason;
-    await prisma.questInstance.update({
-      where: { id },
-      data: { status: "REJECTED", rejectionReason: reason },
+    const rejected = await transitionQuestStatus(id, ["REPORTED"], {
+      status: "REJECTED",
+      rejectionReason: reason,
     });
+    if (!rejected) {
+      rlog.warn("Reject lost race", { questId: id });
+      return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+    }
 
     // 差し戻し後の当日進捗を集計して、条件を割った LOCKED 宝箱を CANCELLED に
     // carryOver 過去日付は生成側 (report/skip) が使った基準日 (reportedAt) と揃える。
@@ -136,7 +149,11 @@ export async function POST(
   }
 
   // 通常承認
-  await approveQuestInstance(quest, stamp ?? undefined);
+  const approved = await approveQuestInstance(quest, stamp ?? undefined);
+  if (!approved) {
+    rlog.warn("Approve lost race", { questId: id });
+    return NextResponse.json({ error: "このクエストは操作できません" }, { status: 400 });
+  }
 
   rlog.done("Quest approved", {
     questId: id,

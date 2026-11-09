@@ -112,15 +112,33 @@ export async function POST(request: Request) {
     }
   }
 
+  // クエストは date 昇順に並べ替える（古い日付を後から承認するとストリークの連続判定が崩れるため, #188）。
+  // ごほうび申請の位置は変えず、クエストが占めていたスロットにだけ昇順で再配置する。
+  const questSlots = fetched.flatMap((f, i) => (f.kind === "quest" ? [i] : []));
+  const sortedQuests = questSlots
+    .map((i) => fetched[i])
+    .sort((a, b) => {
+      const da = a.kind === "quest" ? a.quest!.date.getTime() : 0;
+      const db = b.kind === "quest" ? b.quest!.date.getTime() : 0;
+      return da - db;
+    });
+  questSlots.forEach((slot, n) => {
+    fetched[slot] = sortedQuests[n];
+  });
+
   // ── Step 3: 全件処理。並列処理するとXPのread-modify-writeがレース状態になるため、順次処理する
   let count = 0;
   for (const f of fetched) {
     if (f.kind === "quest") {
       const quest = f.quest!;
-      if (quest.status === "SKIP_REPORTED") {
-        await approveSkipQuestInstance(quest);
-      } else {
-        await approveQuestInstance(quest);
+      const won =
+        quest.status === "SKIP_REPORTED"
+          ? await approveSkipQuestInstance(quest)
+          : await approveQuestInstance(quest);
+      if (!won) {
+        // 並行操作で既に処理済み（#183）。二重加算を避けて数えない
+        rlog.warn("Bulk approve skipped: status changed concurrently", { questId: f.id });
+        continue;
       }
     } else {
       await approveTreasureUse(f.id);

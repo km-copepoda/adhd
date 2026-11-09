@@ -23,12 +23,15 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 0, loginBestStreak: 0, lastLoginDate: null }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await recordLoginActivity("child-1", today);
 
-    expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+    expect(mockPrisma.streak.updateMany).toHaveBeenCalledWith({
+      where: {
+        childId: "child-1",
+        OR: [{ lastLoginDate: null }, { lastLoginDate: { lt: expect.any(Date) } }],
+      },
       data: {
         loginCurrentStreak: 1,
         loginBestStreak: 1,
@@ -46,7 +49,7 @@ describe("recordLoginActivity", () => {
 
     const result = await recordLoginActivity("child-1", today);
 
-    expect(mockPrisma.streak.update).not.toHaveBeenCalled();
+    expect(mockPrisma.streak.updateMany).not.toHaveBeenCalled();
     expect(result.loginStreak).toBe(3);
     expect(result.bonusGranted).toBe(0);
   });
@@ -56,12 +59,15 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 5, loginBestStreak: 10, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await recordLoginActivity("child-1", today);
 
-    expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+    expect(mockPrisma.streak.updateMany).toHaveBeenCalledWith({
+      where: {
+        childId: "child-1",
+        OR: [{ lastLoginDate: null }, { lastLoginDate: { lt: expect.any(Date) } }],
+      },
       data: {
         loginCurrentStreak: 6,
         loginBestStreak: 10,
@@ -76,12 +82,15 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 10, loginBestStreak: 20, lastLoginDate: threeDaysAgo }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await recordLoginActivity("child-1", today);
 
-    expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+    expect(mockPrisma.streak.updateMany).toHaveBeenCalledWith({
+      where: {
+        childId: "child-1",
+        OR: [{ lastLoginDate: null }, { lastLoginDate: { lt: expect.any(Date) } }],
+      },
       data: {
         loginCurrentStreak: 1,
         loginBestStreak: 20,
@@ -97,7 +106,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 2, staminaPt: 2, lifePt: 2 }),
     );
@@ -119,7 +128,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 19, loginBestStreak: 19, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 3, staminaPt: 2, lifePt: 1 }),
     );
@@ -141,7 +150,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 29, loginBestStreak: 29, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 3, staminaPt: 1, lifePt: 2 }),
     );
@@ -162,7 +171,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 8, loginBestStreak: 8, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await recordLoginActivity("child-1", today);
 
@@ -175,7 +184,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
         evolutionStage: 3,
@@ -205,7 +214,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     // stage1、9pt蓄積中。ボーナス1ptで total=10 → 10以上なので進化する
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
@@ -235,7 +244,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
         evolutionStage: 1,
@@ -263,7 +272,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     // 進化が発動しない範囲: stage1, 合計2+1=3pt < 10
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({ evolutionStage: 1, evolutionPath: "STUDY", studyPt: 0, staminaPt: 1, lifePt: 1 }),
@@ -281,7 +290,7 @@ describe("recordLoginActivity", () => {
     mockPrisma.streak.upsert.mockResolvedValue(
       streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
     );
-    mockPrisma.streak.update.mockResolvedValue(streak());
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.user.findUnique.mockResolvedValue(
       childUser({
         evolutionStage: 3,
@@ -311,7 +320,7 @@ describe("recordLoginActivity", () => {
       mockPrisma.streak.upsert.mockResolvedValue(
         streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
       );
-      mockPrisma.streak.update.mockResolvedValue(streak());
+      mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
       // stage2、29pt蓄積中。ボーナス1ptで total=30 → 30以上なので進化する
       mockPrisma.user.findUnique.mockResolvedValue(
         childUser({
@@ -342,7 +351,7 @@ describe("recordLoginActivity", () => {
       mockPrisma.streak.upsert.mockResolvedValue(
         streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
       );
-      mockPrisma.streak.update.mockResolvedValue(streak());
+      mockPrisma.streak.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.user.findUnique.mockResolvedValue(
         childUser({
           monsterSetId: "dark",
@@ -364,4 +373,24 @@ describe("recordLoginActivity", () => {
       vi.restoreAllMocks();
     });
   });
+
+describe("recordLoginActivity 競合 (#192)", () => {
+  it("updateMany が count=0 (別リクエストが先行) ならボーナスを付与しない", async () => {
+    const yesterday = new Date("2026-03-28");
+    mockPrisma.streak.upsert.mockResolvedValue(
+      streak({ loginCurrentStreak: 9, loginBestStreak: 9, lastLoginDate: yesterday }),
+    );
+    mockPrisma.streak.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.streak.findUnique.mockResolvedValue(
+      streak({ loginCurrentStreak: 10, loginBestStreak: 10, lastLoginDate: new Date("2026-03-29") }),
+    );
+
+    const result = await recordLoginActivity("child-1", new Date("2026-03-29"));
+
+    expect(result.bonusGranted).toBe(0);
+    expect(result.loginStreak).toBe(10);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+});
 });

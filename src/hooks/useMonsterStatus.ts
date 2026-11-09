@@ -83,15 +83,20 @@ export function useMonsterStatus(): UseMonsterStatusResult {
   }
 
   useEffect(() => {
-    fetchStatus()
-      .then((d) => { if (d) applyStatus(d); })
-      .finally(() => setLoading(false));
+    // 連番で最新リクエストの応答のみ反映する（visibility と realtime の応答順逆転対策）
+    let latestReq = 0;
+    const refresh = (): Promise<void> => {
+      const reqId = ++latestReq;
+      return fetchStatus()
+        .then((d) => { if (d && reqId === latestReq) applyStatus(d); })
+        .catch(() => {});
+    };
 
-    const offRealtime = subscribeChildRealtime("User", () => {
-      fetchStatus().then((d) => { if (d) applyStatus(d); });
-    });
+    refresh().finally(() => setLoading(false));
 
-    const onVisible = () => { if (document.visibilityState === "visible") fetchStatus(); };
+    const offRealtime = subscribeChildRealtime("User", () => { void refresh(); });
+
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {

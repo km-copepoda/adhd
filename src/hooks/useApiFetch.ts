@@ -38,6 +38,7 @@ export function useApiFetch<T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestIdRef = useRef(0);
   const transformRef = useRef(transform);
   useEffect(() => {
     transformRef.current = transform;
@@ -46,21 +47,26 @@ export function useApiFetch<T>(
   const fetchData = useCallback(() => {
     if (!url) return;
     setError(null);
+    // 連番で最新リクエストの応答のみ反映する（url 変更・refetch 時の応答順逆転対策）
+    const reqId = ++requestIdRef.current;
+    const isLatest = () => reqId === requestIdRef.current;
     fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<T>;
       })
       .then((d) => {
+        if (!isLatest()) return;
         const currentTransform = transformRef.current;
         setData(currentTransform ? currentTransform(d) : d);
       })
       .catch((e: unknown) => {
+        if (!isLatest()) return;
         setError(e instanceof Error ? e.message : "Unknown error");
         setData(null);
       })
       .finally(() => {
-        setLoading(false);
+        if (isLatest()) setLoading(false);
       });
   }, [url]);
 

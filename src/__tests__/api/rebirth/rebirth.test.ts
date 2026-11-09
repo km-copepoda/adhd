@@ -87,6 +87,7 @@ describe("POST /api/rebirth", () => {
         data: expect.objectContaining({
           rebirthPending: false,
           rebirthEggBonus: "STUDY",
+          rebirthCount: { increment: 1 },
           evolutionStage: 0,
           evolutionPath: "",
           studyPt: 0,

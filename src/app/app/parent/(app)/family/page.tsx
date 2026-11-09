@@ -7,10 +7,13 @@ import Link from "next/link";
 import { getMonsterStage, themeIdFromSide } from "@/lib/monsters";
 import { getXpInfo, REBIRTH_THRESHOLD } from "@/lib/evolution";
 import { getRebirthEggImage } from "@/lib/monsterThemes/eggs";
+import { MAX_MIN_TASKS_FOR_STREAK, MAX_MONSTER_NAME_LENGTH } from "@/lib/memberValidation";
 import type { Side } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { createClient } from "@/lib/supabase/client";
+import ChildLoginCodeIssuer from "@/components/parent/ChildLoginCodeIssuer";
 import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
+import AccountDeleteSection from "@/components/parent/AccountDeleteSection";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
 
 type Member = {
@@ -23,7 +26,6 @@ type Member = {
   evolutionPath: string;
   rebirthEggBonus: string | null;
   rebirthPending: boolean;
-  childCode: string | null;
   minTasksForStreak: number;
   reportDeadlineTime: string | null;
   checkinDeadlineTime: string | null;
@@ -47,7 +49,6 @@ type FamilyData = {
 export default function FamilyPage() {
   const [family, setFamily] = useState<FamilyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", side: "LIGHT" as Side, themeId: "" });
   const [adding, setAdding] = useState(false);
@@ -56,6 +57,8 @@ export default function FamilyPage() {
   const [savingStreakId, setSavingStreakId] = useState<string | null>(null);
   const [deadlineTimes, setDeadlineTimes] = useState<Record<string, string>>({});
   const [savingDeadlineId, setSavingDeadlineId] = useState<string | null>(null);
+  const [deadlineError, setDeadlineError] = useState<{ id: string; message: string } | null>(null);
+  const [checkinError, setCheckinError] = useState<{ id: string; message: string } | null>(null);
   const [checkinTimes, setCheckinTimes] = useState<Record<string, string>>({});
   const [savingCheckinId, setSavingCheckinId] = useState<string | null>(null);
   const [savingNotifyId, setSavingNotifyId] = useState<string | null>(null);
@@ -95,13 +98,6 @@ export default function FamilyPage() {
   useEffect(() => {
     fetchFamily();
   }, []);
-
-  async function handleCopy() {
-    if (!family) return;
-    await navigator.clipboard.writeText(family.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   async function handleUpdateMinTasks(childId: string, value: number) {
     if (value < 1) return;
@@ -196,12 +192,30 @@ export default function FamilyPage() {
 
   async function handleSaveDeadline(childId: string) {
     setSavingDeadlineId(childId);
+    setDeadlineError(null);
     try {
-      await fetch("/api/family/settings", {
+      const res = await fetch("/api/family/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ childId, reportDeadlineTime: deadlineTimes[childId]?.trim() || null }),
       });
+      if (!res.ok) {
+        setDeadlineError({ id: childId, message: "報告期限を保存できませんでした。もう一度お試しください" });
+        return;
+      }
+      const value = deadlineTimes[childId]?.trim() || null;
+      setFamily((prev) =>
+        prev
+          ? {
+              ...prev,
+              members: prev.members.map((m) =>
+                m.id === childId ? { ...m, reportDeadlineTime: value } : m,
+              ),
+            }
+          : prev,
+      );
+    } catch {
+      setDeadlineError({ id: childId, message: "報告期限を保存できませんでした。通信状況を確認してください" });
     } finally {
       setSavingDeadlineId(null);
     }
@@ -209,13 +223,18 @@ export default function FamilyPage() {
 
   async function handleSaveCheckinDeadline(childId: string) {
     setSavingCheckinId(childId);
+    setCheckinError(null);
     try {
       const value = checkinTimes[childId]?.trim() || null;
-      await fetch("/api/family/settings", {
+      const res = await fetch("/api/family/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ childId, checkinDeadlineTime: value }),
       });
+      if (!res.ok) {
+        setCheckinError({ id: childId, message: "チェックイン締切を保存できませんでした。もう一度お試しください" });
+        return;
+      }
       setFamily((prev) =>
         prev
           ? {
@@ -226,6 +245,8 @@ export default function FamilyPage() {
             }
           : prev,
       );
+    } catch {
+      setCheckinError({ id: childId, message: "チェックイン締切を保存できませんでした。通信状況を確認してください" });
     } finally {
       setSavingCheckinId(null);
     }
@@ -291,31 +312,9 @@ export default function FamilyPage() {
         👨‍👩‍👧‍👦 ファミリー管理
       </h1>
 
-      {/* Family code */}
-      <div className="bg-quest-card border border-quest-border rounded-xl p-6 mb-8">
-        <p className="text-quest-dim text-xs tracking-wider mb-3">ファミリーコード</p>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1 min-w-0">
-            {(family?.code || "------").split("").map((char, i) => (
-              <div
-                key={i}
-                className="w-8 h-11 sm:w-10 sm:h-12 bg-quest-bg border border-quest-border rounded-lg flex items-center justify-center text-quest-gold font-serif text-lg tracking-wider"
-              >
-                {char}
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={handleCopy}
-            className="shrink-0 whitespace-nowrap text-sm text-quest-dim hover:text-quest-gold border border-quest-border rounded-lg px-3 py-2 min-h-10 transition-colors"
-          >
-            {copied ? "✓ コピー済み" : "コピー"}
-          </button>
-        </div>
-        <p className="text-quest-dim text-xs mt-3">
-          子どものデバイスで「ファミリーコード」＋「ユーザーコード」を入力するとログインできます
-        </p>
-      </div>
+      <p className="text-quest-dim text-xs mb-6">
+        子どもがログインするときは、子どもごとに「ログインコードを発行」を押して、表示された8文字のコードを子どものデバイスに入力します（10分間・1回だけ使えます）
+      </p>
 
       {/* Members */}
       <div className="bg-quest-card border border-quest-border rounded-xl p-6">
@@ -339,6 +338,7 @@ export default function FamilyPage() {
               type="text"
               value={addForm.name}
               onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+              maxLength={MAX_MONSTER_NAME_LENGTH}
               placeholder="例: りゅうくん"
               className="w-full bg-quest-card border border-quest-border rounded-lg px-3 py-2 text-sm text-quest-text placeholder:text-quest-dim/50 focus:outline-none focus:border-quest-gold/30 mb-3"
             />
@@ -418,6 +418,7 @@ export default function FamilyPage() {
           {family?.members.map((member) => (
             <div
               key={member.id}
+              data-testid={`member-${member.id}`}
               className="bg-quest-bg rounded-lg"
             >
             <div className="flex items-center gap-3 p-3">
@@ -473,15 +474,10 @@ export default function FamilyPage() {
                   );
                 })()}
               </div>
-              {member.role === "CHILD" && member.childCode && (
-                <div className="text-right">
-                  <p className="text-[10px] text-quest-dim">ユーザーコード</p>
-                  <p className="text-quest-gold font-mono text-sm tracking-widest">{member.childCode}</p>
-                </div>
-              )}
             </div>
             {member.role === "CHILD" && (
               <div className="flex flex-col gap-2 mt-2 px-3 pb-3">
+                <ChildLoginCodeIssuer childId={member.id} />
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div>
@@ -501,7 +497,7 @@ export default function FamilyPage() {
                       </span>
                       <button
                         onClick={() => handleUpdateMinTasks(member.id, member.minTasksForStreak + 1)}
-                        disabled={savingStreakId === member.id}
+                        disabled={member.minTasksForStreak >= MAX_MIN_TASKS_FOR_STREAK || savingStreakId === member.id}
                         className="w-6 h-6 rounded bg-quest-border text-quest-text text-xs flex items-center justify-center disabled:opacity-30"
                       >
                         +
@@ -534,6 +530,9 @@ export default function FamilyPage() {
                     </button>
                   )}
                 </div>
+                {deadlineError?.id === member.id && (
+                  <p role="alert" className="text-[10px] text-red-400">{deadlineError.message}</p>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] text-quest-dim/60">📅 チェックイン締切（JST）— この時刻までにクエスト画面を開くとチェックイン成功。未設定で機能OFF</p>
@@ -560,6 +559,9 @@ export default function FamilyPage() {
                     </button>
                   )}
                 </div>
+                {checkinError?.id === member.id && (
+                  <p role="alert" className="text-[10px] text-red-400">{checkinError.message}</p>
+                )}
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -655,6 +657,9 @@ export default function FamilyPage() {
           <span>ログアウト</span>
         </button>
       </div>
+
+      {/* Account deletion */}
+      <AccountDeleteSection />
     </div>
   );
 }

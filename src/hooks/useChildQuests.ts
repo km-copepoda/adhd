@@ -8,6 +8,7 @@ import { findNewlyStampedApprovals, type StampCelebration } from "@/lib/stampCel
 
 export type Quest = {
   id: string;
+  childId: string;
   date: string;
   status: QuestStatus;
   comment: string | null;
@@ -93,6 +94,16 @@ export function useChildQuests(): UseChildQuestsResult {
 
   async function fetchQuests() {
     setLoading(true);
+    try {
+      await loadQuests();
+    } catch {
+      // ネットワーク例外時もローディングを解除する
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadQuests() {
     const res = await fetchDeduped("/api/quests/today");
     if (res.ok) {
       const loaded: Quest[] = await res.json();
@@ -115,13 +126,11 @@ export function useChildQuests(): UseChildQuestsResult {
       questsRef.current = loaded;
       setQuests(loaded);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
     // マウント時に一度だけ今日のクエストを取得する。fetchQuests内部でsetLoading/setQuestsを呼ぶが、
     // 外部API（サーバー）との同期が目的でありレンダー時算出はできないためuseEffect内が正しい。
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchQuests();
 
     const offRealtime = subscribeChildRealtime("QuestInstance", async () => {
@@ -135,7 +144,7 @@ export function useChildQuests(): UseChildQuestsResult {
       offRealtime();
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     quests,

@@ -1,16 +1,23 @@
 /**
  * S17: 親 - タスクの編集・削除
- * 
+ *
  * 前提: as-parent-premium (parent.json で認証済み)
  * 対象: /app/parent/tasks
- * 
+ *
  * テスト内容:
  * - タスクの編集フロー（編集ボタン -> 編集フォーム - > 変更保存）
  * - タスクの削除フロー（削除ボタン -> 確認ダイアログ -> 削除確定）
  * - 一時タスクの削除
+ *
+ * 子供アカウントは auth.setup.ts が必ず作るため、見つからないのはセットアップ異常。
+ * skip ではなく fail にする（Issue #221）。
  */
 import { test, expect } from "./fixtures";
-import { getBypassHeaders } from "./credentials";
+import {
+    createRecurringTask,
+    createTodayTask,
+    getChildMembers,
+} from "./helpers/testData";
 
 test.describe("S17: タスクの編集・削除", () => {
     test.beforeEach(async ({ page }) => {
@@ -21,29 +28,16 @@ test.describe("S17: タスクの編集・削除", () => {
     });
 
     test("通常タスクに「編集」ボタンと「削除」ボタンが表示されること", async ({ page }) => {
-        const bypassHeaders = getBypassHeaders();
+        const children = await getChildMembers(page.request);
+        expect(children.length).toBeGreaterThan(0);
 
         // テスト用の通常タスクを作成
-        const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
-        const familyData = await familyRes.json();
-        const children = familyData.members?.filter((m: { id: string; role: string }) => m.role === "CHILD") ?? [];
-        if (children.length === 0) {
-            test.skip(true, "テスト用の子供アカウントが見つかりません");
-            return;
-        }
-
-        const taskTitle = `E2E編集テスト_${Date.now()}`;
-        const taskRes = await page.request.post("/api/tasks", {
-            data: {
-                title: taskTitle,
-                emoji: "📚",
-                category: "STUDY",
-                repeatDays: [0, 1, 2, 3, 4, 5, 6],
-                assignedChildId: children[0].id,
-            },
-            headers: bypassHeaders,
+        const { title: taskTitle } = await createRecurringTask(page.request, {
+            childId: children[0].id,
+            tag: "s17a",
+            category: "STUDY",
+            emoji: "📚",
         });
-        expect(taskRes.ok()).toBeTruthy();
 
         // ページをロードして新タスクを表示
         await page.reload();
@@ -61,29 +55,15 @@ test.describe("S17: タスクの編集・削除", () => {
     });
 
     test("「編集」ボタンをクリックすると編集フォームが表示されること", async ({ page }) => {
-        const bypassHeaders = getBypassHeaders();
+        const children = await getChildMembers(page.request);
+        expect(children.length).toBeGreaterThan(0);
 
-        // テスト用の通常タスクを作成
-        const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
-        const familyData = await familyRes.json();
-        const children = familyData.members?.filter((m: { id: string; role: string }) => m.role === "CHILD") ?? [];
-        if (children.length === 0) {
-            test.skip(true, "テスト用の子供アカウントが見つかりません");
-            return;
-        }
-
-        const taskTitle = `E2E編集フォームテスト_${Date.now()}`;
-        const taskRes = await page.request.post("/api/tasks", {
-            data: {
-                title: taskTitle,
-                emoji: "📚",
-                category: "STUDY",
-                repeatDays: [0, 1, 2, 3, 4, 5, 6],
-                assignedChildId: children[0].id,
-            },
-            headers: bypassHeaders,
+        const { title: taskTitle } = await createRecurringTask(page.request, {
+            childId: children[0].id,
+            tag: "s17b",
+            category: "STUDY",
+            emoji: "📚",
         });
-        expect(taskRes.ok()).toBeTruthy();
 
         await page.reload();
         await expect(page.getByRole("heading", { name: /タスク管理/ })).toBeVisible({ timeout: 15000 });
@@ -100,28 +80,16 @@ test.describe("S17: タスクの編集・削除", () => {
     });
 
     test("「削除」ボタンクリック -> 確認ダイアログでタスクが削除されること", async ({ page }) => {
-        const bypassHeaders = getBypassHeaders();
+        const children = await getChildMembers(page.request);
+        expect(children.length).toBeGreaterThan(0);
 
         // 削除用の一時タスクを作成
-        const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
-        const familyData = await familyRes.json();
-        const children = familyData.members?.filter((m: { id: string; role: string }) => m.role === "CHILD") ?? [];
-        if (children.length === 0) {
-            test.skip(true, "テスト用の子供アカウントが見つかりません");
-            return;
-        }
-        const taskTitle = `E2E削除テスト_${Date.now()}`;
-        const taskRes = await page.request.post("/api/tasks", {
-            data: {
-                title: taskTitle,
-                emoji: "🗑️",
-                category: "LIFE",
-                isTemporary: true,
-                assignedChildId: children[0].id,
-            },
-            headers: bypassHeaders,
+        const { title: taskTitle } = await createTodayTask(page.request, {
+            childId: children[0].id,
+            tag: "s17c",
+            category: "LIFE",
+            emoji: "🗑️",
         });
-        expect(taskRes.ok()).toBeTruthy();
 
         // リロードしてタスクを表示
         await page.reload();

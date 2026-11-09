@@ -14,7 +14,7 @@ export function CtaSection({ s }: { s: Record<string, string> }) {
           <Link href="/login" className={s.btnGold}>⚔ 無料ではじめる</Link>
           <Link href="/app/register" className={s.btnOutline}>👨‍👩‍👧 保護者登録</Link>
         </div>
-        <p className={s.ctaNote}>ファミリーコードで子どもアカウントと連携。セットアップは5分。</p>
+        <p className={s.ctaNote}>おうちの人が発行するログインコードで子どもアカウントと連携。セットアップは5分。</p>
       </div>
     </section>
   );

@@ -69,6 +69,27 @@ describe("POST /api/approve/[id]", () => {
 
   // ── ステータスバリデーション ─────────────
 
+  it("同時承認で2回目が遷移に負けたら400を返し、XPを付与しないこと（#183）", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    const quest = questWithTemplateAndChild(
+      { id: "q-race", status: "REPORTED", date: new Date("2026-03-13"), childId: "child-1", templateId: "tpl-1" },
+      { category: "STUDY", createdBy: "PARENT" },
+      { id: "child-1" },
+    );
+    prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+    prismaMock.user.findUnique.mockResolvedValue(quest.child);
+    prismaMock.questInstance.update.mockRejectedValue({ code: "P2025" });
+
+    const res = await POST(
+      makeRequest("/api/approve/q-race", { kind: "quest", action: "approve" }),
+      makeParams("q-race"),
+    );
+
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(mockRecordTaskStreak).not.toHaveBeenCalled();
+  });
+
   it("REPORTED以外のステータス（PENDING等）で400を返すこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     prismaMock.questInstance.findUnique.mockResolvedValue(
@@ -167,7 +188,7 @@ describe("POST /api/approve/[id]", () => {
 
       expect(json.ok).toBe(true);
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q1" },
+        where: { id: "q1", status: { in: ["REPORTED"] } },
         data: { status: "APPROVED", approvedAt: expect.any(Date) },
       });
       // 基本1pt → studyPt: 5+1=6, total=6+3+1=10 >= 1（stage0閾値） → 孵化、STUDY選択
@@ -352,7 +373,7 @@ describe("POST /api/approve/[id]", () => {
       );
 
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q-stamp" },
+        where: { id: "q-stamp", status: { in: ["REPORTED"] } },
         data: { status: "APPROVED", approvedAt: expect.any(Date), approvalStamp: "⭐" },
       });
       vi.restoreAllMocks();
@@ -378,7 +399,7 @@ describe("POST /api/approve/[id]", () => {
       );
 
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q-nostamp" },
+        where: { id: "q-nostamp", status: { in: ["REPORTED"] } },
         data: { status: "APPROVED", approvedAt: expect.any(Date) },
       });
       vi.restoreAllMocks();
@@ -603,7 +624,7 @@ describe("POST /api/approve/[id]", () => {
 
       expect(json.ok).toBe(true);
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q-skip" },
+        where: { id: "q-skip", status: { in: ["SKIP_REPORTED"] } },
         data: { status: "SKIPPED", approvedAt: expect.any(Date) },
       });
       // XP付与されないこと
@@ -633,7 +654,7 @@ describe("POST /api/approve/[id]", () => {
 
       expect(json.ok).toBe(true);
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q-skip2" },
+        where: { id: "q-skip2", status: { in: ["SKIP_REPORTED"] } },
         data: { status: "PENDING", comment: null },
       });
     });
@@ -735,10 +756,29 @@ describe("POST /api/approve/[id]", () => {
 
       expect(json.ok).toBe(true);
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q4" },
+        where: { id: "q4", status: { in: ["REPORTED"] } },
         data: { status: "REJECTED", rejectionReason: "写真が暗くてよく見えないよ" },
       });
       // XPは承認時付与のため差し引き不要
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it("承認と競合して既に遷移済みなら400を返し、XPは触らないこと（#183）", async () => {
+      mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+      const quest = questWithTemplateAndChild(
+        { id: "q4r", status: "REPORTED", childId: "child-1", templateId: "tpl-1" },
+        { category: "STUDY" },
+        { id: "child-1", studyPt: 10, staminaPt: 5, lifePt: 3 },
+      );
+      prismaMock.questInstance.findUnique.mockResolvedValue(quest);
+      prismaMock.questInstance.update.mockRejectedValue({ code: "P2025" });
+
+      const res = await POST(
+        makeRequest("/api/approve/q4r", { kind: "quest", action: "reject", rejectionReason: "写真が暗くてよく見えないよ" }),
+        makeParams("q4r"),
+      );
+
+      expect(res.status).toBe(400);
       expect(prismaMock.user.update).not.toHaveBeenCalled();
     });
 
@@ -781,7 +821,7 @@ describe("POST /api/approve/[id]", () => {
 
       expect(json.ok).toBe(true);
       expect(prismaMock.questInstance.update).toHaveBeenCalledWith({
-        where: { id: "q4c" },
+        where: { id: "q4c", status: { in: ["REPORTED"] } },
         data: { status: "REJECTED", rejectionReason: "算数プリントだけやってね" },
       });
     });

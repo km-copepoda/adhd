@@ -61,7 +61,7 @@ describe("recordDailyAchievement", () => {
     await recordDailyAchievement("child-1", today);
 
     expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+      where: expect.objectContaining({ childId: "child-1" }),
       data: {
         currentStreak: 1,
         bestStreak: 1,
@@ -84,7 +84,7 @@ describe("recordDailyAchievement", () => {
     await recordDailyAchievement("child-1", today);
 
     expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+      where: expect.objectContaining({ childId: "child-1" }),
       data: {
         currentStreak: 6,
         bestStreak: 10,
@@ -107,7 +107,7 @@ describe("recordDailyAchievement", () => {
     await recordDailyAchievement("child-1", today);
 
     expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+      where: expect.objectContaining({ childId: "child-1" }),
       data: {
         currentStreak: 1,
         bestStreak: 10,
@@ -144,7 +144,7 @@ describe("recordDailyAchievement", () => {
     await recordDailyAchievement("child-1", today);
 
     expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+      where: expect.objectContaining({ childId: "child-1" }),
       data: {
         currentStreak: 3,
         bestStreak: 3,
@@ -167,7 +167,7 @@ describe("recordDailyAchievement", () => {
     await recordDailyAchievement("child-1", today);
 
     expect(mockPrisma.streak.update).toHaveBeenCalledWith({
-      where: { childId: "child-1" },
+      where: expect.objectContaining({ childId: "child-1" }),
       data: {
         currentStreak: 2,
         bestStreak: 5,

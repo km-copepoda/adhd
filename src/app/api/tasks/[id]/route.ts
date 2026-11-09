@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { routeLogger } from "@/lib/logger";
+import { calculateQuestXP } from "@/lib/xp";
+import { jstDateOf, todayJST } from "@/lib/date";
 
 export async function PUT(
   request: Request,
@@ -79,7 +81,13 @@ export async function DELETE(
   // 子供は自分が作成した一時タスクのみ削除可能
   if (user.role === "CHILD") {
     const task = await prisma.taskTemplate.findFirst({
-      where: { id, createdBy: "CHILD", familyId: user.familyId },
+      where: {
+        id,
+        createdBy: "CHILD",
+        familyId: user.familyId,
+        assignedChildId: user.id,
+        isTemporary: true,
+      },
     });
     if (!task) {
       return NextResponse.json({ error: "権限がありません" }, { status: 403 });
@@ -108,12 +116,30 @@ export async function DELETE(
 
       // APPROVED のクエストのみXPが付与済み（REPORTEDはまだ未付与）
       const approvedQuests = task.quests.filter(q => q.status === "APPROVED");
+      // 承認時 (approve.ts) に付与した「今日やる宣言ボーナス」も回収対象にする。
+      // 報告日 (JST) に対応する宣言をまとめて取得して N+1 を避ける。
+      const reportedDateOf = (q: (typeof approvedQuests)[number]) =>
+        q.reportedAt ? jstDateOf(q.reportedAt) : todayJST();
+      const declarations =
+        approvedQuests.length > 0
+          ? await prisma.questDeclaration.findMany({
+              where: {
+                templateId: id,
+                childId: { in: [...new Set(approvedQuests.map((q) => q.childId))] },
+                date: { in: approvedQuests.map(reportedDateOf) },
+              },
+            })
+          : [];
+      const declaredKeys = new Set(
+        declarations.map((d) => `${d.childId}_${d.date.getTime()}`),
+      );
+
       let totalXp = 0;
       for (const quest of approvedQuests) {
-        let xp = 1;
-        if (quest.deadlineBonusEarned) xp++;
-        if (task.photoBonus && quest.photoUrl) xp++;
-        totalXp += xp;
+        const declared = declaredKeys.has(
+          `${quest.childId}_${reportedDateOf(quest).getTime()}`,
+        );
+        totalXp += calculateQuestXP({ ...quest, template: task }, declared);
       }
 
       // 最新のchildデータを取得してXPを一括差し引き（stale data を避ける）

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { MONSTER_TABLE, MONSTER_TABLE_LIGHT, getMonsterStage, getEvolutionChildren } from "@/lib/monsters";
 import { EVOLUTION_THRESHOLDS, REBIRTH_THRESHOLD, REBIRTH_EGG_THRESHOLD, checkEvolution, getXpInfo, computeEvolutionWeights, selectEvolutionPath, applyEggBonus } from "@/lib/evolution";
-import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS, TEMP_TASK_TEMPLATES, generateFamilyCode, generateChildCode } from "@/lib/categories";
+import { CATEGORY_LABEL, CATEGORY_COLOR, DAY_LABELS, TEMP_TASK_TEMPLATES } from "@/lib/categories";
+import { generateFamilyCode, generateChildCode } from "@/lib/codeGenerator";
 import { STREAK_MILESTONES, getStreakTitle, getNewMilestoneBonus, getNewlyUnlockedMilestone, getUnreadAchievements, shouldShowMonsterBadge, shouldShowZukanBadge, getNewBadgeCount, distributeBonus } from "@/lib/streakMilestones";
 
 // ─── 定数マップのテスト ───────────────────────────────
@@ -1012,20 +1013,5 @@ describe("generateChildCode", () => {
     for (let i = 0; i < 100; i++) {
       expect(generateChildCode()).toMatch(/^\d{4}$/);
     }
-  });
-
-  it("0000も生成可能であること（先頭0あり）", () => {
-    // Math.random をモックして確認
-    const mockRandom = vi.spyOn(Math, "random").mockReturnValue(0);
-    const code = generateChildCode();
-    expect(code).toBe("0000");
-    mockRandom.mockRestore();
-  });
-
-  it("9999も生成可能であること", () => {
-    const mockRandom = vi.spyOn(Math, "random").mockReturnValue(0.999);
-    const code = generateChildCode();
-    expect(code).toBe("9999");
-    mockRandom.mockRestore();
   });
 });

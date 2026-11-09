@@ -524,9 +524,9 @@ export function ScreensSection({
                   <div className={s.sXp}>👨‍👩‍👧‍👦 4名</div>
                 </div>
                 <div style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 10, padding: 10 }}>
-                  <div style={{ fontSize: 9, color: "var(--dim)" }}>ファミリーコード</div>
-                  <div style={{ fontSize: 16, color: "var(--gold)", letterSpacing: 4, fontFamily: "var(--font-cinzel), serif", textAlign: "center", padding: "4px 0" }}>QX7-8H4</div>
-                  <button type="button" style={{ width: "100%", background: "rgba(240,192,64,0.1)", border: "1px solid rgba(240,192,64,0.3)", color: "var(--gold)", fontSize: 9, padding: 5, borderRadius: 6 }}>📋 コピーして共有</button>
+                  <div style={{ fontSize: 9, color: "var(--dim)" }}>ログインコード（10分・1回限り）</div>
+                  <div style={{ fontSize: 16, color: "var(--gold)", letterSpacing: 4, fontFamily: "var(--font-cinzel), serif", textAlign: "center", padding: "4px 0" }}>QX78H4K2</div>
+                  <button type="button" style={{ width: "100%", background: "rgba(240,192,64,0.1)", border: "1px solid rgba(240,192,64,0.3)", color: "var(--gold)", fontSize: 9, padding: 5, borderRadius: 6 }}>🔑 ログインコードを発行</button>
                 </div>
                 <div className={s.sSectionLabel}>子ども（2名）</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

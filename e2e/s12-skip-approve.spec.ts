@@ -86,7 +86,7 @@ test.describe("S12: スキップ承認フロー", () => {
 
     // スキップ申請カード（赤系ボーダー）が表示される
     const skipCard = page
-      .locator(".bg-quest-card.border.rounded-xl.cursor-pointer")
+      .locator(".bg-quest-card.border.rounded-xl.p-5")
       .filter({ hasText: taskTitle });
     await expect(skipCard).toBeVisible({ timeout: 10000 });
 
@@ -94,7 +94,7 @@ test.describe("S12: スキップ承認フロー", () => {
     await expect(skipCard.getByText(/スキップ申請/)).toBeVisible();
 
     // 承認
-    await skipCard.click();
+    await skipCard.getByRole("button", { name: /^✓ スキップを承認/ }).click();
     await expect(skipCard).not.toBeVisible({ timeout: 10000 });
   });
 });

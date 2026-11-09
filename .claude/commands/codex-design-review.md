@@ -46,22 +46,28 @@ if ($LASTEXITCODE -ne 0) { throw "設計ドキュメントのIssueコメント�
 
 > このリポジトリを調べ、次の設計の実現可能性をレビューせよ。既存コードとの整合性・規約(CLAUDE.md)との齟齬・見落とされた影響範囲・より単純な代替案を指摘せよ。日本語で回答。
 
-Codex CLI の非対話実行サブコマンドは **`codex exec`**（Run Codex non-interactively）を使う。`codex exec review`（= `codex review`）というサブコマンドも存在するが、これは**既存のコード差分に対するコードレビュー用途**であり、まだコードが1行も無い設計レビューには不適。設計レビューでは生プロンプト（設計ドキュメント本文＋レビュー観点）を `codex exec "<プロンプト>"` に直接渡す。
+Codex CLI の非対話実行サブコマンドは **`codex exec`**（Run Codex non-interactively）を使う。`codex exec review`（= `codex review`）というサブコマンドも存在するが、これは**既存のコード差分に対するコードレビュー用途**であり、まだコードが1行も無い設計レビューには不適。設計レビューでは生プロンプト（設計ドキュメント本文＋レビュー観点）を `codex exec` に渡す。
+
+**プロンプトはコマンドライン引数ではなく標準入力（`-`）で渡す**。Windows PowerShell 5.1 は、ネイティブコマンドへ引数を渡すときに埋め込みの `"` を取り除き、長い日本語の文字列も壊すので、`codex exec --cd $repo $prompt` のように引数で渡すと `error: unexpected argument '...'` で失敗する。また 5.1 の既定の `$OutputEncoding` は ASCII なので、PowerShell のパイプ（`$prompt | codex exec -`）でも、設定を変えないと日本語が化ける。そこで、プロンプトを UTF-8（BOM なし）のファイルに書き出し、`cmd /c` のリダイレクトで codex に渡す。結果も同じようにファイルへ直接受ける。こうすると PowerShell のエンコーディング設定に左右されず、出力をそのまま手順3の `--body-file` に使える。
 
 起動コマンド例（確定形）:
 
 ```powershell
 $repo = (& git rev-parse --show-toplevel)
 $prompt = @"
-$(Get-Content -Raw <設計ドキュメントのパス>)
+$(Get-Content -Raw -Encoding UTF8 <設計ドキュメントのパス>)
 
 --- レビュー依頼 ---
-上記はこれから実装する設計です。このリポジトリを調べ、設計の実現可能性をレビューせよ。既存コードとの整合性・規約(CLAUDE.md)との齟齬・見落とされた影響範囲・より単純な代替案を指摘せよ。日本語で回答。
+上記はこれから実装する設計です。このリポジトリを調べ、設計の実現可能性をレビューせよ。既存コードとの整合性・規約(CLAUDE.md)との齟齬・見落とされた影響範囲・より単純な代替案を指摘せよ。最後に「実現可能」か「要再設計」のどちらかを明記せよ。日本語で回答。
 "@
-$review = codex exec --cd $repo $prompt
+$promptFile = <プロンプトの一時ファイル>
+$reviewFile = <レビュー結果の一時ファイル>
+[IO.File]::WriteAllText($promptFile, $prompt, (New-Object Text.UTF8Encoding $false))
+cmd /c "codex exec --cd `"$repo`" - < `"$promptFile`" > `"$reviewFile`""
 if ($LASTEXITCODE -ne 0) { throw "codex 実行に失敗 (exit=$LASTEXITCODE)" }
-$review | Set-Content -Encoding utf8 <レビュー結果の一時ファイル>
 ```
+
+bash（Git Bash）から実行する場合は、`codex exec --cd "$(git rev-parse --show-toplevel)" - < <プロンプトの一時ファイル> > <レビュー結果の一時ファイル>` で同じことができる。
 
 `codex` コマンド自体が見つからない場合は、この工程をスキップし Issue に「`codex` CLI 未導入のため設計レビューをスキップして実装へ進む」とコメントして終了する。
 

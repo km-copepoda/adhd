@@ -12,8 +12,8 @@ vi.mock("@/lib/approve", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/approve")>();
   return {
     ...actual,
-    approveQuestInstance: vi.fn().mockResolvedValue(undefined),
-    approveSkipQuestInstance: vi.fn().mockResolvedValue(undefined),
+    approveQuestInstance: vi.fn().mockResolvedValue(true),
+    approveSkipQuestInstance: vi.fn().mockResolvedValue(true),
   };
 });
 
@@ -108,6 +108,8 @@ function makeRequest(secret?: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockApproveQuest.mockResolvedValue(true);
+  mockApproveSkip.mockResolvedValue(true);
   vi.stubEnv("CRON_SECRET", "test-secret");
   // #151: ごほうび使用申請の自動承認（対象0件がデフォルト。個別テストで上書き）
   mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 0 });
@@ -144,6 +146,24 @@ describe("GET /api/cron/auto-approve", () => {
     expect(mockApproveQuest).toHaveBeenCalledTimes(2);
     expect(mockApproveSkip).not.toHaveBeenCalled();
     expect(body.approved).toBe(2);
+    expect(body.skipped).toBe(0);
+  });
+
+  it("既に別経路で処理済み（承認がレースに負けた）のクエストは件数に数えないこと（#183）", async () => {
+    const yesterday = new Date("2026-03-21");
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      pendingQuest({ id: "q-1", status: "REPORTED", date: yesterday, childId: "c1", templateId: "t1" }),
+      pendingQuest({ id: "q-2", status: "REPORTED", date: yesterday, childId: "c2", templateId: "t2" }),
+      pendingQuest({ id: "q-3", status: "SKIP_REPORTED", date: yesterday, childId: "c1", templateId: "t1" }),
+    ]);
+    mockApproveQuest.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    mockApproveSkip.mockResolvedValueOnce(false);
+
+    const res = await GET(makeRequest("test-secret"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.approved).toBe(1);
     expect(body.skipped).toBe(0);
   });
 
@@ -350,5 +370,23 @@ describe("GET /api/cron/auto-approve", () => {
         expect(prevDay2359.getTime()).toBeLessThan(cutoff.getTime());
       });
     });
+  });
+
+  it("1件の承認が例外でも残りの承認を継続する (#192)", async () => {
+    const d = new Date("2026-03-01");
+    mockPrisma.questInstance.findMany.mockResolvedValue([
+      pendingQuest({ id: "q1", status: "REPORTED", date: d, childId: "c1", templateId: "t1" }),
+      pendingQuest({ id: "q2", status: "REPORTED", date: d, childId: "c1", templateId: "t1" }),
+      pendingQuest({ id: "q3", status: "SKIP_REPORTED", date: d, childId: "c1", templateId: "t1" }),
+    ] as never);
+    mockApproveQuest.mockRejectedValueOnce(new Error("boom"));
+
+    const res = await GET(makeRequest("test-secret"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockApproveQuest).toHaveBeenCalledTimes(2);
+    expect(mockApproveSkip).toHaveBeenCalledTimes(1);
+    expect(body).toMatchObject({ ok: true, approved: 1, skipped: 1, failed: 1 });
   });
 });

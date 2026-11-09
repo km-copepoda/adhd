@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/imageUtils";
 import { CATEGORY_LABEL, CATEGORY_COLOR } from "@/lib/categories";
@@ -10,10 +10,12 @@ import { fireCompletionConfetti } from "@/lib/confetti";
 import QuestActionSuccess from "@/components/questAction/QuestActionSuccess";
 import QuestPhotoUpload from "@/components/questAction/QuestPhotoUpload";
 import QuestSkipFooter from "@/components/questAction/QuestSkipFooter";
+import { buildQuestPhotoPath } from "@/lib/questPhotoUrl";
 import type { Category, QuestStatus } from "@/types";
 
 export type SheetQuest = {
   id: string;
+  childId: string;
   status: QuestStatus;
   declaredToday?: boolean;
   template: {
@@ -30,10 +32,13 @@ type Props = {
   hasDeadline: boolean;
   questsCompleted: number;
   questsTotal: number;
-  onReport: (questId: string, comment: string | null, photoUrl: string | null) => Promise<void>;
-  onSkip: (questId: string, reason: string) => Promise<void>;
+  /** 成功なら true。false（または例外）なら成功演出を出さずエラーを表示する */
+  onReport: (questId: string, comment: string | null, photoUrl: string | null) => Promise<boolean>;
+  onSkip: (questId: string, reason: string) => Promise<boolean>;
   onClose: () => void;
 };
+
+const SUBMIT_ERROR_MESSAGE = "うまく送れなかったよ。もういちどためしてね";
 
 type SheetState = "idle" | "submitting" | "success-complete" | "success-skip";
 
@@ -46,6 +51,35 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // アンマウント時に自動クローズのタイマーを破棄する（別クエストを開いた後に閉じるのを防ぐ）
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  function clearCloseTimer() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }
+
+  function handleClose() {
+    clearCloseTimer();
+    onClose();
+  }
+
+  function scheduleClose() {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      onClose();
+    }, 3000);
+  }
 
   const cat = CATEGORY_LABEL[quest.template.category];
   const streak = quest.template.taskStreaks[0]?.currentStreak ?? 0;
@@ -64,7 +98,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
     const supabase = createClient();
     const compressed = await compressImage(photoFile);
     const ext = compressed.type === "image/webp" ? "webp" : "jpg";
-    const path = `${quest.id}_${Date.now()}.${ext}`;
+    const path = buildQuestPhotoPath(quest.childId, quest.id, new Date(), ext);
     const { error } = await supabase.storage.from("quest-photos").upload(path, compressed, {
       contentType: compressed.type,
     });
@@ -78,25 +112,47 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
 
   async function handleReport() {
     setSheetState("submitting");
-    let photoUrl: string | null = null;
-    if (photoFile) {
-      photoUrl = await uploadPhoto();
-      if (!photoUrl) {
-        setSheetState("idle");
-        return;
+    setSubmitError(null);
+    let ok = false;
+    try {
+      let photoUrl: string | null = null;
+      if (photoFile) {
+        photoUrl = await uploadPhoto();
+        if (!photoUrl) {
+          setSheetState("idle");
+          return;
+        }
       }
+      ok = (await onReport(quest.id, comment || null, photoUrl)) === true;
+    } catch {
+      ok = false;
     }
-    await onReport(quest.id, comment || null, photoUrl);
+    if (!ok) {
+      setSubmitError(SUBMIT_ERROR_MESSAGE);
+      setSheetState("idle");
+      return;
+    }
     setSheetState("success-complete");
-    setTimeout(() => onClose(), 3000);
+    scheduleClose();
   }
 
   async function handleSkip() {
     if (!skipReason.trim()) return;
     setSheetState("submitting");
-    await onSkip(quest.id, skipReason);
+    setSubmitError(null);
+    let ok = false;
+    try {
+      ok = (await onSkip(quest.id, skipReason)) === true;
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      setSubmitError(SUBMIT_ERROR_MESSAGE);
+      setSheetState("idle");
+      return;
+    }
     setSheetState("success-skip");
-    setTimeout(() => onClose(), 3000);
+    scheduleClose();
   }
 
   const isSubmitting = sheetState === "submitting";
@@ -112,7 +168,7 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
   return (
     <div
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center px-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60" />
@@ -164,6 +220,12 @@ export default function QuestActionSheet({ quest, hasDeadline, questsCompleted, 
                   uploadError={uploadError}
                   onPhotoSelect={handlePhotoSelect}
                 />
+              )}
+
+              {submitError && (
+                <p role="alert" className="text-sm text-red-400 mb-2 text-center">
+                  {submitError}
+                </p>
               )}
 
               {/* Complete button */}

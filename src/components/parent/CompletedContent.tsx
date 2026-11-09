@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/categories";
 import { calcActualXP } from "@/lib/xp";
+import { tomorrowStringJST } from "@/lib/date";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { confirmPlanLimitOrAlert } from "@/lib/apiError";
@@ -26,11 +27,7 @@ type CompletedQuest = {
   };
 };
 
-const getTomorrowStr = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0];
-};
+const getTomorrowStr = () => tomorrowStringJST();
 
 export default function CompletedContent() {
   const [quests, setQuests] = useState<CompletedQuest[]>([]);

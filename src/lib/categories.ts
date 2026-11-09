@@ -138,22 +138,3 @@ export const REJECTION_REASONS: Record<Category, string[]> = {
   ],
 };
 
-// Generate 6-char family code
-export function generateFamilyCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Exclude confusing chars
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
-// Generate 4-digit child code (ユーザーコード)
-export function generateChildCode(): string {
-  const digits = "0123456789";
-  let code = "";
-  for (let i = 0; i < 4; i++) {
-    code += digits[Math.floor(Math.random() * digits.length)];
-  }
-  return code;
-}

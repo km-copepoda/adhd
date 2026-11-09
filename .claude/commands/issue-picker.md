@@ -41,7 +41,7 @@ $staleDoneIssues = $staleDoneIssues | ConvertFrom-Json
 - **検索対象は `auto:pr-open` と `auto:merge-ready` の両方**（正常系では `/codex-followup` がマージ可能判定時にラベルを `auto:pr-open` → `auto:merge-ready` に遷移させるため、`auto:pr-open` だけを見ているとユーザーがマージした後の後片付けを検知できない）
 - **`auto:done` ラベルが付いたままopenのIssue（`$staleDoneIssues`）も毎回列挙し、`gh issue close` を再試行する**（後述の通りラベル変更→closeの順で処理するため、closeだけが一時的に失敗するとIssueがopenのまま `auto:done` になる。これを毎回拾い直して再試行しないと、`auto:pr-open`/`auto:merge-ready` の検索対象から外れているぶん永久にクローズされない）
 - 各Issueについて、紐づくPRを特定する。**`closingIssuesReferences` は使わない**: このフィールドはGitHubのclosing keyword（`Closes #<N>` 等）がPRのbaseがリポジトリの**デフォルトブランチ**の場合にのみ計算される。このパイプラインのPRは常に `develop` 向けで、リポジトリのデフォルトブランチは `main` のため（17行目に明記の通り自動クローズ自体も発火しない）、`closingIssuesReferences` は常に空になり使えない
-  - 代わりに `gh pr list --search '"Closes #<N>" in:body' --state all --json number,state,body` で候補を絞り込み（**PowerShellでの引用符に注意**: `\"` は引用符のエスケープにならないため、外側は単一引用符 `'...'` にして内側の `"Closes #<N>"` はそのまま書く）、各候補の `body` を取得して `(?i)\bcloses\s+#<N>\b`（大文字小文字不問、`<N>` の前後は単語境界）に正規表現で一致するかを自前で検証する。`--search` はあくまで候補を絞る高速フィルタとして使い、最終判定は取得した本文への正規表現マッチで行う（`#<N>` が `#<N>0` のような別Issue番号の一部にマッチしないよう単語境界を必須にする）
+  - 代わりに `gh pr list --search '\"Closes #<N>\" in:body' --state all --json number,state,body` で候補を絞り込み（**PowerShellでの引用符に注意**: Windows PowerShell 5.1 はネイティブコマンド（`gh.exe`）へ引数を渡すときに埋め込みの `"` を取り除くため、`'"Closes #<N>" in:body'` と書くと gh には `Closes #<N> in:body` が別々の引数として届き `unknown argument` で失敗する。外側は単一引用符 `'...'` にし、内側の引用符は `\"` とバックスラッシュでエスケープする。番号を変数で埋め込む場合は `('\"Closes #' + $n + '\" in:body')` のように連結する）、各候補の `body` を取得して `(?i)\bcloses\s+#<N>\b`（大文字小文字不問、`<N>` の前後は単語境界）に正規表現で一致するかを自前で検証する。`--search` はあくまで候補を絞る高速フィルタとして使い、最終判定は取得した本文への正規表現マッチで行う（`#<N>` が `#<N>0` のような別Issue番号の一部にマッチしないよう単語境界を必須にする）
   - **`--state` を明示すること**（gh CLIの `gh pr list` はデフォルトでopen PRのみを返すため、`--state` を付けないとマージ済みPRが検索結果から消えて永久にStep 0が完了しない）
   - **この `gh pr list --search` の `$LASTEXITCODE` も検査する**。失敗を「該当PR無し」と誤認しても、Step 0では何もしない（closeもブランチ削除もしない）だけなので実害は小さいが、次回以降の取得で再試行できるよう失敗はログに残す
 - 紐づくPRが見つかり `state == "MERGED"` → **先にラベルを `auto:pr-open`/`auto:merge-ready` → `auto:done` に変更してから** `gh issue close <N> --comment "PR #<M> がマージされました"` を実行する（close→ラベル変更の順だと、close成功後にラベル変更だけ失敗した場合に「closed済みだが状態ラベルは進行中のまま」という発見しづらい不整合が残る。ラベル変更→closeの順なら、close側が失敗してもopenのまま `auto:done` ラベルが付くだけなので、`$staleDoneIssues` の再試行で回収できる）。**ラベル変更の `$LASTEXITCODE` を検査し、成功を確認できた場合のみ `gh issue close` に進む**（ラベル変更が失敗したままcloseだけ成功すると、`auto:pr-open`/`auto:merge-ready` のままclosedになり、Step 0の回収クエリは全て `--state open` なのでこの不整合は二度と修復されない）
@@ -172,7 +172,7 @@ Step 4（`policy-checker` の `NEEDS_CONFIRMATION`）と Step 5（レビュー�
 0. **対象判定（Step 5.0 と同じ判定を先に行う）**: `$approvedIssueBody` の影響範囲が `src/` のロジック変更・Prisma スキーマ（`prisma/schema.prisma`）変更を含むか判定する。含まない場合（ドキュメント/設定ファイルのみ、`.claude/` 配下のみ、1行バグ修正）は**このステップ全体をスキップして Step 5 へ**。判定に迷う場合は「含む」側に倒す
 1. **`codex` CLI が使えない環境**（`codex` コマンドが見つからない）→ このステップをスキップし、`gh issue comment <N>` で「`codex` CLI 未導入のため設計レビューをスキップして実装へ進む」と記録して **Step 5 へ**（パイプライン全体は止めない）
 2. **設計ドキュメントを用意**する（目的 / 背景 / 変更対象ファイル / 実装方針 / 影響範囲 / 代替案検討）。`gh issue comment <N> --body-file <設計ドキュメント>` で対象 Issue に投稿して記録を残す
-3. `.claude/commands/codex-design-review.md` の手順2に従い、ローカルの `codex exec --cd <repo> "<設計ドキュメント本文＋レビュー観点>"` を実行してレビュー結果を得る
+3. `.claude/commands/codex-design-review.md` の手順2の起動コマンド例に従ってローカルの `codex exec` を実行し、レビュー結果を得る（プロンプトはファイルに書き出して標準入力から渡す。Windows PowerShell 5.1 ではプロンプトをコマンドライン引数で渡すと壊れるため、引数渡しはしない）
 4. レビュー結果を `gh issue comment <N> --body-file <レビュー結果>` で Issue に記録する
 5. 指摘を分類する:
    - **実現可能・軽微な調整のみ** → 設計を確定し **Step 5 へ**

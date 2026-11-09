@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
@@ -13,56 +13,72 @@ vi.mock("@/lib/supabase/client", () => ({
 
 import OnboardingPage from "@/app/app/child/login/page";
 
-describe("/app/child/login ページ", () => {
-  it("ファミリーコード欄: 入力中は raw のまま、blur で正規化される", () => {
+function mockFetch(ok = true, body: Record<string, unknown> = {}) {
+  const fetchMock = vi.fn().mockResolvedValue({ ok, json: () => Promise.resolve(body) });
+  global.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
+}
+
+beforeEach(() => {
+  // ログイン成功時に window.location.href が書き換わるのを許容
+  Object.defineProperty(window, "location", { writable: true, value: { href: "" } });
+});
+
+describe("/app/child/login ページ（ログインコード1つ）", () => {
+  it("入力欄は「ログインコード」の1つだけで、ファミリーコード・ユーザーコード欄はないこと", () => {
     render(<OnboardingPage />);
-    const input = screen.getByPlaceholderText("ABC123") as HTMLInputElement;
-
-    fireEvent.change(input, { target: { value: "ａｂｃ１２３" } });
-    expect(input.value).toBe("ａｂｃ１２３");
-
-    fireEvent.blur(input);
-    expect(input.value).toBe("ABC123");
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(screen.getByText("ログインコード")).toBeInTheDocument();
+    expect(screen.queryByText("ファミリーコード")).not.toBeInTheDocument();
+    expect(screen.queryByText("ユーザーコード")).not.toBeInTheDocument();
   });
 
-  it("ユーザーコード欄: 入力中は raw のまま、blur で正規化される", () => {
+  it("入力中は raw のまま、blur で半角・大文字に正規化される", () => {
     render(<OnboardingPage />);
-    const input = screen.getByPlaceholderText("1234") as HTMLInputElement;
+    const input = screen.getByRole("textbox") as HTMLInputElement;
 
-    fireEvent.change(input, { target: { value: "Ａ１Ｂ２Ｃ３" } });
-    expect(input.value).toBe("Ａ１Ｂ２Ｃ３");
+    fireEvent.change(input, { target: { value: "ａｂｃｄ２３４５" } });
+    expect(input.value).toBe("ａｂｃｄ２３４５");
 
     fireEvent.blur(input);
-    expect(input.value).toBe("123");
+    expect(input.value).toBe("ABCD2345");
   });
 
-  it("blur せずにログインボタンを押した場合でも正規化された値が送信される", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
-    global.fetch = fetchMock as unknown as typeof fetch;
-    // ログイン成功時に window.location.href が書き換わるのを許容
-    Object.defineProperty(window, "location", {
-      writable: true,
-      value: { href: "" },
-    });
-
+  it("blur せずにログインボタンを押しても、正規化された { loginCode } だけが送信される", async () => {
+    const fetchMock = mockFetch();
     render(<OnboardingPage />);
-    const family = screen.getByPlaceholderText("ABC123") as HTMLInputElement;
-    const child = screen.getByPlaceholderText("1234") as HTMLInputElement;
+    const input = screen.getByRole("textbox") as HTMLInputElement;
 
-    fireEvent.change(family, { target: { value: "ａｂｃ１２３" } });
-    fireEvent.change(child, { target: { value: "１２３４" } });
+    fireEvent.change(input, { target: { value: " ａｂｃｄ２３４５ " } });
+    fireEvent.click(screen.getByRole("button", { name: /ログイン/ }));
 
-    const button = screen.getByRole("button", { name: /ログイン/ });
-    fireEvent.click(button);
-
-    // setTimeout / microtask の解決を待つ
-    await new Promise((r) => setTimeout(r, 0));
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/auth/child-rejoin");
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body).toEqual({ familyCode: "ABC123", childCode: "1234" });
+    expect(body).toEqual({ loginCode: "ABCD2345" });
+  });
+
+  it.each([
+    { label: "空", value: "" },
+    { label: "7文字（境界）", value: "ABCD234" },
+  ])("$label の場合は送信せずエラーを表示する", async ({ value }) => {
+    const fetchMock = mockFetch();
+    const { container } = render(<OnboardingPage />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value } });
+    fireEvent.click(screen.getByRole("button", { name: /ログイン/ }));
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(container.querySelector("p.text-red-400")).not.toBeNull();
+  });
+
+  it("サーバーがエラーを返したらそのメッセージを表示し、遷移しない", async () => {
+    mockFetch(false, { error: "コードが正しくありません" });
+    render(<OnboardingPage />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "ABCD2345" } });
+    fireEvent.click(screen.getByRole("button", { name: /ログイン/ }));
+
+    expect(await screen.findByText("コードが正しくありません")).toBeInTheDocument();
+    expect(window.location.href).toBe("");
   });
 });

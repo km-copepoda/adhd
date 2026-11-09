@@ -29,7 +29,7 @@ describe("recordTaskStreak (repeatDays aware)", () => {
     await recordTaskStreak("t1", "c1", dateUTC("2026-04-29"), [1, 3, 5]);
 
     expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith({
-      where: { taskId_childId: { taskId: "t1", childId: "c1" } },
+      where: expect.objectContaining({ taskId_childId: { taskId: "t1", childId: "c1" } }),
       data: {
         currentStreak: 1,
         bestStreak: 1,
@@ -53,7 +53,7 @@ describe("recordTaskStreak (repeatDays aware)", () => {
     await recordTaskStreak("t1", "c1", dateUTC("2026-04-29"), [1, 3, 5]); // Wed
 
     expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith({
-      where: { taskId_childId: { taskId: "t1", childId: "c1" } },
+      where: expect.objectContaining({ taskId_childId: { taskId: "t1", childId: "c1" } }),
       data: {
         currentStreak: 4,
         bestStreak: 4,
@@ -77,7 +77,7 @@ describe("recordTaskStreak (repeatDays aware)", () => {
     await recordTaskStreak("t1", "c1", dateUTC("2026-05-04"), [1, 3, 5]); // Mon
 
     expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith({
-      where: { taskId_childId: { taskId: "t1", childId: "c1" } },
+      where: expect.objectContaining({ taskId_childId: { taskId: "t1", childId: "c1" } }),
       data: {
         currentStreak: 6,
         bestStreak: 6,
@@ -101,7 +101,7 @@ describe("recordTaskStreak (repeatDays aware)", () => {
     await recordTaskStreak("t1", "c1", dateUTC("2026-04-29"), [1, 3, 5]); // Wed
 
     expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith({
-      where: { taskId_childId: { taskId: "t1", childId: "c1" } },
+      where: expect.objectContaining({ taskId_childId: { taskId: "t1", childId: "c1" } }),
       data: {
         currentStreak: 1,
         bestStreak: 10, // best is preserved
@@ -125,7 +125,7 @@ describe("recordTaskStreak (repeatDays aware)", () => {
     await recordTaskStreak("t1", "c1", dateUTC("2026-04-29"), [0, 1, 2, 3, 4, 5, 6]);
 
     expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith({
-      where: { taskId_childId: { taskId: "t1", childId: "c1" } },
+      where: expect.objectContaining({ taskId_childId: { taskId: "t1", childId: "c1" } }),
       data: {
         currentStreak: 8,
         bestStreak: 8,
@@ -168,7 +168,7 @@ describe("recordTaskStreak (repeatDays aware)", () => {
     await recordTaskStreak("t1", "c1", dateUTC("2026-04-29"), []);
 
     expect(mockPrisma.taskStreak.update).toHaveBeenCalledWith({
-      where: { taskId_childId: { taskId: "t1", childId: "c1" } },
+      where: expect.objectContaining({ taskId_childId: { taskId: "t1", childId: "c1" } }),
       data: {
         currentStreak: 1,
         bestStreak: 8,

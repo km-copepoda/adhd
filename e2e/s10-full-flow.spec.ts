@@ -80,10 +80,11 @@ test.describe("S10: 全フロー統合", () => {
     });
 
     const approveCard = page
-      .locator(".bg-quest-card.border.rounded-xl.cursor-pointer")
+      .locator(".bg-quest-card.border.rounded-xl.p-5")
       .filter({ hasText: taskTitle });
     await expect(approveCard).toBeVisible({ timeout: 10000 });
-    await approveCard.click();
+    // カード本体のタップでは承認されない。明示的な承認ボタンを押す
+    await approveCard.getByRole("button", { name: /^✓ 承認/ }).click();
 
     // 承認後、該当カードがリストから消える
     await expect(approveCard).not.toBeVisible({ timeout: 10000 });

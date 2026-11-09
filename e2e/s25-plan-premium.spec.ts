@@ -22,7 +22,7 @@ import { getBypassHeaders } from "./credentials";
 test.describe("S25: PREMIUM プラン上限", () => {
   test("タスク11件目を追加できる", async ({ page }) => {
     const bypassHeaders = getBypassHeaders();
-    const childName = `E2E_S25_task_${Date.now()}`;
+    const childName = `S25t${Date.now()}`; // 名前は20文字以内（memberValidation）
 
     const childRes = await page.request.post("/api/family/members", {
       data: { monsterName: childName, side: "LIGHT" },
@@ -74,7 +74,7 @@ test.describe("S25: PREMIUM プラン上限", () => {
 
   test("ごほうび6件目を追加できる", async ({ page }) => {
     const bypassHeaders = getBypassHeaders();
-    const childName = `E2E_S25_treasure_${Date.now()}`;
+    const childName = `S25tr${Date.now()}`; // 名前は20文字以内（memberValidation）
 
     const childRes = await page.request.post("/api/family/members", {
       data: { monsterName: childName, side: "LIGHT" },
@@ -121,7 +121,7 @@ test.describe("S25: PREMIUM プラン上限", () => {
 
   test("「おすすめセットで始める」ボタンが表示され、20件インポートできる", async ({ page }) => {
     const bypassHeaders = getBypassHeaders();
-    const childName = `E2E_S25_import_${Date.now()}`;
+    const childName = `S25imp${Date.now()}`; // 名前は20文字以内（memberValidation）
 
     const childRes = await page.request.post("/api/family/members", {
       data: { monsterName: childName, side: "LIGHT" },
@@ -163,7 +163,7 @@ test.describe("S25: PREMIUM プラン上限", () => {
 
   test("上限到達状態のタスクを一時停止から再開できる", async ({ page }) => {
     const bypassHeaders = getBypassHeaders();
-    const childName = `E2E_S25_pause_${Date.now()}`;
+    const childName = `S25pau${Date.now()}`; // 名前は20文字以内（memberValidation）
 
     const childRes = await page.request.post("/api/family/members", {
       data: { monsterName: childName, side: "LIGHT" },

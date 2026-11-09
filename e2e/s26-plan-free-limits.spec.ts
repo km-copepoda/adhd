@@ -17,14 +17,13 @@
 import { test, expect } from "./fixtures";
 import { readFreeCredentials, getBypassHeaders } from "./credentials";
 
-/** 対象の子供 (childCodeLight で特定) の id を取得する */
+/** 対象の子供 (childIdLight) の id を取得する。家族の一覧に存在することも確認する */
 async function getFreeChildId(page: import("@playwright/test").Page, bypassHeaders: Record<string, string>) {
   const creds = readFreeCredentials();
   const familyRes = await page.request.get("/api/family/code", { headers: bypassHeaders });
   const familyData = await familyRes.json();
   const child = familyData.members.find(
-    (m: { role: string; childCode: string | null }) =>
-      m.role === "CHILD" && m.childCode === creds.childCodeLight,
+    (m: { role: string; id: string }) => m.role === "CHILD" && m.id === creds.childIdLight,
   );
   expect(child).toBeTruthy();
   return child.id as string;
@@ -55,7 +54,7 @@ test.describe("S26: FREE プラン上限", () => {
       timeout: 15000,
     });
 
-    const childName = `E2E_FREE_over_${Date.now()}`;
+    const childName = `FREEov${Date.now()}`; // 名前は20文字以内（memberValidation）
     await page.getByRole("button", { name: /子どもを追加/ }).click();
     await expect(page.locator('input[placeholder="例: りゅうくん"]')).toBeVisible();
     await page.fill('input[placeholder="例: りゅうくん"]', childName);

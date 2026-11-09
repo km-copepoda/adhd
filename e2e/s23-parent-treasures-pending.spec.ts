@@ -39,15 +39,12 @@ test.describe("S23: 親 もらった履歴（ごほうび使用承認）", () =>
     await expect(empty.or(anyRow.first())).toBeVisible({ timeout: 10000 });
   });
 
-  test("履歴行の状態表示と、使用済み行にのみ「使用を取り消す」ボタンが表示される", async ({ page }) => {
-    const empty = page.getByText("まだもらったごほうびはありません。");
+  // 履歴行（親ごほうび当選）は宝箱の抽選結果（確率 + pity）で決まり、公開 API だけでは
+  // 確実に作れない（Issue #221 policy-checker: 作れない前提は skip ではなく fixme + 後続 Issue）。
+  // 後続の「宝箱」テーマ Issue で、抽選を決定的にする手段（pity 到達など）と合わせて対応する。
+  test.fixme("履歴行の状態表示と、使用済み行にのみ「使用を取り消す」ボタンが表示される", async ({ page }) => {
     const anyRow = page.locator("li").filter({ hasText: /使用済み|使用申請中|未使用/ });
-    await expect(empty.or(anyRow.first())).toBeVisible({ timeout: 10000 });
-
-    if (await empty.isVisible()) {
-      test.skip(true, "履歴が空のためスキップ");
-      return;
-    }
+    await expect(anyRow.first()).toBeVisible({ timeout: 10000 });
     // ステータステキスト
     const status = page.getByText(/使用済み|使用申請中|未使用/).first();
     await expect(status).toBeVisible();

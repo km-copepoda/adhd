@@ -68,12 +68,19 @@ export default function QuestAddForm({ onClose, onAdded }: Props) {
           repeatDays: form.repeatDays,
         };
 
-    const res = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSubmitting(false);
+    let res: Response;
+    try {
+      res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      alert("通信に失敗しました。もう一度お試しください");
+      return;
+    } finally {
+      setSubmitting(false);
+    }
     if (!(await alertChildPlanLimit(res, CHILD_TASK_LIMIT_MESSAGE))) return;
     onClose();
     setForm({ title: "", category: "STUDY", repeatDays: [0, 1, 2, 3, 4, 5, 6] });

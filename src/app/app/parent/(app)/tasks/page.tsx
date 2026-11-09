@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABEL } from "@/lib/categories";
 import type { Category } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { todayStringJST, isVisibleTemporaryTask } from "@/lib/date";
+import { todayStringJST, isVisibleTemporaryTask, dayOfWeekJST } from "@/lib/date";
 import { notifyApprovalsUpdated } from "@/lib/approval-events";
 import SetupGuideBanner from "@/components/SetupGuideBanner";
 import TaskForm from "@/components/parent/TaskForm";
@@ -69,7 +69,7 @@ export default function TasksPage() {
   const [openChildId, setOpenChildId] = useState<string | null>(null);
   // テンプレート一括追加UIが開いている子供のID
   const [importChildId, setImportChildId] = useState<string | null>(null);
-  const todayDow = new Date().getDay(); // 0=日 ... 6=土
+  const todayDow = dayOfWeekJST(); // 0=日 ... 6=土
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("regular");
   const [form, setForm] = useState(defaultForm(""));

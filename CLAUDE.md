@@ -231,6 +231,17 @@ const parent = await requireUser("PARENT");
 
 ---
 
+## RLS（Row Level Security）の規約
+
+- 新しいテーブルを追加する migration には `ALTER TABLE "X" ENABLE ROW LEVEL SECURITY;` を必ず入れる
+- Prisma だけが触るテーブルはポリシーを作らない（Prisma の接続ロールは RLS をバイパスする前提。`FORCE ROW LEVEL SECURITY` は使わない）
+- Realtime で購読するテーブルは、migration で SELECT ポリシーを `DROP POLICY IF EXISTS` → `CREATE POLICY` で定義する
+- RLS・ポリシー・SECURITY DEFINER 関数の正本は `prisma/migrations/20261023000001_rls_all_tables` 以降の migration。`supabase/seed.sql` には書かない
+- SECURITY DEFINER 関数には `SET search_path = public` を付け、`REVOKE EXECUTE ... FROM PUBLIC` したうえで `anon` / `authenticated` にだけ `GRANT EXECUTE` する（anon から外すと未ログイン時のポリシー評価がエラーになる）
+- `src/__tests__/db/rlsCoverage.test.ts` が上記を検査する
+
+---
+
 ## Claude への作業指示
 
 ### 指示を受ける前に

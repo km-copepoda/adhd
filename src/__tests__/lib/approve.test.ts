@@ -102,7 +102,7 @@ describe("approveQuestInstance", () => {
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "q-1" },
+        where: { id: "q-1", status: { in: ["REPORTED"] } },
         data: expect.objectContaining({ status: "APPROVED" }),
       }),
     );
@@ -567,7 +567,7 @@ describe("approveSkipQuestInstance", () => {
 
     expect(mockPrisma.questInstance.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "q-1" },
+        where: { id: "q-1", status: { in: ["SKIP_REPORTED"] } },
         data: expect.objectContaining({ status: "SKIPPED" }),
       }),
     );

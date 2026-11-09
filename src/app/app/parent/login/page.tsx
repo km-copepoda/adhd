@@ -26,12 +26,16 @@ export default function LoginPage() {
       return;
     }
 
-    // DB ユーザーが存在しない場合（DB リセット後など）に再作成する
-    await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
+    // DB ユーザーが無い（退会済み・DB リセット後）アカウントは自動再作成せず、ログインさせない
+    const meOk = await fetch("/api/users/me")
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (!meOk) {
+      await supabase.auth.signOut({ scope: "local" });
+      setError("アカウントが見つかりません。新規登録からやり直してください");
+      setLoading(false);
+      return;
+    }
 
     window.location.href = "/app/parent/tasks";
   }

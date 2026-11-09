@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toHalfWidth, normalizeFamilyCode, normalizeChildCode } from "@/lib/input";
+import { toHalfWidth } from "@/lib/input";
 
 describe("toHalfWidth", () => {
   it("全角英大文字を半角に変換すること", () => {
@@ -31,40 +31,4 @@ describe("toHalfWidth", () => {
     expect(toHalfWidth("アイウエオ")).toBe("アイウエオ");
   });
 
-});
-
-describe("normalizeFamilyCode", () => {
-  it("全角を半角大文字に変換し 6 文字に切り詰める", () => {
-    expect(normalizeFamilyCode("ａｂｃ１２３")).toBe("ABC123");
-  });
-
-  it("小文字を大文字化する", () => {
-    expect(normalizeFamilyCode("abc123")).toBe("ABC123");
-  });
-
-  it("7 文字以上は切り詰める", () => {
-    expect(normalizeFamilyCode("ABCDEFG")).toBe("ABCDEF");
-  });
-
-  it("空文字でも動作する", () => {
-    expect(normalizeFamilyCode("")).toBe("");
-  });
-});
-
-describe("normalizeChildCode", () => {
-  it("全角数字を半角に変換し 4 文字に切り詰める", () => {
-    expect(normalizeChildCode("１２３４")).toBe("1234");
-  });
-
-  it("数字以外を除去する", () => {
-    expect(normalizeChildCode("A1B2C3")).toBe("123");
-  });
-
-  it("5 文字以上は切り詰める", () => {
-    expect(normalizeChildCode("12345")).toBe("1234");
-  });
-
-  it("空文字でも動作する", () => {
-    expect(normalizeChildCode("")).toBe("");
-  });
 });

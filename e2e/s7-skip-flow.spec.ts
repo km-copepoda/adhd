@@ -6,40 +6,52 @@
  * - スキップ理由を入力して申請できる
  * - 境界値: 理由未入力では「スキップを申請する」ボタンが無効
  * - 「戻る」で通常状態に戻れる
+ *
+ * 前提データ（今日の PENDING クエスト）は helpers/testData.ts で毎回用意する（Issue #221）。
  */
+import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
+import {
+  openSessions,
+  seedQuestInStatus,
+  type SeededQuest,
+  type Sessions,
+} from "./helpers/testData";
 
 test.describe("S7: クエストスキップ申請", () => {
+  let sessions: Sessions;
+  let quest: SeededQuest;
+
   test.beforeEach(async ({ page }) => {
+    sessions = await openSessions();
+    quest = await seedQuestInStatus(sessions, "PENDING", { tag: "s7" });
+    // データ作成後に遷移する（Realtime 待ちで flaky にしない）
     await page.goto("/app/child/quests");
     await expect(page.getByRole("heading", { name: /今日のクエスト/ })).toBeVisible({
       timeout: 15000,
     });
   });
 
+  test.afterEach(async () => {
+    await sessions?.dispose();
+  });
+
+  /** 自分が作った PENDING カードを開く */
+  async function openActionSheet(page: Page) {
+    const card = page
+      .locator(".bg-quest-card.border.cursor-pointer")
+      .filter({ hasText: quest.title });
+    await expect(card).toBeVisible();
+    await card.click();
+  }
+
   test("PENDING クエストのアクションシートにスキップボタンが表示される", async ({ page }) => {
-    const pendingQuest = page.locator(".bg-quest-card.border.cursor-pointer").first();
-    const count = await pendingQuest.count();
-
-    if (count === 0) {
-      test.skip(true, "今日はPENDINGクエストがないためスキップ");
-      return;
-    }
-
-    await pendingQuest.click();
+    await openActionSheet(page);
     await expect(page.getByText(/今日はスキップする/)).toBeVisible({ timeout: 5000 });
   });
 
   test("スキップボタンクリックでスキップ理由入力フォームが展開される", async ({ page }) => {
-    const pendingQuest = page.locator(".bg-quest-card.border.cursor-pointer").first();
-    const count = await pendingQuest.count();
-
-    if (count === 0) {
-      test.skip(true, "今日はPENDINGクエストがないためスキップ");
-      return;
-    }
-
-    await pendingQuest.click();
+    await openActionSheet(page);
     await page.getByText(/今日はスキップする/).click();
 
     // スキップ理由入力フォームが展開
@@ -49,15 +61,7 @@ test.describe("S7: クエストスキップ申請", () => {
   });
 
   test("境界値: スキップ理由未入力では「スキップを申請する」が無効", async ({ page }) => {
-    const pendingQuest = page.locator(".bg-quest-card.border.cursor-pointer").first();
-    const count = await pendingQuest.count();
-
-    if (count === 0) {
-      test.skip(true, "今日はPENDINGクエストがないためスキップ");
-      return;
-    }
-
-    await pendingQuest.click();
+    await openActionSheet(page);
     await page.getByText(/今日はスキップする/).click();
 
     // 理由未入力の状態ではボタンが無効
@@ -65,15 +69,7 @@ test.describe("S7: クエストスキップ申請", () => {
   });
 
   test("スキップ理由を入力して申請できる", async ({ page }) => {
-    const pendingQuest = page.locator(".bg-quest-card.border.cursor-pointer").first();
-    const count = await pendingQuest.count();
-
-    if (count === 0) {
-      test.skip(true, "今日はPENDINGクエストがないためスキップ");
-      return;
-    }
-
-    await pendingQuest.click();
+    await openActionSheet(page);
     await page.getByText(/今日はスキップする/).click();
 
     await page.fill('input[placeholder="理由を入力（必須）"]', "体調が悪いため");
@@ -87,15 +83,7 @@ test.describe("S7: クエストスキップ申請", () => {
   });
 
   test("スキップフォームの「戻る」ボタンで元に戻る", async ({ page }) => {
-    const pendingQuest = page.locator(".bg-quest-card.border.cursor-pointer").first();
-    const count = await pendingQuest.count();
-
-    if (count === 0) {
-      test.skip(true, "今日はPENDINGクエストがないためスキップ");
-      return;
-    }
-
-    await pendingQuest.click();
+    await openActionSheet(page);
     await page.getByText(/今日はスキップする/).click();
 
     await expect(page.locator('input[placeholder="理由を入力（必須）"]')).toBeVisible();

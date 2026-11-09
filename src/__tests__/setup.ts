@@ -34,10 +34,16 @@ function applyPrismaDefaults(): void {
   // src/app/api/auth/child-rejoin/route.ts, src/app/api/family/members/[id]/route.ts が
   // 配列形式（Prisma.PrismaPromise[]）の $transaction のみを利用している。
   // コールバック形式は現状使われていない。
+  // コールバック形式 (interactive transaction) は treasureService.openOldestTreasure が利用する。
+  // モックでは tx として prismaMock 自身を渡す。
   const transactionMock = prismaMock.$transaction as unknown as {
-    mockImplementation: (fn: (ops: unknown[]) => Promise<unknown[]>) => void;
+    mockImplementation: (fn: (ops: unknown) => Promise<unknown>) => void;
   };
-  transactionMock.mockImplementation((ops) => Promise.all(ops));
+  transactionMock.mockImplementation((ops) =>
+    typeof ops === "function"
+      ? (ops as (tx: unknown) => Promise<unknown>)(prismaMock)
+      : Promise.all(ops as unknown[]),
+  );
 
   // マネタイズ上限チェックで利用するカウント系。デフォルトは 0（上限未到達の状態）。
   prismaMock.user.count.mockResolvedValue(0);

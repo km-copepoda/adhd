@@ -2,25 +2,22 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { normalizeFamilyCode, normalizeChildCode } from "@/lib/input";
+import { normalizeLoginCodeText } from "@/lib/input";
 
 export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
 
   // Login state
-  const [familyCode, setFamilyCode] = useState("");
-  const [childCode, setChildCode] = useState("");
+  const [loginCode, setLoginCode] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  // ファミリーコード + ユーザーコードでログイン
+  // おうちの人が発行したログインコード（8文字・1回限り）でログイン
   async function handleLogin() {
     // blur せずに直接ボタンを押した場合に備え、送信直前に正規化を再適用する
-    const normalizedFamily = normalizeFamilyCode(familyCode);
-    const normalizedChild = normalizeChildCode(childCode);
-    setFamilyCode(normalizedFamily);
-    setChildCode(normalizedChild);
+    const normalized = normalizeLoginCodeText(loginCode);
+    setLoginCode(normalized);
 
-    if (normalizedFamily.length < 4 || normalizedChild.length < 4) {
+    if (normalized.length !== 8) {
       setLoginError("コードを入力してね");
       return;
     }
@@ -40,7 +37,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/auth/child-rejoin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ familyCode: normalizedFamily, childCode: normalizedChild }),
+        body: JSON.stringify({ loginCode: normalized }),
       });
       if (!res.ok) {
         const resData = await res.json().catch(() => ({}));
@@ -67,46 +64,29 @@ export default function OnboardingPage() {
           おうちの人にもらったコードを入力してね
         </p>
 
-        {/* Family Code */}
+        {/* Login Code */}
         <div className="mb-4">
           <label className="text-quest-dim text-xs block text-left mb-1.5 tracking-wider">
-            ファミリーコード
+            ログインコード
           </label>
           <input
             type="text"
-            value={familyCode}
-            onChange={(e) => setFamilyCode(e.target.value)}
-            onBlur={() => setFamilyCode(normalizeFamilyCode(familyCode))}
-            maxLength={12}
+            value={loginCode}
+            onChange={(e) => setLoginCode(e.target.value)}
+            onBlur={() => setLoginCode(normalizeLoginCodeText(loginCode))}
+            maxLength={24}
             inputMode="text"
             autoCapitalize="characters"
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            placeholder="ABC123"
+            placeholder="ABCD2345"
             className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-center text-quest-text font-mono text-lg tracking-[0.3em] placeholder:text-quest-dim/50 placeholder:tracking-normal placeholder:text-sm focus:outline-none focus:border-quest-gold/50"
             autoFocus
           />
-        </div>
-
-        {/* Child Code */}
-        <div className="mb-4">
-          <label className="text-quest-dim text-xs block text-left mb-1.5 tracking-wider">
-            ユーザーコード
-          </label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={childCode}
-            onChange={(e) => setChildCode(e.target.value)}
-            onBlur={() => setChildCode(normalizeChildCode(childCode))}
-            maxLength={8}
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="1234"
-            className="w-full bg-quest-card border border-quest-border rounded-xl px-4 py-3 text-center text-quest-text font-mono text-lg tracking-[0.3em] placeholder:text-quest-dim/50 placeholder:tracking-normal placeholder:text-sm focus:outline-none focus:border-quest-gold/50"
-          />
+          <p className="text-quest-dim/70 text-[10px] text-left mt-1.5">
+            コードは10分だけ、1回だけ使えるよ
+          </p>
         </div>
 
         {loginError && (
