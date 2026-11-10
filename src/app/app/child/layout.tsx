@@ -3,6 +3,7 @@ import PushSubscriber from "@/components/parent/PushSubscriber";
 import LoginStreakChecker from "@/components/child/LoginStreakChecker";
 import BadgeUnlockToast from "@/components/child/BadgeUnlockToast";
 import MonsterCutsceneListener from "@/components/child/MonsterCutsceneListener";
+import ChildSessionGuard from "@/components/child/ChildSessionGuard";
 
 export default function ChildLayout({
   children,
@@ -25,6 +26,7 @@ export default function ChildLayout({
       <LoginStreakChecker />
       <BadgeUnlockToast />
       <MonsterCutsceneListener />
+      <ChildSessionGuard />
     </div>
   );
 }
