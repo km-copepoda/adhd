@@ -23,9 +23,12 @@ export default function OnboardingPage() {
     }
     setLoading(true);
     setLoginError("");
+    const supabase = createClient();
+    // 匿名セッションを作った後に失敗したら、子どもと紐付かない匿名セッションを残さない。
+    // 残るとミドルウェアが子どもと判定し続け、/app/parent 等も子画面に飛ばされて操作不能になる
+    const discardAnonymousSession = () => supabase.auth.signOut({ scope: "local" }).catch(() => {});
     try {
       // 既存セッション（親など）をクリアしてから匿名認証
-      const supabase = createClient();
       await supabase.auth.signOut({ scope: "local" });
       const { data, error } = await supabase.auth.signInAnonymously();
       if (error || !data.user) {
@@ -40,6 +43,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({ loginCode: normalized }),
       });
       if (!res.ok) {
+        await discardAnonymousSession();
         const resData = await res.json().catch(() => ({}));
         setLoginError((resData as { error?: string }).error || "コードが正しくありません");
         return;
@@ -47,6 +51,7 @@ export default function OnboardingPage() {
       // ログイン成功 → フルリロードでミドルウェアがセッションを処理
       window.location.href = "/app/child/quests";
     } catch {
+      await discardAnonymousSession();
       setLoginError("エラーが発生しました。もう一度お試しください");
     } finally {
       setLoading(false);
