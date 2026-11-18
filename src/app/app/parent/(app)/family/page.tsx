@@ -15,6 +15,7 @@ import ChildLoginCodeIssuer from "@/components/parent/ChildLoginCodeIssuer";
 import MonsterThemeSelector from "@/components/parent/MonsterThemeSelector";
 import AccountDeleteSection from "@/components/parent/AccountDeleteSection";
 import { MONSTER_THEMES } from "@/lib/monsterThemes/index";
+import { resolveMonsterThemeId, getMonsterThemeLabel } from "@/lib/monsterThemes/themeLabel";
 
 type Member = {
   id: string;
@@ -415,7 +416,9 @@ export default function FamilyPage() {
         )}
 
         <div className="flex flex-col gap-3">
-          {family?.members.map((member) => (
+          {family?.members.map((member) => {
+            const themeId = resolveMonsterThemeId(member.monsterSetId ?? themeIdFromSide(member.side));
+            return (
             <div
               key={member.id}
               data-testid={`member-${member.id}`}
@@ -424,9 +427,8 @@ export default function FamilyPage() {
             <div className="flex items-center gap-3 p-3">
               <div className="w-10 h-10 rounded-full bg-quest-border flex items-center justify-center text-lg overflow-hidden">
                 {member.role === "PARENT" ? "👑" : (() => {
-                  const monsterSetId = member.monsterSetId ?? themeIdFromSide(member.side);
-                  const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? "", monsterSetId);
-                  const rebirthEggImage = member.evolutionStage === 0 ? getRebirthEggImage(member.rebirthEggBonus, monsterSetId) : null;
+                  const m = getMonsterStage(member.evolutionStage, member.evolutionPath ?? "", themeId);
+                  const rebirthEggImage = member.evolutionStage === 0 ? getRebirthEggImage(member.rebirthEggBonus, themeId) : null;
                   const img = rebirthEggImage ?? m.image;
                   return <Image src={img} alt={m.name} width={40} height={40} className="w-full h-full object-contain" />;
                 })()}
@@ -439,8 +441,12 @@ export default function FamilyPage() {
                   {member.role === "PARENT" ? "管理者" : (
                     <>
                       冒険者
-                      {member.side === "LIGHT" && <span className="ml-1 text-pink-400">🌸 かわいい</span>}
-                      {member.side === "DARK" && <span className="ml-1 text-purple-400">🌑 かっこいい</span>}
+                      <span
+                        data-testid={`member-theme-label-${member.id}`}
+                        className="ml-1 text-quest-gold"
+                      >
+                        🎨 {getMonsterThemeLabel(themeId)}
+                      </span>
                     </>
                   )}
                 </p>
@@ -608,6 +614,22 @@ export default function FamilyPage() {
                   pendingMonsterSetId: member.pendingMonsterSetId,
                 }}
                 ownedThemes={member.ownedThemes ?? []}
+                onThemeChanged={(result) =>
+                  setFamily((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          members: prev.members.map((m) =>
+                            m.id !== member.id
+                              ? m
+                              : result.immediate
+                                ? { ...m, monsterSetId: result.monsterSetId }
+                                : { ...m, pendingMonsterSetId: result.pendingMonsterSetId }
+                          ),
+                        }
+                      : prev
+                  )
+                }
               />
               <div className="mt-2 pt-4 border-t border-quest-border/60">
                 {deleteConfirmId === member.id ? (
@@ -640,7 +662,8 @@ export default function FamilyPage() {
             </div>
             )}
             </div>
-          ))}
+            );
+          })}
           {(!family?.members || family.members.length === 0) && (
             <p className="text-quest-dim text-sm">メンバーはまだいません</p>
           )}
