@@ -437,6 +437,19 @@ describe("POST /api/parent/child-view/quests/[id]/report-approve", () => {
       expect(body.treasureIds).toEqual([]);
     });
 
+    // #267: 集計クエストが 0 件 (テンプレート一時停止等) でも「何も達成していない」ので宝箱を作らない
+    it("集計クエストが空 (totalCount=0) でも 200 で treasureIds=[]、generateProxyTreasure は呼ばない", async () => {
+      setupApprovedQuest({ minTasksForStreak: 1 });
+      mockPrisma.questInstance.findMany.mockResolvedValue([]);
+      mockGenerateProxyTreasure.mockResolvedValue(["must-not-leak"]);
+
+      const res = await POST(makeReq({ childId: "child-1" }), makeParams("q1"));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.treasureIds).toEqual([]);
+      expect(mockGenerateProxyTreasure).not.toHaveBeenCalled();
+    });
+
     it("プール未設定や同日 STREAK/PROXY 既存等で生成関数が空配列を返した場合も treasureIds=空配列", async () => {
       setupApprovedQuest({ minTasksForStreak: 1 });
       mockPrisma.questInstance.findMany.mockResolvedValue([questInstance({ status: "APPROVED" })]);

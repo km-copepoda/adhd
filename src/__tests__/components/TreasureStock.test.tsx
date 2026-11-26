@@ -192,3 +192,41 @@ describe("TreasureStock variant", () => {
     });
   });
 });
+
+// #267: 新規の子 (宝箱0件) の表示契約
+describe("TreasureStock 初期状態 (宝箱なし)", () => {
+  function mockStatus(locked: number, unlocked: number) {
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/treasures/status")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ locked, unlocked, opened: [] }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    }) as unknown as typeof fetch;
+  }
+
+  it("locked=0 かつ unlocked=0 なら「あける」ボタン自体を描画しない", async () => {
+    mockStatus(0, 0);
+    await act(async () => {
+      render(<TreasureStock />);
+    });
+    await waitFor(() => {
+      const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole("button", { name: /あける/ })).toBeNull();
+  });
+
+  it("locked>0 かつ unlocked=0 なら「あける」ボタンは disabled", async () => {
+    mockStatus(1, 0);
+    await act(async () => {
+      render(<TreasureStock />);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /あける/ })).toBeTruthy();
+    });
+    expect((screen.getByRole("button", { name: /あける/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});

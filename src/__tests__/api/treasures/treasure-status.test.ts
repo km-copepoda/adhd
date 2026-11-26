@@ -93,6 +93,21 @@ describe("GET /api/treasures/status", () => {
     expect(usedFlag).toBe(true);
   });
 
+  // #267: 新規の子 (宝箱0件) は locked/unlocked ともに 0 で返る (初期宝箱なし)
+  it("宝箱が1件も無い子は locked=0, unlocked=0, opened=[] を返す", async () => {
+    mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
+    mockPrisma.treasureLog.count.mockResolvedValue(0);
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureItem.count.mockResolvedValue(0);
+
+    const res = await GET();
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.locked).toBe(0);
+    expect(json.unlocked).toBe(0);
+    expect(json.opened).toEqual([]);
+  });
+
   it("treasureItem (有効プール) が 1件以上あれば hasPool=true", async () => {
     mockGetCurrentUser.mockResolvedValue(childUserWithFamily());
     mockPrisma.treasureLog.count.mockResolvedValue(0);
