@@ -9,6 +9,7 @@ import { triggerTaskProgressLog } from "@/lib/bulletinLog";
 import { routeLogger } from "@/lib/logger";
 import { computeCompletedCount, computeSkippedCount } from "@/lib/questProgress";
 import { generateProxyTreasure } from "@/lib/treasureService";
+import { meetsTreasureRequirement } from "@/lib/treasureEligibility";
 import { resolveTreasureDate } from "@/lib/treasureDate";
 import { isAllowedQuestPhotoUrl } from "@/lib/questPhotoUrl";
 
@@ -125,10 +126,8 @@ export async function POST(
   const reportedCount = computeCompletedCount(aggregateQuests);
   const skippedCount = computeSkippedCount(aggregateQuests);
   const totalCount = aggregateQuests.length;
-  // 少タスク日は全完了で救済（generateProxyTreasure と同じ Math.min 規約）
-  const required = Math.min(minTasks, totalCount);
-  const treasureIds =
-    reportedCount >= required
+  // 少タスク日の救済・totalCount=0 の除外は meetsTreasureRequirement に集約 (#267)
+  const treasureIds = meetsTreasureRequirement({ reportedCount, totalCount, minTasks })
       ? await generateProxyTreasure({
           childId: child.id,
           date: aggregationDate,

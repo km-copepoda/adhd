@@ -20,6 +20,7 @@ import { awardCollectionItem, getOwnedCollection } from "@/lib/collectionService
 import { triggerCollectionItemLog } from "@/lib/bulletinLog";
 import { getFamilyPlan } from "@/lib/subscriptionService";
 import { lockUserForUpdate } from "@/lib/rowLock";
+import { meetsTreasureRequirement, isAllComplete } from "@/lib/treasureEligibility";
 
 export interface TreasureCondition {
   childId: string;
@@ -64,10 +65,10 @@ type TreasureTriggerValue = "STREAK" | "ALL_COMPLETE" | "PROXY";
  *  - isProxy=true → 何もしない（親代理は子供の自発的動機を生まないため）
  *  - 親のプール未設定でも生成する（開封時に必ず季節コレクションアイテムが出るため、
  *    プール 0 でも子供は確定報酬を受け取れる）
- *  - reportedCount >= min(minTasks, totalCount) → STREAK 1個
- *    (少タスク日は全完了で救済。recordDailyAchievement と同じ規約)
+ *  - totalCount > 0 かつ reportedCount >= max(1, min(minTasks, totalCount)) → STREAK 1個
+ *    (少タスク日は全完了で救済。totalCount=0 や未達成 (reportedCount=0) では作らない: #267)
  *    ただし当日 PROXY が既にあれば STREAK は作らない（PROXY は STREAK の代替）
- *  - reportedCount = totalCount (全完了) → さらに ALL_COMPLETE 1個
+ *  - totalCount > 0 かつ reportedCount >= totalCount (全完了) → さらに ALL_COMPLETE 1個
  *    skippedCount === 0 のときのみ boosted=true (1.5倍)、スキップが混じれば boosted=false
  *    ALL_COMPLETE は PROXY と共存可（全タスク完了のボーナス枠として独立）
  *  - 同じ trigger の宝箱がその日既にあれば飛ばす（冪等）
@@ -76,10 +77,8 @@ export async function generateTreasuresOnReport(
   cond: TreasureCondition,
 ): Promise<string[]> {
   if (cond.isProxy) return [];
-  // 今日のタスクが minTasks より少ない家庭では「全部やれば OK」に緩和する
-  // (streak.ts recordDailyAchievement と同じ Math.min 救済)。
-  const required = Math.min(cond.minTasks, cond.totalCount);
-  if (cond.reportedCount < required) return [];
+  // 少タスク日の救済・totalCount=0 の除外は meetsTreasureRequirement に集約 (#267)
+  if (!meetsTreasureRequirement(cond)) return [];
 
   // CANCELLED は「差し戻しで取り消された宝箱」なので "存在しない" 扱いにする。
   // これを含めると、差し戻し→再報告で再びストリーク条件を満たしても新規 STREAK が
@@ -107,7 +106,7 @@ export async function generateTreasuresOnReport(
     });
     if (id) created.push(id);
   }
-  if (cond.reportedCount >= cond.totalCount && cond.totalCount > 0 && !has.has("ALL_COMPLETE")) {
+  if (isAllComplete(cond) && !has.has("ALL_COMPLETE")) {
     const id = await createTreasureIdempotent({
       childId: cond.childId,
       date: cond.date,
@@ -164,10 +163,11 @@ export async function cancelTreasuresOnReject(cond: TreasureCondition): Promise<
 
 /**
  * 親代理 report-approve / skip-approve 時の宝箱生成（即 UNLOCKED）。
- *  - reportedCount >= min(minTasks, totalCount) かつ 当日 STREAK/PROXY が無ければ PROXY を 1 個生成
+ *  - totalCount > 0 かつ reportedCount >= max(1, min(minTasks, totalCount)) かつ
+ *    当日 STREAK/PROXY が無ければ PROXY を 1 個生成
  *    （PROXY は STREAK の代替枠。子セルフの STREAK があるならスキップ。
- *      少タスク日は全完了で救済 — generateTreasuresOnReport と同じ規約）
- *  - reportedCount === totalCount かつ 当日 ALL_COMPLETE が無ければ ALL_COMPLETE を追加生成
+ *      少タスク日は全完了で救済 — generateTreasuresOnReport と同じ規約。totalCount=0 では作らない: #267）
+ *  - totalCount > 0 かつ reportedCount >= totalCount かつ 当日 ALL_COMPLETE が無ければ ALL_COMPLETE を追加生成
  *    （子セルフ経路と対称に「全完了ボーナス」を演出。skippedCount===0 のときのみ boost）
  *  - どちらも即 UNLOCKED（親代理は承認待ちフェーズを持たないため LOCKED は使わない）
  *  - プール 0 でも生成する（開封時にコレクションアイテムが必ず出る）
@@ -180,8 +180,7 @@ export async function generateProxyTreasure(input: {
   skippedCount: number;
   minTasks: number;
 }): Promise<string[]> {
-  const required = Math.min(input.minTasks, input.totalCount);
-  if (input.reportedCount < required) return [];
+  if (!meetsTreasureRequirement(input)) return [];
 
   const existing = await prisma.treasureLog.findMany({
     where: {
@@ -205,11 +204,7 @@ export async function generateProxyTreasure(input: {
     });
     if (id) created.push(id);
   }
-  if (
-    input.reportedCount >= input.totalCount &&
-    input.totalCount > 0 &&
-    !has.has("ALL_COMPLETE")
-  ) {
+  if (isAllComplete(input) && !has.has("ALL_COMPLETE")) {
     const id = await createTreasureIdempotent({
       childId: input.childId,
       date: input.date,

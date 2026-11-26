@@ -320,6 +320,34 @@ describe("POST /api/parent/child-view/quests/[id]/skip-approve", () => {
     expect(body.treasureIds).toEqual([]);
   });
 
+  // #267: 集計クエストが 0 件でも「何も達成していない」ので宝箱を作らない
+  it("集計クエストが空 (totalCount=0) でも 200 で treasureIds=[]、generateProxyTreasure は呼ばない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.findFirst.mockResolvedValue(
+      childUser({ id: "child-1", minTasksForStreak: 1 }),
+    );
+    mockPrisma.questInstance.findUnique.mockResolvedValue(
+      questWithTemplateAndChild({
+        id: "q1",
+        childId: "child-1",
+        status: "PENDING",
+        date: new Date("2026-03-12T00:00:00Z"),
+      }),
+    );
+    mockPrisma.questInstance.update.mockResolvedValue(questInstance());
+    mockPrisma.questInstance.findMany.mockResolvedValue([]);
+    mockGenerateProxyTreasure.mockResolvedValue(["must-not-leak"]);
+
+    const res = await POST(
+      makeReq({ childId: "child-1", comment: "理由" }),
+      makeParams("q1"),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.treasureIds).toEqual([]);
+    expect(mockGenerateProxyTreasure).not.toHaveBeenCalled();
+  });
+
   // 子供画面 (/api/quests/today) と同じ template.isActive / pausedAt フィルタで絞る
   it("集計クエリは template.isActive: true, pausedAt: null でフィルタする", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());

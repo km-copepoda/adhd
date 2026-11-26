@@ -373,6 +373,60 @@ describe("generateTreasuresOnReport", () => {
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
   });
 
+  // #267: totalCount=0 だと required=min(minTasks,0)=0 で reportedCount(0)>=0 が成立し、
+  // 何も達成していないのに STREAK が作られていた
+  describe("totalCount=0 (集計対象クエストなし) では何も生成しない (#267)", () => {
+    it.each([1, 3])("minTasks=%i でも [] を返し findMany / create を呼ばない", async (minTasks) => {
+      mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "must-not-create" }));
+      const ids = await generateTreasuresOnReport({
+        childId: "c1",
+        date: dateJST,
+        reportedCount: 0,
+        totalCount: 0,
+        skippedCount: 0,
+        minTasks,
+        isProxy: false,
+      });
+      expect(ids).toEqual([]);
+      expect(mockPrisma.treasureLog.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+    });
+  });
+
+  it("少タスク日救済の維持: totalCount=1, minTasks=3, reportedCount=1 なら STREAK + ALL_COMPLETE を生成", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "created" }));
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 1,
+      totalCount: 1,
+      skippedCount: 0,
+      minTasks: 3,
+      isProxy: false,
+    });
+    expect(ids).toHaveLength(2);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[0][0].data).toEqual(expect.objectContaining({ trigger: "STREAK" }));
+    expect(calls[1][0].data).toEqual(expect.objectContaining({ trigger: "ALL_COMPLETE" }));
+  });
+
+  it("少タスク日でも reportedCount=0 (未達成) なら何も作らない", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    const ids = await generateTreasuresOnReport({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 0,
+      totalCount: 1,
+      skippedCount: 0,
+      minTasks: 3,
+      isProxy: false,
+    });
+    expect(ids).toEqual([]);
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+  });
+
   it("既存 PROXY + 全完了 → ALL_COMPLETE のみ作る (PROXY とは共存)", async () => {
     const existing = [treasureLog({ trigger: "PROXY" })];
     mockPrisma.treasureLog.findMany.mockResolvedValue(existing);
@@ -650,6 +704,44 @@ describe("generateProxyTreasure", () => {
     });
     expect(ids).toEqual([]);
     expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+  });
+
+  // #267: totalCount=0 では PROXY も作らず、LOCKED 解放の updateMany も走らせない
+  describe("totalCount=0 (集計対象クエストなし) では何も生成しない (#267)", () => {
+    it.each([1, 3])("minTasks=%i でも [] を返し findMany / create / updateMany を呼ばない", async (minTasks) => {
+      mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+      mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "must-not-create" }));
+      mockPrisma.treasureLog.updateMany.mockResolvedValue({ count: 1 });
+      const ids = await generateProxyTreasure({
+        childId: "c1",
+        date: dateJST,
+        reportedCount: 0,
+        totalCount: 0,
+        skippedCount: 0,
+        minTasks,
+      });
+      expect(ids).toEqual([]);
+      expect(mockPrisma.treasureLog.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+      expect(mockPrisma.treasureLog.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  it("少タスク日救済の維持: totalCount=1, minTasks=3, reportedCount=1 なら PROXY + ALL_COMPLETE を生成", async () => {
+    mockPrisma.treasureLog.findMany.mockResolvedValue([]);
+    mockPrisma.treasureLog.create.mockResolvedValue(treasureLog({ id: "created" }));
+    const ids = await generateProxyTreasure({
+      childId: "c1",
+      date: dateJST,
+      reportedCount: 1,
+      totalCount: 1,
+      skippedCount: 0,
+      minTasks: 3,
+    });
+    expect(ids).toHaveLength(2);
+    const calls = mockPrisma.treasureLog.create.mock.calls;
+    expect(calls[0][0].data).toEqual(expect.objectContaining({ trigger: "PROXY" }));
+    expect(calls[1][0].data).toEqual(expect.objectContaining({ trigger: "ALL_COMPLETE" }));
   });
 
   it("未全完了で PROXY 既存なら何も作らない", async () => {

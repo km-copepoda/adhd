@@ -81,6 +81,20 @@ describe("POST /api/family/members", () => {
     expect(await res.json()).not.toHaveProperty("childCode");
   });
 
+  // #267: 子の新規作成では初期宝箱を付与しない (宝箱は報告/承認の実績でのみ生成される)
+  it("子どもを作成しても宝箱 (treasureLog) を付与しない", async () => {
+    mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
+    mockPrisma.user.create.mockResolvedValue(
+      childUser({ id: "child-x", monsterName: "テスト", side: "LIGHT" }),
+    );
+
+    const res = await POST(makeRequest("/api/family/members", { monsterName: "テスト", side: "LIGHT" }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.treasureLog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.treasureLog.createMany).not.toHaveBeenCalled();
+  });
+
   it("作成されるユーザーがplaceholder supabaseIdを持つこと", async () => {
     mockGetCurrentUser.mockResolvedValue(parentUserWithFamily());
     mockPrisma.user.findUnique.mockResolvedValue(null);
