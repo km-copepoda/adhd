@@ -15,12 +15,18 @@ type Message = { type: "success" | "pending" | "error"; text: string };
 
 const THEME_IDS = Object.keys(MONSTER_THEMES);
 
+export type ThemeChangedResult =
+  | { immediate: true; monsterSetId: string }
+  | { immediate: false; pendingMonsterSetId: string };
+
 export default function MonsterThemeSelector({
   member,
   ownedThemes,
+  onThemeChanged,
 }: {
   member: ThemeSelectorMember;
   ownedThemes: string[];
+  onThemeChanged?: (result: ThemeChangedResult) => void;
 }) {
   const [currentThemeId, setCurrentThemeId] = useState(member.monsterSetId);
   const [pendingThemeId, setPendingThemeId] = useState<string | null>(member.pendingMonsterSetId);
@@ -45,9 +51,11 @@ export default function MonsterThemeSelector({
         setCurrentThemeId(data.monsterSetId);
         setPendingThemeId(null);
         setMessage({ type: "success", text: "テーマを変更しました" });
+        onThemeChanged?.({ immediate: true, monsterSetId: data.monsterSetId });
       } else {
         setPendingThemeId(data.pendingMonsterSetId);
         setMessage({ type: "pending", text: "次の転生からこのテーマになります" });
+        onThemeChanged?.({ immediate: false, pendingMonsterSetId: data.pendingMonsterSetId });
       }
     } catch {
       setMessage({ type: "error", text: "通信エラーが発生しました" });
